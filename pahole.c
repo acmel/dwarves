@@ -175,14 +175,33 @@ unsigned long class_member__print(struct class_member *self)
 	if (class == NULL)
 		snprintf(bf, sizeof(bf), "<%d>", self->type);
 	else {
-		class_name = class__name(class, class_name_bf, sizeof(class_name_bf));
 		size = class__size(class);
 
+		/* Is it a function pointer? */
+		if (class->tag == DW_TAG_pointer_type) {
+			struct class *ptr_class = find_class_by_type(class->type);
+
+			if (ptr_class != NULL &&
+			    ptr_class->tag == DW_TAG_subroutine_type) {
+				struct class *ret_class = find_class_by_type(ptr_class->type);
+
+				if (ret_class != NULL) {
+					class_name = class__name(ret_class,
+								 class_name_bf,
+								 sizeof(class_name_bf));
+					snprintf(member_name_bf, sizeof(member_name_bf),
+						 "(*%s)();", self->name);
+					goto out;
+				}
+			}
+		}
+
+		class_name = class__name(class, class_name_bf, sizeof(class_name_bf));
 		if (class->tag == DW_TAG_array_type)
 			snprintf(member_name_bf, sizeof(member_name_bf),
 				 "%s[%d];", self->name, class->nr_entries);
 	}
-
+out:
 	printf("  %-32.32s %-32.32s /* %5d %5lu */\n", class_name, member_name_bf,
 	       self->offset, size);
 	return size;
