@@ -354,24 +354,21 @@ static int indent_level;
 
 typedef char *(*encoding_type_func) (Dwarf_Debug dbg, Dwarf_Half val);
 
-static char *program_name;
-
 void print_error(Dwarf_Debug dbg, char *msg, int dwarf_code, Dwarf_Error err)
 {
 	if (dwarf_code == DW_DLV_ERROR) {
 		char *errmsg = dwarf_errmsg(err);
 		Dwarf_Unsigned myerr = dwarf_errno(err);
 
-		fprintf(stderr, "%s ERROR:  %s:  %s (%lu)\n",
-			program_name, msg, errmsg, (unsigned long) myerr);
-	} else if (dwarf_code == DW_DLV_NO_ENTRY) {
-		fprintf(stderr, "%s NO ENTRY:  %s: \n", program_name, msg);
-	} else if (dwarf_code == DW_DLV_OK) {
-		fprintf(stderr, "%s:  %s \n", program_name, msg);
-	} else {
-		fprintf(stderr, "%s InternalError:  %s:  code %d\n",
-			program_name, msg, dwarf_code);
-	}
+		fprintf(stderr, "pahole: ERROR: %s: %s(%lu)\n",
+			msg, errmsg, (unsigned long)myerr);
+	} else if (dwarf_code == DW_DLV_NO_ENTRY)
+		fprintf(stderr, "%s: NO ENTRY: %s\n", msg);
+	else if (dwarf_code == DW_DLV_OK)
+		fprintf(stderr, "pahole: %s\n", msg);
+	else
+		fprintf(stderr, "pahole: internal error: %s: code %d\n",
+			msg, dwarf_code);
 
 	exit(EXIT_FAILURE);
 }
@@ -1194,10 +1191,9 @@ static void print_infos(Dwarf_Debug dbg)
 		char *errmsg = dwarf_errmsg(err);
 		Dwarf_Unsigned myerr = dwarf_errno(err);
 
-		fprintf(stderr, "%s ERROR:  %s:  %s (%lu)\n",
-			program_name, "attempting to print .debug_info",
+		fprintf(stderr, "pahole: ERROR: %s: %s(%lu)\n",
+			"attempting to print .debug_info",
 			errmsg, (unsigned long) myerr);
-		fprintf(stderr, "attempting to continue.\n");
 	}
 }
 
@@ -1218,8 +1214,7 @@ int main(int argc, char *argv[])
 	file_name = argv[1];
 	f = open(file_name, O_RDONLY);
 	if (f == -1) {
-		fprintf(stderr, "%s ERROR:  can't open %s\n", program_name,
-			file_name);
+		fprintf(stderr, "pahole: ERROR: can't open %s\n", file_name);
 		return EXIT_FAILURE;
 	}
 
