@@ -1247,5 +1247,6 @@ int main(int argc, char *argv[])
 		else
 			printf("struct %s not found!\n", argv[2]);
 	}
+
 	return 0;
 }
