@@ -321,8 +321,11 @@ void class__print(struct class *self)
 		sum_holes += hole;
 	}
 
-	printf("}; /* sizeof struct: %d, sum sizeof members: %lu */\n",
-	       self->size, sum);
+	printf("}; /* sizeof struct: %d",
+	       self->size);
+	if (sum_holes > 0)
+		printf(", sum sizeof members: %lu, sum holes: %lu", sum, sum_holes);
+	puts(" */");
 
 	if (sum + sum_holes != self->size)
 		printf("\n/* BRAIN FART ALERT! %d != %d + %d(holes), diff = %d */\n\n",
