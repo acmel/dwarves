@@ -134,6 +134,19 @@ const char *class__name(struct class *self, char *bf, size_t len)
 					     ptr_class_name,
 					     sizeof(ptr_class_name)));
 		}
+	} else if (self->tag == DW_TAG_volatile_type ||
+		   self->tag == DW_TAG_const_type) {
+		struct class *vol_class = find_class_by_type(self->type);
+
+		if (vol_class != NULL) {
+			char vol_class_name[128];
+			snprintf(bf, len, "%s %s ",
+				 self->tag == DW_TAG_volatile_type ?
+				 	"volatile" : "const",
+				 class__name(vol_class,
+					     vol_class_name,
+					     sizeof(vol_class_name)));
+		}
 	} else if (self->tag == DW_TAG_array_type) {
 		struct class *ptr_class = find_class_by_type(self->type);
 
