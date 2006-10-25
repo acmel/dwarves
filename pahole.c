@@ -235,6 +235,7 @@ void class__add_member(struct class *self, struct class_member *member)
 void class__print(struct class *self)
 {
 	unsigned long sum = 0;
+	unsigned long sum_holes = 0;
 	struct class_member *pos;
 	char name[128];
 	size_t last_size = 0;
@@ -247,8 +248,10 @@ void class__print(struct class *self)
 			 const size_t cc_last_size = pos->offset - last_offset;
 			 const size_t hole = cc_last_size - last_size;
 
-			 if (hole > 0)
+			 if (hole > 0) {
 				 printf("  /* %d bytes hole, try to pack */\n", hole);
+				 sum_holes += hole;
+			}
 		 }
 
 		 last_size = class_member__print(pos);
@@ -260,9 +263,16 @@ void class__print(struct class *self)
 		const size_t hole = self->size - (last_offset + last_size);
 
 		printf("  /* %d bytes hole, try to pack */\n", hole);
+		sum_holes += hole;
 	}
 
-	printf("};%-32.32s %-32.32s /* %5d %5lu */\n\n", " ", " ", self->size, sum);
+	printf("}; /* sizeof struct: %d, sum sizeof members: %lu */\n",
+	       self->size, sum);
+
+	if (sum + sum_holes != self->size)
+		printf("/* BRAIN FART ALERT! %d != %d + %d(holes) */\n",
+		       self->size, sum, sum_holes);
+	putchar('\n');
 }
 
 void add_class(struct class *class)
