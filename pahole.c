@@ -295,7 +295,8 @@ void class__print(struct class *self)
 		  * check for bitfields, accounting only the first
 		  * field.
 		  */
-		 if (pos->bit_size == 0 || last_bit_size == 0)
+		 if (last_offset != pos->offset ||
+		     pos->bit_size == 0 || last_bit_size == 0)
 			 sum += last_size;
 		 last_offset = pos->offset;
 		 last_bit_size = pos->bit_size;
