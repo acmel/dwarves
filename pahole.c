@@ -131,14 +131,18 @@ const unsigned long class__size(struct class *self)
 const char *class__name(struct class *self, char *bf, size_t len)
 {
 	if (self->tag == DW_TAG_pointer_type) {
-		struct class *ptr_class = find_class_by_type(self->type);
+		if (self->type == 0) /* No type == void */
+			strncpy(bf, "void *", len);
+		else {
+			struct class *ptr_class = find_class_by_type(self->type);
 
-		if (ptr_class != NULL) {
-			char ptr_class_name[128];
-			snprintf(bf, len, "%s *",
-				 class__name(ptr_class,
-					     ptr_class_name,
-					     sizeof(ptr_class_name)));
+			if (ptr_class != NULL) {
+				char ptr_class_name[128];
+				snprintf(bf, len, "%s *",
+					 class__name(ptr_class,
+						     ptr_class_name,
+						     sizeof(ptr_class_name)));
+			}
 		}
 	} else if (self->tag == DW_TAG_volatile_type ||
 		   self->tag == DW_TAG_const_type) {
