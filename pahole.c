@@ -71,8 +71,8 @@ struct class {
 	struct list_head members;
 	char		 name[32];
 	unsigned long	 size;
-	unsigned int	 cu_offset;
-	unsigned int	 type;
+	struct cu_info	 id;
+	struct cu_info	 type;
 	unsigned int	 tag;		/* struct, union, base type, etc */
 	unsigned int	 nr_entries;	/* For arrays */
 };
@@ -100,12 +100,13 @@ struct class *find_class_by_name(const char *name)
 	return NULL;
 }
 
-struct class *find_class_by_type(const unsigned int type)
+struct class *find_class_by_type(const struct cu_info *type)
 {
 	struct class *pos;
 
 	list_for_each_entry(pos, &classes, node)
-		if (pos->cu_offset == type)
+		if (pos->id.cu	   == type->cu &&
+		    pos->id.offset == type->offset)
 			return pos;
 
 	return NULL;
@@ -115,8 +116,8 @@ const unsigned long class__size(struct class *self)
 {
 	unsigned long size = self->size;
 
-	if (self->tag != DW_TAG_pointer_type && self->type != 0) {
-		struct class *class = find_class_by_type(self->type);
+	if (self->tag != DW_TAG_pointer_type && self->type.offset != 0) {
+		struct class *class = find_class_by_type(&self->type);
 		
 		if (class != NULL)
 			size = class__size(class);
@@ -131,10 +132,10 @@ const unsigned long class__size(struct class *self)
 const char *class__name(struct class *self, char *bf, size_t len)
 {
 	if (self->tag == DW_TAG_pointer_type) {
-		if (self->type == 0) /* No type == void */
+		if (self->type.offset == 0) /* No type == void */
 			strncpy(bf, "void *", len);
 		else {
-			struct class *ptr_class = find_class_by_type(self->type);
+			struct class *ptr_class = find_class_by_type(&self->type);
 
 			if (ptr_class != NULL) {
 				char ptr_class_name[128];
@@ -146,7 +147,7 @@ const char *class__name(struct class *self, char *bf, size_t len)
 		}
 	} else if (self->tag == DW_TAG_volatile_type ||
 		   self->tag == DW_TAG_const_type) {
-		struct class *vol_class = find_class_by_type(self->type);
+		struct class *vol_class = find_class_by_type(&self->type);
 
 		if (vol_class != NULL) {
 			char vol_class_name[128];
@@ -158,7 +159,7 @@ const char *class__name(struct class *self, char *bf, size_t len)
 					     sizeof(vol_class_name)));
 		}
 	} else if (self->tag == DW_TAG_array_type) {
-		struct class *ptr_class = find_class_by_type(self->type);
+		struct class *ptr_class = find_class_by_type(&self->type);
 
 		if (ptr_class != NULL)
 			return class__name(ptr_class, bf, len);
@@ -170,7 +171,7 @@ const char *class__name(struct class *self, char *bf, size_t len)
 struct class_member {
 	struct list_head node;
 	char		 name[32];
-	unsigned int	 type;
+	struct cu_info	 type;
 	unsigned int	 offset;
 	unsigned int	 bit_size;
 	unsigned int	 bit_offset;
@@ -188,7 +189,7 @@ void class_member__set_name(struct class_member *self, const char *name)
 
 unsigned long class_member__print(struct class_member *self)
 {
-	struct class *class = find_class_by_type(self->type);
+	struct class *class = find_class_by_type(&self->type);
 	const char *class_name = bf;
 	char class_name_bf[128];
 	char member_name_bf[128];
@@ -204,15 +205,16 @@ unsigned long class_member__print(struct class_member *self)
 
 		/* Is it a function pointer? */
 		if (class->tag == DW_TAG_pointer_type) {
-			struct class *ptr_class = find_class_by_type(class->type);
+			struct class *ptr_class = find_class_by_type(&class->type);
 
 			if (ptr_class != NULL &&
 			    ptr_class->tag == DW_TAG_subroutine_type) {
 				/* function has no return value (void) */
-				if (ptr_class->type == 0)
+				if (ptr_class->type.offset == 0)
 					strcpy(bf, "void");
 				else {
-					struct class *ret_class = find_class_by_type(ptr_class->type);
+					struct class *ret_class =
+					find_class_by_type(&ptr_class->type);
 
 					if (ret_class != NULL)
 						class_name = class__name(ret_class,
@@ -239,16 +241,20 @@ out:
 	return size;
 }
 
-struct class *class__new(const unsigned int tag, unsigned int cu_offset)
+struct class *class__new(const unsigned int tag,
+			 unsigned int cu,
+			 unsigned int cu_offset)
 {
 	struct class *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->members);
-		self->tag	= tag;
-		self->cu_offset = cu_offset;
-		self->type	= 0;
-		self->size	= 0;
+		self->tag	  = tag;
+		self->id.cu	  = cu;
+		self->id.offset   = cu_offset;
+		self->type.cu	  = 0;
+		self->type.offset = 0;
+		self->size	  = 0;
 	}
 
 	return self;
@@ -353,6 +359,7 @@ void print_classes(void)
 }
 
 static struct class *current_class;
+static unsigned int current_cu;
 
 static int indent_level;
 
@@ -913,10 +920,14 @@ static void print_attribute(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half attr,
 		valname[strlen(valname) - 1] = '\0';
 		type = atoi(valname + 1);
 		if (class != NULL) {
-			if (class->type == 0)
-				class->type = type;
-		} else if (member != NULL)
-			member->type = type;
+			if (class->type.offset == 0) {
+				class->type.cu	   = current_cu;
+				class->type.offset = type;
+			}
+		} else if (member != NULL) {
+			member->type.cu	    = current_cu;
+			member->type.offset = type;
+		}
 	}
 		break;
     }
@@ -957,7 +968,7 @@ void print_one_die(Dwarf_Debug dbg, Dwarf_Die die)
 		if (current_class != NULL)
 			add_class(current_class);
 	    
-		class = current_class = class__new(tag, offset);
+		class = current_class = class__new(tag, current_cu, offset);
 		if (current_class == NULL)
 			print_error(dbg, "class__new", ores, err);
 	}
@@ -1154,6 +1165,7 @@ static int process_one_file(Elf *elf, char *file_name, int archive)
 		       mem_header ? mem_header->ar_name : "");
 	}
 
+	++current_cu;
 	print_infos(dbg);
 
 	dres = dwarf_finish(dbg, &err);
