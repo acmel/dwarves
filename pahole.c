@@ -255,6 +255,7 @@ struct class *class__new(const unsigned int tag,
 		self->type.cu	  = 0;
 		self->type.offset = 0;
 		self->size	  = 0;
+		self->nr_entries  = 0;
 	}
 
 	return self;
@@ -331,8 +332,7 @@ void class__print(struct class *self)
 		sum_holes += hole;
 	}
 
-	printf("}; /* sizeof struct: %d",
-	       self->size);
+	printf("}; /* sizeof struct(%s): %d", self->name, self->size);
 	if (sum_holes > 0)
 		printf(", sum sizeof members: %lu, sum holes: %lu", sum, sum_holes);
 	puts(" */");
