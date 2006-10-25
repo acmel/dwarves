@@ -202,8 +202,8 @@ unsigned long class_member__print(struct class_member *self)
 				 "%s[%d];", self->name, class->nr_entries);
 	}
 out:
-	printf("  %-32.32s %-32.32s /* %5d %5lu */\n", class_name, member_name_bf,
-	       self->offset, size);
+	printf("        %-20s %-20s /* %5d %5lu */\n",
+	       class_name, member_name_bf, self->offset, size);
 	return size;
 }
 
@@ -241,7 +241,7 @@ void class__print(struct class *self)
 	size_t last_size = 0;
 	unsigned int last_offset = 0;
 
-	printf("/* %-32.32s %-31.31s    offset  size */\n", "", "");
+	printf("%49.49s /* offset size */\n", "");
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, node) {
 		 if (sum > 0) {
@@ -249,7 +249,8 @@ void class__print(struct class *self)
 			 const size_t hole = cc_last_size - last_size;
 
 			 if (hole > 0) {
-				 printf("  /* %d bytes hole, try to pack */\n", hole);
+				 printf("\n        /* XXX %d bytes hole, "
+					"try to pack */\n\n", hole);
 				 sum_holes += hole;
 			}
 		 }
