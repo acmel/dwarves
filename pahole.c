@@ -149,6 +149,8 @@ struct class_member {
 	char		 name[32];
 	unsigned int	 type;
 	unsigned int	 offset;
+	unsigned int	 bit_size;
+	unsigned int	 bit_offset;
 };
 
 struct class_member *class_member__new(void)
@@ -200,6 +202,9 @@ unsigned long class_member__print(struct class_member *self)
 		if (class->tag == DW_TAG_array_type)
 			snprintf(member_name_bf, sizeof(member_name_bf),
 				 "%s[%d];", self->name, class->nr_entries);
+		else if (self->bit_size != 0)
+			snprintf(member_name_bf, sizeof(member_name_bf),
+				 "%s:%d;", self->name, self->bit_size);
 	}
 out:
 	printf("        %-20s %-20s /* %5d %5lu */\n",
@@ -239,24 +244,41 @@ void class__print(struct class *self)
 	struct class_member *pos;
 	char name[128];
 	size_t last_size = 0;
-	unsigned int last_offset = 0;
+	int last_offset = -1;
 
 	printf("%49.49s /* offset size */\n", "");
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, node) {
 		 if (sum > 0) {
 			 const size_t cc_last_size = pos->offset - last_offset;
-			 const size_t hole = cc_last_size - last_size;
 
-			 if (hole > 0) {
-				 printf("\n        /* XXX %d bytes hole, "
-					"try to pack */\n\n", hole);
-				 sum_holes += hole;
-			}
+			 /*
+			  * If the offset is the same this better
+			  * be a bitfield or an empty struct (see
+			  * rwlock_t in the Linux kernel sources when
+			  * compiled for UP) or...
+			  */
+			 if (cc_last_size > 0) {
+				 const size_t hole = cc_last_size - last_size;
+
+				 if (hole > 0) {
+					 printf("\n        /* XXX %d bytes hole, "
+						"try to pack */\n\n", hole);
+					 sum_holes += hole;
+				}
+			 } else if (pos->bit_size == 0 && last_size != 0)
+				printf("\n/* BRAIN FART ALERT! not a bitfield "
+					" and the offset hasn't changed. */\n\n",
+				       self->size, sum, sum_holes);
 		 }
 
 		 last_size = class_member__print(pos);
-		 sum += last_size;
+		 /*
+		  * check for bitfields, accounting only the first
+		  * field.
+		  */
+		 if (pos->bit_size == 0 || pos->bit_offset == 0)
+			 sum += last_size;
 		 last_offset = pos->offset;
 	}
 
@@ -271,7 +293,7 @@ void class__print(struct class *self)
 	       self->size, sum);
 
 	if (sum + sum_holes != self->size)
-		printf("/* BRAIN FART ALERT! %d != %d + %d(holes) */\n",
+		printf("\n/* BRAIN FART ALERT! %d != %d + %d(holes) */\n\n",
 		       self->size, sum, sum_holes);
 	putchar('\n');
 }
@@ -912,6 +934,14 @@ static void print_attribute(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half attr,
 	case DW_AT_byte_size:
 		if (class != NULL)
 			class->size = atoi(valname);
+		break;
+	case DW_AT_bit_size:
+		if (member != NULL)
+			member->bit_size = atoi(valname);
+		break;
+	case DW_AT_bit_offset:
+		if (member != NULL)
+			member->bit_offset = atoi(valname);
 		break;
 	case DW_AT_upper_bound:
 		if (class != NULL)
