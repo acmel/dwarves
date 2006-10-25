@@ -68,7 +68,8 @@ struct class {
 	unsigned long	 size;
 	unsigned int	 cu_offset;
 	unsigned int	 type;
-	unsigned int	 tag;	/* struct, union, base type, etc */
+	unsigned int	 tag;		/* struct, union, base type, etc */
+	unsigned int	 nr_entries;	/* For arrays */
 };
 
 const char *tag_name(const unsigned int tag)
@@ -106,13 +107,19 @@ struct class *find_class_by_type(const unsigned int type)
 
 const unsigned long class__size(struct class *self)
 {
+	unsigned long size = self->size;
+
 	if (self->tag != DW_TAG_pointer_type && self->type != 0) {
 		struct class *class = find_class_by_type(self->type);
 		
 		if (class != NULL)
-			return class__size(class);
+			size = class__size(class);
 	}
-	return self->size;
+
+	if (self->tag == DW_TAG_array_type)
+		size *= self->nr_entries;
+
+	return size;
 }
 
 const char *class__name(struct class *self, char *bf, size_t len)
@@ -127,6 +134,11 @@ const char *class__name(struct class *self, char *bf, size_t len)
 					     ptr_class_name,
 					     sizeof(ptr_class_name)));
 		}
+	} else if (self->tag == DW_TAG_array_type) {
+		struct class *ptr_class = find_class_by_type(self->type);
+
+		if (ptr_class != NULL)
+			return class__name(ptr_class, bf, len);
 	} else
 		snprintf(bf, len, "%s%s", tag_name(self->tag), self->name);
 	return bf;
@@ -153,17 +165,26 @@ unsigned long class_member__print(struct class_member *self)
 {
 	struct class *class = find_class_by_type(self->type);
 	const char *class_name = bf;
-	char name_bf[128];
+	char class_name_bf[128];
+	char member_name_bf[128];
 	unsigned long size = -1;
+
+	snprintf(member_name_bf, sizeof(member_name_bf),
+		 "%s;", self->name);
 
 	if (class == NULL)
 		snprintf(bf, sizeof(bf), "<%d>", self->type);
 	else {
-		class_name = class__name(class, name_bf, sizeof(name_bf));
+		class_name = class__name(class, class_name_bf, sizeof(class_name_bf));
 		size = class__size(class);
+
+		if (class->tag == DW_TAG_array_type)
+			snprintf(member_name_bf, sizeof(member_name_bf),
+				 "%s[%d];", self->name, class->nr_entries);
 	}
 
-	printf("  %-32.32s %-32.32s %5d %5lu\n", class_name, self->name, self->offset, size);
+	printf("  %-32.32s %-32.32s /* %5d %5lu */\n", class_name, member_name_bf,
+	       self->offset, size);
 	return size;
 }
 
@@ -200,7 +221,7 @@ void class__print(struct class *self)
 	size_t last_size = 0;
 	unsigned int last_offset = 0;
 
-	printf("  %-32.32s %-31.31s offset  size\n", "", "");
+	printf("/* %-32.32s %-31.31s    offset  size */\n", "", "");
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, node) {
 		 if (sum > 0) {
@@ -222,7 +243,7 @@ void class__print(struct class *self)
 		printf("  /* %d bytes hole, try to pack */\n", hole);
 	}
 
-	printf("} %-32.32s %-32.32s %5d %5lu\n\n", " ", " ", self->size, sum);
+	printf("};%-32.32s %-32.32s /* %5d %5lu */\n\n", " ", " ", self->size, sum);
 }
 
 void add_class(struct class *class)
@@ -862,6 +883,10 @@ static void print_attribute(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half attr,
 		if (class != NULL)
 			class->size = atoi(valname);
 		break;
+	case DW_AT_upper_bound:
+		if (class != NULL)
+			class->nr_entries = atoi(valname) + 1;
+		break;
 	case DW_AT_data_member_location:
 		if (member != NULL)
 			member->offset = atoi(valname);
@@ -871,9 +896,10 @@ static void print_attribute(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half attr,
 
 		valname[strlen(valname) - 1] = '\0';
 		type = atoi(valname + 1);
-		if (class != NULL)
-			class->type = type;
-		else if (member != NULL)
+		if (class != NULL) {
+			if (class->type == 0)
+				class->type = type;
+		} else if (member != NULL)
 			member->type = type;
 	}
 		break;
@@ -909,6 +935,9 @@ void print_one_die(Dwarf_Debug dbg, Dwarf_Die die, char **srcfiles,
 		if (member == NULL)
 			print_error(dbg, "class_member__new", ores, err);
 		class__add_member(current_class, member);
+	} else if (tag == DW_TAG_subrange_type) {
+		/* Do nothing, its relevant to the previous class */
+		class = current_class;
 	} else {
 		if (current_class != NULL)
 			add_class(current_class);
