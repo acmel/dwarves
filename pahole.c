@@ -310,8 +310,9 @@ void class__print(struct class *self)
 	       self->size, sum);
 
 	if (sum + sum_holes != self->size)
-		printf("\n/* BRAIN FART ALERT! %d != %d + %d(holes) */\n\n",
-		       self->size, sum, sum_holes);
+		printf("\n/* BRAIN FART ALERT! %d != %d + %d(holes), diff = %d */\n\n",
+		       self->size, sum, sum_holes,
+		       self->size - (sum + sum_holes));
 	putchar('\n');
 }
 
