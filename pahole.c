@@ -1212,7 +1212,7 @@ int main(int argc, char *argv[])
 	elf_version(EV_NONE);
 	if (elf_version(EV_CURRENT) == EV_NONE) {
 		fprintf(stderr, "dwarfdump: libelf.a out of date.\n");
-		exit(EXIT_FAILURE);
+		return EXIT_FAILURE;
 	}
 
 	file_name = argv[1];
@@ -1231,7 +1231,7 @@ int main(int argc, char *argv[])
 		Elf32_Ehdr *eh32 = elf32_getehdr(elf);
 
 		if (eh32 == NULL) {
-		/* not a 32-bit obj */
+			/* not a 32-bit obj */
 			Elf64_Ehdr *eh64 = elf64_getehdr(elf);
 			if (eh64 != NULL)
 				process_one_file(elf, file_name, archive);
