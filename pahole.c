@@ -1112,8 +1112,6 @@ extern char *optarg;
 
 static void print_infos(Dwarf_Debug dbg);
 
-int check_error = 0;
-
 /* defined in print_sections.c, die for the current compile unit, 
    used in get_fde_proc_name() */
 extern Dwarf_Die current_cu_die_for_print_frames;
