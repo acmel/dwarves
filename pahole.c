@@ -1,4 +1,9 @@
 /* 
+  Copyright (C) 2006 Mandriva Conectiva S.A.
+  Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
+
+  Initially based on dwarfdump.c that has the following copyright:
+
   Copyright (C) 2000,2002,2004,2005 Silicon Graphics, Inc.  All Rights Reserved.
 
   This program is free software; you can redistribute it and/or modify it
