@@ -275,7 +275,7 @@ void print_classes(void)
 	struct class *pos;
 
 	list_for_each_entry(pos, &classes, node)
-		if (pos->tag == DW_TAG_structure_type)
+		if (pos->tag == DW_TAG_structure_type && pos->name[0] != '\0')
 			class__print(pos);
 }
 
