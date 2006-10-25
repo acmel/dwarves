@@ -261,7 +261,7 @@ void class__print(struct class *self)
 	unsigned long sum_holes = 0;
 	struct class_member *pos;
 	char name[128];
-	size_t last_size = 0;
+	size_t last_size = 0, size;
 	int last_bit_size = 0;
 	int last_offset = -1;
 
@@ -291,14 +291,20 @@ void class__print(struct class *self)
 				       self->size, sum, sum_holes);
 		 }
 
-		 last_size = class_member__print(pos);
+		 size = class_member__print(pos);
 		 /*
-		  * check for bitfields, accounting only the first
-		  * field.
+		  * check for bitfields, accounting for only the biggest
+		  * of the byte_size in the fields in each bitfield set.
 		  */
 		 if (last_offset != pos->offset ||
-		     pos->bit_size == 0 || last_bit_size == 0)
+		     pos->bit_size == 0 || last_bit_size == 0) {
+			 last_size = size;
 			 sum += last_size;
+		 } else if (size > last_size) {
+			sum += size - last_size;
+			last_size = size;
+		 }
+
 		 last_offset = pos->offset;
 		 last_bit_size = pos->bit_size;
 	}
