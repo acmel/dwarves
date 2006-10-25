@@ -299,7 +299,7 @@ void class__print(struct class *self)
 		 last_offset = pos->offset;
 	}
 
-	if (last_offset + last_size != self->size) {
+	if (last_offset != -1 && last_offset + last_size != self->size) {
 		const size_t hole = self->size - (last_offset + last_size);
 
 		printf("  /* %d bytes hole, try to pack */\n", hole);
