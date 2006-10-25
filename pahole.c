@@ -185,16 +185,20 @@ unsigned long class_member__print(struct class_member *self)
 
 			if (ptr_class != NULL &&
 			    ptr_class->tag == DW_TAG_subroutine_type) {
-				struct class *ret_class = find_class_by_type(ptr_class->type);
+				/* function has no return value (void) */
+				if (ptr_class->type == 0)
+					strcpy(bf, "void");
+				else {
+					struct class *ret_class = find_class_by_type(ptr_class->type);
 
-				if (ret_class != NULL) {
-					class_name = class__name(ret_class,
-								 class_name_bf,
-								 sizeof(class_name_bf));
-					snprintf(member_name_bf, sizeof(member_name_bf),
-						 "(*%s)();", self->name);
-					goto out;
+					if (ret_class != NULL)
+						class_name = class__name(ret_class,
+									 class_name_bf,
+									 sizeof(class_name_bf));
 				}
+				snprintf(member_name_bf, sizeof(member_name_bf),
+					 "(*%s)();", self->name);
+				goto out;
 			}
 		}
 
