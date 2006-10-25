@@ -75,6 +75,7 @@ struct class {
 const char *tag_name(const unsigned int tag)
 {
 	switch (tag) {
+	case DW_TAG_enumeration_type:	return "enum ";
 	case DW_TAG_structure_type:	return "struct ";
 	case DW_TAG_union_type:		return "union ";
 	case DW_TAG_pointer_type:	return " *";
