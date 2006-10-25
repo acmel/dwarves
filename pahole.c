@@ -496,65 +496,6 @@ static void get_location_list(Dwarf_Debug dbg, Dwarf_Die die,
 	dwarf_dealloc(dbg, llbufarray, DW_DLA_LIST);
 }
 
-static char *get_FORM_name(Dwarf_Debug dbg, Dwarf_Half val)
-{
-	switch (val) {
-	case DW_FORM_addr:
-		return "DW_FORM_addr";
-	case DW_FORM_block2:
-		return "DW_FORM_block2";
-	case DW_FORM_block4:
-		return "DW_FORM_block4";
-	case DW_FORM_data2:
-		return "DW_FORM_data2";
-	case DW_FORM_data4:
-		return "DW_FORM_data4";
-	case DW_FORM_data8:
-		return "DW_FORM_data8";
-	case DW_FORM_string:
-		return "DW_FORM_string";
-	case DW_FORM_block:
-		return "DW_FORM_block";
-	case DW_FORM_block1:
-		return "DW_FORM_block1";
-	case DW_FORM_data1:
-		return "DW_FORM_data1";
-	case DW_FORM_flag:
-		return "DW_FORM_flag";
-	case DW_FORM_sdata:
-		return "DW_FORM_sdata";
-	case DW_FORM_strp:
-		return "DW_FORM_strp";
-	case DW_FORM_udata:
-		return "DW_FORM_udata";
-	case DW_FORM_ref_addr:
-		return "DW_FORM_ref_addr";
-	case DW_FORM_ref1:
-		return "DW_FORM_ref1";
-	case DW_FORM_ref2:
-		return "DW_FORM_ref2";
-	case DW_FORM_ref4:
-		return "DW_FORM_ref4";
-	case DW_FORM_ref8:
-		return "DW_FORM_ref8";
-	case DW_FORM_ref_udata:
-		return "DW_FORM_ref_udata";
-	case DW_FORM_indirect:
-		return "DW_FORM_indirect";
-	default:
-		{ 
-		    char buf[100]; 
-		    char *n; 
-		    snprintf(buf,sizeof(buf),"<Unknown FORM value 0x%x>",(int)val);
-		 fprintf(stderr,"FORM of %d (0x%x) is unknown to dwarfdump. " 
- 		 "Continuing. \n",(int)val,(int)val );  
-		    n = strdup(buf);
-		    return n; 
-		} 
-	}
-/*NOTREACHED*/
-}
-
 static void formx_unsigned(Dwarf_Unsigned u, char *s)
 {
      char small_buf[40];
@@ -869,12 +810,6 @@ static void get_attr_value(Dwarf_Debug dbg, Dwarf_Half tag,
 	} else {
 	    print_error(dbg, "Cannot get formflag/p....", wres, err);
 	}
-	break;
-    case DW_FORM_indirect:
-	/* We should not ever get here, since the true form was
-	   determined and direct_form has the DW_FORM_indirect if it is
-	   used here in this attr. */
-	strcat(s, get_FORM_name(dbg, theform));
 	break;
     default:
 	print_error(dbg, "dwarf_whatform unexpected value", DW_DLV_OK,
