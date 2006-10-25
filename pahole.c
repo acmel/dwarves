@@ -569,8 +569,7 @@ static int formxdata_print_value(Dwarf_Attribute attrib, char *s,
    broken compiler DW_TAG_enumerator 
 */
 static void get_attr_value(Dwarf_Debug dbg, Dwarf_Half tag,
-			   Dwarf_Attribute attrib, char **srcfiles,
-			   Dwarf_Signed cnt, char *s)
+			   Dwarf_Attribute attrib, char *s)
 {
     Dwarf_Half theform;
     char *temps;
@@ -713,20 +712,6 @@ static void get_attr_value(Dwarf_Debug dbg, Dwarf_Half tag,
 		    snprintf(small_buf, sizeof(small_buf), "%llu",
 			     tempud);
 		    strcat(s, small_buf);
-		    if (attr == DW_AT_decl_file) {
-			if (srcfiles && tempud > 0 && tempud <= cnt) {
-			    /* added by user request */
-			    /* srcfiles is indexed starting at 0, but
-			       DW_AT_decl_file defines that 0 means no
-			       file, so tempud 1 means the 0th entry in
-			       srcfiles, thus tempud-1 is the correct
-			       index into srcfiles.  */
-			    char *fname = srcfiles[tempud - 1];
-
-			    strcat(s, " ");
-			    strcat(s, fname);
-			}
-		    }
 		} else {
 		    print_error(dbg, "Cannot get encoding attribute ..",
 				wres, err);
@@ -818,8 +803,7 @@ static void get_attr_value(Dwarf_Debug dbg, Dwarf_Half tag,
 }
 
 static void print_attribute(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half attr,
-			    Dwarf_Attribute attr_in, char **srcfiles,
-			    Dwarf_Signed cnt, struct class *class,
+			    Dwarf_Attribute attr_in, struct class *class,
 			    struct class_member *member)
 {
 	Dwarf_Attribute attrib = 0;
@@ -872,7 +856,7 @@ static void print_attribute(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half attr,
 		break;
 	default:
 		bf[0] = '\0';
-		get_attr_value(dbg, tag, attrib, srcfiles, cnt, bf);
+		get_attr_value(dbg, tag, attrib, bf);
 		valname = bf;
 		break;
 	}
@@ -920,8 +904,7 @@ static void print_attribute(Dwarf_Debug dbg, Dwarf_Die die, Dwarf_Half attr,
 }
 
 /* print info about die */
-void print_one_die(Dwarf_Debug dbg, Dwarf_Die die, char **srcfiles,
-		   Dwarf_Signed cnt)
+void print_one_die(Dwarf_Debug dbg, Dwarf_Die die)
 {
 	Dwarf_Signed i;
 	Dwarf_Half tag;
@@ -974,9 +957,7 @@ void print_one_die(Dwarf_Debug dbg, Dwarf_Die die, char **srcfiles,
 
 	ares = dwarf_whatattr(atlist[i], &attr, &err);
 	if (ares == DW_DLV_OK) {
-	    print_attribute(dbg, die, attr,
-			    atlist[i],
-			    srcfiles, cnt, class, member);
+	    print_attribute(dbg, die, attr, atlist[i], class, member);
 	} else {
 	    print_error(dbg, "dwarf_whatattr entry missing", ares, err);
 	}
@@ -997,8 +978,7 @@ static Dwarf_Die die_stack[DIE_STACK_SIZE];
 
 /* recursively follow the die tree */
 extern void
-print_die_and_children(Dwarf_Debug dbg, Dwarf_Die in_die_in,
-		       char **srcfiles, Dwarf_Signed cnt)
+print_die_and_children(Dwarf_Debug dbg, Dwarf_Die in_die_in)
 {
     Dwarf_Die child;
     Dwarf_Die sibling;
@@ -1011,13 +991,13 @@ print_die_and_children(Dwarf_Debug dbg, Dwarf_Die in_die_in,
 	PUSH_DIE_STACK(in_die);
 
 	/* here to pre-descent processing of the die */
-	print_one_die(dbg, in_die, srcfiles, cnt);
+	print_one_die(dbg, in_die);
 
 	cdres = dwarf_child(in_die, &child, &err);
 	/* child first: we are doing depth-first walk */
 	if (cdres == DW_DLV_OK) {
 	    indent_level++;
-	    print_die_and_children(dbg, child, srcfiles, cnt);
+	    print_die_and_children(dbg, child);
 	    indent_level--;
 	    dwarf_dealloc(dbg, child, DW_DLA_DIE);
 	} else if (cdres == DW_DLV_ERROR) {
@@ -1026,7 +1006,7 @@ print_die_and_children(Dwarf_Debug dbg, Dwarf_Die in_die_in,
 
 	cdres = dwarf_siblingof(dbg, in_die, &sibling, &err);
 	if (cdres == DW_DLV_OK) {
-	    /* print_die_and_children(dbg, sibling, srcfiles, cnt); We
+	    /* print_die_and_children(dbg, sibling); We
 	       loop around to actually print this, rather than
 	       recursing. Recursing is horribly wasteful of stack
 	       space. */
@@ -1186,26 +1166,7 @@ static void print_infos(Dwarf_Debug dbg)
 		int sres = dwarf_siblingof(dbg, NULL, &cu_die, &err);
 
 		if (sres == DW_DLV_OK) {
-			Dwarf_Signed cnt = 0;
-			char **srcfiles = NULL;
-			int srcf = dwarf_srcfiles(cu_die, &srcfiles,
-						  &cnt, &err);
-
-			if (srcf != DW_DLV_OK) {
-				srcfiles = NULL;
-				cnt = 0;
-			}
-
-			print_die_and_children(dbg, cu_die, srcfiles, cnt);
-			if (srcf == DW_DLV_OK) {
-				int si;
-
-				for (si = 0; si < cnt; ++si)
-					dwarf_dealloc(dbg, srcfiles[si],
-						      DW_DLA_STRING);
-
-				dwarf_dealloc(dbg, srcfiles, DW_DLA_LIST);
-			}
+			print_die_and_children(dbg, cu_die);
 			dwarf_dealloc(dbg, cu_die, DW_DLA_DIE);
 		} else if (sres != DW_DLV_NO_ENTRY)
 			print_error(dbg, "Regetting cu_die", sres, err);
