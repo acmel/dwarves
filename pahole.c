@@ -224,7 +224,7 @@ unsigned long class_member__print(struct class_member *self)
 				 "%s:%d;", self->name, self->bit_size);
 	}
 out:
-	printf("        %-21s %-21s /* %5d %5lu */\n",
+	printf("        %-26s %-21s /* %5d %5lu */\n",
 	       class_name, member_name_bf, self->offset, size);
 	return size;
 }
@@ -263,7 +263,7 @@ void class__print(struct class *self)
 	size_t last_size = 0;
 	int last_offset = -1;
 
-	printf("%51.51s /* offset size */\n", "");
+	printf("%56.56s /* offset size */\n", "");
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, node) {
 		 if (sum > 0) {
