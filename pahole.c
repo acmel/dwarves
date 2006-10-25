@@ -261,6 +261,7 @@ void class__print(struct class *self)
 	struct class_member *pos;
 	char name[128];
 	size_t last_size = 0;
+	int last_bit_size = 0;
 	int last_offset = -1;
 
 	printf("%56.56s /* offset size */\n", "");
@@ -294,9 +295,10 @@ void class__print(struct class *self)
 		  * check for bitfields, accounting only the first
 		  * field.
 		  */
-		 if (pos->bit_size == 0 || pos->bit_offset == 0)
+		 if (pos->bit_size == 0 || last_bit_size == 0)
 			 sum += last_size;
 		 last_offset = pos->offset;
+		 last_bit_size = pos->bit_size;
 	}
 
 	if (last_offset != -1 && last_offset + last_size != self->size) {
