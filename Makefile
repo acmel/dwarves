@@ -6,14 +6,12 @@ bindir =	$(exec_prefix)/bin
 libdir =	$(exec_prefix)/lib
 
 INSTALL_DATA =	${INSTALL} -m 644
-SHELL =		/bin/sh
 CC =		gcc
-LIBS =		 -L../libdwarf -ldwarf -lelf
-INCLUDES =	-I. -I$(srcdir) -I$(srcdir)/../libdwarf
+LIBS =		 -ldw -lelf
+INCLUDES =	-I. -I/usr/include/elfutils
 CFLAGS =	-g -O2 $(INCLUDES)
 LDFLAGS =	  $(LIBS)
 
-DIRINC =  $(srcdir)/../libdwarf
 INSTALL = cp
 
 binprefix =
