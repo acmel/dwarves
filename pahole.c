@@ -258,6 +258,7 @@ void class__print(struct class *self)
 {
 	unsigned long sum = 0;
 	unsigned long sum_holes = 0;
+	unsigned int nr_holes = 0;
 	struct class_member *pos;
 	char name[128];
 	size_t last_size = 0, size;
@@ -283,6 +284,7 @@ void class__print(struct class *self)
 					 printf("\n        /* XXX %d bytes hole, "
 						"try to pack */\n\n", hole);
 					 sum_holes += hole;
+					 ++nr_holes;
 				}
 			 } else if (pos->bit_size == 0 && last_size != 0)
 				printf("\n/* BRAIN FART ALERT! not a bitfield "
@@ -313,11 +315,14 @@ void class__print(struct class *self)
 
 		printf("  /* %d bytes hole, try to pack */\n", hole);
 		sum_holes += hole;
+		++nr_holes;
 	}
 
-	printf("}; /* sizeof struct(%s): %d", self->name, self->size);
+	printf("}; /* sizeof(struct %s): %d", self->name, self->size);
 	if (sum_holes > 0)
-		printf(", sum sizeof members: %lu, sum holes: %lu", sum, sum_holes);
+		printf(", sum sizeof members: %lu, \n      "
+		       "holes: %d, sum holes: %lu",
+		       sum, nr_holes, sum_holes);
 	puts(" */");
 
 	if (sum + sum_holes != self->size)
