@@ -363,17 +363,6 @@ const char *attr_string(Dwarf_Die *die, unsigned int name,
 	return NULL;
 }
 
-unsigned int attr_unsigned(Dwarf_Die *die, unsigned int name,
-			   Dwarf_Attribute *attr)
-{
-	Dwarf_Word value = 0;
-
-	if (dwarf_attr(die, name, attr) != NULL)
-		dwarf_formudata(attr, &value);
-
-	return value;
-}
-
 /* Number decoding macros.  See 7.6 Variable Length Data.  */
 
 #define get_uleb128_step(var, addr, nth, break)			\
@@ -456,11 +445,22 @@ uintmax_t attr_upper_bound(Dwarf_Die *die)
 	return 0;
 }
 
+unsigned int attr_numeric(Dwarf_Die *die, unsigned int name)
+{
+	Dwarf_Attribute attr;
+	Dwarf_Word value = 0;
+
+	if (dwarf_attr(die, name, &attr) != NULL)
+		dwarf_formudata(&attr, &value);
+
+	return value;
+}
+
 void process_die(Dwarf *dwarf, Dwarf_Die *die)
 {
 	Dwarf_Die child;
 	Dwarf_Off cu_offset;
-	Dwarf_Attribute attr_name, attr_size, attr_bit_size, attr_bit_offset;
+	Dwarf_Attribute attr_name;
 	const char *name;
 	uintmax_t type, nr_entries;
 	unsigned int size, bit_size, bit_offset, offset;
@@ -472,9 +472,9 @@ void process_die(Dwarf *dwarf, Dwarf_Die *die)
 	cu_offset  = dwarf_cuoffset(die);
 	name	   = attr_string(die, DW_AT_name, &attr_name);
 	type	   = attr_type(die);
-	size	   = attr_unsigned(die, DW_AT_byte_size, &attr_size);
-	bit_size   = attr_unsigned(die, DW_AT_bit_size, &attr_bit_size);
-	bit_offset = attr_unsigned(die, DW_AT_bit_offset, &attr_bit_offset);
+	size	   = attr_numeric(die, DW_AT_byte_size);
+	bit_size   = attr_numeric(die, DW_AT_bit_size);
+	bit_offset = attr_numeric(die, DW_AT_bit_offset);
 	nr_entries = attr_upper_bound(die);
 	offset	   = attr_offset(die);
 
