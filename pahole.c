@@ -416,20 +416,6 @@ unsigned int attr_offset(Dwarf_Die *die)
 	return 0;
 }
 
-uintmax_t attr_type(Dwarf_Die *die)
-{
-	Dwarf_Attribute attr;
-
-	if (dwarf_attr(die, DW_AT_type, &attr) != NULL) {
-      		Dwarf_Off ref;
-
-		if (dwarf_formref(&attr, &ref) == 0)
-			return (uintmax_t)ref;
-	}
-
-	return 0;
-}
-
 uintmax_t attr_upper_bound(Dwarf_Die *die)
 {
 	Dwarf_Attribute attr;
@@ -445,15 +431,44 @@ uintmax_t attr_upper_bound(Dwarf_Die *die)
 	return 0;
 }
 
-unsigned int attr_numeric(Dwarf_Die *die, unsigned int name)
+uintmax_t attr_numeric(Dwarf_Die *die, unsigned int name)
 {
 	Dwarf_Attribute attr;
-	Dwarf_Word value = 0;
+	unsigned int form;
 
-	if (dwarf_attr(die, name, &attr) != NULL)
-		dwarf_formudata(&attr, &value);
+	if (dwarf_attr(die, name, &attr) == NULL)
+		return 0;
 
-	return value;
+	form = dwarf_whatform(&attr);
+
+	switch (form) {
+	case DW_FORM_data1:
+	case DW_FORM_data2:
+	case DW_FORM_data4:
+	case DW_FORM_data8:
+	case DW_FORM_sdata:
+	case DW_FORM_udata: {
+		Dwarf_Word value;
+		if (dwarf_formudata(&attr, &value) == 0)
+			return value;
+	}
+		break;
+	case DW_FORM_ref1:
+	case DW_FORM_ref2:
+	case DW_FORM_ref4:
+	case DW_FORM_ref8:
+	case DW_FORM_ref_addr:
+	case DW_FORM_ref_udata: {
+		Dwarf_Off ref;
+		if (dwarf_formref(&attr, &ref) == 0)
+			return (uintmax_t)ref;
+	}
+	default:
+		printf("DW_AT_<0x%x>=0x%x\n", name, form);
+		break;
+	}
+
+	return 0;
 }
 
 void process_die(Dwarf *dwarf, Dwarf_Die *die)
@@ -471,7 +486,7 @@ void process_die(Dwarf *dwarf, Dwarf_Die *die)
 
 	cu_offset  = dwarf_cuoffset(die);
 	name	   = attr_string(die, DW_AT_name, &attr_name);
-	type	   = attr_type(die);
+	type	   = attr_numeric(die, DW_AT_type);
 	size	   = attr_numeric(die, DW_AT_byte_size);
 	bit_size   = attr_numeric(die, DW_AT_bit_size);
 	bit_offset = attr_numeric(die, DW_AT_bit_offset);
