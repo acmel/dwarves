@@ -7,10 +7,8 @@
   published by the Free Software Foundation.
 */
 
-
 #include <dwarf.h>
 #include <fcntl.h>
-#include <inttypes.h>
 #include <libdw.h>
 #include <libelf.h>
 #include <stdio.h>
@@ -19,6 +17,7 @@
 #include <unistd.h>
 
 #include "list.h"
+#include "classes.h"
 
 static char bf[4096];
 
@@ -31,24 +30,6 @@ static void *zalloc(const size_t size)
 }
 
 static LIST_HEAD(classes);
-
-struct cu_info {
-	unsigned int	 cu;
-	uintmax_t	 offset;
-};
-
-struct class {
-	struct list_head node;
-	struct list_head members;
-	char		 name[32];
-	unsigned long	 size;
-	struct cu_info	 id;
-	struct cu_info	 type;
-	unsigned int	 tag;		/* struct, union, base type, etc */
-	uintmax_t	 nr_entries;	/* For arrays */
-	const char	 *decl_file;
-	unsigned int	 decl_line;
-};
 
 const char *tag_name(const unsigned int tag)
 {
@@ -140,15 +121,6 @@ const char *class__name(struct class *self, char *bf, size_t len)
 		snprintf(bf, len, "%s%s", tag_name(self->tag), self->name);
 	return bf;
 }
-
-struct class_member {
-	struct list_head node;
-	char		 name[32];
-	struct cu_info	 type;
-	unsigned int	 offset;
-	unsigned int	 bit_size;
-	unsigned int	 bit_offset;
-};
 
 struct class_member *class_member__new(unsigned int cu,
 				       uintmax_t type,
