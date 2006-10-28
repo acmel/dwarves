@@ -17,13 +17,17 @@ INSTALL = cp
 binprefix =
 
 PAHOLE_OBJECTS = pahole.o classes.o
+PFUNCT_OBJECTS = pfunct.o classes.o
 
-all: pahole
+all: pahole pfunct
 
 default: $(TARGETS)
 
 pahole: $(PAHOLE_OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $(PAHOLE_OBJECTS) $(LDFLAGS) 
+
+pfunct: $(PFUNCT_OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $(PFUNCT_OBJECTS) $(LDFLAGS) 
 
 install: all
 	$(INSTALL) pahole $(bindir)/pahole
