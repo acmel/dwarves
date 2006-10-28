@@ -261,7 +261,7 @@ void class__add_member(struct class *self, struct class_member *member)
 	list_add_tail(&member->node, &self->members);
 }
 
-void class__print(struct class *self)
+void class__print_struct(struct class *self)
 {
 	unsigned long sum = 0;
 	unsigned long sum_holes = 0;
@@ -340,17 +340,29 @@ void class__print(struct class *self)
 	putchar('\n');
 }
 
+void class__print(struct class *self)
+{
+	switch (self->tag) {
+	case DW_TAG_structure_type:
+		class__print_struct(self);
+		break;
+	default:
+		printf("%s%s;\n", tag_name(self->tag), self->name);
+		break;
+	}
+}
+
 void add_class(struct class *class)
 {
 	list_add_tail(&class->node, &classes);
 }
 
-void print_classes(void)
+void print_classes(const unsigned int tag)
 {
 	struct class *pos;
 
 	list_for_each_entry(pos, &classes, node)
-		if (pos->tag == DW_TAG_structure_type && pos->name[0] != '\0')
+		if (pos->tag == tag && pos->name[0] != '\0')
 			class__print(pos);
 }
 
@@ -575,7 +587,7 @@ int main(int argc, char *argv[])
 	close(fd);
 
 	if (argc == 2)
-		print_classes();
+		print_classes(DW_TAG_structure_type);
 	else {
 		struct class *class = find_class_by_name(argv[2]);
 		if (class != NULL)
