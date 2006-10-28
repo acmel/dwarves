@@ -46,6 +46,8 @@ struct class {
 	struct cu_info	 type;
 	unsigned int	 tag;		/* struct, union, base type, etc */
 	uintmax_t	 nr_entries;	/* For arrays */
+	const char	 *decl_file;
+	unsigned int	 decl_line;
 };
 
 const char *tag_name(const unsigned int tag)
@@ -230,7 +232,9 @@ struct class *class__new(const unsigned int tag,
 			 uintmax_t cu_offset,
 			 uintmax_t type,
 			 const char *name,
-			 unsigned int size)
+			 unsigned int size,
+			 const char *decl_file,
+			 unsigned int decl_line)
 {
 	struct class *self = malloc(sizeof(*self));
 
@@ -244,6 +248,8 @@ struct class *class__new(const unsigned int tag,
 		self->size	  = size;
 		if (name != NULL)
 			strncpy(self->name, name, sizeof(self->name));
+		self->decl_file	  = decl_file;
+		self->decl_line	  = decl_line;
 	}
 
 	return self;
@@ -265,7 +271,7 @@ void class__print(struct class *self)
 	int last_bit_size = 0;
 	int last_offset = -1;
 
-	printf("%56.56s /* offset size */\n", "");
+	printf("/* %s %u */\n", self->decl_file, self->decl_line);
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, node) {
 		 if (sum > 0) {
@@ -329,6 +335,7 @@ void class__print(struct class *self)
 		printf("\n/* BRAIN FART ALERT! %d != %d + %d(holes), diff = %d */\n\n",
 		       self->size, sum, sum_holes,
 		       self->size - (sum + sum_holes));
+	putchar('\n');
 	putchar('\n');
 }
 
@@ -476,9 +483,9 @@ void process_die(Dwarf *dwarf, Dwarf_Die *die)
 	Dwarf_Die child;
 	Dwarf_Off cu_offset;
 	Dwarf_Attribute attr_name;
-	const char *name;
+	const char *name, *decl_file;
 	uintmax_t type, nr_entries;
-	unsigned int size, bit_size, bit_offset, offset;
+	unsigned int size, bit_size, bit_offset, offset, decl_line = 0;
 	unsigned int tag = dwarf_tag(die);
 
 	if (tag == DW_TAG_invalid)
@@ -490,6 +497,8 @@ void process_die(Dwarf *dwarf, Dwarf_Die *die)
 	size	   = attr_numeric(die, DW_AT_byte_size);
 	bit_size   = attr_numeric(die, DW_AT_bit_size);
 	bit_offset = attr_numeric(die, DW_AT_bit_offset);
+	decl_file  = dwarf_decl_file(die);
+	dwarf_decl_line(die, &decl_line);
 	nr_entries = attr_upper_bound(die);
 	offset	   = attr_offset(die);
 
@@ -509,7 +518,8 @@ void process_die(Dwarf *dwarf, Dwarf_Die *die)
 			add_class(current_class);
 	    
 		current_class = class__new(tag, current_cu, cu_offset,
-					   type, name, size);
+					   type, name, size,
+					   decl_file, decl_line);
 		if (current_class == NULL)
 			oom("class__new");
 	}
