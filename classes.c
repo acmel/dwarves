@@ -279,21 +279,37 @@ void class__find_holes(struct class *self)
 
 static void class__print_function(struct class *self)
 {
-	char ret_type_name_bf[256];
-	const char *ret_type_str = "<ERROR>";
+	char bf[256];
+	struct class *class_type;
+	const char *type = "<ERROR>";
+	struct class_member *pos;
+	int first_parameter = 1;
 
 	if (self->type.offset == 0)
-		ret_type_str = "void";
+		type = "void";
 	else {
-		struct class *ret_class = classes__find_by_id(&self->type);
-
-		if (ret_class != NULL)
-			ret_type_str = class__name(ret_class,
-						   ret_type_name_bf,
-						   sizeof(ret_type_name_bf));
+		class_type = classes__find_by_id(&self->type);
+		if (class_type != NULL)
+			type = class__name(class_type, bf, sizeof(bf));
 	}
 
-	printf("%s %s();\n", ret_type_str, self->name);
+	printf("%s %s(", type, self->name);
+	list_for_each_entry(pos, &self->members, node) {
+		if (!first_parameter)
+			fputs(", ", stdout);
+		else
+			first_parameter = 0;
+		type = "<ERROR>";
+		class_type = classes__find_by_id(&pos->type);
+		if (class_type != NULL)
+			type = class__name(class_type, bf, sizeof(bf));
+		printf("%s %s", type, pos->name);
+	}
+
+	/* No parameters? */
+	if (first_parameter)
+		fputs("void", stdout);
+	fputs(");\n", stdout);
 }
 
 static void class__print_struct(struct class *self)
@@ -532,7 +548,7 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 	nr_entries = attr_upper_bound(die);
 	offset	   = attr_offset(die);
 
-	if (tag == DW_TAG_member) {
+	if (tag == DW_TAG_member || tag == DW_TAG_formal_parameter) {
 		struct class_member *member;
 		
 		member = class_member__new(current_cu, type, name, offset,
