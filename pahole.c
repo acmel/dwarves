@@ -514,32 +514,21 @@ void process_die(Dwarf *dwarf, Dwarf_Die *die)
 		process_die(dwarf, die);
 }
 
-int main(int argc, char *argv[])
+int classes__load(const char *filename)
 {
 	Dwarf_Off offset, last_offset, abbrev_offset;
 	uint8_t addr_size, offset_size;
 	size_t hdr_size;
 	Dwarf *dwarf;
-	int fd;
+	int err = -1;
+	int fd = open(filename, O_RDONLY);	
 
-	if (argc == 0) {
-		puts("usage: "
-		     "pahole <elf_file_with_debug_info> {<struct_name>}");
-		return EXIT_FAILURE;
-	}
-
-	fd = open(argv[1], O_RDONLY);	
-	if (fd < 0) {
-		fprintf(stderr, "pahole: can't open %s\n", argv[1]);
-		return EXIT_FAILURE;
-	}
+	if (fd < 0)
+		goto out;
 
 	dwarf = dwarf_begin(fd, DWARF_C_READ);
-	if (dwarf == NULL) {
-		fprintf(stderr, "pahole: %s doesn't seems to have DWARF info\n",
-		       argv[1]);
-		return EXIT_FAILURE;
-	}
+	if (dwarf == NULL)
+		goto out_close;
 
 	offset = last_offset = 0;
 	while (dwarf_nextcu(dwarf, offset, &offset, &hdr_size,
@@ -555,7 +544,26 @@ int main(int argc, char *argv[])
 	}
 
 	dwarf_end(dwarf);
+	err = 0;
+out_close:
 	close(fd);
+out:
+	return err;
+}
+
+int main(int argc, char *argv[])
+{
+	if (argc == 0) {
+		puts("usage: "
+		     "pahole <elf_file_with_debug_info> {<struct_name>}");
+		return EXIT_FAILURE;
+	}
+
+	if (classes__load(argv[1]) != 0) {
+		fprintf(stderr, "pahole: couldn't load DWARF info from %s\n",
+		       argv[1]);
+		return EXIT_FAILURE;
+	}
 
 	if (argc == 2)
 		print_classes(DW_TAG_structure_type);
@@ -567,5 +575,5 @@ int main(int argc, char *argv[])
 			printf("struct %s not found!\n", argv[2]);
 	}
 
-	return 0;
+	return EXIT_SUCCESS;
 }
