@@ -30,6 +30,8 @@ struct class {
 	uintmax_t	 nr_entries;	/* For arrays */
 	const char	 *decl_file;
 	unsigned int	 decl_line;
+	unsigned short	 nr_holes;
+	unsigned short	 padding;
 };
 
 struct class_member {
@@ -39,6 +41,8 @@ struct class_member {
 	unsigned int	 offset;
 	unsigned int	 bit_size;
 	unsigned int	 bit_offset;
+	unsigned short	 hole;		/* If there is a hole before the next
+					   one (or the end of the struct) */
 };
 
 #endif /* _PAHOLE_CLASSES_H_ */

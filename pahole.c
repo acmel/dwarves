@@ -143,6 +143,12 @@ struct class_member *class_member__new(unsigned int cu,
 	return self;
 }
 
+int class_member__size(const struct class_member *self)
+{
+	struct class *class = classes__find_by_id(&self->type);
+	return class != NULL ? class__size(class) : -1;
+}
+
 unsigned long class_member__print(struct class_member *self)
 {
 	struct class *class = classes__find_by_id(&self->type);
@@ -222,6 +228,8 @@ struct class *class__new(const unsigned int tag,
 			strncpy(self->name, name, sizeof(self->name));
 		self->decl_file	  = decl_file;
 		self->decl_line	  = decl_line;
+		self->nr_holes	  = 0;
+		self->padding	  = 0;
 	}
 
 	return self;
@@ -232,11 +240,52 @@ void class__add_member(struct class *self, struct class_member *member)
 	list_add_tail(&member->node, &self->members);
 }
 
+void class__find_holes(struct class *self)
+{
+	struct class_member *pos, *last = NULL;
+	int last_size = 0, size;
+
+	self->nr_holes = 0;
+
+	list_for_each_entry(pos, &self->members, node) {
+		 if (last != NULL) {
+			 const int cc_last_size = pos->offset - last->offset;
+
+			 /*
+			  * If the offset is the same this better
+			  * be a bitfield or an empty struct (see
+			  * rwlock_t in the Linux kernel sources when
+			  * compiled for UP) or...
+			  */
+			 if (cc_last_size > 0) {
+				 last->hole = cc_last_size - last_size;
+				 if (last->hole > 0)
+					 ++self->nr_holes;
+			 }
+		 }
+
+		 size = class_member__size(pos);
+		 /*
+		  * check for bitfields, accounting for only the biggest
+		  * of the byte_size in the fields in each bitfield set.
+		  */
+		 if (last == NULL || last->offset != pos->offset ||
+		     pos->bit_size == 0 || last->bit_size == 0) {
+			 last_size = size;
+		 } else if (size > last_size)
+			last_size = size;
+
+		 last = pos;
+	}
+
+	if (last != NULL && last->offset + last_size != self->size)
+		self->padding = self->size - (last->offset + last_size);
+}
+
 void class__print_struct(struct class *self)
 {
 	unsigned long sum = 0;
 	unsigned long sum_holes = 0;
-	unsigned int nr_holes = 0;
 	struct class_member *pos;
 	char name[128];
 	size_t last_size = 0, size;
@@ -246,31 +295,12 @@ void class__print_struct(struct class *self)
 	printf("/* %s %u */\n", self->decl_file, self->decl_line);
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, node) {
-		 if (sum > 0) {
-			 const size_t cc_last_size = pos->offset - last_offset;
-
-			 /*
-			  * If the offset is the same this better
-			  * be a bitfield or an empty struct (see
-			  * rwlock_t in the Linux kernel sources when
-			  * compiled for UP) or...
-			  */
-			 if (cc_last_size > 0) {
-				 const size_t hole = cc_last_size - last_size;
-
-				 if (hole > 0) {
-					 printf("\n        /* XXX %d bytes hole, "
-						"try to pack */\n\n", hole);
-					 sum_holes += hole;
-					 ++nr_holes;
-				}
-			 } else if (pos->bit_size == 0 && last_size != 0)
-				printf("\n/* BRAIN FART ALERT! not a bitfield "
-					" and the offset hasn't changed. */\n\n",
-				       self->size, sum, sum_holes);
-		 }
-
 		 size = class_member__print(pos);
+		 if (pos->hole > 0) {
+			printf("\n        /* XXX %d bytes hole, "
+			       "try to pack */\n\n", pos->hole);
+			sum_holes += pos->hole;
+		 }
 		 /*
 		  * check for bitfields, accounting for only the biggest
 		  * of the byte_size in the fields in each bitfield set.
@@ -288,22 +318,15 @@ void class__print_struct(struct class *self)
 		 last_bit_size = pos->bit_size;
 	}
 
-	if (last_offset != -1 && last_offset + last_size != self->size) {
-		const size_t hole = self->size - (last_offset + last_size);
-
-		printf("  /* %d bytes hole, try to pack */\n", hole);
-		sum_holes += hole;
-		++nr_holes;
-	}
-
-	printf("}; /* sizeof(struct %s): %d", self->name, self->size);
+	printf("}; /* size: %d", self->size);
 	if (sum_holes > 0)
-		printf(", sum sizeof members: %lu, \n      "
-		       "holes: %d, sum holes: %lu",
-		       sum, nr_holes, sum_holes);
+		printf(", sum members: %lu, holes: %d, sum holes: %lu",
+		       sum, self->nr_holes, sum_holes);
+	if (self->padding > 0)
+		printf(", padding: %u", self->padding);
 	puts(" */");
 
-	if (sum + sum_holes != self->size)
+	if (sum + sum_holes != self->size - self->padding)
 		printf("\n/* BRAIN FART ALERT! %d != %d + %d(holes), diff = %d */\n\n",
 		       self->size, sum, sum_holes,
 		       self->size - (sum + sum_holes));
@@ -333,8 +356,13 @@ void classes__print(const unsigned int tag)
 	struct class *pos;
 
 	list_for_each_entry(pos, &classes__list, node)
-		if (pos->tag == tag && pos->name[0] != '\0')
-			class__print(pos);
+		if (pos->tag == tag && pos->name[0] != '\0') {
+			if (tag == DW_TAG_structure_type) {
+				class__find_holes(pos);
+				if (pos->nr_holes > 0)
+					class__print(pos);
+			}
+		}
 }
 
 static struct class *classes__current_class;
@@ -570,9 +598,10 @@ int main(int argc, char *argv[])
 		classes__print(DW_TAG_structure_type);
 	else {
 		struct class *class = classes__find_by_name(argv[2]);
-		if (class != NULL)
+		if (class != NULL) {
+			class__find_holes(class);
 			class__print(class);
-		else
+		} else
 			printf("struct %s not found!\n", argv[2]);
 	}
 
