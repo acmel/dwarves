@@ -277,6 +277,25 @@ void class__find_holes(struct class *self)
 		self->padding = self->size - (last->offset + last_size);
 }
 
+static void class__print_function(struct class *self)
+{
+	char ret_type_name_bf[256];
+	const char *ret_type_str = "<ERROR>";
+
+	if (self->type.offset == 0)
+		ret_type_str = "void";
+	else {
+		struct class *ret_class = classes__find_by_id(&self->type);
+
+		if (ret_class != NULL)
+			ret_type_str = class__name(ret_class,
+						   ret_type_name_bf,
+						   sizeof(ret_type_name_bf));
+	}
+
+	printf("%s %s();\n", ret_type_str, self->name);
+}
+
 static void class__print_struct(struct class *self)
 {
 	unsigned long sum = 0;
@@ -334,6 +353,9 @@ void class__print(struct class *self)
 	switch (self->tag) {
 	case DW_TAG_structure_type:
 		class__print_struct(self);
+		break;
+	case DW_TAG_subprogram:
+		class__print_function(self);
 		break;
 	default:
 		printf("%s%s;\n", tag_name(self->tag), self->name);
