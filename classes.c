@@ -322,7 +322,6 @@ static void class__print_struct(struct class *self)
 	int last_bit_size = 0;
 	int last_offset = -1;
 
-	printf("/* %s %u */\n", self->decl_file, self->decl_line);
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, node) {
 		 size = class_member__print(pos);
@@ -361,11 +360,12 @@ static void class__print_struct(struct class *self)
 		       self->size, sum, sum_holes,
 		       self->size - (sum + sum_holes));
 	putchar('\n');
-	putchar('\n');
 }
 
 void class__print(struct class *self)
 {
+	printf("/* %s %u */\n", self->decl_file, self->decl_line);
+
 	switch (self->tag) {
 	case DW_TAG_structure_type:
 		class__print_struct(self);
@@ -377,6 +377,7 @@ void class__print(struct class *self)
 		printf("%s%s;\n", tag_name(self->tag), self->name);
 		break;
 	}
+	putchar('\n');
 }
 
 static void classes__add(struct class *class)
