@@ -19,8 +19,6 @@
 #include "list.h"
 #include "classes.h"
 
-static char bf[4096];
-
 static void *zalloc(const size_t size)
 {
 	void *s = malloc(size);
@@ -148,9 +146,10 @@ struct class_member *class_member__new(unsigned int cu,
 unsigned long class_member__print(struct class_member *self)
 {
 	struct class *class = find_class_by_type(&self->type);
-	const char *class_name = bf;
 	char class_name_bf[128];
 	char member_name_bf[128];
+	char bf[512];
+	const char *class_name = bf;
 	unsigned long size = -1;
 
 	snprintf(member_name_bf, sizeof(member_name_bf),
