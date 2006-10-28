@@ -354,9 +354,10 @@ void classes__print(const unsigned int tag)
 		if (pos->tag == tag && pos->name[0] != '\0') {
 			if (tag == DW_TAG_structure_type) {
 				class__find_holes(pos);
-				if (pos->nr_holes > 0)
-					class__print(pos);
+				if (pos->nr_holes == 0)
+					continue;
 			}
+			class__print(pos);
 		}
 }
 
