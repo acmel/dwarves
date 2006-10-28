@@ -246,6 +246,7 @@ struct class *class__new(const unsigned int tag,
 		self->type.cu	  = cu;
 		self->type.offset = type;
 		self->size	  = size;
+		self->name[0]	  = '\0';
 		if (name != NULL)
 			strncpy(self->name, name, sizeof(self->name));
 		self->decl_file	  = decl_file;
