@@ -45,4 +45,11 @@ struct class_member {
 					   one (or the end of the struct) */
 };
 
+extern void class__find_holes(struct class *self);
+extern void class__print(struct class *self);
+
+extern int	    classes__load(const char *filename);
+extern struct class *classes__find_by_name(const char *name);
+extern void	    classes__print(const unsigned int tag);
+
 #endif /* _PAHOLE_CLASSES_H_ */
