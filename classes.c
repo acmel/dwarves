@@ -206,7 +206,8 @@ out:
 static struct class *class__new(const unsigned int tag, unsigned int cu,
 				uintmax_t cu_offset, uintmax_t type,
 				const char *name, unsigned int size,
-				const char *decl_file, unsigned int decl_line)
+				const char *decl_file, unsigned int decl_line,
+				unsigned short inlined)
 {
 	struct class *self = malloc(sizeof(*self));
 
@@ -225,6 +226,7 @@ static struct class *class__new(const unsigned int tag, unsigned int cu,
 		self->decl_line	  = decl_line;
 		self->nr_holes	  = 0;
 		self->padding	  = 0;
+		self->inlined	  = inlined;
 	}
 
 	return self;
@@ -293,7 +295,7 @@ static void class__print_function(struct class *self)
 			type = class__name(class_type, bf, sizeof(bf));
 	}
 
-	printf("%s %s(", type, self->name);
+	printf("%s%s %s(", self->inlined ? "inline " : "", type, self->name);
 	list_for_each_entry(pos, &self->members, node) {
 		if (!first_parameter)
 			fputs(", ", stdout);
@@ -532,7 +534,7 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 	Dwarf_Attribute attr_name;
 	const char *name, *decl_file;
 	uintmax_t type, nr_entries;
-	unsigned int size, bit_size, bit_offset, offset, decl_line = 0;
+	unsigned int size, bit_size, bit_offset, offset, inlined, decl_line = 0;
 	unsigned int tag = dwarf_tag(die);
 
 	if (tag == DW_TAG_invalid)
@@ -544,6 +546,7 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 	size	   = attr_numeric(die, DW_AT_byte_size);
 	bit_size   = attr_numeric(die, DW_AT_bit_size);
 	bit_offset = attr_numeric(die, DW_AT_bit_offset);
+	inlined = attr_numeric(die, DW_AT_inline);
 	decl_file  = dwarf_decl_file(die);
 	dwarf_decl_line(die, &decl_line);
 	nr_entries = attr_upper_bound(die);
@@ -567,7 +570,8 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		classes__current_class = class__new(tag, current_cu,
 						    cu_offset,
 						    type, name, size,
-						    decl_file, decl_line);
+						    decl_file, decl_line,
+						    inlined);
 		if (classes__current_class == NULL)
 			oom("class__new");
 	}

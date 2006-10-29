@@ -32,6 +32,7 @@ struct class {
 	unsigned int	 decl_line;
 	unsigned short	 nr_holes;
 	unsigned short	 padding;
+	unsigned short	 inlined;
 };
 
 struct class_member {
