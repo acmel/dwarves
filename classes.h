@@ -51,6 +51,10 @@ extern void class__print(struct class *self);
 
 extern int	    classes__load(const char *filename);
 extern struct class *classes__find_by_name(const char *name);
+extern struct class *classes__find_by_id(const struct cu_info *type);
 extern void	    classes__print(const unsigned int tag);
+extern void	    classes__for_each(int (*iterator)(struct class *class,
+						      void *cookie),
+				      void *cookie);
 
 #endif /* _PAHOLE_CLASSES_H_ */

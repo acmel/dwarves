@@ -52,7 +52,7 @@ struct class *classes__find_by_name(const char *name)
 	return NULL;
 }
 
-static struct class *classes__find_by_id(const struct cu_info *type)
+struct class *classes__find_by_id(const struct cu_info *type)
 {
 	struct class *pos;
 
@@ -385,6 +385,16 @@ void class__print(struct class *self)
 static void classes__add(struct class *class)
 {
 	list_add_tail(&class->node, &classes__list);
+}
+
+void classes__for_each(int (*iterator)(struct class *class, void *cookie),
+		       void *cookie)
+{
+	struct class *pos;
+
+	list_for_each_entry(pos, &classes__list, node)
+		if (iterator(pos, cookie))
+			break;
 }
 
 void classes__print(const unsigned int tag)
