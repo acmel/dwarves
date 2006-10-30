@@ -370,7 +370,7 @@ static void class__print_struct(struct class *self)
 
 void class__print(struct class *self)
 {
-	printf("/* %s %u */\n", self->decl_file, self->decl_line);
+	printf("/* %s:%u */\n", self->decl_file, self->decl_line);
 
 	switch (self->tag) {
 	case DW_TAG_structure_type:
