@@ -18,6 +18,7 @@ static int verbose;
 
 static struct option long_options[] = {
 	{ "class",	required_argument,	NULL, 'c' },
+	{ "sizes",	no_argument,		NULL, 's' },
 	{ "verbose",	no_argument,		NULL, 'V' },
 	{ NULL, 0, NULL, 0, }
 };
@@ -29,6 +30,7 @@ static void usage(void)
 		" where: \n",
 		"   -c, --class=<class>  functions that have <class> "
 					"pointer parameters\n"
+		"   -s, --sizes          show size of functions\n"
 		"   -V, --verbose        be verbose\n");
 }
 
@@ -50,7 +52,7 @@ static int class__has_parameter_of_type(struct class *self,
 	return 0;
 }
 
-static int iterator(struct class *class, void *cookie)
+static int class_iterator(struct class *class, void *cookie)
 {
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
@@ -64,17 +66,28 @@ static int iterator(struct class *class, void *cookie)
 	return 0;
 }
 
+static int sizes_iterator(struct class *class, void *cookie)
+{
+	if (class->tag != DW_TAG_subprogram || class->inlined)
+		return 0;
+
+	printf("%s: %u\n", class->name, class->high_pc - class->low_pc);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int option, option_index;
 	const char *file_name = NULL;
 	const char *class_name = NULL;
 	const char *function_name = NULL;
+	int show_sizes = 0;
 
-	while ((option = getopt_long(argc, argv, "c:V",
+	while ((option = getopt_long(argc, argv, "c:sV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': class_name = optarg;	    break;
+		case 's': show_sizes = 1;	    break;
 		case 'V': verbose    = 1;	    break;
 		default: usage();		    return EXIT_FAILURE;
 		}
@@ -94,13 +107,15 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (class_name != NULL) {
+	if (show_sizes)
+		classes__for_each(sizes_iterator, NULL);
+	else if (class_name != NULL) {
 		struct class *class = classes__find_by_name(class_name);
 
 		if (class == NULL)
 			printf("class %s not found!\n", class_name);
 		else
-			classes__for_each(iterator, class);
+			classes__for_each(class_iterator, class);
 	} else if (function_name == NULL)
 		classes__print(DW_TAG_subprogram);
 	else {
