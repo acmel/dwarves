@@ -542,38 +542,38 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 	Dwarf_Die child;
 	Dwarf_Off cu_offset;
 	Dwarf_Attribute attr_name;
-	const char *name, *decl_file;
-	uintmax_t type, nr_entries;
-	unsigned int size, bit_size, bit_offset, offset, inlined, decl_line = 0;
+	const char *name;
+	uintmax_t type;
 	unsigned int tag = dwarf_tag(die);
 
 	if (tag == DW_TAG_invalid)
 		return;
 
-	cu_offset  = dwarf_cuoffset(die);
-	name	   = attr_string(die, DW_AT_name, &attr_name);
-	type	   = attr_numeric(die, DW_AT_type);
-	size	   = attr_numeric(die, DW_AT_byte_size);
-	bit_size   = attr_numeric(die, DW_AT_bit_size);
-	bit_offset = attr_numeric(die, DW_AT_bit_offset);
-	inlined = attr_numeric(die, DW_AT_inline);
-	decl_file  = dwarf_decl_file(die);
-	dwarf_decl_line(die, &decl_line);
-	nr_entries = attr_upper_bound(die);
-	offset	   = attr_offset(die);
+	cu_offset = dwarf_cuoffset(die);
+	name	  = attr_string(die, DW_AT_name, &attr_name);
+	type	  = attr_numeric(die, DW_AT_type);
 
 	if (tag == DW_TAG_member || tag == DW_TAG_formal_parameter) {
 		struct class_member *member;
 		
-		member = class_member__new(current_cu, type, name, offset,
-					   bit_size, bit_offset);
+		member = class_member__new(current_cu, type, name,
+					   attr_offset(die),
+					   attr_numeric(die, DW_AT_bit_size),
+					   attr_numeric(die, DW_AT_bit_offset));
 		if (member == NULL)
 			oom("class_member__new");
 
 		class__add_member(classes__current_class, member);
 	} else if (tag == DW_TAG_subrange_type)
-		classes__current_class->nr_entries = nr_entries;
+		classes__current_class->nr_entries = attr_upper_bound(die);
 	else {
+		const unsigned long size = attr_numeric(die, DW_AT_byte_size);
+		const unsigned short inlined = attr_numeric(die, DW_AT_inline);
+		const char *decl_file  = dwarf_decl_file(die);
+		unsigned int decl_line = 0;
+
+		dwarf_decl_line(die, &decl_line);
+
 		if (classes__current_class != NULL)
 			classes__add(classes__current_class);
 	    
