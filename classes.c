@@ -207,7 +207,8 @@ static struct class *class__new(const unsigned int tag, unsigned int cu,
 				uintmax_t cu_offset, uintmax_t type,
 				const char *name, unsigned int size,
 				const char *decl_file, unsigned int decl_line,
-				unsigned short inlined)
+				unsigned short inlined,
+				uintmax_t low_pc, uintmax_t high_pc)
 {
 	struct class *self = malloc(sizeof(*self));
 
@@ -227,6 +228,8 @@ static struct class *class__new(const unsigned int tag, unsigned int cu,
 		self->nr_holes	  = 0;
 		self->padding	  = 0;
 		self->inlined	  = inlined;
+		self->low_pc	  = low_pc;
+		self->high_pc	  = high_pc;
 	}
 
 	return self;
@@ -312,6 +315,7 @@ static void class__print_function(struct class *self)
 	if (first_parameter)
 		fputs("void", stdout);
 	fputs(");\n", stdout);
+	printf("/* size: %u */\n", self->high_pc - self->low_pc);
 }
 
 static void class__print_struct(struct class *self)
@@ -508,6 +512,12 @@ static uintmax_t attr_numeric(Dwarf_Die *die, unsigned int name)
 	form = dwarf_whatform(&attr);
 
 	switch (form) {
+	case DW_FORM_addr: {
+		Dwarf_Addr addr;
+		if (dwarf_formaddr(&attr, &addr) == 0)
+			return addr;
+	}
+		break;
 	case DW_FORM_data1:
 	case DW_FORM_data2:
 	case DW_FORM_data4:
@@ -569,6 +579,8 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 	else {
 		const unsigned long size = attr_numeric(die, DW_AT_byte_size);
 		const unsigned short inlined = attr_numeric(die, DW_AT_inline);
+		const uintmax_t	low_pc = attr_numeric(die, DW_AT_low_pc);
+		const uintmax_t	high_pc = attr_numeric(die, DW_AT_high_pc);
 		const char *decl_file  = dwarf_decl_file(die);
 		unsigned int decl_line = 0;
 
@@ -581,7 +593,7 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 						    cu_offset,
 						    type, name, size,
 						    decl_file, decl_line,
-						    inlined);
+						    inlined, low_pc, high_pc);
 		if (classes__current_class == NULL)
 			oom("class__new");
 	}

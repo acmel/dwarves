@@ -28,6 +28,8 @@ struct class {
 	struct cu_info	 type;
 	unsigned int	 tag;		/* struct, union, base type, etc */
 	uintmax_t	 nr_entries;	/* For arrays */
+	uintmax_t	 low_pc;
+	uintmax_t	 high_pc;
 	const char	 *decl_file;
 	unsigned int	 decl_line;
 	unsigned short	 nr_holes;
