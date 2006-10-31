@@ -40,10 +40,10 @@ static int class__has_parameter_of_type(struct cu *cu, struct class *self,
 	struct class_member *pos;
 
 	list_for_each_entry(pos, &self->members, node) {
-		struct class *class = cu__find_by_id(cu, pos->type);
+		struct class *class = cu__find_class_by_id(cu, pos->type);
 
 		if (class != NULL && class->tag == DW_TAG_pointer_type) {
-			class = cu__find_by_id(cu, class->type);
+			class = cu__find_class_by_id(cu, class->type);
 			if (class != NULL &&
 			    class->id == target->id)
 				return 1;
@@ -52,7 +52,7 @@ static int class__has_parameter_of_type(struct cu *cu, struct class *self,
 	return 0;
 }
 
-static int class_iterator(struct class *class, struct cu *cu, void *cookie)
+static int class_iterator(struct cu *cu, struct class *class, void *cookie)
 {
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
@@ -66,7 +66,17 @@ static int class_iterator(struct class *class, struct cu *cu, void *cookie)
 	return 0;
 }
 
-static int sizes_iterator(struct class *class, struct cu *cu, void *cookie)
+static int cu_class_iterator(struct cu *cu, void *cookie)
+{
+	struct class *target = cu__find_class_by_name(cu, cookie);
+
+	if (target == NULL)
+		return 0;
+
+	return cu__for_each_class(cu, class_iterator, target);
+}
+
+static int sizes_iterator(struct cu *cu, struct class *class, void *cookie)
 {
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
@@ -75,12 +85,34 @@ static int sizes_iterator(struct class *class, struct cu *cu, void *cookie)
 	return 0;
 }
 
+static int cu_sizes_iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_class(cu, sizes_iterator, cookie);
+}
+
+static int function_iterator(struct cu *cu, struct class *class, void *cookie)
+{
+	if (class->tag != DW_TAG_subprogram || class->inlined)
+		return 0;
+
+	if (strcmp(class->name, cookie) == 0) {
+		class__print(class, cu);
+		return 1;
+	}
+	return 0;
+}
+
+static int cu_function_iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_class(cu, function_iterator, cookie);
+}
+
 int main(int argc, char *argv[])
 {
 	int option, option_index;
 	const char *file_name = NULL;
-	const char *class_name = NULL;
-	const char *function_name = NULL;
+	char *class_name = NULL;
+	char *function_name = NULL;
 	int show_sizes = 0;
 
 	while ((option = getopt_long(argc, argv, "c:sV",
@@ -108,33 +140,13 @@ int main(int argc, char *argv[])
 	}
 
 	if (show_sizes)
-		classes__for_each(sizes_iterator, NULL);
-	else if (class_name != NULL) {
-		struct cu *cu = cus__find_by_id(0);
-
-		if (cu != NULL) {
-			struct class *class = cu__find_by_name(cu, class_name);
-
-			if (class != NULL)
-				classes__for_each(class_iterator, class);
-			else
-				printf("class %s not found!\n", class_name);
-		} else
-			printf("cu 0 not found!\n");
-	} else if (function_name == NULL)
+		cus__for_each_cu(cu_sizes_iterator, NULL);
+	else if (class_name != NULL)
+		cus__for_each_cu(cu_class_iterator, class_name);
+	else if (function_name == NULL)
 		classes__print(DW_TAG_subprogram);
-	else {
-		struct cu *cu = cus__find_by_id(0);
-
-		if (cu != NULL) {
-			struct class *class = cu__find_by_name(cu, function_name);
-			if (class != NULL)
-				class__print(class, cu);
-			else
-				printf("function %s not found!\n", function_name);
-		} else
-			printf("cu 0 not found!\n");
-	}
+	else
+		cus__for_each_cu(cu_function_iterator, function_name);
 
 	return EXIT_SUCCESS;
 }

@@ -61,7 +61,7 @@ static const char *tag_name(const unsigned int tag)
 	return "";
 }
 
-struct class *cu__find_by_name(struct cu *self, const char *name)
+struct class *cu__find_class_by_name(struct cu *self, const char *name)
 {
 	struct class *pos;
 
@@ -72,22 +72,27 @@ struct class *cu__find_by_name(struct cu *self, const char *name)
 	return NULL;
 }
 
-struct class *cu__find_by_id(const struct cu *self, const unsigned int id)
+struct class *cus__find_class_by_name(struct cu **cu, const char *name)
 {
-	struct class *pos;
+	struct cu *cu_pos;
 
-	list_for_each_entry(pos, &self->classes, node)
-		if (pos->id == id)
-			return pos;
+	list_for_each_entry(cu_pos, &cus__list, node) {
+		struct class *class = cu__find_class_by_name(cu_pos, name);
+
+		if (class != NULL) {
+			*cu = cu_pos;
+			return class;
+		}
+	}
 
 	return NULL;
 }
 
-struct cu *cus__find_by_id(const unsigned int id)
+struct class *cu__find_class_by_id(const struct cu *self, const unsigned int id)
 {
-	struct cu *pos;
+	struct class *pos;
 
-	list_for_each_entry(pos, &cus__list, node)
+	list_for_each_entry(pos, &self->classes, node)
 		if (pos->id == id)
 			return pos;
 
@@ -100,7 +105,7 @@ static const unsigned long class__size(const struct class *self,
 	unsigned long size = self->size;
 
 	if (self->tag != DW_TAG_pointer_type && self->type != 0) {
-		struct class *class = cu__find_by_id(cu, self->type);
+		struct class *class = cu__find_class_by_id(cu, self->type);
 		
 		if (class != NULL)
 			size = class__size(class, cu);
@@ -119,7 +124,8 @@ static const char *class__name(struct class *self, const struct cu *cu,
 		if (self->type == 0) /* No type == void */
 			strncpy(bf, "void *", len);
 		else {
-			struct class *ptr_class = cu__find_by_id(cu, self->type);
+			struct class *ptr_class =
+					cu__find_class_by_id(cu, self->type);
 
 			if (ptr_class != NULL) {
 				char ptr_class_name[128];
@@ -131,7 +137,7 @@ static const char *class__name(struct class *self, const struct cu *cu,
 		}
 	} else if (self->tag == DW_TAG_volatile_type ||
 		   self->tag == DW_TAG_const_type) {
-		struct class *vol_class = cu__find_by_id(cu, self->type);
+		struct class *vol_class = cu__find_class_by_id(cu, self->type);
 
 		if (vol_class != NULL) {
 			char vol_class_name[128];
@@ -143,7 +149,7 @@ static const char *class__name(struct class *self, const struct cu *cu,
 					     sizeof(vol_class_name)));
 		}
 	} else if (self->tag == DW_TAG_array_type) {
-		struct class *ptr_class = cu__find_by_id(cu, self->type);
+		struct class *ptr_class = cu__find_class_by_id(cu, self->type);
 
 		if (ptr_class != NULL)
 			return class__name(ptr_class, cu, bf, len);
@@ -176,14 +182,14 @@ static struct class_member *class_member__new(uintmax_t type,
 static int class_member__size(const struct class_member *self,
 			      const struct cu *cu)
 {
-	struct class *class = cu__find_by_id(cu, self->type);
+	struct class *class = cu__find_class_by_id(cu, self->type);
 	return class != NULL ? class__size(class, cu) : -1;
 }
 
 static unsigned long class_member__print(struct class_member *self,
 					 const struct cu *cu)
 {
-	struct class *class = cu__find_by_id(cu, self->type);
+	struct class *class = cu__find_class_by_id(cu, self->type);
 	char class_name_bf[128];
 	char member_name_bf[128];
 	char bf[512];
@@ -200,7 +206,8 @@ static unsigned long class_member__print(struct class_member *self,
 
 		/* Is it a function pointer? */
 		if (class->tag == DW_TAG_pointer_type) {
-			struct class *ptr_class = cu__find_by_id(cu, class->type);
+			struct class *ptr_class =
+					cu__find_class_by_id(cu, class->type);
 
 			if (ptr_class != NULL &&
 			    ptr_class->tag == DW_TAG_subroutine_type) {
@@ -209,7 +216,8 @@ static unsigned long class_member__print(struct class_member *self,
 					strcpy(bf, "void");
 				else {
 					struct class *ret_class =
-					    cu__find_by_id(cu, ptr_class->type);
+					  cu__find_class_by_id(cu,
+							       ptr_class->type);
 
 					if (ret_class != NULL)
 						class_name = class__name(ret_class, cu,
@@ -324,7 +332,7 @@ static void class__print_function(struct class *self, const struct cu *cu)
 	if (self->type == 0)
 		type = "void";
 	else {
-		class_type = cu__find_by_id(cu, self->type);
+		class_type = cu__find_class_by_id(cu, self->type);
 		if (class_type != NULL)
 			type = class__name(class_type, cu, bf, sizeof(bf));
 	}
@@ -336,7 +344,7 @@ static void class__print_function(struct class *self, const struct cu *cu)
 		else
 			first_parameter = 0;
 		type = "<ERROR>";
-		class_type = cu__find_by_id(cu, pos->type);
+		class_type = cu__find_class_by_id(cu, pos->type);
 		if (class_type != NULL)
 			type = class__name(class_type, cu, bf, sizeof(bf));
 		printf("%s %s", type, pos->name);
@@ -417,18 +425,29 @@ void class__print(struct class *self, const struct cu *cu)
 	putchar('\n');
 }
 
-void classes__for_each(int (*iterator)(struct class *class, void *cookie),
-		       void *cookie)
+int cu__for_each_class(struct cu *cu,
+			int (*iterator)(struct cu *cu,
+					struct class *class,
+					void *cookie),
+			void *cookie)
 {
-	struct cu *cu_pos;
 
-	list_for_each_entry(cu_pos, &cus__list, node) {
-		struct class *class_pos;
+	struct class *pos;
 
-		list_for_each_entry(class_pos, &cu_pos->classes, node)
-			if (iterator(class_pos, cookie))
-				break;
-	}
+	list_for_each_entry(pos, &cu->classes, node)
+		if (iterator(cu, pos, cookie))
+			return 1;
+	return 0;
+}
+
+void cus__for_each_cu(int (*iterator)(struct cu *cu, void *cookie),
+		      void *cookie)
+{
+	struct cu *pos;
+
+	list_for_each_entry(pos, &cus__list, node)
+		if (iterator(pos, cookie))
+			break;
 }
 
 void classes__print(const unsigned int tag)
