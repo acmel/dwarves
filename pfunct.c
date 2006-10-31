@@ -34,39 +34,39 @@ static void usage(void)
 		"   -V, --verbose        be verbose\n");
 }
 
-static int class__has_parameter_of_type(struct class *self,
+static int class__has_parameter_of_type(struct cu *cu, struct class *self,
 					struct class *target)
 {
 	struct class_member *pos;
 
 	list_for_each_entry(pos, &self->members, node) {
-		struct class *class = classes__find_by_id(&pos->type);
+		struct class *class = cu__find_by_id(cu, pos->type);
 
 		if (class != NULL && class->tag == DW_TAG_pointer_type) {
-			class = classes__find_by_id(&class->type);
+			class = cu__find_by_id(cu, class->type);
 			if (class != NULL &&
-			    class->id.offset == target->id.offset)
+			    class->id == target->id)
 				return 1;
 		}
 	}
 	return 0;
 }
 
-static int class_iterator(struct class *class, void *cookie)
+static int class_iterator(struct class *class, struct cu *cu, void *cookie)
 {
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
-	if (class__has_parameter_of_type(class, cookie)) {
+	if (class__has_parameter_of_type(cu, class, cookie)) {
 		if (verbose)
-			class__print(class);
+			class__print(class, cu);
 		else
 			printf("%s\n", class->name);
 	}
 	return 0;
 }
 
-static int sizes_iterator(struct class *class, void *cookie)
+static int sizes_iterator(struct class *class, struct cu *cu, void *cookie)
 {
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
@@ -110,20 +110,30 @@ int main(int argc, char *argv[])
 	if (show_sizes)
 		classes__for_each(sizes_iterator, NULL);
 	else if (class_name != NULL) {
-		struct class *class = classes__find_by_name(class_name);
+		struct cu *cu = cus__find_by_id(0);
 
-		if (class == NULL)
-			printf("class %s not found!\n", class_name);
-		else
-			classes__for_each(class_iterator, class);
+		if (cu != NULL) {
+			struct class *class = cu__find_by_name(cu, class_name);
+
+			if (class != NULL)
+				classes__for_each(class_iterator, class);
+			else
+				printf("class %s not found!\n", class_name);
+		} else
+			printf("cu 0 not found!\n");
 	} else if (function_name == NULL)
 		classes__print(DW_TAG_subprogram);
 	else {
-		struct class *class = classes__find_by_name(function_name);
-		if (class != NULL)
-			class__print(class);
-		else
-			printf("function %s not found!\n", function_name);
+		struct cu *cu = cus__find_by_id(0);
+
+		if (cu != NULL) {
+			struct class *class = cu__find_by_name(cu, function_name);
+			if (class != NULL)
+				class__print(class, cu);
+			else
+				printf("function %s not found!\n", function_name);
+		} else
+			printf("cu 0 not found!\n");
 	}
 
 	return EXIT_SUCCESS;

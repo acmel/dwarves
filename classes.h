@@ -14,9 +14,10 @@
 
 #include "list.h"
 
-struct cu_info {
-	unsigned int	 cu;
-	uintmax_t	 offset;
+struct cu {
+	struct list_head node;
+	struct list_head classes;
+	unsigned int	 id;
 };
 
 struct class {
@@ -24,8 +25,8 @@ struct class {
 	struct list_head members;
 	char		 name[32];
 	unsigned long	 size;
-	struct cu_info	 id;
-	struct cu_info	 type;
+	unsigned int	 id;
+	unsigned int	 type;
 	unsigned int	 tag;		/* struct, union, base type, etc */
 	uintmax_t	 nr_entries;	/* For arrays */
 	uintmax_t	 low_pc;
@@ -40,7 +41,7 @@ struct class {
 struct class_member {
 	struct list_head node;
 	char		 name[32];
-	struct cu_info	 type;
+	unsigned int	 type;
 	unsigned int	 offset;
 	unsigned int	 bit_size;
 	unsigned int	 bit_offset;
@@ -48,14 +49,16 @@ struct class_member {
 					   one (or the end of the struct) */
 };
 
-extern void class__find_holes(struct class *self);
-extern void class__print(struct class *self);
+extern void class__find_holes(struct class *self, const struct cu *cu);
+extern void class__print(struct class *self, const struct cu *cu);
 
 extern int	    classes__load(const char *filename);
-extern struct class *classes__find_by_name(const char *name);
-extern struct class *classes__find_by_id(const struct cu_info *type);
+extern struct cu    *cus__find_by_id(const unsigned int type);
+extern struct class *cu__find_by_id(struct cu *cu, const unsigned int type);
+extern struct class *cu__find_by_name(struct cu *cu, const char *name);
 extern void	    classes__print(const unsigned int tag);
 extern void	    classes__for_each(int (*iterator)(struct class *class,
+						      struct cu *cu,
 						      void *cookie),
 				      void *cookie);
 

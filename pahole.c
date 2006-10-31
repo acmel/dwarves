@@ -30,12 +30,17 @@ int main(int argc, char *argv[])
 	if (argc == 2)
 		classes__print(DW_TAG_structure_type);
 	else {
-		struct class *class = classes__find_by_name(argv[2]);
-		if (class != NULL) {
-			class__find_holes(class);
-			class__print(class);
+		struct cu *cu = cus__find_by_id(0);
+
+		if (cu != NULL) {
+			struct class *class = cu__find_by_name(argv[2]);
+			if (class != NULL) {
+				class__find_holes(class, cu);
+				class__print(class, cu);
+			} else
+				printf("struct %s not found!\n", argv[2]);
 		} else
-			printf("struct %s not found!\n", argv[2]);
+			printf("cu 0 not found!\n");
 	}
 
 	return EXIT_SUCCESS;
