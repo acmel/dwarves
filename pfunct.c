@@ -19,6 +19,7 @@ static int verbose;
 static struct option long_options[] = {
 	{ "class",	  required_argument,	NULL, 'c' },
 	{ "goto_labels",  no_argument,		NULL, 'g' },
+	{ "help",	  no_argument,		NULL, 'h' },
 	{ "sizes",	  no_argument,		NULL, 's' },
 	{ "variables",	  no_argument,		NULL, 'S' },
 	{ "verbose",	  no_argument,		NULL, 'V' },
@@ -159,7 +160,8 @@ int main(int argc, char *argv[])
 		case 'S': show_variables = 1;	    break;
 		case 'g': show_goto_labels = 1;	    break;
 		case 'V': verbose    = 1;	    break;
-		default: usage();		    return EXIT_FAILURE;
+		case 'h': usage();		    return EXIT_SUCCESS;
+		default:  usage();		    return EXIT_FAILURE;
 		}
 
 	if (optind < argc) {
