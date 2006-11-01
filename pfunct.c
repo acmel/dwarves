@@ -17,9 +17,11 @@
 static int verbose;
 
 static struct option long_options[] = {
-	{ "class",	required_argument,	NULL, 'c' },
-	{ "sizes",	no_argument,		NULL, 's' },
-	{ "verbose",	no_argument,		NULL, 'V' },
+	{ "class",	  required_argument,	NULL, 'c' },
+	{ "goto_labels",  no_argument,		NULL, 'g' },
+	{ "sizes",	  no_argument,		NULL, 's' },
+	{ "variables",	  no_argument,		NULL, 'S' },
+	{ "verbose",	  no_argument,		NULL, 'V' },
 	{ NULL, 0, NULL, 0, }
 };
 
@@ -27,10 +29,12 @@ static void usage(void)
 {
 	fprintf(stderr,
 		"usage: pfunct [options] <file_name> {<function_name>}\n"
-		" where: \n",
+		" where: \n"
 		"   -c, --class=<class>  functions that have <class> "
 					"pointer parameters\n"
+		"   -g, --goto_labels    show number of goto labels in functions\n"
 		"   -s, --sizes          show size of functions\n"
+		"   -S, --variables	 show number of variables in functions\n"
 		"   -V, --verbose        be verbose\n");
 }
 
@@ -90,6 +94,36 @@ static int cu_sizes_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_class(cu, sizes_iterator, cookie);
 }
 
+static int variables_iterator(struct cu *cu, struct class *class, void *cookie)
+{
+	if (class->tag != DW_TAG_subprogram || class->inlined)
+		return 0;
+
+	if (class->nr_variables > 0)
+		printf("%s: %u\n", class->name, class->nr_variables);
+	return 0;
+}
+
+static int cu_variables_iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_class(cu, variables_iterator, cookie);
+}
+
+static int goto_labels_iterator(struct cu *cu, struct class *class, void *cookie)
+{
+	if (class->tag != DW_TAG_subprogram || class->inlined)
+		return 0;
+
+	if (class->nr_labels > 0)
+		printf("%s: %u\n", class->name, class->nr_labels);
+	return 0;
+}
+
+static int cu_goto_labels_iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_class(cu, goto_labels_iterator, cookie);
+}
+
 static int function_iterator(struct cu *cu, struct class *class, void *cookie)
 {
 	if (class->tag != DW_TAG_subprogram || class->inlined)
@@ -114,12 +148,16 @@ int main(int argc, char *argv[])
 	char *class_name = NULL;
 	char *function_name = NULL;
 	int show_sizes = 0;
+	int show_variables = 0;
+	int show_goto_labels = 0;
 
-	while ((option = getopt_long(argc, argv, "c:sV",
+	while ((option = getopt_long(argc, argv, "c:gsSV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': class_name = optarg;	    break;
 		case 's': show_sizes = 1;	    break;
+		case 'S': show_variables = 1;	    break;
+		case 'g': show_goto_labels = 1;	    break;
 		case 'V': verbose    = 1;	    break;
 		default: usage();		    return EXIT_FAILURE;
 		}
@@ -139,7 +177,11 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (show_sizes)
+	if (show_variables)
+		cus__for_each_cu(cu_variables_iterator, NULL);
+	else if (show_goto_labels)
+		cus__for_each_cu(cu_goto_labels_iterator, NULL);
+	else if (show_sizes)
 		cus__for_each_cu(cu_sizes_iterator, NULL);
 	else if (class_name != NULL)
 		cus__for_each_cu(cu_class_iterator, class_name);

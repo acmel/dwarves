@@ -265,6 +265,8 @@ static struct class *class__new(const unsigned int tag,
 		self->decl_file	  = decl_file;
 		self->decl_line	  = decl_line;
 		self->nr_holes	  = 0;
+		self->nr_labels	  = 0;
+		self->nr_variables = 0;
 		self->padding	  = 0;
 		self->inlined	  = inlined;
 		self->low_pc	  = low_pc;
@@ -354,7 +356,12 @@ static void class__print_function(struct class *self, const struct cu *cu)
 	if (first_parameter)
 		fputs("void", stdout);
 	fputs(");\n", stdout);
-	printf("/* size: %u */\n", self->high_pc - self->low_pc);
+	printf("/* size: %u", self->high_pc - self->low_pc);
+	if (self->nr_variables > 0)
+		printf(", variables: %u", self->nr_variables);
+	if (self->nr_labels > 0)
+		printf(", goto labels: %u", self->nr_labels);
+	fputs(" */\n", stdout);
 }
 
 static void class__print_struct(struct class *self, const struct cu *cu)
@@ -629,6 +636,10 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		class__add_member(classes__current_class, member);
 	} else if (tag == DW_TAG_subrange_type)
 		classes__current_class->nr_entries = attr_upper_bound(die);
+	else if (tag == DW_TAG_variable)
+		++classes__current_class->nr_variables;
+	else if (tag == DW_TAG_label)
+		++classes__current_class->nr_labels;
 	else {
 		const unsigned long size = attr_numeric(die, DW_AT_byte_size);
 		const unsigned short inlined = attr_numeric(die, DW_AT_inline);

@@ -34,6 +34,8 @@ struct class {
 	const char	 *decl_file;
 	unsigned int	 decl_line;
 	unsigned short	 nr_holes;
+	unsigned short	 nr_labels;
+	unsigned short	 nr_variables;
 	unsigned short	 padding;
 	unsigned short	 inlined;
 };
