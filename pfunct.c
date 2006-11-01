@@ -34,12 +34,14 @@ static void usage(void)
 	fprintf(stderr,
 		"usage: pfunct [options] <file_name> {<function_name>}\n"
 		" where: \n"
-		"   -c, --class=<class>  functions that have <class> "
-					"pointer parameters\n"
-		"   -g, --goto_labels    show number of goto labels in functions\n"
-		"   -s, --sizes          show size of functions\n"
-		"   -S, --variables	 show number of variables in functions\n"
-		"   -V, --verbose        be verbose\n");
+		"   -c, --class=<class>      functions that have <class> "
+					    "pointer parameters\n"
+		"   -g, --goto_labels        show number of goto labels in functions\n"
+		"   -s, --sizes              show size of functions\n"
+		"   -N, --function_name_len  show size of functions\n"
+		"   -p, --nr_parameters      show number or parameters in functions\n"
+		"   -S, --variables          show number of variables in functions\n"
+		"   -V, --verbose            be verbose\n");
 }
 
 static int class__has_parameter_of_type(struct cu *cu, struct class *self,
@@ -223,7 +225,7 @@ int main(int argc, char *argv[])
 		cus__for_each_cu(cu_goto_labels_iterator, NULL);
 	else if (show_sizes)
 		cus__for_each_cu(cu_sizes_iterator, NULL);
-	if (show_function_name_len)
+	else if (show_function_name_len)
 		cus__for_each_cu(cu_function_name_len_iterator, NULL);
 	else if (class_name != NULL)
 		cus__for_each_cu(cu_class_iterator, class_name);
