@@ -266,6 +266,7 @@ static struct class *class__new(const unsigned int tag,
 		self->decl_line	  = decl_line;
 		self->nr_holes	  = 0;
 		self->nr_labels	  = 0;
+		self->nr_members  = 0;
 		self->nr_variables = 0;
 		self->padding	  = 0;
 		self->inlined	  = inlined;
@@ -278,6 +279,7 @@ static struct class *class__new(const unsigned int tag,
 
 static void class__add_member(struct class *self, struct class_member *member)
 {
+	++self->nr_members;
 	list_add_tail(&member->node, &self->members);
 }
 

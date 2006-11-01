@@ -17,12 +17,13 @@
 static int verbose;
 
 static struct option long_options[] = {
-	{ "class",	  required_argument,	NULL, 'c' },
-	{ "goto_labels",  no_argument,		NULL, 'g' },
-	{ "help",	  no_argument,		NULL, 'h' },
-	{ "sizes",	  no_argument,		NULL, 's' },
-	{ "variables",	  no_argument,		NULL, 'S' },
-	{ "verbose",	  no_argument,		NULL, 'V' },
+	{ "class",	   required_argument,	NULL, 'c' },
+	{ "goto_labels",   no_argument,		NULL, 'g' },
+	{ "help",	   no_argument,		NULL, 'h' },
+	{ "nr_parameters", no_argument,		NULL, 'p' },
+	{ "sizes",	   no_argument,		NULL, 's' },
+	{ "variables",	   no_argument,		NULL, 'S' },
+	{ "verbose",	   no_argument,		NULL, 'V' },
 	{ NULL, 0, NULL, 0, }
 };
 
@@ -142,6 +143,21 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_class(cu, function_iterator, cookie);
 }
 
+static int nr_parameters_iterator(struct cu *cu, struct class *class, void *cookie)
+{
+	if (class->tag != DW_TAG_subprogram || class->inlined)
+		return 0;
+
+	if (class->nr_members > 0)
+		printf("%s: %u\n", class->name, class->nr_members);
+	return 0;
+}
+
+static int cu_nr_parameters_iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_class(cu, nr_parameters_iterator, cookie);
+}
+
 int main(int argc, char *argv[])
 {
 	int option, option_index;
@@ -151,13 +167,15 @@ int main(int argc, char *argv[])
 	int show_sizes = 0;
 	int show_variables = 0;
 	int show_goto_labels = 0;
+	int show_nr_parameters = 0;
 
-	while ((option = getopt_long(argc, argv, "c:gsSV",
+	while ((option = getopt_long(argc, argv, "c:gpsSV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': class_name = optarg;	    break;
 		case 's': show_sizes = 1;	    break;
 		case 'S': show_variables = 1;	    break;
+		case 'p': show_nr_parameters = 1;   break;
 		case 'g': show_goto_labels = 1;	    break;
 		case 'V': verbose    = 1;	    break;
 		case 'h': usage();		    return EXIT_SUCCESS;
@@ -179,7 +197,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (show_variables)
+	if (show_nr_parameters)
+		cus__for_each_cu(cu_nr_parameters_iterator, NULL);
+	else if (show_variables)
 		cus__for_each_cu(cu_variables_iterator, NULL);
 	else if (show_goto_labels)
 		cus__for_each_cu(cu_goto_labels_iterator, NULL);

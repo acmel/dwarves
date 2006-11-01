@@ -33,6 +33,7 @@ struct class {
 	uintmax_t	 high_pc;
 	const char	 *decl_file;
 	unsigned int	 decl_line;
+	unsigned short	 nr_members;
 	unsigned short	 nr_holes;
 	unsigned short	 nr_labels;
 	unsigned short	 nr_variables;
