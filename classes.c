@@ -646,7 +646,12 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		++classes__current_class->nr_variables;
 	else if (tag == DW_TAG_label)
 		++classes__current_class->nr_labels;
-	else {
+	else if (tag == DW_TAG_lexical_block) {
+		/*
+		 * Not handled right now,
+		 * will be used for stack size calculation
+		 */
+	} else {
 		const unsigned long size = attr_numeric(die, DW_AT_byte_size);
 		const unsigned short inlined = attr_numeric(die, DW_AT_inline);
 		const uintmax_t	low_pc = attr_numeric(die, DW_AT_low_pc);
