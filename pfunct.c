@@ -71,7 +71,7 @@ static int class_iterator(struct cu *cu, struct class *class, void *cookie)
 		if (verbose)
 			class__print(class, cu);
 		else
-			printf("%s\n", class->name);
+			printf("%s\n", class->name ?: "");
 	}
 	return 0;
 }
@@ -91,7 +91,7 @@ static int sizes_iterator(struct cu *cu, struct class *class, void *cookie)
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
-	printf("%s: %u\n", class->name, class->high_pc - class->low_pc);
+	printf("%s: %u\n", class->name ?: "", class->high_pc - class->low_pc);
 	return 0;
 }
 
@@ -106,7 +106,7 @@ static int variables_iterator(struct cu *cu, struct class *class, void *cookie)
 		return 0;
 
 	if (class->nr_variables > 0)
-		printf("%s: %u\n", class->name, class->nr_variables);
+		printf("%s: %u\n", class->name ?: "", class->nr_variables);
 	return 0;
 }
 
@@ -121,7 +121,7 @@ static int goto_labels_iterator(struct cu *cu, struct class *class, void *cookie
 		return 0;
 
 	if (class->nr_labels > 0)
-		printf("%s: %u\n", class->name, class->nr_labels);
+		printf("%s: %u\n", class->name ?: "", class->nr_labels);
 	return 0;
 }
 
@@ -135,7 +135,7 @@ static int function_iterator(struct cu *cu, struct class *class, void *cookie)
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
-	if (strcmp(class->name, cookie) == 0) {
+	if (class->name != NULL && strcmp(class->name, cookie) == 0) {
 		class__print(class, cu);
 		return 1;
 	}
@@ -153,7 +153,7 @@ static int nr_parameters_iterator(struct cu *cu, struct class *class, void *cook
 		return 0;
 
 	if (class->nr_members > 0)
-		printf("%s: %u\n", class->name, class->nr_members);
+		printf("%s: %u\n", class->name ?: "", class->nr_members);
 	return 0;
 }
 
@@ -167,7 +167,8 @@ static int function_name_len_iterator(struct cu *cu, struct class *class, void *
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
-	printf("%s: %u\n", class->name, strlen(class->name));
+	if (class->name != NULL)
+		printf("%s: %u\n", class->name, strlen(class->name));
 	return 0;
 }
 

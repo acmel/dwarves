@@ -66,7 +66,7 @@ struct class *cu__find_class_by_name(struct cu *self, const char *name)
 	struct class *pos;
 
 	list_for_each_entry(pos, &self->classes, node)
-		if (strcmp(pos->name, name) == 0)
+		if (pos->name != NULL && strcmp(pos->name, name) == 0)
 			return pos;
 
 	return NULL;
@@ -154,7 +154,8 @@ static const char *class__name(struct class *self, const struct cu *cu,
 		if (ptr_class != NULL)
 			return class__name(ptr_class, cu, bf, len);
 	} else
-		snprintf(bf, len, "%s%s", tag_name(self->tag), self->name);
+		snprintf(bf, len, "%s%s", tag_name(self->tag),
+			 self->name ?: "");
 	return bf;
 }
 
@@ -173,7 +174,7 @@ static struct class_member *class_member__new(uintmax_t type,
 		self->bit_offset  = bit_offset;
 
 		if (name != NULL)
-			strncpy(self->name, name, sizeof(self->name));
+			self->name = strdup(name);
 	}
 
 	return self;
@@ -197,7 +198,7 @@ static unsigned long class_member__print(struct class_member *self,
 	unsigned long size = -1;
 
 	snprintf(member_name_bf, sizeof(member_name_bf),
-		 "%s;", self->name);
+		 "%s;", self->name ?: "");
 
 	if (class == NULL)
 		snprintf(bf, sizeof(bf), "<%x>", self->type);
@@ -225,7 +226,7 @@ static unsigned long class_member__print(struct class_member *self,
 									 sizeof(class_name_bf));
 				}
 				snprintf(member_name_bf, sizeof(member_name_bf),
-					 "(*%s)();", self->name);
+					 "(*%s)();", self->name ?: "");
 				goto out;
 			}
 		}
@@ -233,10 +234,12 @@ static unsigned long class_member__print(struct class_member *self,
 		class_name = class__name(class, cu, class_name_bf, sizeof(class_name_bf));
 		if (class->tag == DW_TAG_array_type)
 			snprintf(member_name_bf, sizeof(member_name_bf),
-				 "%s[%lu];", self->name, class->nr_entries);
+				 "%s[%lu];", self->name ?: "",
+				 class->nr_entries);
 		else if (self->bit_size != 0)
 			snprintf(member_name_bf, sizeof(member_name_bf),
-				 "%s:%d;", self->name, self->bit_size);
+				 "%s:%d;", self->name ?: "",
+				 self->bit_size);
 	}
 out:
 	printf("        %-26s %-21s /* %5d %5lu */\n",
@@ -259,9 +262,9 @@ static struct class *class__new(const unsigned int tag,
 		self->id	  = cu_offset;
 		self->type	  = type;
 		self->size	  = size;
-		self->name[0]	  = '\0';
+		self->name	  = NULL;
 		if (name != NULL)
-			strncpy(self->name, name, sizeof(self->name));
+			self->name = strdup(name);
 		self->decl_file	  = decl_file;
 		self->decl_line	  = decl_line;
 		self->nr_holes	  = 0;
@@ -341,7 +344,8 @@ static void class__print_function(struct class *self, const struct cu *cu)
 			type = class__name(class_type, cu, bf, sizeof(bf));
 	}
 
-	printf("%s%s %s(", self->inlined ? "inline " : "", type, self->name);
+	printf("%s%s %s(", self->inlined ? "inline " : "",
+	       type, self->name ?: "");
 	list_for_each_entry(pos, &self->members, node) {
 		if (!first_parameter)
 			fputs(", ", stdout);
@@ -351,7 +355,7 @@ static void class__print_function(struct class *self, const struct cu *cu)
 		class_type = cu__find_class_by_id(cu, pos->type);
 		if (class_type != NULL)
 			type = class__name(class_type, cu, bf, sizeof(bf));
-		printf("%s %s", type, pos->name);
+		printf("%s %s", type, pos->name ?: "");
 	}
 
 	/* No parameters? */
@@ -428,7 +432,7 @@ void class__print(struct class *self, const struct cu *cu)
 		class__print_function(self, cu);
 		break;
 	default:
-		printf("%s%s;\n", tag_name(self->tag), self->name);
+		printf("%s%s;\n", tag_name(self->tag), self->name ?: "");
 		break;
 	}
 	putchar('\n');
@@ -467,7 +471,7 @@ void classes__print(const unsigned int tag)
 		struct class *class_pos;
 
 		list_for_each_entry(class_pos, &cu_pos->classes, node)
-			if (class_pos->tag == tag && class_pos->name[0] != '\0') {
+			if (class_pos->tag == tag && class_pos->name != NULL) {
 				if (tag == DW_TAG_structure_type) {
 					class__find_holes(class_pos, cu_pos);
 					if (class_pos->nr_holes == 0)

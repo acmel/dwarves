@@ -23,7 +23,7 @@ struct cu {
 struct class {
 	struct list_head node;
 	struct list_head members;
-	char		 name[128];
+	const char	 *name;
 	unsigned long	 size;
 	unsigned int	 id;
 	unsigned int	 type;
@@ -43,7 +43,7 @@ struct class {
 
 struct class_member {
 	struct list_head node;
-	char		 name[128];
+	char		 *name;
 	unsigned int	 type;
 	unsigned int	 offset;
 	unsigned int	 bit_size;
