@@ -23,6 +23,7 @@ struct cu {
 struct class {
 	struct list_head node;
 	struct list_head members;
+	struct list_head inline_expansions;
 	const char	 *name;
 	unsigned long	 size;
 	unsigned int	 id;
@@ -39,6 +40,8 @@ struct class {
 	unsigned short	 nr_variables;
 	unsigned short	 padding;
 	unsigned short	 inlined;
+	unsigned short	 nr_inline_expansions;
+	unsigned int	 size_inline_expansions;
 };
 
 struct class_member {
@@ -52,6 +55,12 @@ struct class_member {
 					   one (or the end of the struct) */
 };
 
+struct inline_expansion {
+	struct list_head node;
+	unsigned int	 type;
+	unsigned int	 size;
+};
+
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern void class__print(struct class *self, const struct cu *cu);
 
@@ -61,6 +70,8 @@ extern struct class *cu__find_class_by_id(const struct cu *cu,
 					  const unsigned int type);
 extern struct class *cu__find_class_by_name(struct cu *cu, const char *name);
 extern void	    classes__print(const unsigned int tag);
+extern void	    class__print_inline_expansions(struct class *self,
+						   const struct cu *cu);
 extern struct class *cus__find_class_by_name(struct cu **cu, const char *name);
 extern int	    cu__for_each_class(struct cu *cu,
 				       int (*iterator)(struct cu *cu,

@@ -16,16 +16,18 @@
 #include "classes.h"
 
 static int verbose;
+static int show_inline_expansions;
 
 static struct option long_options[] = {
-	{ "class",		required_argument,	NULL, 'c' },
-	{ "function_name_len",	no_argument,		NULL, 'N' },
-	{ "goto_labels",	no_argument,		NULL, 'g' },
-	{ "help",		no_argument,		NULL, 'h' },
-	{ "nr_parameters",	no_argument,		NULL, 'p' },
-	{ "sizes",		no_argument,		NULL, 's' },
-	{ "variables",		no_argument,		NULL, 'S' },
-	{ "verbose",		no_argument,		NULL, 'V' },
+	{ "class",			required_argument,	NULL, 'c' },
+	{ "function_name_len",		no_argument,		NULL, 'N' },
+	{ "goto_labels",		no_argument,		NULL, 'g' },
+	{ "show_inline_expansions",	no_argument,		NULL, 'i' },
+	{ "help",			no_argument,		NULL, 'h' },
+	{ "nr_parameters",		no_argument,		NULL, 'p' },
+	{ "sizes",			no_argument,		NULL, 's' },
+	{ "variables",			no_argument,		NULL, 'S' },
+	{ "verbose",			no_argument,		NULL, 'V' },
 	{ NULL, 0, NULL, 0, }
 };
 
@@ -34,14 +36,15 @@ static void usage(void)
 	fprintf(stderr,
 		"usage: pfunct [options] <file_name> {<function_name>}\n"
 		" where: \n"
-		"   -c, --class=<class>      functions that have <class> "
-					    "pointer parameters\n"
-		"   -g, --goto_labels        show number of goto labels in functions\n"
-		"   -s, --sizes              show size of functions\n"
-		"   -N, --function_name_len  show size of functions\n"
-		"   -p, --nr_parameters      show number or parameters in functions\n"
-		"   -S, --variables          show number of variables in functions\n"
-		"   -V, --verbose            be verbose\n");
+		"   -c, --class=<class>           functions that have <class> "
+					         "pointer parameters\n"
+		"   -g, --goto_labels             show number of goto labels\n"
+		"   -i, --show_inline_expansions  show inline expansions\n"
+		"   -s, --sizes                   show size of functions\n"
+		"   -N, --function_name_len       show size of functions\n"
+		"   -p, --nr_parameters           show number or parameters\n"
+		"   -S, --variables               show number of variables\n"
+		"   -V, --verbose                 be verbose\n");
 }
 
 static int class__has_parameter_of_type(struct cu *cu, struct class *self,
@@ -135,8 +138,15 @@ static int function_iterator(struct cu *cu, struct class *class, void *cookie)
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
-	if (class->name != NULL && strcmp(class->name, cookie) == 0) {
+	if (cookie == NULL) {
+		if (class->nr_inline_expansions > 0)
+			printf("%s: %u %u\n", class->name ?: "",
+			       class->nr_inline_expansions,
+			       class->size_inline_expansions);
+	} else if (class->name != NULL && strcmp(class->name, cookie) == 0) {
 		class__print(class, cu);
+		if (show_inline_expansions)
+			class__print_inline_expansions(class, cu);
 		return 1;
 	}
 	return 0;
@@ -188,19 +198,22 @@ int main(int argc, char *argv[])
 	int show_goto_labels = 0;
 	int show_nr_parameters = 0;
 	int show_function_name_len = 0;
+	int show_inline_expansions_stats = 0;
 
-	while ((option = getopt_long(argc, argv, "c:gNpsSV",
+	while ((option = getopt_long(argc, argv, "c:giINpsSV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
-		case 'c': class_name = optarg;		break;
-		case 's': show_sizes = 1;		break;
-		case 'S': show_variables = 1;		break;
-		case 'p': show_nr_parameters = 1;	break;
-		case 'g': show_goto_labels = 1;		break;
-		case 'N': show_function_name_len = 1;	break;
-		case 'V': verbose = 1;			break;
-		case 'h': usage();			return EXIT_SUCCESS;
-		default:  usage();			return EXIT_FAILURE;
+		case 'c': class_name = optarg;			break;
+		case 's': show_sizes = 1;			break;
+		case 'S': show_variables = 1;			break;
+		case 'p': show_nr_parameters = 1;		break;
+		case 'g': show_goto_labels = 1;			break;
+		case 'i': show_inline_expansions = 1;		break;
+		case 'I': show_inline_expansions_stats = 1;	break;
+		case 'N': show_function_name_len = 1;		break;
+		case 'V': verbose = 1;				break;
+		case 'h': usage(); return EXIT_SUCCESS;
+		default:  usage(); return EXIT_FAILURE;
 		}
 
 	if (optind < argc) {
@@ -230,7 +243,7 @@ int main(int argc, char *argv[])
 		cus__for_each_cu(cu_function_name_len_iterator, NULL);
 	else if (class_name != NULL)
 		cus__for_each_cu(cu_class_iterator, class_name);
-	else if (function_name == NULL)
+	else if (function_name == NULL && !show_inline_expansions_stats)
 		classes__print(DW_TAG_subprogram);
 	else
 		cus__for_each_cu(cu_function_iterator, function_name);

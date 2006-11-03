@@ -247,6 +247,19 @@ out:
 	return size;
 }
 
+static struct inline_expansion *inline_expansion__new(uintmax_t type,
+						      unsigned int size)
+{
+	struct inline_expansion *self = zalloc(sizeof(*self));
+
+	if (self != NULL) {
+		self->type = type;
+		self->size = size;
+	}
+
+	return self;
+}
+
 static struct class *class__new(const unsigned int tag,
 				uintmax_t cu_offset, uintmax_t type,
 				const char *name, unsigned int size,
@@ -258,6 +271,7 @@ static struct class *class__new(const unsigned int tag,
 
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->members);
+		INIT_LIST_HEAD(&self->inline_expansions);
 		self->tag	  = tag;
 		self->id	  = cu_offset;
 		self->type	  = type;
@@ -272,6 +286,8 @@ static struct class *class__new(const unsigned int tag,
 		self->nr_members  = 0;
 		self->nr_variables = 0;
 		self->padding	  = 0;
+		self->nr_inline_expansions = 0;
+		self->size_inline_expansions = 0;
 		self->inlined	  = inlined;
 		self->low_pc	  = low_pc;
 		self->high_pc	  = high_pc;
@@ -284,6 +300,14 @@ static void class__add_member(struct class *self, struct class_member *member)
 {
 	++self->nr_members;
 	list_add_tail(&member->node, &self->members);
+}
+
+static void class__add_inline_expansion(struct class *self,
+					struct inline_expansion *exp)
+{
+	++self->nr_inline_expansions;
+	self->size_inline_expansions += exp->size;
+	list_add_tail(&exp->node, &self->inline_expansions);
 }
 
 void class__find_holes(struct class *self, const struct cu *cu)
@@ -328,6 +352,27 @@ void class__find_holes(struct class *self, const struct cu *cu)
 		self->padding = self->size - (last->offset + last_size);
 }
 
+void class__print_inline_expansions(struct class *self, const struct cu *cu)
+{
+	char bf[256];
+	struct class *class_type;
+	const char *type = "<ERROR>";
+	struct inline_expansion *pos;
+
+	if (self->nr_inline_expansions == 0)
+		return;
+
+	printf("/* inline expansions in %s:\n", self->name);
+	list_for_each_entry(pos, &self->inline_expansions, node) {
+		type = "<ERROR>";
+		class_type = cu__find_class_by_id(cu, pos->type);
+		if (class_type != NULL)
+			type = class__name(class_type, cu, bf, sizeof(bf));
+		printf("%s: %u\n", type, pos->size);
+	}
+	fputs("*/\n", stdout);
+}
+
 static void class__print_function(struct class *self, const struct cu *cu)
 {
 	char bf[256];
@@ -367,6 +412,9 @@ static void class__print_function(struct class *self, const struct cu *cu)
 		printf(", variables: %u", self->nr_variables);
 	if (self->nr_labels > 0)
 		printf(", goto labels: %u", self->nr_labels);
+	if (self->nr_inline_expansions > 0)
+		printf(", inline expansions: %u (%u bytes)",
+		       self->nr_inline_expansions, self->size_inline_expansions);
 	fputs(" */\n", stdout);
 }
 
@@ -646,7 +694,32 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		++classes__current_class->nr_variables;
 	else if (tag == DW_TAG_label)
 		++classes__current_class->nr_labels;
-	else if (tag == DW_TAG_lexical_block) {
+	else if (tag == DW_TAG_inlined_subroutine) {
+		const uintmax_t	low_pc = attr_numeric(die, DW_AT_low_pc);
+		const uintmax_t	high_pc = attr_numeric(die, DW_AT_high_pc);
+		const uintmax_t	type  = attr_numeric(die, DW_AT_abstract_origin);
+		unsigned int size = high_pc - low_pc;
+		struct inline_expansion *exp;
+		
+		if (size == 0) {
+			Dwarf_Addr base, start, end;
+			ptrdiff_t offset = 0;
+
+			while (1) {
+				offset = dwarf_ranges(die, offset, &base, &start, &end);
+				if (offset <= 0)
+					break;
+				size += end - start;
+			}
+		}
+
+		exp = inline_expansion__new(type, size);
+		if (exp == NULL)
+			oom("inline_expansion__new");
+
+		class__add_inline_expansion(classes__current_class, exp);
+		goto next_sibling;
+	} else if (tag == DW_TAG_lexical_block) {
 		/*
 		 * Not handled right now,
 		 * will be used for stack size calculation
@@ -674,6 +747,7 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
 		classes__process_die(dwarf, &child);
+next_sibling:
 	if (dwarf_siblingof (die, die) == 0)
 		classes__process_die(dwarf, die);
 }
