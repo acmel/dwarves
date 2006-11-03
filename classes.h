@@ -25,13 +25,13 @@ struct class {
 	struct list_head members;
 	struct list_head inline_expansions;
 	const char	 *name;
-	unsigned long	 size;
+	uint64_t	 size;
 	unsigned int	 id;
 	unsigned int	 type;
 	unsigned int	 tag;		/* struct, union, base type, etc */
 	uintmax_t	 nr_entries;	/* For arrays */
-	uintmax_t	 low_pc;
-	uintmax_t	 high_pc;
+	uint64_t	 low_pc;
+	uint64_t	 high_pc;
 	const char	 *decl_file;
 	unsigned int	 decl_line;
 	unsigned short	 nr_members;
@@ -58,7 +58,7 @@ struct class_member {
 struct inline_expansion {
 	struct list_head node;
 	unsigned int	 type;
-	unsigned int	 size;
+	uint64_t	 size;
 };
 
 extern void class__find_holes(struct class *self, const struct cu *cu);

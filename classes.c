@@ -248,7 +248,7 @@ out:
 }
 
 static struct inline_expansion *inline_expansion__new(uintmax_t type,
-						      unsigned int size)
+						      uint64_t size)
 {
 	struct inline_expansion *self = zalloc(sizeof(*self));
 
@@ -265,7 +265,7 @@ static struct class *class__new(const unsigned int tag,
 				const char *name, unsigned int size,
 				const char *decl_file, unsigned int decl_line,
 				unsigned short inlined,
-				uintmax_t low_pc, uintmax_t high_pc)
+				uint64_t low_pc, uint64_t high_pc)
 {
 	struct class *self = malloc(sizeof(*self));
 
@@ -407,7 +407,7 @@ static void class__print_function(struct class *self, const struct cu *cu)
 	if (first_parameter)
 		fputs("void", stdout);
 	fputs(");\n", stdout);
-	printf("/* size: %u", self->high_pc - self->low_pc);
+	printf("/* size: %llu", self->high_pc - self->low_pc);
 	if (self->nr_variables > 0)
 		printf(", variables: %u", self->nr_variables);
 	if (self->nr_labels > 0)
@@ -453,7 +453,7 @@ static void class__print_struct(struct class *self, const struct cu *cu)
 		 last_bit_size = pos->bit_size;
 	}
 
-	printf("}; /* size: %d", self->size);
+	printf("}; /* size: %lld", self->size);
 	if (sum_holes > 0)
 		printf(", sum members: %lu, holes: %d, sum holes: %lu",
 		       sum, self->nr_holes, sum_holes);
@@ -695,12 +695,13 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 	else if (tag == DW_TAG_label)
 		++classes__current_class->nr_labels;
 	else if (tag == DW_TAG_inlined_subroutine) {
-		const uintmax_t	low_pc = attr_numeric(die, DW_AT_low_pc);
-		const uintmax_t	high_pc = attr_numeric(die, DW_AT_high_pc);
+		Dwarf_Addr high_pc, low_pc;
+		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
+		if (dwarf_lowpc(die, &low_pc)) low_pc = 0;
 		const uintmax_t	type  = attr_numeric(die, DW_AT_abstract_origin);
-		unsigned int size = high_pc - low_pc;
+		uint64_t size = high_pc - low_pc;
 		struct inline_expansion *exp;
-		
+
 		if (size == 0) {
 			Dwarf_Addr base, start, end;
 			ptrdiff_t offset = 0;
@@ -725,10 +726,11 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		 * will be used for stack size calculation
 		 */
 	} else {
-		const unsigned long size = attr_numeric(die, DW_AT_byte_size);
+		unsigned long size = attr_numeric(die, DW_AT_byte_size);
 		const unsigned short inlined = attr_numeric(die, DW_AT_inline);
-		const uintmax_t	low_pc = attr_numeric(die, DW_AT_low_pc);
-		const uintmax_t	high_pc = attr_numeric(die, DW_AT_high_pc);
+		Dwarf_Addr high_pc, low_pc;
+		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
+		if (dwarf_lowpc(die, &low_pc)) low_pc = 0;
 		const char *decl_file  = dwarf_decl_file(die);
 		unsigned int decl_line = 0;
 
