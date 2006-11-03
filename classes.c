@@ -34,12 +34,16 @@ static void cus__add(struct cu *cu)
 	list_add_tail(&cu->node, &cus__list);
 }
 
-static struct cu *cu__new(unsigned int cu)
+static struct cu *cu__new(unsigned int cu, const char *name)
 {
 	struct cu *self = malloc(sizeof(*self));
 
-	if (self != NULL)
+	if (self != NULL) {
 		INIT_LIST_HEAD(&self->classes);
+		self->name = name != NULL ? strdup(name) : NULL;
+		self->nr_inline_expansions   = 0;
+		self->size_inline_expansions = 0;
+	}
 
 	return self;
 }
@@ -350,6 +354,17 @@ void class__find_holes(struct class *self, const struct cu *cu)
 
 	if (last != NULL && last->offset + last_size != self->size)
 		self->padding = self->size - (last->offset + last_size);
+}
+
+
+void cu__account_inline_expansions(struct cu *self)
+{
+	struct class *pos;
+
+	list_for_each_entry(pos, &self->classes, node) {
+		self->nr_inline_expansions   += pos->nr_inline_expansions;
+		self->size_inline_expansions += pos->size_inline_expansions;
+	}
 }
 
 void class__print_inline_expansions(struct class *self, const struct cu *cu)
@@ -776,7 +791,10 @@ int classes__load(const char *filename)
 		Dwarf_Die die;
 
 		if (dwarf_offdie(dwarf, last_offset + hdr_size, &die) != NULL) {
-			current_cu = cu__new(current_cu_id);
+			Dwarf_Attribute name;
+			current_cu = cu__new(current_cu_id,
+					     attr_string(&die, DW_AT_name,
+						     	 &name));
 			if (current_cu == NULL)
 				oom("cu__new");
 			++current_cu_id;

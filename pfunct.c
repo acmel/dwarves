@@ -20,6 +20,7 @@ static int show_inline_expansions;
 
 static struct option long_options[] = {
 	{ "class",			required_argument,	NULL, 'c' },
+	{ "cu_inline_expansions_stats",	no_argument,		NULL, 'C' },
 	{ "function_name_len",		no_argument,		NULL, 'N' },
 	{ "goto_labels",		no_argument,		NULL, 'g' },
 	{ "show_inline_expansions",	no_argument,		NULL, 'i' },
@@ -36,15 +37,16 @@ static void usage(void)
 	fprintf(stderr,
 		"usage: pfunct [options] <file_name> {<function_name>}\n"
 		" where: \n"
-		"   -c, --class=<class>           functions that have <class> "
-					         "pointer parameters\n"
-		"   -g, --goto_labels             show number of goto labels\n"
-		"   -i, --show_inline_expansions  show inline expansions\n"
-		"   -s, --sizes                   show size of functions\n"
-		"   -N, --function_name_len       show size of functions\n"
-		"   -p, --nr_parameters           show number or parameters\n"
-		"   -S, --variables               show number of variables\n"
-		"   -V, --verbose                 be verbose\n");
+		"   -c, --class=<class>               functions that have <class> "
+					             "pointer parameters\n"
+		"   -g, --goto_labels                 show number of goto labels\n"
+		"   -i, --show_inline_expansions      show inline expansions\n"
+		"   -C, --cu_inline_expansions_stats  show CU inline expansions stats\n"
+		"   -s, --sizes                       show size of functions\n"
+		"   -N, --function_name_len           show size of functions\n"
+		"   -p, --nr_parameters               show number or parameters\n"
+		"   -S, --variables                   show number of variables\n"
+		"   -V, --verbose                     be verbose\n");
 }
 
 static int class__has_parameter_of_type(struct cu *cu, struct class *self,
@@ -157,6 +159,15 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_class(cu, function_iterator, cookie);
 }
 
+static int cu_inlines_iterator(struct cu *cu, void *cookie)
+{
+	cu__account_inline_expansions(cu);
+	if (cu->nr_inline_expansions > 0)
+		printf("%s: %lu %lu\n", cu->name, cu->nr_inline_expansions,
+		       cu->size_inline_expansions);
+	return 0;
+}
+
 static int nr_parameters_iterator(struct cu *cu, struct class *class, void *cookie)
 {
 	if (class->tag != DW_TAG_subprogram || class->inlined)
@@ -199,11 +210,13 @@ int main(int argc, char *argv[])
 	int show_nr_parameters = 0;
 	int show_function_name_len = 0;
 	int show_inline_expansions_stats = 0;
+	int show_inline_stats = 0;
 
-	while ((option = getopt_long(argc, argv, "c:giINpsSV",
+	while ((option = getopt_long(argc, argv, "c:CgiINpsSV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': class_name = optarg;			break;
+		case 'C': show_inline_stats = 1;		break;
 		case 's': show_sizes = 1;			break;
 		case 'S': show_variables = 1;			break;
 		case 'p': show_nr_parameters = 1;		break;
@@ -231,7 +244,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (show_nr_parameters)
+	if (show_inline_stats)
+		cus__for_each_cu(cu_inlines_iterator, NULL);
+	else if (show_nr_parameters)
 		cus__for_each_cu(cu_nr_parameters_iterator, NULL);
 	else if (show_variables)
 		cus__for_each_cu(cu_variables_iterator, NULL);

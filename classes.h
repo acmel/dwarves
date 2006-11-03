@@ -17,7 +17,10 @@
 struct cu {
 	struct list_head node;
 	struct list_head classes;
+	const char	 *name;
 	unsigned int	 id;
+	unsigned long	 nr_inline_expansions;
+	unsigned long	 size_inline_expansions;
 };
 
 struct class {
@@ -73,6 +76,7 @@ extern void	    classes__print(const unsigned int tag);
 extern void	    class__print_inline_expansions(struct class *self,
 						   const struct cu *cu);
 extern struct class *cus__find_class_by_name(struct cu **cu, const char *name);
+extern void	    cu__account_inline_expansions(struct cu *self);
 extern int	    cu__for_each_class(struct cu *cu,
 				       int (*iterator)(struct cu *cu,
 						       struct class *class,
