@@ -45,6 +45,8 @@ struct class {
 	unsigned short	 inlined;
 	unsigned short	 nr_inline_expansions;
 	unsigned int	 size_inline_expansions;
+	unsigned int	 cu_total_nr_inline_expansions;
+	unsigned long	 cu_total_size_inline_expansions;
 };
 
 struct class_member {

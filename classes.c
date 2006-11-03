@@ -295,6 +295,8 @@ static struct class *class__new(const unsigned int tag,
 		self->inlined	  = inlined;
 		self->low_pc	  = low_pc;
 		self->high_pc	  = high_pc;
+		self->cu_total_nr_inline_expansions = 0;
+		self->cu_total_size_inline_expansions = 0;
 	}
 
 	return self;
@@ -356,12 +358,30 @@ void class__find_holes(struct class *self, const struct cu *cu)
 		self->padding = self->size - (last->offset + last_size);
 }
 
+void class__account_inline_expansions(struct class *self, struct cu *cu)
+{
+	struct class *class_type;
+	struct inline_expansion *pos;
+
+	if (self->nr_inline_expansions == 0)
+		return;
+
+	list_for_each_entry(pos, &self->inline_expansions, node) {
+		class_type = cu__find_class_by_id(cu, pos->type);
+		if (class_type != NULL) {
+			class_type->cu_total_nr_inline_expansions++;
+			class_type->cu_total_size_inline_expansions += pos->size;
+		}
+
+	}
+}
 
 void cu__account_inline_expansions(struct cu *self)
 {
 	struct class *pos;
 
 	list_for_each_entry(pos, &self->classes, node) {
+		class__account_inline_expansions(pos, self);
 		self->nr_inline_expansions   += pos->nr_inline_expansions;
 		self->size_inline_expansions += pos->size_inline_expansions;
 	}

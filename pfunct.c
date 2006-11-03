@@ -159,12 +159,26 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_class(cu, function_iterator, cookie);
 }
 
+static int inlines_iterator(struct cu *cu, struct class *class, void *cookie)
+{
+	if (class->tag != DW_TAG_subprogram || !class->inlined)
+		return 0;
+
+	if (class->name != NULL)
+		printf("%s: %lu %lu\n", class->name,
+		       class->cu_total_nr_inline_expansions,
+		       class->cu_total_size_inline_expansions);
+	return 0;
+}
+
 static int cu_inlines_iterator(struct cu *cu, void *cookie)
 {
 	cu__account_inline_expansions(cu);
-	if (cu->nr_inline_expansions > 0)
+	if (cu->nr_inline_expansions > 0) {
 		printf("%s: %lu %lu\n", cu->name, cu->nr_inline_expansions,
 		       cu->size_inline_expansions);
+		cu__for_each_class(cu, inlines_iterator, cookie);
+	}
 	return 0;
 }
 
