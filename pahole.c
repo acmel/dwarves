@@ -14,11 +14,85 @@
 
 #include "classes.h"
 
+struct structure {
+	struct list_head   node;
+	const struct class *class;
+	unsigned int	   nr_files;
+};
+
+static struct structure *structure__new(const struct class *class)
+{
+	struct structure *self = malloc(sizeof(*self));
+
+	if (self != NULL) {
+		self->class = class;
+		self->nr_files = 1;
+	}
+
+	return self;
+}
+
+static LIST_HEAD(structures__list);
+
+static struct structure *structures__find(const char *name)
+{
+	struct structure *pos;
+
+	list_for_each_entry(pos, &structures__list, node)
+		if (strcmp(pos->class->name, name) == 0)
+			return pos;
+	return NULL;
+}
+
+static void structures__add(const struct class *class)
+{
+	struct structure *str = structures__find(class->name);
+
+	if (str == NULL) {
+		str = structure__new(class);
+		if (str != NULL)
+			list_add(&str->node, &structures__list);
+	} else {
+		if (str->class->size != class->size)
+			printf("%s size changed! was %llu, now its %llu\n",
+			       class->name, str->class->size, class->size);
+		str->nr_files++;
+	}
+}
+
+static void structure__print(struct structure *self)
+{
+	printf("%-32.32s %5lu\n", self->class->name, self->nr_files);
+}
+
+static void print_total_structure_stats(void)
+{
+	struct structure *pos;
+
+	printf("%-32.32s %5.5s\n", "name", "src#");
+	list_for_each_entry(pos, &structures__list, node)
+		structure__print(pos);
+}
+
+static int total_structure_iterator(struct cu *cu, struct class *class, void *cookie)
+{
+	if (class->tag == DW_TAG_structure_type && class->name != NULL)
+		structures__add(class);
+	return 0;
+}
+
+static int cu_total_structure_iterator(struct cu *cu, void *cookie)
+{
+	cu__for_each_class(cu, total_structure_iterator, cookie);
+	return 0;
+}
+
 static struct option long_options[] = {
 	{ "class_name_len",	no_argument,		NULL, 'N' },
 	{ "help",		no_argument,		NULL, 'h' },
 	{ "nr_members",		no_argument,		NULL, 'n' },
 	{ "sizes",		no_argument,		NULL, 's' },
+	{ "total_struct_stats",	no_argument,		NULL, 't' },
 	{ NULL, 0, NULL, 0, }
 };
 
@@ -27,10 +101,11 @@ static void usage(void)
 	fprintf(stderr,
 		"usage: pfunct [options] <file_name> {<function_name>}\n"
 		" where: \n"
-		"   -h, --help            show usage info\n"
-		"   -N, --class_name_len  show size of classes\n"
-		"   -s, --sizes           show size of classes\n"
-		"   -m, --nr_members	  show number of members in classes\n");
+		"   -h, --help                show usage info\n"
+		"   -m, --nr_members	      show number of members\n"
+		"   -N, --class_name_len      show size of classes\n"
+		"   -s, --sizes               show size of classes\n"
+		"   -t, --total_struct_stats  show Multi-CU structure stats\n");
 }
 
 static int nr_members_iterator(struct cu *cu, struct class *class, void *cookie)
@@ -53,8 +128,9 @@ static int sizes_iterator(struct cu *cu, struct class *class, void *cookie)
 	if (class->tag != DW_TAG_structure_type)
 		return 0;
 
+	class__find_holes(class, cu);
 	if (class->name != NULL && class->size > 0)
-		printf("%s: %u\n", class->name, class->size);
+		printf("struct %s: %llu %u\n", class->name, class->size, class->nr_holes);
 	return 0;
 }
 
@@ -71,15 +147,17 @@ int main(int argc, char *argv[])
 	int show_sizes = 0;
 	int show_nr_members = 0;
 	int show_class_name_len = 0;
+	int show_total_structure_stats = 0;
 
-	while ((option = getopt_long(argc, argv, "hnNs",
+	while ((option = getopt_long(argc, argv, "hnNst",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
-		case 's': show_sizes = 1;		break;
-		case 'n': show_nr_members = 1;		break;
-		case 'N': show_class_name_len = 1;	break;
-		case 'h': usage();			return EXIT_SUCCESS;
-		default:  usage();			return EXIT_FAILURE;
+		case 's': show_sizes = 1;		  break;
+		case 'n': show_nr_members = 1;		  break;
+		case 'N': show_class_name_len = 1;	  break;
+		case 't': show_total_structure_stats = 1; break;
+		case 'h': usage();			  return EXIT_SUCCESS;
+		default:  usage();			  return EXIT_FAILURE;
 		}
 
 	if (optind < argc) {
@@ -97,7 +175,10 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (show_nr_members)
+	if (show_total_structure_stats) {
+		cus__for_each_cu(cu_total_structure_iterator, NULL);
+		print_total_structure_stats();
+	} else if (show_nr_members)
 		cus__for_each_cu(cu_nr_members_iterator, NULL);
 	else if (show_sizes)
 		cus__for_each_cu(cu_sizes_iterator, NULL);
