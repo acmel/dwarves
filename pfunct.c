@@ -17,13 +17,79 @@
 
 static int verbose;
 static int show_inline_expansions;
+static int show_total_inline_expansion_stats;
+
+struct inline_function {
+	struct list_head node;
+	const char *name;
+	unsigned long nr_expansions;
+	unsigned long size_expansions;
+	unsigned int nr_files;
+};
+
+static struct inline_function *inline_function__new(const struct class *class)
+{
+	struct inline_function *self = malloc(sizeof(*self));
+
+	if (self != NULL) {
+		self->name = class->name;
+		self->nr_files = 1;
+		self->nr_expansions = class->cu_total_nr_inline_expansions;
+		self->size_expansions = class->cu_total_size_inline_expansions;
+	}
+
+	return self;
+}
+
+static LIST_HEAD(inlines__list);
+
+static struct inline_function *inlines__find(const char *name)
+{
+	struct inline_function *pos;
+
+	list_for_each_entry(pos, &inlines__list, node)
+		if (strcmp(pos->name, name) == 0)
+			return pos;
+	return NULL;
+}
+
+static void inlines__add(const struct class *class)
+{
+	struct inline_function *inl = inlines__find(class->name);
+
+	if (inl == NULL) {
+		inl = inline_function__new(class);
+		if (inl != NULL)
+			list_add(&inl->node, &inlines__list);
+	} else {
+		inl->nr_expansions   += class->cu_total_nr_inline_expansions;
+		inl->size_expansions += class->cu_total_size_inline_expansions;
+		inl->nr_files++;
+	}
+}
+
+static void inline_function__print(struct inline_function *self)
+{
+	printf("%-32.32s %5lu %6lu %3u\n", self->name,
+	       self->nr_expansions, self->size_expansions, self->nr_files);
+}
+
+static void print_total_inline_stats(void)
+{
+	struct inline_function *pos;
+
+	list_for_each_entry(pos, &inlines__list, node)
+		if (pos->nr_expansions > 1)
+			inline_function__print(pos);
+}
 
 static struct option long_options[] = {
 	{ "class",			required_argument,	NULL, 'c' },
 	{ "cu_inline_expansions_stats",	no_argument,		NULL, 'C' },
 	{ "function_name_len",		no_argument,		NULL, 'N' },
 	{ "goto_labels",		no_argument,		NULL, 'g' },
-	{ "show_inline_expansions",	no_argument,		NULL, 'i' },
+	{ "inline_expansions",		no_argument,		NULL, 'i' },
+	{ "total_inline_stats",		no_argument,		NULL, 't' },
 	{ "help",			no_argument,		NULL, 'h' },
 	{ "nr_parameters",		no_argument,		NULL, 'p' },
 	{ "sizes",			no_argument,		NULL, 's' },
@@ -40,8 +106,10 @@ static void usage(void)
 		"   -c, --class=<class>               functions that have <class> "
 					             "pointer parameters\n"
 		"   -g, --goto_labels                 show number of goto labels\n"
-		"   -i, --show_inline_expansions      show inline expansions\n"
+		"   -i, --inline_expansions           show inline expansions\n"
 		"   -C, --cu_inline_expansions_stats  show CU inline expansions stats\n"
+		"   -t, --total_inline_stats	      show Multi-CU total inline "
+						     "expansions stats\n"
 		"   -s, --sizes                       show size of functions\n"
 		"   -N, --function_name_len           show size of functions\n"
 		"   -p, --nr_parameters               show number or parameters\n"
@@ -212,6 +280,21 @@ static int cu_function_name_len_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_class(cu, function_name_len_iterator, cookie);
 }
 
+static int total_inlines_iterator(struct cu *cu, struct class *class, void *cookie)
+{
+	if (class->tag == DW_TAG_subprogram && class->inlined)
+		inlines__add(class);
+	return 0;
+}
+
+static int cu_total_inlines_iterator(struct cu *cu, void *cookie)
+{
+	cu__account_inline_expansions(cu);
+	if (cu->nr_inline_expansions > 0)
+		cu__for_each_class(cu, total_inlines_iterator, cookie);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int option, option_index;
@@ -226,7 +309,7 @@ int main(int argc, char *argv[])
 	int show_inline_expansions_stats = 0;
 	int show_inline_stats = 0;
 
-	while ((option = getopt_long(argc, argv, "c:CgiINpsSV",
+	while ((option = getopt_long(argc, argv, "c:CgiINpsStV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': class_name = optarg;			break;
@@ -237,6 +320,7 @@ int main(int argc, char *argv[])
 		case 'g': show_goto_labels = 1;			break;
 		case 'i': show_inline_expansions = 1;		break;
 		case 'I': show_inline_expansions_stats = 1;	break;
+		case 't': show_total_inline_expansion_stats = 1;break;
 		case 'N': show_function_name_len = 1;		break;
 		case 'V': verbose = 1;				break;
 		case 'h': usage(); return EXIT_SUCCESS;
@@ -258,7 +342,10 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (show_inline_stats)
+	if (show_total_inline_expansion_stats) {
+		cus__for_each_cu(cu_total_inlines_iterator, NULL);
+		print_total_inline_stats();
+	} else if (show_inline_stats)
 		cus__for_each_cu(cu_inlines_iterator, NULL);
 	else if (show_nr_parameters)
 		cus__for_each_cu(cu_nr_parameters_iterator, NULL);
