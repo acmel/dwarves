@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <libdw.h>
 #include <libelf.h>
+#include <search.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,37 @@ static void *zalloc(const size_t size)
 	return s;
 }
 
+static void *strings;
+
+static int strings__compare(const void *a, const void *b)
+{
+	return strcmp(a, b);
+}
+
+static char *strings__add(const char *str)
+{
+	char **s;
+
+	if (str == NULL)
+		return NULL;
+
+	s = tsearch(str, &strings, strings__compare);
+	if (s != NULL) {
+		if (*s == str) {
+			char *dup = strdup(str);
+			if (dup != NULL)
+				*s = dup;
+			else {
+				tdelete(str, &strings, strings__compare);
+				return NULL;
+			}
+		}
+	} else
+		return NULL;
+
+	return *s;
+}
+
 static LIST_HEAD(cus__list);
 
 static void cus__add(struct cu *cu)
@@ -40,7 +72,7 @@ static struct cu *cu__new(unsigned int cu, const char *name)
 
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->classes);
-		self->name = name != NULL ? strdup(name) : NULL;
+		self->name = strings__add(name);
 		self->nr_inline_expansions   = 0;
 		self->size_inline_expansions = 0;
 	}
@@ -176,9 +208,7 @@ static struct class_member *class_member__new(uintmax_t type,
 		self->offset	  = offset;
 		self->bit_size	  = bit_size;
 		self->bit_offset  = bit_offset;
-
-		if (name != NULL)
-			self->name = strdup(name);
+		self->name	  = strings__add(name);
 	}
 
 	return self;
@@ -280,12 +310,8 @@ static struct class *class__new(const unsigned int tag,
 		self->id	  = cu_offset;
 		self->type	  = type;
 		self->size	  = size;
-		self->name	  = NULL;
-		if (name != NULL)
-			self->name = strdup(name);
-		self->decl_file	  = NULL;
-		if (decl_file != NULL)
-			self->decl_file	= strdup(decl_file);
+		self->name	  = strings__add(name);
+		self->decl_file	  = strings__add(decl_file);
 		self->decl_line	  = decl_line;
 		self->nr_holes	  = 0;
 		self->nr_labels	  = 0;
