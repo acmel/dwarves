@@ -17,7 +17,6 @@
 
 static int verbose;
 static int show_inline_expansions;
-static int show_total_inline_expansion_stats;
 
 struct inline_function {
 	struct list_head node;
@@ -90,6 +89,7 @@ static struct option long_options[] = {
 	{ "function_name_len",		no_argument,		NULL, 'N' },
 	{ "goto_labels",		no_argument,		NULL, 'g' },
 	{ "inline_expansions",		no_argument,		NULL, 'i' },
+	{ "inline_expansions_stats",	no_argument,		NULL, 'I' },
 	{ "total_inline_stats",		no_argument,		NULL, 't' },
 	{ "help",			no_argument,		NULL, 'h' },
 	{ "nr_parameters",		no_argument,		NULL, 'p' },
@@ -108,6 +108,7 @@ static void usage(void)
 					             "pointer parameters\n"
 		"   -g, --goto_labels                 show number of goto labels\n"
 		"   -i, --inline_expansions           show inline expansions\n"
+		"   -I, --inline_expansions_stats     show inline expansions stats\n"
 		"   -C, --cu_inline_expansions_stats  show CU inline expansions stats\n"
 		"   -t, --total_inline_stats	      show Multi-CU total inline "
 						     "expansions stats\n"
@@ -309,6 +310,7 @@ int main(int argc, char *argv[])
 	int show_function_name_len = 0;
 	int show_inline_expansions_stats = 0;
 	int show_inline_stats = 0;
+	int show_total_inline_expansion_stats = 0;
 
 	while ((option = getopt_long(argc, argv, "c:CgiINpsStV",
 				     long_options, &option_index)) >= 0)
