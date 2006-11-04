@@ -283,7 +283,9 @@ static struct class *class__new(const unsigned int tag,
 		self->name	  = NULL;
 		if (name != NULL)
 			self->name = strdup(name);
-		self->decl_file	  = decl_file;
+		self->decl_file	  = NULL;
+		if (decl_file != NULL)
+			self->decl_file	= strdup(decl_file);
 		self->decl_line	  = decl_line;
 		self->nr_holes	  = 0;
 		self->nr_labels	  = 0;
