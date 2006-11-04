@@ -444,6 +444,8 @@ static void class__print_function(struct class *self, const struct cu *cu)
 	if (first_parameter)
 		fputs("void", stdout);
 	fputs(");\n", stdout);
+	if (self->size == 0)
+		return;
 	printf("/* size: %llu", self->high_pc - self->low_pc);
 	if (self->nr_variables > 0)
 		printf(", variables: %u", self->nr_variables);
