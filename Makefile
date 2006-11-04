@@ -36,7 +36,7 @@ uninstall:
 	-rm -f $(bindir)/pahole
 
 clean:
-	rm -f *.o pahole *~
+	rm -f *.o pahole pfunct *~
 
 distclean: clean
 	rm -f tags
