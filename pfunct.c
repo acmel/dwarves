@@ -69,15 +69,17 @@ static void inlines__add(const struct class *class)
 
 static void inline_function__print(struct inline_function *self)
 {
-	printf("%-32.32s %5lu %6lu %3u\n", self->name,
-	       self->nr_expansions, self->size_expansions, self->nr_files);
+	printf("%-31.31s %6lu %7lu  %6lu %6lu\n", self->name,
+	       self->size_expansions, self->nr_expansions,
+	       self->size_expansions / self->nr_expansions,
+	       self->nr_files);
 }
 
 static void print_total_inline_stats(void)
 {
 	struct inline_function *pos;
 
-	printf("%-32.32s %5.5s %6.6s %s\n", "name", "exp#", "size", "src#");
+	printf("%-32.32s  %5.5s / %5.5s = %5.5s  %s\n", "name", "totsz", "nrexp", "avgsz", "nrsrc");
 	list_for_each_entry(pos, &inlines__list, node)
 		if (pos->nr_expansions > 1)
 			inline_function__print(pos);
