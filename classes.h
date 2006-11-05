@@ -29,12 +29,12 @@ struct class {
 	struct list_head inline_expansions;
 	const char	 *name;
 	uint64_t	 size;
-	unsigned int	 id;
-	unsigned int	 type;
-	unsigned int	 tag;		/* struct, union, base type, etc */
-	uintmax_t	 nr_entries;	/* For arrays */
+	uint64_t	 id;
+	uint64_t	 type;
 	uint64_t	 low_pc;
 	uint64_t	 high_pc;
+	unsigned int	 tag;		/* struct, union, base type, etc */
+	uintmax_t	 nr_entries;	/* For arrays */
 	const char	 *decl_file;
 	unsigned int	 decl_line;
 	unsigned short	 nr_members;
@@ -52,8 +52,8 @@ struct class {
 struct class_member {
 	struct list_head node;
 	char		 *name;
-	unsigned int	 type;
-	unsigned int	 offset;
+	uint64_t	 type;
+	uint64_t	 offset;
 	unsigned int	 bit_size;
 	unsigned int	 bit_offset;
 	unsigned short	 hole;		/* If there is a hole before the next
@@ -62,7 +62,7 @@ struct class_member {
 
 struct inline_expansion {
 	struct list_head node;
-	unsigned int	 type;
+	uint64_t	 type;
 	uint64_t	 size;
 };
 
@@ -72,7 +72,7 @@ extern void class__print(struct class *self, const struct cu *cu);
 extern int	    classes__load(const char *filename);
 extern struct cu    *cus__find_cu_by_id(const unsigned int type);
 extern struct class *cu__find_class_by_id(const struct cu *cu,
-					  const unsigned int type);
+					  const uint64_t type);
 extern struct class *cu__find_class_by_name(struct cu *cu, const char *name);
 extern void	    classes__print(const unsigned int tag);
 extern void	    class__print_inline_expansions(struct class *self,

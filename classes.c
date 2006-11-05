@@ -124,7 +124,7 @@ struct class *cus__find_class_by_name(struct cu **cu, const char *name)
 	return NULL;
 }
 
-struct class *cu__find_class_by_id(const struct cu *self, const unsigned int id)
+struct class *cu__find_class_by_id(const struct cu *self, const uint64_t id)
 {
 	struct class *pos;
 
@@ -135,10 +135,10 @@ struct class *cu__find_class_by_id(const struct cu *self, const unsigned int id)
 	return NULL;
 }
 
-static const unsigned long class__size(const struct class *self,
-				       const struct cu *cu)
+static const uint64_t class__size(const struct class *self,
+				  const struct cu *cu)
 {
-	unsigned long size = self->size;
+	uint64_t size = self->size;
 
 	if (self->tag != DW_TAG_pointer_type && self->type != 0) {
 		struct class *class = cu__find_class_by_id(cu, self->type);
@@ -195,9 +195,9 @@ static const char *class__name(struct class *self, const struct cu *cu,
 	return bf;
 }
 
-static struct class_member *class_member__new(uintmax_t type,
+static struct class_member *class_member__new(uint64_t type,
 					      const char *name,
-					      unsigned int offset,
+					      uint64_t offset,
 					      unsigned int bit_size,
 					      unsigned int bit_offset)
 {
@@ -221,21 +221,21 @@ static int class_member__size(const struct class_member *self,
 	return class != NULL ? class__size(class, cu) : -1;
 }
 
-static unsigned long class_member__print(struct class_member *self,
-					 const struct cu *cu)
+static uint64_t class_member__print(struct class_member *self,
+				    const struct cu *cu)
 {
 	struct class *class = cu__find_class_by_id(cu, self->type);
 	char class_name_bf[128];
 	char member_name_bf[128];
 	char bf[512];
 	const char *class_name = bf;
-	unsigned long size = -1;
+	uint64_t size = -1;
 
 	snprintf(member_name_bf, sizeof(member_name_bf),
 		 "%s;", self->name ?: "");
 
 	if (class == NULL)
-		snprintf(bf, sizeof(bf), "<%x>", self->type);
+		snprintf(bf, sizeof(bf), "<%llx>", self->type);
 	else {
 		size = class__size(class, cu);
 
@@ -276,12 +276,12 @@ static unsigned long class_member__print(struct class_member *self,
 				 self->bit_size);
 	}
 out:
-	printf("        %-26s %-21s /* %5d %5lu */\n",
+	printf("        %-26s %-21s /* %5llu %5llu */\n",
 	       class_name, member_name_bf, self->offset, size);
 	return size;
 }
 
-static struct inline_expansion *inline_expansion__new(uintmax_t type,
+static struct inline_expansion *inline_expansion__new(uint64_t type,
 						      uint64_t size)
 {
 	struct inline_expansion *self = zalloc(sizeof(*self));
@@ -295,8 +295,8 @@ static struct inline_expansion *inline_expansion__new(uintmax_t type,
 }
 
 static struct class *class__new(const unsigned int tag,
-				uintmax_t cu_offset, uintmax_t type,
-				const char *name, unsigned int size,
+				uint64_t cu_offset, uint64_t type,
+				const char *name, uint64_t size,
 				const char *decl_file, unsigned int decl_line,
 				unsigned short inlined,
 				uint64_t low_pc, uint64_t high_pc)
@@ -347,7 +347,7 @@ static void class__add_inline_expansion(struct class *self,
 void class__find_holes(struct class *self, const struct cu *cu)
 {
 	struct class_member *pos, *last = NULL;
-	int last_size = 0, size;
+	uint64_t last_size = 0, size;
 
 	self->nr_holes = 0;
 
@@ -431,7 +431,7 @@ void class__print_inline_expansions(struct class *self, const struct cu *cu)
 		class_type = cu__find_class_by_id(cu, pos->type);
 		if (class_type != NULL)
 			type = class__name(class_type, cu, bf, sizeof(bf));
-		printf("%s: %u\n", type, pos->size);
+		printf("%s: %llu\n", type, pos->size);
 	}
 	fputs("*/\n", stdout);
 }
@@ -489,7 +489,7 @@ static void class__print_struct(struct class *self, const struct cu *cu)
 	unsigned long sum_holes = 0;
 	struct class_member *pos;
 	char name[128];
-	size_t last_size = 0, size;
+	uint64_t last_size = 0, size;
 	int last_bit_size = 0;
 	int last_offset = -1;
 
@@ -518,7 +518,7 @@ static void class__print_struct(struct class *self, const struct cu *cu)
 		 last_bit_size = pos->bit_size;
 	}
 
-	printf("}; /* size: %lld", self->size);
+	printf("}; /* size: %llu", self->size);
 	if (sum_holes > 0)
 		printf(", sum members: %lu, holes: %d, sum holes: %lu",
 		       sum, self->nr_holes, sum_holes);
@@ -527,7 +527,7 @@ static void class__print_struct(struct class *self, const struct cu *cu)
 	puts(" */");
 
 	if (sum + sum_holes != self->size - self->padding)
-		printf("\n/* BRAIN FART ALERT! %d != %d + %d(holes), diff = %d */\n\n",
+		printf("\n/* BRAIN FART ALERT! %llu != %d + %d(holes), diff = %llu */\n\n",
 		       self->size, sum, sum_holes,
 		       self->size - (sum + sum_holes));
 	putchar('\n');
@@ -648,7 +648,7 @@ static uint64_t __libdw_get_uleb128(uint64_t acc, unsigned int i,
 	} while (0)
 
 
-static unsigned int attr_offset(Dwarf_Die *die)
+static uint64_t attr_offset(Dwarf_Die *die)
 {
 	Dwarf_Attribute attr;
 
@@ -656,7 +656,7 @@ static unsigned int attr_offset(Dwarf_Die *die)
       		Dwarf_Block block;
 
 		if (dwarf_formblock(&attr, &block) == 0) {
-			unsigned int uleb;
+			uint64_t uleb;
 			const unsigned char *data = block.data + 1;
 			get_uleb128(uleb, data);
 			return uleb;
@@ -681,7 +681,7 @@ static uintmax_t attr_upper_bound(Dwarf_Die *die)
 	return 0;
 }
 
-static uintmax_t attr_numeric(Dwarf_Die *die, unsigned int name)
+static uint64_t attr_numeric(Dwarf_Die *die, unsigned int name)
 {
 	Dwarf_Attribute attr;
 	unsigned int form;
@@ -733,7 +733,7 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 	Dwarf_Off cu_offset;
 	Dwarf_Attribute attr_name;
 	const char *name;
-	uintmax_t type;
+	uint64_t type;
 	unsigned int tag = dwarf_tag(die);
 
 	if (tag == DW_TAG_invalid)
@@ -791,7 +791,7 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		 * will be used for stack size calculation
 		 */
 	} else {
-		unsigned long size = attr_numeric(die, DW_AT_byte_size);
+		uint64_t size = attr_numeric(die, DW_AT_byte_size);
 		const unsigned short inlined = attr_numeric(die, DW_AT_inline);
 		Dwarf_Addr high_pc, low_pc;
 		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
