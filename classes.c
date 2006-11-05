@@ -20,6 +20,8 @@
 #include "list.h"
 #include "classes.h"
 
+unsigned int cacheline_size = DEFAULT_CACHELINE_SIZE;
+
 static void *zalloc(const size_t size)
 {
 	void *s = malloc(size);
@@ -602,6 +604,10 @@ static void class__print_struct(struct class *self, const struct cu *cu)
 
 	printf("%s {\n", class__name(self, cu, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, node) {
+		if (sum > 0 && sum % cacheline_size == 0)
+			printf("        /* ---------- cacheline "
+			       "%u boundary ---------- */\n",
+			       sum / cacheline_size);
 		 size = class_member__print(pos, cu);
 		 if (pos->hole > 0) {
 			printf("\n        /* XXX %d bytes hole, "

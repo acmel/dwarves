@@ -88,6 +88,7 @@ static int cu_total_structure_iterator(struct cu *cu, void *cookie)
 }
 
 static struct option long_options[] = {
+	{ "cacheline_size",	required_argument,	NULL, 'c' },
 	{ "class_name_len",	no_argument,		NULL, 'N' },
 	{ "help",		no_argument,		NULL, 'h' },
 	{ "nr_members",		no_argument,		NULL, 'n' },
@@ -101,11 +102,13 @@ static void usage(void)
 	fprintf(stderr,
 		"usage: pfunct [options] <file_name> {<function_name>}\n"
 		" where: \n"
-		"   -h, --help                show usage info\n"
-		"   -m, --nr_members	      show number of members\n"
-		"   -N, --class_name_len      show size of classes\n"
-		"   -s, --sizes               show size of classes\n"
-		"   -t, --total_struct_stats  show Multi-CU structure stats\n");
+		"   -h, --help                   show usage info\n"
+		"   -c, --cacheline_size=<size>  set cacheline size (default=%d)\n"
+		"   -m, --nr_members             show number of members\n"
+		"   -N, --class_name_len         show size of classes\n"
+		"   -s, --sizes                  show size of classes\n"
+		"   -t, --total_struct_stats     show Multi-CU structure stats\n",
+		DEFAULT_CACHELINE_SIZE);
 }
 
 static int nr_members_iterator(struct cu *cu, struct class *class, void *cookie)
@@ -158,9 +161,10 @@ int main(int argc, char *argv[])
 	int show_class_name_len = 0;
 	int show_total_structure_stats = 0;
 
-	while ((option = getopt_long(argc, argv, "hnNst",
+	while ((option = getopt_long(argc, argv, "c:hnNst",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
+		case 'c': cacheline_size = atoi(optarg);  break;
 		case 's': show_sizes = 1;		  break;
 		case 'n': show_nr_members = 1;		  break;
 		case 'N': show_class_name_len = 1;	  break;

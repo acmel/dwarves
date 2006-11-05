@@ -77,6 +77,8 @@ struct inline_expansion {
 	uint64_t	 size;
 };
 
+#define DEFAULT_CACHELINE_SIZE 32
+
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern void class__print(struct class *self, const struct cu *cu);
 
@@ -103,5 +105,7 @@ extern int	    cu__for_each_class(struct cu *cu,
 extern void	    cus__for_each_cu(int (*iterator)(struct cu *cu,
 						     void *cookie),
 				      void *cookie);
+
+extern unsigned int cacheline_size;
 
 #endif /* _PAHOLE_CLASSES_H_ */
