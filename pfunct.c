@@ -17,6 +17,7 @@
 
 static int verbose;
 static int show_inline_expansions;
+static int show_variables;
 
 struct inline_function {
 	struct list_head node;
@@ -96,7 +97,8 @@ static struct option long_options[] = {
 	{ "help",			no_argument,		NULL, 'h' },
 	{ "nr_parameters",		no_argument,		NULL, 'p' },
 	{ "sizes",			no_argument,		NULL, 's' },
-	{ "variables",			no_argument,		NULL, 'S' },
+	{ "nr_variables",		no_argument,		NULL, 'S' },
+	{ "variables",			no_argument,		NULL, 'T' },
 	{ "verbose",			no_argument,		NULL, 'V' },
 	{ NULL, 0, NULL, 0, }
 };
@@ -117,7 +119,8 @@ static void usage(void)
 		"   -s, --sizes                       show size of functions\n"
 		"   -N, --function_name_len           show size of functions\n"
 		"   -p, --nr_parameters               show number or parameters\n"
-		"   -S, --variables                   show number of variables\n"
+		"   -S, --nr_variables                show number of variables\n"
+		"   -T, --variables                   show variables\n"
 		"   -V, --verbose                     be verbose\n");
 }
 
@@ -221,6 +224,8 @@ static int function_iterator(struct cu *cu, struct class *class, void *cookie)
 		class__print(class, cu);
 		if (show_inline_expansions)
 			class__print_inline_expansions(class, cu);
+		if (show_variables)
+			class__print_variables(class, cu);
 		return 1;
 	}
 	return 0;
@@ -306,7 +311,7 @@ int main(int argc, char *argv[])
 	char *class_name = NULL;
 	char *function_name = NULL;
 	int show_sizes = 0;
-	int show_variables = 0;
+	int show_nr_variables = 0;
 	int show_goto_labels = 0;
 	int show_nr_parameters = 0;
 	int show_function_name_len = 0;
@@ -314,18 +319,19 @@ int main(int argc, char *argv[])
 	int show_inline_stats = 0;
 	int show_total_inline_expansion_stats = 0;
 
-	while ((option = getopt_long(argc, argv, "c:CgiINpsStV",
+	while ((option = getopt_long(argc, argv, "c:CgiINpsStTV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': class_name = optarg;			break;
 		case 'C': show_inline_stats = 1;		break;
 		case 's': show_sizes = 1;			break;
-		case 'S': show_variables = 1;			break;
+		case 'S': show_nr_variables = 1;		break;
 		case 'p': show_nr_parameters = 1;		break;
 		case 'g': show_goto_labels = 1;			break;
 		case 'i': show_inline_expansions = 1;		break;
 		case 'I': show_inline_expansions_stats = 1;	break;
 		case 't': show_total_inline_expansion_stats = 1;break;
+		case 'T': show_variables = 1;			break;
 		case 'N': show_function_name_len = 1;		break;
 		case 'V': verbose = 1;				break;
 		case 'h': usage(); return EXIT_SUCCESS;
@@ -354,7 +360,7 @@ int main(int argc, char *argv[])
 		cus__for_each_cu(cu_inlines_iterator, NULL);
 	else if (show_nr_parameters)
 		cus__for_each_cu(cu_nr_parameters_iterator, NULL);
-	else if (show_variables)
+	else if (show_nr_variables)
 		cus__for_each_cu(cu_variables_iterator, NULL);
 	else if (show_goto_labels)
 		cus__for_each_cu(cu_goto_labels_iterator, NULL);

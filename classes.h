@@ -17,6 +17,7 @@
 struct cu {
 	struct list_head node;
 	struct list_head classes;
+	struct list_head variables;
 	const char	 *name;
 	unsigned int	 id;
 	unsigned long	 nr_inline_expansions;
@@ -27,6 +28,7 @@ struct class {
 	struct list_head node;
 	struct list_head members;
 	struct list_head inline_expansions;
+	struct list_head variables;
 	const char	 *name;
 	uint64_t	 size;
 	uint64_t	 id;
@@ -60,6 +62,15 @@ struct class_member {
 					   one (or the end of the struct) */
 };
 
+struct variable {
+	struct list_head cu_node;
+	struct list_head class_node;
+	char		 *name;
+	uint64_t	 id;
+	uint64_t	 type;
+	uint64_t	 abstract_origin;
+};
+
 struct inline_expansion {
 	struct list_head node;
 	uint64_t	 type;
@@ -77,6 +88,8 @@ extern struct class *cu__find_class_by_name(struct cu *cu, const char *name);
 extern void	    classes__print(const unsigned int tag);
 extern void	    class__print_inline_expansions(struct class *self,
 						   const struct cu *cu);
+extern void	    class__print_variables(struct class *self,
+					   const struct cu *cu);
 extern struct class *cus__find_class_by_name(struct cu **cu, const char *name);
 extern void	    cu__account_inline_expansions(struct cu *self);
 extern int	    cu__for_each_class(struct cu *cu,

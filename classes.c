@@ -59,6 +59,21 @@ static char *strings__add(const char *str)
 	return *s;
 }
 
+static struct variable *variable__new(const char *name, uint64_t id,
+				      uint64_t type, uint64_t abstract_origin)
+{
+	struct variable *self = malloc(sizeof(*self));
+
+	if (self != NULL) {
+		self->name	      = strings__add(name);
+		self->id	      = id;
+		self->type	      = type;
+		self->abstract_origin = abstract_origin;
+	}
+
+	return self;
+}
+
 static LIST_HEAD(cus__list);
 
 static void cus__add(struct cu *cu)
@@ -72,6 +87,7 @@ static struct cu *cu__new(unsigned int cu, const char *name)
 
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->classes);
+		INIT_LIST_HEAD(&self->variables);
 		self->name = strings__add(name);
 		self->nr_inline_expansions   = 0;
 		self->size_inline_expansions = 0;
@@ -80,9 +96,14 @@ static struct cu *cu__new(unsigned int cu, const char *name)
 	return self;
 }
 
-static void cu__add(struct cu *self, struct class *class)
+static void cu__add_class(struct cu *self, struct class *class)
 {
 	list_add_tail(&class->node, &self->classes);
+}
+
+static void cu__add_variable(struct cu *self, struct variable *variable)
+{
+	list_add_tail(&variable->cu_node, &self->variables);
 }
 
 static const char *tag_name(const unsigned int tag)
@@ -129,6 +150,17 @@ struct class *cu__find_class_by_id(const struct cu *self, const uint64_t id)
 	struct class *pos;
 
 	list_for_each_entry(pos, &self->classes, node)
+		if (pos->id == id)
+			return pos;
+
+	return NULL;
+}
+
+struct variable *cu__find_variable_by_id(const struct cu *self, const uint64_t id)
+{
+	struct variable *pos;
+
+	list_for_each_entry(pos, &self->variables, cu_node)
 		if (pos->id == id)
 			return pos;
 
@@ -193,6 +225,41 @@ static const char *class__name(struct class *self, const struct cu *cu,
 		snprintf(bf, len, "%s%s", tag_name(self->tag),
 			 self->name ?: "");
 	return bf;
+}
+
+static const char *variable__type_name(struct variable *self, const struct cu *cu,
+				       char *bf, size_t len)
+{
+	if (self->type != 0) {
+		struct class *class = cu__find_class_by_id(cu, self->type);
+		if (class == NULL)
+			return NULL;
+		return class__name(class, cu, bf, len);
+	} else if (self->abstract_origin != 0) {
+		struct variable *var;
+
+		var = cu__find_variable_by_id(cu, self->abstract_origin);
+		if (var != NULL)
+		       return variable__type_name(var, cu, bf, len);
+	}
+	
+	return NULL;
+}
+
+static const char *variable__name(struct variable *self, const struct cu *cu)
+{
+	if (self->name == NULL) {
+		if (self->abstract_origin == 0)
+			return NULL;
+		else {
+			struct variable *var;
+
+			var = cu__find_variable_by_id(cu, self->abstract_origin);
+			return var == NULL ? NULL : var->name;
+		}
+	}
+	
+	return self->name;
 }
 
 static struct class_member *class_member__new(uint64_t type,
@@ -305,6 +372,7 @@ static struct class *class__new(const unsigned int tag,
 
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->members);
+		INIT_LIST_HEAD(&self->variables);
 		INIT_LIST_HEAD(&self->inline_expansions);
 		self->tag	  = tag;
 		self->id	  = cu_offset;
@@ -342,6 +410,12 @@ static void class__add_inline_expansion(struct class *self,
 	++self->nr_inline_expansions;
 	self->size_inline_expansions += exp->size;
 	list_add_tail(&exp->node, &self->inline_expansions);
+}
+
+static void class__add_variable(struct class *self, struct variable *var)
+{
+	++self->nr_variables;
+	list_add_tail(&var->class_node, &self->variables);
 }
 
 void class__find_holes(struct class *self, const struct cu *cu)
@@ -434,6 +508,24 @@ void class__print_inline_expansions(struct class *self, const struct cu *cu)
 		printf("%s: %llu\n", type, pos->size);
 	}
 	fputs("*/\n", stdout);
+}
+
+void class__print_variables(struct class *self, const struct cu *cu)
+{
+	struct class *class_type;
+	struct variable *pos;
+
+	if (self->nr_variables == 0)
+		return;
+
+	printf("{\n        /* variables in %s: */\n", self->name);
+	list_for_each_entry(pos, &self->variables, class_node) {
+		char bf[256];
+		printf("        %s %s;\n", 
+		       variable__type_name(pos, cu, bf, sizeof(bf)),
+		       variable__name(pos, cu));
+	}
+	fputs("}\n", stdout);
 }
 
 static void class__print_function(struct class *self, const struct cu *cu)
@@ -755,9 +847,20 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		class__add_member(classes__current_class, member);
 	} else if (tag == DW_TAG_subrange_type)
 		classes__current_class->nr_entries = attr_upper_bound(die);
-	else if (tag == DW_TAG_variable)
-		++classes__current_class->nr_variables;
-	else if (tag == DW_TAG_label)
+	else if (tag == DW_TAG_variable) {
+		char bf[1024];
+		uint64_t abstract_origin = attr_numeric(die,
+							DW_AT_abstract_origin);
+		struct variable *variable;
+
+		variable = variable__new(name, cu_offset,
+					 type, abstract_origin);
+		if (variable == NULL)
+			oom("variable__new");
+
+		class__add_variable(classes__current_class, variable);
+		cu__add_variable(current_cu, variable);
+	} else if (tag == DW_TAG_label)
 		++classes__current_class->nr_labels;
 	else if (tag == DW_TAG_inlined_subroutine) {
 		Dwarf_Addr high_pc, low_pc;
@@ -802,7 +905,7 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		dwarf_decl_line(die, &decl_line);
 
 		if (classes__current_class != NULL)
-			cu__add(current_cu, classes__current_class);
+			cu__add_class(current_cu, classes__current_class);
 	    
 		classes__current_class = class__new(tag, cu_offset,
 						    type, name, size,
