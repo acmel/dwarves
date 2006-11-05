@@ -604,7 +604,7 @@ static void class__print_struct(struct class *self, const struct cu *cu)
 
 	printf("%s {\n", class__name(self, cu, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, node) {
-		if (sum > 0 && sum % cacheline_size == 0)
+		if (sum > 0 && last_size > 0 && sum % cacheline_size == 0)
 			printf("        /* ---------- cacheline "
 			       "%u boundary ---------- */\n",
 			       sum / cacheline_size);
