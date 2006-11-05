@@ -167,6 +167,21 @@ struct variable *cu__find_variable_by_id(const struct cu *self, const uint64_t i
 	return NULL;
 }
 
+int class__is_struct(const struct class *self, struct cu *cu,
+		     struct class **typedef_alias)
+{
+	*typedef_alias = NULL;
+	if (self->tag == DW_TAG_typedef) {
+		*typedef_alias = cu__find_class_by_id(cu, self->type);
+		if (*typedef_alias == NULL)
+			return 0;
+		
+		return (*typedef_alias)->tag == DW_TAG_structure_type;
+	}
+
+	return self->tag == DW_TAG_structure_type;
+}
+
 static const uint64_t class__size(const struct class *self,
 				  const struct cu *cu)
 {

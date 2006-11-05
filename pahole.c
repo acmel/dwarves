@@ -125,12 +125,21 @@ static int cu_nr_members_iterator(struct cu *cu, void *cookie)
 
 static int sizes_iterator(struct cu *cu, struct class *class, void *cookie)
 {
-	if (class->tag != DW_TAG_structure_type)
+	struct class *typedef_alias;
+
+	if (!class__is_struct(class, cu, &typedef_alias))
 		return 0;
 
-	class__find_holes(class, cu);
-	if (class->name != NULL && class->size > 0)
-		printf("struct %s: %llu %u\n", class->name, class->size, class->nr_holes);
+	class__find_holes(typedef_alias ?: class, cu);
+	if (typedef_alias != NULL) {
+		if (typedef_alias->size > 0)
+			printf("typedef %s:struct(%s): %llu %u\n",
+			       class->name ?: "",
+			       typedef_alias->name ?: "",
+			       typedef_alias->size, typedef_alias->nr_holes);
+	} else if (class->size > 0)
+		printf("struct %s: %llu %u\n", class->name ?: "<unknown>",
+		       class->size, class->nr_holes);
 	return 0;
 }
 
@@ -185,9 +194,11 @@ int main(int argc, char *argv[])
 	else if (class_name != NULL) {
 		struct cu *cu;
 		struct class *class = cus__find_class_by_name(&cu, class_name);
-		if (class != NULL) {
-			class__find_holes(class, cu);
-			class__print(class, cu);
+		struct class *alias;
+
+		if (class__is_struct(class, cu, &alias)) {
+			class__find_holes(alias ?: class, cu);
+			class__print(alias ?: class, cu);
 		} else
 			printf("struct %s not found!\n", class_name);
 	} else
