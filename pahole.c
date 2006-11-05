@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (classes__load(file_name) != 0) {
+	if (cu__load_file(file_name) != 0) {
 		fprintf(stderr, "pahole: couldn't load DWARF info from %s\n",
 		       file_name);
 		return EXIT_FAILURE;
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
 		} else
 			printf("struct %s not found!\n", class_name);
 	} else
-		classes__print(DW_TAG_structure_type);
+		cu__print_classes(DW_TAG_structure_type);
 
 	return EXIT_SUCCESS;
 }

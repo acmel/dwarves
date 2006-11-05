@@ -689,7 +689,7 @@ void cus__for_each_cu(int (*iterator)(struct cu *cu, void *cookie),
 			break;
 }
 
-void classes__print(const unsigned int tag)
+void cu__print_classes(const unsigned int tag)
 {
 	struct cu *cu_pos;
 
@@ -708,7 +708,7 @@ void classes__print(const unsigned int tag)
 	}
 }
 
-static struct class *classes__current_class;
+static struct class *cu__current_class;
 static struct cu *current_cu;
 static unsigned int current_cu_id;
 
@@ -840,7 +840,7 @@ static uint64_t attr_numeric(Dwarf_Die *die, unsigned int name)
 	return 0;
 }
 
-static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
+static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 {
 	Dwarf_Die child;
 	Dwarf_Off cu_offset;
@@ -865,9 +865,9 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		if (member == NULL)
 			oom("class_member__new");
 
-		class__add_member(classes__current_class, member);
+		class__add_member(cu__current_class, member);
 	} else if (tag == DW_TAG_subrange_type)
-		classes__current_class->nr_entries = attr_upper_bound(die);
+		cu__current_class->nr_entries = attr_upper_bound(die);
 	else if (tag == DW_TAG_variable) {
 		char bf[1024];
 		uint64_t abstract_origin = attr_numeric(die,
@@ -879,10 +879,10 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		if (variable == NULL)
 			oom("variable__new");
 
-		class__add_variable(classes__current_class, variable);
+		class__add_variable(cu__current_class, variable);
 		cu__add_variable(current_cu, variable);
 	} else if (tag == DW_TAG_label)
-		++classes__current_class->nr_labels;
+		++cu__current_class->nr_labels;
 	else if (tag == DW_TAG_inlined_subroutine) {
 		Dwarf_Addr high_pc, low_pc;
 		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
@@ -907,7 +907,7 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		if (exp == NULL)
 			oom("inline_expansion__new");
 
-		class__add_inline_expansion(classes__current_class, exp);
+		class__add_inline_expansion(cu__current_class, exp);
 		goto next_sibling;
 	} else if (tag == DW_TAG_lexical_block) {
 		/*
@@ -925,25 +925,25 @@ static void classes__process_die(Dwarf *dwarf, Dwarf_Die *die)
 
 		dwarf_decl_line(die, &decl_line);
 
-		if (classes__current_class != NULL)
-			cu__add_class(current_cu, classes__current_class);
+		if (cu__current_class != NULL)
+			cu__add_class(current_cu, cu__current_class);
 	    
-		classes__current_class = class__new(tag, cu_offset,
+		cu__current_class = class__new(tag, cu_offset,
 						    type, name, size,
 						    decl_file, decl_line,
 						    inlined, low_pc, high_pc);
-		if (classes__current_class == NULL)
+		if (cu__current_class == NULL)
 			oom("class__new");
 	}
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		classes__process_die(dwarf, &child);
+		cu__process_die(dwarf, &child);
 next_sibling:
 	if (dwarf_siblingof (die, die) == 0)
-		classes__process_die(dwarf, die);
+		cu__process_die(dwarf, die);
 }
 
-int classes__load(const char *filename)
+int cu__load_file(const char *filename)
 {
 	Dwarf_Off offset, last_offset, abbrev_offset;
 	uint8_t addr_size, offset_size;
@@ -972,7 +972,7 @@ int classes__load(const char *filename)
 			if (current_cu == NULL)
 				oom("cu__new");
 			++current_cu_id;
-			classes__process_die(dwarf, &die);
+			cu__process_die(dwarf, &die);
 			cus__add(current_cu);
 		}
 

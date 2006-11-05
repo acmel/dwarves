@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (classes__load(file_name) != 0) {
+	if (cu__load_file(file_name) != 0) {
 		fprintf(stderr, "pfunct: couldn't load DWARF info from %s\n",
 			file_name);
 		return EXIT_FAILURE;
@@ -371,7 +371,7 @@ int main(int argc, char *argv[])
 	else if (class_name != NULL)
 		cus__for_each_cu(cu_class_iterator, class_name);
 	else if (function_name == NULL && !show_inline_expansions_stats)
-		classes__print(DW_TAG_subprogram);
+		cu__print_classes(DW_TAG_subprogram);
 	else
 		cus__for_each_cu(cu_function_iterator, function_name);
 
