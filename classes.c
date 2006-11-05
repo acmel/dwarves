@@ -698,11 +698,8 @@ void cu__print_classes(const unsigned int tag)
 
 		list_for_each_entry(class_pos, &cu_pos->classes, node)
 			if (class_pos->tag == tag && class_pos->name != NULL) {
-				if (tag == DW_TAG_structure_type) {
+				if (tag == DW_TAG_structure_type)
 					class__find_holes(class_pos, cu_pos);
-					if (class_pos->nr_holes == 0)
-						continue;
-				}
 				class__print(class_pos, cu_pos);
 			}
 	}
