@@ -360,8 +360,8 @@ static uint64_t class_member__print(struct class_member *self,
 				 self->bit_size);
 	}
 out:
-	printf("        %-26s %-21s /* %5llu %5llu */\n",
-	       class_name, member_name_bf, self->offset, size);
+	printf("        %-26s %-21s /* %5llu(%u) %5llu */\n",
+	       class_name, member_name_bf, self->offset, self->bit_offset, size);
 	return size;
 }
 
@@ -402,6 +402,7 @@ static struct class *class__new(const unsigned int tag,
 		self->nr_labels	  = 0;
 		self->nr_members  = 0;
 		self->nr_variables = 0;
+		self->refcnt	  = 0;
 		self->padding	  = 0;
 		self->nr_inline_expansions = 0;
 		self->size_inline_expansions = 0;
@@ -849,6 +850,10 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 	if (tag == DW_TAG_invalid)
 		return;
 
+	/* Tags we trow away */
+	if (tag == DW_TAG_compile_unit)
+		goto children;
+
 	cu_offset = dwarf_cuoffset(die);
 	name	  = attr_string(die, DW_AT_name, &attr_name);
 	type	  = attr_numeric(die, DW_AT_type);
@@ -933,6 +938,7 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 			oom("class__new");
 	}
 
+children:
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
 		cu__process_die(dwarf, &child);
 next_sibling:

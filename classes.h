@@ -46,6 +46,7 @@ struct class {
 	unsigned short	 padding;
 	unsigned short	 inlined;
 	unsigned short	 nr_inline_expansions;
+	unsigned int	 refcnt;
 	unsigned int	 size_inline_expansions;
 	unsigned int	 cu_total_nr_inline_expansions;
 	unsigned long	 cu_total_size_inline_expansions;
@@ -58,6 +59,7 @@ struct class_member {
 	uint64_t	 offset;
 	unsigned int	 bit_size;
 	unsigned int	 bit_offset;
+	unsigned char	 visited:1;
 	unsigned short	 hole;		/* If there is a hole before the next
 					   one (or the end of the struct) */
 };
