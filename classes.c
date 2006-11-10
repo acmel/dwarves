@@ -923,7 +923,7 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
 		if (dwarf_lowpc(die, &low_pc)) low_pc = 0;
 		const char *decl_file  = dwarf_decl_file(die);
-		unsigned int decl_line = 0;
+		int decl_line = 0;
 
 		dwarf_decl_line(die, &decl_line);
 
