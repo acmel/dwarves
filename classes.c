@@ -360,8 +360,8 @@ static uint64_t class_member__print(struct class_member *self,
 				 self->bit_size);
 	}
 out:
-	printf("        %-26s %-21s /* %5llu(%u) %5llu */\n",
-	       class_name, member_name_bf, self->offset, self->bit_offset, size);
+	printf("        %-26s %-21s /* %5llu %5llu */\n",
+	       class_name, member_name_bf, self->offset, size);
 	return size;
 }
 
