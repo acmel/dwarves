@@ -80,7 +80,7 @@ static void print_total_inline_stats(void)
 {
 	struct inline_function *pos;
 
-	printf("%-32.32s  %5.5s / %5.5s = %5.5s  %s\n", "name", "totsz", "nrexp", "avgsz", "nrsrc");
+	printf("%-32.32s  %5.5s / %5.5s = %5.5s  %s\n", "name", "totsz", "exp#", "avgsz", "src#");
 	list_for_each_entry(pos, &inlines__list, node)
 		if (pos->nr_expansions > 1)
 			inline_function__print(pos);
