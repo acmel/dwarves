@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <dwarf.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "classes.h"
 
@@ -62,7 +63,7 @@ static void structures__add(const struct class *class)
 
 static void structure__print(struct structure *self)
 {
-	printf("%-32.32s %5lu\n", self->class->name, self->nr_files);
+	printf("%-32.32s %5u\n", self->class->name, self->nr_files);
 }
 
 static void print_total_structure_stats(void)
@@ -180,6 +181,9 @@ int main(int argc, char *argv[])
 			 class_name = argv[optind++];	break;
 		default: usage();			return EXIT_FAILURE;
 		}
+	} else {
+		usage();
+		return EXIT_FAILURE;
 	}
 
 	if (cu__load_file(file_name) != 0) {

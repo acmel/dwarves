@@ -9,7 +9,7 @@ INSTALL_DATA =	${INSTALL} -m 644
 CC =		gcc
 LIBS =		 -ldw -lelf
 INCLUDES =	-I. -I/usr/include/elfutils
-CFLAGS =	-g -O2 $(INCLUDES)
+CFLAGS =	-g -O2 $(INCLUDES) -Wall
 LDFLAGS =	  $(LIBS)
 
 INSTALL = cp

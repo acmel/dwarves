@@ -154,7 +154,7 @@ static int cu_lost_iterator(struct cu *cu, void *cookie)
 int main(int argc, char *argv[])
 {
 	int option, option_index;
-	const char *file_name = NULL;
+	const char *file_name;
 
 	while ((option = getopt_long(argc, argv, "h",
 				     long_options, &option_index)) >= 0)
@@ -168,6 +168,9 @@ int main(int argc, char *argv[])
 		case 1:	 file_name = argv[optind++];	 break;
 		default: usage();			 return EXIT_FAILURE;
 		}
+	} else {
+		usage();
+		return EXIT_FAILURE;
 	}
 
 	if (cu__load_file(file_name) != 0) {

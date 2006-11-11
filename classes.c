@@ -184,8 +184,8 @@ int class__is_struct(const struct class *self, struct cu *cu,
 	return self->tag == DW_TAG_structure_type;
 }
 
-static const uint64_t class__size(const struct class *self,
-				  const struct cu *cu)
+static uint64_t class__size(const struct class *self,
+			    const struct cu *cu)
 {
 	uint64_t size = self->size;
 
@@ -352,7 +352,7 @@ static uint64_t class_member__print(struct class_member *self,
 		class_name = class__name(class, cu, class_name_bf, sizeof(class_name_bf));
 		if (class->tag == DW_TAG_array_type)
 			snprintf(member_name_bf, sizeof(member_name_bf),
-				 "%s[%lu];", self->name ?: "",
+				 "%s[%llu];", self->name ?: "",
 				 class->nr_entries);
 		else if (self->bit_size != 0)
 			snprintf(member_name_bf, sizeof(member_name_bf),
@@ -530,7 +530,6 @@ void class__print_inline_expansions(struct class *self, const struct cu *cu)
 
 void class__print_variables(struct class *self, const struct cu *cu)
 {
-	struct class *class_type;
 	struct variable *pos;
 
 	if (self->nr_variables == 0)
@@ -607,7 +606,7 @@ static void class__print_struct(struct class *self, const struct cu *cu)
 	list_for_each_entry(pos, &self->members, node) {
 		if (sum > 0 && last_size > 0 && sum % cacheline_size == 0)
 			printf("        /* ---------- cacheline "
-			       "%u boundary ---------- */\n",
+			       "%lu boundary ---------- */\n",
 			       sum / cacheline_size);
 		 size = class_member__print(pos, cu);
 		 if (pos->hole > 0) {
@@ -641,7 +640,8 @@ static void class__print_struct(struct class *self, const struct cu *cu)
 	puts(" */");
 
 	if (sum + sum_holes != self->size - self->padding)
-		printf("\n/* BRAIN FART ALERT! %llu != %d + %d(holes), diff = %llu */\n\n",
+		printf("\n/* BRAIN FART ALERT! %llu != "
+		       "%lu + %lu(holes), diff = %llu */\n\n",
 		       self->size, sum, sum_holes,
 		       self->size - (sum + sum_holes));
 	putchar('\n');
@@ -777,7 +777,7 @@ static uint64_t attr_offset(Dwarf_Die *die)
 	return 0;
 }
 
-static uintmax_t attr_upper_bound(Dwarf_Die *die)
+static uint64_t attr_upper_bound(Dwarf_Die *die)
 {
 	Dwarf_Attribute attr;
 
@@ -871,7 +871,6 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 	} else if (tag == DW_TAG_subrange_type)
 		cu__current_class->nr_entries = attr_upper_bound(die);
 	else if (tag == DW_TAG_variable) {
-		char bf[1024];
 		uint64_t abstract_origin = attr_numeric(die,
 							DW_AT_abstract_origin);
 		struct variable *variable;

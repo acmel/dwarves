@@ -35,8 +35,8 @@ struct class {
 	uint64_t	 type;
 	uint64_t	 low_pc;
 	uint64_t	 high_pc;
+	uint64_t	 nr_entries;	/* For arrays */
 	unsigned int	 tag;		/* struct, union, base type, etc */
-	uintmax_t	 nr_entries;	/* For arrays */
 	const char	 *decl_file;
 	unsigned int	 decl_line;
 	unsigned short	 nr_members;

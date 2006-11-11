@@ -70,7 +70,7 @@ static void inlines__add(const struct class *class)
 
 static void inline_function__print(struct inline_function *self)
 {
-	printf("%-31.31s %6lu %7lu  %6lu %6lu\n", self->name,
+	printf("%-31.31s %6lu %7lu  %6lu %6u\n", self->name,
 	       self->size_expansions, self->nr_expansions,
 	       self->size_expansions / self->nr_expansions,
 	       self->nr_files);
@@ -171,7 +171,7 @@ static int sizes_iterator(struct cu *cu, struct class *class, void *cookie)
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
-	printf("%s: %u\n", class->name ?: "", class->high_pc - class->low_pc);
+	printf("%s: %llu\n", class->name ?: "", class->high_pc - class->low_pc);
 	return 0;
 }
 
@@ -242,7 +242,7 @@ static int inlines_iterator(struct cu *cu, struct class *class, void *cookie)
 		return 0;
 
 	if (class->name != NULL)
-		printf("%s: %lu %lu\n", class->name,
+		printf("%s: %u %lu\n", class->name,
 		       class->cu_total_nr_inline_expansions,
 		       class->cu_total_size_inline_expansions);
 	return 0;
@@ -307,7 +307,7 @@ static int cu_total_inlines_iterator(struct cu *cu, void *cookie)
 int main(int argc, char *argv[])
 {
 	int option, option_index;
-	const char *file_name = NULL;
+	const char *file_name;
 	char *class_name = NULL;
 	char *function_name = NULL;
 	int show_sizes = 0;
@@ -345,6 +345,9 @@ int main(int argc, char *argv[])
 			 function_name = argv[optind++]; break;
 		default: usage();			 return EXIT_FAILURE;
 		}
+	} else {
+		usage();
+		return EXIT_FAILURE;
 	}
 
 	if (cu__load_file(file_name) != 0) {
