@@ -19,12 +19,14 @@ binprefix =
 PAHOLE_SOURCES = pahole.c classes.c classes.h
 PFUNCT_SOURCES = pfunct.c classes.c classes.h
 PREFCNT_SOURCES = prefcnt.c classes.c classes.h
+CODIFF_SOURCES = codiff.c classes.c classes.h
 
 PAHOLE_OBJECTS = pahole.o classes.c classes.h
 PFUNCT_OBJECTS = pfunct.o classes.c classes.h
 PREFCNT_OBJECTS = prefcnt.o classes.c classes.h
+CODIFF_OBJECTS = codiff.o classes.c classes.h
 
-all: pahole pfunct prefcnt
+all: pahole pfunct prefcnt codiff
 
 default: $(TARGETS)
 
@@ -37,14 +39,20 @@ pfunct: $(PFUNCT_OBJECTS)
 prefcnt: $(PREFCNT_OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $(PREFCNT_OBJECTS) $(LDFLAGS) 
 
+codiff: $(CODIFF_OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $(CODIFF_OBJECTS) $(LDFLAGS) 
+
 install: all
 	$(INSTALL) pahole $(bindir)/pahole
+	$(INSTALL) pfunct $(bindir)/pfunct
+	$(INSTALL) prefcnt $(bindir)/prefcnt
+	$(INSTALL) codiff $(bindir)/codiff
 
 uninstall:
-	-rm -f $(bindir)/pahole
+	-rm -f $(bindir)/{pahole,pfunct,prefcnt,codiff}
 
 clean:
-	rm -f *.o pahole pfunct prefcnt *~
+	rm -f *.o pahole pfunct prefcnt codiff *~
 
 distclean: clean
 	rm -f tags

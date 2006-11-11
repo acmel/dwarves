@@ -14,6 +14,11 @@
 
 #include "list.h"
 
+struct cus {
+	struct list_head cus;
+	const char	 *filename;
+};
+
 struct cu {
 	struct list_head node;
 	struct list_head classes;
@@ -22,6 +27,10 @@ struct cu {
 	unsigned int	 id;
 	unsigned long	 nr_inline_expansions;
 	unsigned long	 size_inline_expansions;
+	unsigned int	 nr_functions_changed;
+	size_t		 max_len_changed_function;
+	size_t		 function_bytes_added;
+	size_t		 function_bytes_removed;
 };
 
 struct class {
@@ -48,6 +57,7 @@ struct class {
 	unsigned short	 nr_inline_expansions;
 	unsigned int	 refcnt;
 	unsigned int	 size_inline_expansions;
+	signed int	 diff;
 	unsigned int	 cu_total_nr_inline_expansions;
 	unsigned long	 cu_total_size_inline_expansions;
 };
@@ -84,29 +94,38 @@ struct inline_expansion {
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern void class__print(struct class *self, const struct cu *cu);
 
-extern int	    cu__load_file(const char *filename);
-extern struct cu    *cus__find_cu_by_id(const unsigned int type);
+extern struct cus   *cus__new(const char *filename);
+extern int	    cus__load(struct cus *self);
+extern struct cu    *cus__find_cu_by_name(struct cus *self, const char *name);
 extern struct class *cu__find_class_by_id(const struct cu *cu,
 					  const uint64_t type);
 extern struct class *cu__find_class_by_name(struct cu *cu, const char *name);
 extern int	    class__is_struct(const struct class *self,
 				     struct cu *cu,
 				     struct class **typedef_alias);
-extern void	    cu__print_classes(const unsigned int tag);
+extern void	    cus__print_classes(struct cus *cus,
+				       const unsigned int tag);
 extern void	    class__print_inline_expansions(struct class *self,
 						   const struct cu *cu);
 extern void	    class__print_variables(struct class *self,
 					   const struct cu *cu);
-extern struct class *cus__find_class_by_name(struct cu **cu, const char *name);
+extern struct class *cus__find_class_by_name(struct cus *self, struct cu **cu,
+					     const char *name);
 extern void	    cu__account_inline_expansions(struct cu *self);
 extern int	    cu__for_each_class(struct cu *cu,
 				       int (*iterator)(struct cu *cu,
 						       struct class *class,
 						       void *cookie),
 				       void *cookie);
-extern void	    cus__for_each_cu(int (*iterator)(struct cu *cu,
+extern void	    cus__for_each_cu(struct cus *self,
+				     int (*iterator)(struct cu *cu,
 						     void *cookie),
 				      void *cookie);
+
+static inline uint32_t class__function_size(const struct class *self)
+{
+	return self->high_pc - self->low_pc;
+}
 
 extern unsigned int cacheline_size;
 

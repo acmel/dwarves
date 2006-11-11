@@ -155,6 +155,7 @@ static int cu_sizes_iterator(struct cu *cu, void *cookie)
 int main(int argc, char *argv[])
 {
 	int option, option_index;
+	struct cus *cus;
 	char *file_name;
 	char *class_name = NULL;
 	int show_sizes = 0;
@@ -186,22 +187,28 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (cu__load_file(file_name) != 0) {
+	cus = cus__new(file_name);
+	if (cus == NULL) {
+		fputs("pahole: insufficient memory\n", stderr);
+		return EXIT_FAILURE;
+	}
+
+	if (cus__load(cus) != 0) {
 		fprintf(stderr, "pahole: couldn't load DWARF info from %s\n",
 		       file_name);
 		return EXIT_FAILURE;
 	}
 
 	if (show_total_structure_stats) {
-		cus__for_each_cu(cu_total_structure_iterator, NULL);
+		cus__for_each_cu(cus, cu_total_structure_iterator, NULL);
 		print_total_structure_stats();
 	} else if (show_nr_members)
-		cus__for_each_cu(cu_nr_members_iterator, NULL);
+		cus__for_each_cu(cus, cu_nr_members_iterator, NULL);
 	else if (show_sizes)
-		cus__for_each_cu(cu_sizes_iterator, NULL);
+		cus__for_each_cu(cus, cu_sizes_iterator, NULL);
 	else if (class_name != NULL) {
 		struct cu *cu;
-		struct class *class = cus__find_class_by_name(&cu, class_name);
+		struct class *class = cus__find_class_by_name(cus, &cu, class_name);
 		struct class *alias;
 
 		if (class__is_struct(class, cu, &alias)) {
@@ -210,7 +217,7 @@ int main(int argc, char *argv[])
 		} else
 			printf("struct %s not found!\n", class_name);
 	} else
-		cu__print_classes(DW_TAG_structure_type);
+		cus__print_classes(cus, DW_TAG_structure_type);
 
 	return EXIT_SUCCESS;
 }

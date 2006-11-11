@@ -154,6 +154,7 @@ static int cu_lost_iterator(struct cu *cu, void *cookie)
 int main(int argc, char *argv[])
 {
 	int option, option_index;
+	struct cus *cus;
 	const char *file_name;
 
 	while ((option = getopt_long(argc, argv, "h",
@@ -173,14 +174,20 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (cu__load_file(file_name) != 0) {
+	cus = cus__new(file_name);
+	if (cus == NULL) {
+		fputs("prefcnt: insufficient memory\n", stderr);
+		return EXIT_FAILURE;
+	}
+
+	if (cus__load(cus) != 0) {
 		fprintf(stderr, "prefcnt: couldn't load DWARF info from %s\n",
 			file_name);
 		return EXIT_FAILURE;
 	}
 
-	cus__for_each_cu(cu_refcnt_iterator, NULL);
-	cus__for_each_cu(cu_lost_iterator, NULL);
+	cus__for_each_cu(cus, cu_refcnt_iterator, NULL);
+	cus__for_each_cu(cus, cu_lost_iterator, NULL);
 
 	return EXIT_SUCCESS;
 }

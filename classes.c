@@ -76,11 +76,9 @@ static struct variable *variable__new(const char *name, uint64_t id,
 	return self;
 }
 
-static LIST_HEAD(cus__list);
-
-static void cus__add(struct cu *cu)
+static void cus__add(struct cus *self, struct cu *cu)
 {
-	list_add_tail(&cu->node, &cus__list);
+	list_add_tail(&cu->node, &self->cus);
 }
 
 static struct cu *cu__new(unsigned int cu, const char *name)
@@ -93,6 +91,10 @@ static struct cu *cu__new(unsigned int cu, const char *name)
 		self->name = strings__add(name);
 		self->nr_inline_expansions   = 0;
 		self->size_inline_expansions = 0;
+		self->nr_functions_changed     = 0;
+		self->max_len_changed_function = 0;
+		self->function_bytes_added     = 0;
+		self->function_bytes_removed   = 0;
 	}
 
 	return self;
@@ -124,6 +126,9 @@ struct class *cu__find_class_by_name(struct cu *self, const char *name)
 {
 	struct class *pos;
 
+	if (name == NULL)
+		return NULL;
+
 	list_for_each_entry(pos, &self->classes, node)
 		if (pos->name != NULL && strcmp(pos->name, name) == 0)
 			return pos;
@@ -131,11 +136,12 @@ struct class *cu__find_class_by_name(struct cu *self, const char *name)
 	return NULL;
 }
 
-struct class *cus__find_class_by_name(struct cu **cu, const char *name)
+struct class *cus__find_class_by_name(struct cus *self, struct cu **cu,
+				      const char *name)
 {
 	struct cu *cu_pos;
 
-	list_for_each_entry(cu_pos, &cus__list, node) {
+	list_for_each_entry(cu_pos, &self->cus, node) {
 		struct class *class = cu__find_class_by_name(cu_pos, name);
 
 		if (class != NULL) {
@@ -143,6 +149,17 @@ struct class *cus__find_class_by_name(struct cu **cu, const char *name)
 			return class;
 		}
 	}
+
+	return NULL;
+}
+
+struct cu *cus__find_cu_by_name(struct cus *self, const char *name)
+{
+	struct cu *pos;
+
+	list_for_each_entry(pos, &self->cus, node)
+		if (strcmp(pos->name, name) == 0)
+			return pos;
 
 	return NULL;
 }
@@ -411,6 +428,7 @@ static struct class *class__new(const unsigned int tag,
 		self->high_pc	  = high_pc;
 		self->cu_total_nr_inline_expansions = 0;
 		self->cu_total_size_inline_expansions = 0;
+		self->diff	  = 0;
 	}
 
 	return self;
@@ -680,21 +698,22 @@ int cu__for_each_class(struct cu *cu,
 	return 0;
 }
 
-void cus__for_each_cu(int (*iterator)(struct cu *cu, void *cookie),
+void cus__for_each_cu(struct cus *self,
+		      int (*iterator)(struct cu *cu, void *cookie),
 		      void *cookie)
 {
 	struct cu *pos;
 
-	list_for_each_entry(pos, &cus__list, node)
+	list_for_each_entry(pos, &self->cus, node)
 		if (iterator(pos, cookie))
 			break;
 }
 
-void cu__print_classes(const unsigned int tag)
+void cus__print_classes(struct cus *self, const unsigned int tag)
 {
 	struct cu *cu_pos;
 
-	list_for_each_entry(cu_pos, &cus__list, node) {
+	list_for_each_entry(cu_pos, &self->cus, node) {
 		struct class *class_pos;
 
 		list_for_each_entry(class_pos, &cu_pos->classes, node)
@@ -945,14 +964,14 @@ next_sibling:
 		cu__process_die(dwarf, die);
 }
 
-int cu__load_file(const char *filename)
+int cus__load(struct cus *self)
 {
 	Dwarf_Off offset, last_offset, abbrev_offset;
 	uint8_t addr_size, offset_size;
 	size_t hdr_size;
 	Dwarf *dwarf;
 	int err = -1;
-	int fd = open(filename, O_RDONLY);	
+	int fd = open(self->filename, O_RDONLY);	
 
 	if (fd < 0)
 		goto out;
@@ -975,7 +994,7 @@ int cu__load_file(const char *filename)
 				oom("cu__new");
 			++current_cu_id;
 			cu__process_die(dwarf, &die);
-			cus__add(current_cu);
+			cus__add(self, current_cu);
 		}
 
 		last_offset = offset;
@@ -987,4 +1006,16 @@ out_close:
 	close(fd);
 out:
 	return err;
+}
+
+struct cus *cus__new(const char *filename)
+{
+	struct cus *self = malloc(sizeof(*self));
+
+	if (self != NULL) {
+		INIT_LIST_HEAD(&self->cus);
+		self->filename = strings__add(filename);
+	}
+
+	return self;
 }

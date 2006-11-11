@@ -171,7 +171,7 @@ static int sizes_iterator(struct cu *cu, struct class *class, void *cookie)
 	if (class->tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
-	printf("%s: %llu\n", class->name ?: "", class->high_pc - class->low_pc);
+	printf("%s: %u\n", class->name ?: "", class__function_size(class));
 	return 0;
 }
 
@@ -308,6 +308,7 @@ int main(int argc, char *argv[])
 {
 	int option, option_index;
 	const char *file_name;
+	struct cus *cus;
 	char *class_name = NULL;
 	char *function_name = NULL;
 	int show_sizes = 0;
@@ -350,33 +351,39 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (cu__load_file(file_name) != 0) {
+	cus = cus__new(file_name);
+	if (cus == NULL) {
+		fputs("pfunct: insufficient memory\n", stderr);
+		return EXIT_FAILURE;
+	}
+
+	if (cus__load(cus) != 0) {
 		fprintf(stderr, "pfunct: couldn't load DWARF info from %s\n",
 			file_name);
 		return EXIT_FAILURE;
 	}
 
 	if (show_total_inline_expansion_stats) {
-		cus__for_each_cu(cu_total_inlines_iterator, NULL);
+		cus__for_each_cu(cus, cu_total_inlines_iterator, NULL);
 		print_total_inline_stats();
 	} else if (show_inline_stats)
-		cus__for_each_cu(cu_inlines_iterator, NULL);
+		cus__for_each_cu(cus, cu_inlines_iterator, NULL);
 	else if (show_nr_parameters)
-		cus__for_each_cu(cu_nr_parameters_iterator, NULL);
+		cus__for_each_cu(cus, cu_nr_parameters_iterator, NULL);
 	else if (show_nr_variables)
-		cus__for_each_cu(cu_variables_iterator, NULL);
+		cus__for_each_cu(cus, cu_variables_iterator, NULL);
 	else if (show_goto_labels)
-		cus__for_each_cu(cu_goto_labels_iterator, NULL);
+		cus__for_each_cu(cus, cu_goto_labels_iterator, NULL);
 	else if (show_sizes)
-		cus__for_each_cu(cu_sizes_iterator, NULL);
+		cus__for_each_cu(cus, cu_sizes_iterator, NULL);
 	else if (show_function_name_len)
-		cus__for_each_cu(cu_function_name_len_iterator, NULL);
+		cus__for_each_cu(cus, cu_function_name_len_iterator, NULL);
 	else if (class_name != NULL)
-		cus__for_each_cu(cu_class_iterator, class_name);
+		cus__for_each_cu(cus, cu_class_iterator, class_name);
 	else if (function_name == NULL && !show_inline_expansions_stats)
-		cu__print_classes(DW_TAG_subprogram);
+		cus__print_classes(cus, DW_TAG_subprogram);
 	else
-		cus__for_each_cu(cu_function_iterator, function_name);
+		cus__for_each_cu(cus, cu_function_iterator, function_name);
 
 	return EXIT_SUCCESS;
 }
