@@ -29,19 +29,18 @@ static void usage(void)
 		"   -h, --help   usage options\n");
 }
 
-static void refcnt_class(struct cu *cu, struct class *class);
+static void refcnt_class(struct class *class);
 
-static void refcnt_member(struct cu *cu, struct class *class,
-			  struct class_member *member)
+static void refcnt_member(struct class *class, struct class_member *member)
 {
 	if (member->visited)
 		return;
 	member->visited = 1;
 	if (member->type != 0) { /* if not void */
-		struct class *type = cu__find_class_by_id(cu, member->type);
+		struct class *type = cu__find_class_by_id(class->cu, member->type);
 
 		if (type != NULL)
-			refcnt_class(cu, type);
+			refcnt_class(type);
 	}
 }
 
@@ -51,17 +50,17 @@ static void refcnt_parameter(struct cu *cu, struct class_member *member)
 		struct class *type = cu__find_class_by_id(cu, member->type);
 
 		if (type != NULL)
-			refcnt_class(cu, type);
+			refcnt_class(type);
 	}
 }
 
-static void refcnt_variable(struct cu *cu, struct variable *variable)
+static void refcnt_variable(struct variable *variable)
 {
 	if (variable->type != 0) { /* if not void */
-		struct class *type = cu__find_class_by_id(cu, variable->type);
-
+		struct class *type = cu__find_class_by_id(variable->cu,
+							  variable->type);
 		if (type != NULL)
-			refcnt_class(cu, type);
+			refcnt_class(type);
 	}
 }
 
@@ -70,11 +69,11 @@ static void refcnt_inline_expansion(struct cu *cu, struct inline_expansion *exp)
 	if (exp->type != 0) { /* if not void */
 		struct class *type = cu__find_class_by_id(cu, exp->type);
 		assert(type != NULL);
-		refcnt_class(cu, type);
+		refcnt_class(type);
 	}
 }
 
-static void refcnt_class(struct cu *cu, struct class *class)
+static void refcnt_class(struct class *class)
 {
 	struct class_member *member;
 	struct inline_expansion *exp;
@@ -83,29 +82,29 @@ static void refcnt_class(struct cu *cu, struct class *class)
 	class->refcnt++;
 
 	if (class->type != 0) /* if not void */ {
-		struct class *type = cu__find_class_by_id(cu, class->type);
+		struct class *type = cu__find_class_by_id(class->cu, class->type);
 
 		if (type != NULL)
-			refcnt_class(cu, type);
+			refcnt_class(type);
 	}
 
 	if (class->tag == DW_TAG_structure_type ||
 	    class->tag == DW_TAG_union_type) {
 		list_for_each_entry(member, &class->members, node)
-			refcnt_member(cu, class, member);
+			refcnt_member(class, member);
 	} else if (class->tag == DW_TAG_subprogram) {
 		list_for_each_entry(member, &class->members, node)
-			refcnt_parameter(cu, member);
+			refcnt_parameter(class->cu, member);
 	}
 
 	list_for_each_entry(variable, &class->variables, class_node)
-		refcnt_variable(cu, variable);
+		refcnt_variable(variable);
 
 	list_for_each_entry(exp, &class->inline_expansions, node)
-		refcnt_inline_expansion(cu, exp);
+		refcnt_inline_expansion(class->cu, exp);
 }
 
-static void refcnt_function(struct cu *cu, struct class *function)
+static void refcnt_function(struct class *function)
 {
 	assert(function->tag == DW_TAG_subprogram);
 	/*
@@ -117,17 +116,17 @@ static void refcnt_function(struct cu *cu, struct class *function)
 	if (function->inlined)
 		return;
 
-	refcnt_class(cu, function);
+	refcnt_class(function);
 }
 
-static int refcnt_iterator(struct cu *cu, struct class *class, void *cookie)
+static int refcnt_iterator(struct class *class, void *cookie)
 {
 	switch (class->tag) {
 	case DW_TAG_structure_type:
-		class__find_holes(class, cu);
+		class__find_holes(class);
 		break;
 	case DW_TAG_subprogram:
-		refcnt_function(cu, class);
+		refcnt_function(class);
 		break;
 	}
 
@@ -139,10 +138,10 @@ static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_class(cu, refcnt_iterator, cookie);
 }
 
-static int lost_iterator(struct cu *cu, struct class *class, void *cookie)
+static int lost_iterator(struct class *class, void *cookie)
 {
 	if (class->refcnt == 0 && class->decl_file != NULL)
-		class__print(class, cu);
+		class__print(class);
 	return 0;
 }
 

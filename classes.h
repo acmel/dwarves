@@ -81,6 +81,7 @@ struct variable {
 	struct list_head cu_node;
 	struct list_head class_node;
 	char		 *name;
+	struct cu	 *cu;
 	uint64_t	 id;
 	uint64_t	 type;
 	uint64_t	 abstract_origin;
@@ -94,8 +95,8 @@ struct inline_expansion {
 
 #define DEFAULT_CACHELINE_SIZE 32
 
-extern void class__find_holes(struct class *self, const struct cu *cu);
-extern void class__print(struct class *self, const struct cu *cu);
+extern void class__find_holes(struct class *self);
+extern void class__print(struct class *self);
 
 extern struct cus   *cus__new(const char *filename);
 extern int	    cus__load(struct cus *self);
@@ -104,20 +105,16 @@ extern struct class *cu__find_class_by_id(const struct cu *cu,
 					  const uint64_t type);
 extern struct class *cu__find_class_by_name(struct cu *cu, const char *name);
 extern int	    class__is_struct(const struct class *self,
-				     struct cu *cu,
 				     struct class **typedef_alias);
 extern void	    cus__print_classes(struct cus *cus,
 				       const unsigned int tag);
-extern void	    class__print_inline_expansions(struct class *self,
-						   const struct cu *cu);
-extern void	    class__print_variables(struct class *self,
-					   const struct cu *cu);
-extern struct class *cus__find_class_by_name(struct cus *self, struct cu **cu,
+extern void	    class__print_inline_expansions(struct class *self);
+extern void	    class__print_variables(struct class *self);
+extern struct class *cus__find_class_by_name(struct cus *self,
 					     const char *name);
 extern void	    cu__account_inline_expansions(struct cu *self);
 extern int	    cu__for_each_class(struct cu *cu,
-				       int (*iterator)(struct cu *cu,
-						       struct class *class,
+				       int (*iterator)(struct class *class,
 						       void *cookie),
 				       void *cookie);
 extern void	    cus__for_each_cu(struct cus *self,

@@ -75,7 +75,7 @@ static void print_total_structure_stats(void)
 		structure__print(pos);
 }
 
-static int total_structure_iterator(struct cu *cu, struct class *class, void *cookie)
+static int total_structure_iterator(struct class *class, void *cookie)
 {
 	if (class->tag == DW_TAG_structure_type && class->name != NULL)
 		structures__add(class);
@@ -112,7 +112,7 @@ static void usage(void)
 		DEFAULT_CACHELINE_SIZE);
 }
 
-static int nr_members_iterator(struct cu *cu, struct class *class, void *cookie)
+static int nr_members_iterator(struct class *class, void *cookie)
 {
 	if (class->tag != DW_TAG_structure_type)
 		return 0;
@@ -127,14 +127,14 @@ static int cu_nr_members_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_class(cu, nr_members_iterator, cookie);
 }
 
-static int sizes_iterator(struct cu *cu, struct class *class, void *cookie)
+static int sizes_iterator(struct class *class, void *cookie)
 {
 	struct class *typedef_alias;
 
-	if (!class__is_struct(class, cu, &typedef_alias))
+	if (!class__is_struct(class, &typedef_alias))
 		return 0;
 
-	class__find_holes(typedef_alias ?: class, cu);
+	class__find_holes(typedef_alias ?: class);
 	if (typedef_alias != NULL) {
 		if (typedef_alias->size > 0)
 			printf("typedef %s:struct(%s): %llu %u\n",
@@ -207,13 +207,12 @@ int main(int argc, char *argv[])
 	else if (show_sizes)
 		cus__for_each_cu(cus, cu_sizes_iterator, NULL);
 	else if (class_name != NULL) {
-		struct cu *cu;
-		struct class *class = cus__find_class_by_name(cus, &cu, class_name);
+		struct class *class = cus__find_class_by_name(cus, class_name);
 		struct class *alias;
 
-		if (class__is_struct(class, cu, &alias)) {
-			class__find_holes(alias ?: class, cu);
-			class__print(alias ?: class, cu);
+		if (class__is_struct(class, &alias)) {
+			class__find_holes(alias ?: class);
+			class__print(alias ?: class);
 		} else
 			printf("struct %s not found!\n", class_name);
 	} else
