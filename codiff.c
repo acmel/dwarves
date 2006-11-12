@@ -134,6 +134,22 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
+static void print_total_function_diff(const char *filename)
+{
+	printf("\n%s:\n", filename);
+
+	printf(" %u function%s changed", total_nr_functions_changed,
+	       total_nr_functions_changed > 1 ? "s" : "");
+
+	if (total_function_bytes_added != 0)
+		printf(", %lu bytes added", total_function_bytes_added);
+
+	if (total_function_bytes_removed != 0)
+		printf(", %lu bytes removed", total_function_bytes_removed);
+
+	putchar('\n');
+}
+
 int main(int argc, char *argv[])
 {
 	int option, option_index;
@@ -181,20 +197,8 @@ int main(int argc, char *argv[])
 	cus__for_each_cu(old_cus, cu_diff_iterator, new_cus);
 	cus__for_each_cu(old_cus, cu_show_diffs_iterator, NULL);
 
-	if (total_cus_changed > 1) {
-		printf("\n%s:\n", new_filename);
-
-		printf(" %u function%s changed", total_nr_functions_changed,
-		       total_nr_functions_changed > 1 ? "s" : "");
-
-		if (total_function_bytes_added != 0)
-			printf(", %lu bytes added", total_function_bytes_added);
-
-		if (total_function_bytes_removed != 0)
-			printf(", %lu bytes removed", total_function_bytes_removed);
-
-		putchar('\n');
-	}
+	if (total_cus_changed > 1)
+		print_total_function_diff(new_filename);
 
 	return EXIT_SUCCESS;
 }
