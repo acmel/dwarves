@@ -18,6 +18,7 @@
 
 static struct option long_options[] = {
 	{ "help",			no_argument,		NULL, 'h' },
+	{ "terse_type_changes",		no_argument,		NULL, 't' },
 	{ "structs",			no_argument,		NULL, 's' },
 	{ "functions",			no_argument,		NULL, 'f' },
 	{ "verbose",			no_argument,		NULL, 'V' },
@@ -27,6 +28,16 @@ static struct option long_options[] = {
 static int show_struct_diffs;
 static int show_function_diffs;
 static int verbose;
+static int show_terse_type_changes;
+
+#define TCHANGEF__SIZE		(1 << 0)
+#define TCHANGEF__NR_MEMBERS	(1 << 1)
+#define TCHANGEF__TYPE		(1 << 2)
+#define TCHANGEF__OFFSET	(1 << 3)
+#define TCHANGEF__BIT_OFFSET	(1 << 4)
+#define TCHANGEF__BIT_SIZE	(1 << 5)
+
+static unsigned int terse_type_changes;
 
 static unsigned int total_cus_changed;
 static unsigned int total_nr_functions_changed;
@@ -38,10 +49,11 @@ static void usage(void)
 	fprintf(stderr,
 		"usage: codiff [options] <old_file> <new_file>\n"
 		" where: \n"
-		"   -h, --help        usage options\n"
-		"   -s, --structs     show struct diffs\n"
-		"   -f, --functions   show function diffs\n"
-		"   -V, --verbose     show diffs details\n"
+		"   -h, --help                usage options\n"
+		"   -s, --structs             show struct diffs\n"
+		"   -f, --functions           show function diffs\n"
+		"   -t, --terse_type_changes  show terse type changes\n"
+		"   -V, --verbose             show diffs details\n"
 		" without options all diffs are shown\n");
 }
 
@@ -84,22 +96,45 @@ static int check_print_change(const struct class_member *old,
 	char new_member_name[128];
 	uint64_t old_size;
 	uint64_t new_size;
-	int changes;
+	int changes = 0;
 
 	old_size = class_member__names(old, cu, old_class_name,
 				       sizeof(old_class_name),
 				       old_member_name,
 				       sizeof(old_member_name));
+	if (old_size == (uint64_t)-1)
+		return 0;
 	new_size = class_member__names(new, cu, new_class_name,
 				       sizeof(new_class_name),
 				       new_member_name,
 				       sizeof(new_member_name));
-	changes = (old_size != new_size || old->offset != new->offset ||
-		   old->bit_offset != new->bit_offset ||
-		   old->bit_size != new->bit_size ||
-		   strcmp(old_class_name, new_class_name));
+	if (new_size == (uint64_t)-1)
+		return 0;
 
-	if (changes && print)
+	if (old_size != new_size)
+		changes = 1;
+
+	if (old->offset != new->offset) {
+		changes = 1;
+		terse_type_changes |= TCHANGEF__OFFSET;
+	}
+
+	if (old->bit_offset != new->bit_offset) {
+		changes = 1;
+		terse_type_changes |= TCHANGEF__BIT_OFFSET;
+	}
+
+	if (old->bit_size != new->bit_size) {
+		changes = 1;
+		terse_type_changes |= TCHANGEF__BIT_SIZE;
+	}
+
+	if (strcmp(old_class_name, new_class_name) != 0) {
+		changes = 1;
+		terse_type_changes |= TCHANGEF__TYPE;
+	}
+
+	if (changes && print && !show_terse_type_changes)
 		printf("    %s\n"
 		       "     from: %-21s /* %5llu(%u) %5llu(%u) */\n"
 		       "     to:   %-21s /* %5llu(%u) %5llu(%u) */\n",
@@ -141,6 +176,8 @@ static void diff_struct(struct cu *cu, struct cu *new_cu,
 	new_structure = cu__find_class_by_name(new_cu, structure->name);
 	if (new_structure == NULL || new_structure->size == 0)
 		return;
+
+	assert(new_structure->tag == DW_TAG_structure_type);
 
 	structure->diff = structure->size != new_structure->size ||
 			  structure->nr_members != new_structure->nr_members ||
@@ -227,26 +264,68 @@ static void show_nr_members_changes(const struct class *structure,
 	}
 }
 
+static void print_terse_type_changes(struct class *structure)
+{
+	const char *sep = "";
+
+	printf("struct %s: ", structure->name);
+
+	if (terse_type_changes & TCHANGEF__SIZE) {
+		fputs("size", stdout);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__NR_MEMBERS) {
+		printf("%snr_members", sep);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__TYPE) {
+		printf("%stype", sep);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__OFFSET) {
+		printf("%soffset", sep);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__BIT_OFFSET) {
+		printf("%sbit_offset", sep);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__BIT_SIZE)
+		printf("%sbit_size", sep);
+
+	putchar('\n');
+}
 
 static void show_diffs_structure(struct class *structure, struct cu *cu)
 {
 	const struct class *new_structure = structure->class_to_diff;
 	int diff = new_structure->size - structure->size;
 
-	printf("  struct %-*.*s | %+4d\n",
-	       cu->max_len_changed_item - sizeof("struct"),
-	       cu->max_len_changed_item - sizeof("struct"),
-	       structure->name, diff);
+	terse_type_changes = 0;
 
-	if (!verbose)
+	if (!show_terse_type_changes)
+		printf("  struct %-*.*s | %+4d\n",
+		       cu->max_len_changed_item - sizeof("struct"),
+		       cu->max_len_changed_item - sizeof("struct"),
+		       structure->name, diff);
+
+	if (diff != 0)
+		terse_type_changes |= TCHANGEF__SIZE;
+
+	if (!verbose && !show_terse_type_changes)
 		return;
 
 	diff = new_structure->nr_members - structure->nr_members;
 	if (diff != 0) {
-		printf("   nr_members: %+d\n", diff);
-		show_nr_members_changes(structure, new_structure, cu);
+		terse_type_changes |= TCHANGEF__NR_MEMBERS;
+		if (!show_terse_type_changes) {
+			printf("   nr_members: %+d\n", diff);
+			show_nr_members_changes(structure, new_structure, cu);
+		}
 	}
 	check_print_members_changes(structure, new_structure, cu, 1);
+	if (show_terse_type_changes)
+		print_terse_type_changes(structure);
 }
 
 static int show_function_diffs_iterator(struct cu *cu, struct class *class, void *new_cu)
@@ -279,6 +358,11 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	++total_cus_changed;
 
 	printf("%s:\n", cu->name);
+
+	if (show_terse_type_changes) {
+		cu__for_each_class(cu, show_structure_diffs_iterator, NULL);
+		return 0;
+	}
 
 	if (cu->nr_structures_changed != 0 && show_struct_diffs) {
 		cu__for_each_class(cu, show_structure_diffs_iterator, NULL);
@@ -327,12 +411,13 @@ int main(int argc, char *argv[])
 	struct cus *old_cus, *new_cus;
 	const char *old_filename, *new_filename;
 
-	while ((option = getopt_long(argc, argv, "fhsV",
+	while ((option = getopt_long(argc, argv, "fhstV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
-		case 'f': show_function_diffs = 1; break;
-		case 's': show_struct_diffs = 1;   break;
-		case 'V': verbose = 1;		   break;
+		case 'f': show_function_diffs = 1;	break;
+		case 's': show_struct_diffs = 1;	break;
+		case 't': show_terse_type_changes = 1;	break;
+		case 'V': verbose = 1;			break;
 		case 'h': usage(); return EXIT_SUCCESS;
 		default:  usage(); return EXIT_FAILURE;
 		}
@@ -349,7 +434,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (show_function_diffs == 0 && show_struct_diffs == 0)
+	if (show_function_diffs == 0 && show_struct_diffs == 0 &&
+	    show_terse_type_changes == 0)
 		show_function_diffs = show_struct_diffs = 1;
 
 	old_cus = cus__new(old_filename);
