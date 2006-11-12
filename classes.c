@@ -516,6 +516,9 @@ struct class_member *class__find_member_by_name(const struct class *self,
 {
 	struct class_member *pos;
 
+	if (name == NULL)
+		return NULL;
+
 	list_for_each_entry(pos, &self->members, node)
 		if (pos->name != NULL && strcmp(pos->name, name) == 0)
 			return pos;
