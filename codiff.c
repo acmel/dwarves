@@ -21,6 +21,11 @@ static struct option long_options[] = {
 	{ NULL, 0, NULL, 0, }
 };
 
+static unsigned int total_cus_changed;
+static unsigned int total_nr_functions_changed;
+static unsigned long total_function_bytes_added;
+static unsigned long total_function_bytes_removed;
+
 static void usage(void)
 {
 	fprintf(stderr,
@@ -109,14 +114,22 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 		putchar('\n');
 	else
 		first_cu_printed = 1;
+
+	++total_cus_changed;
+	total_nr_functions_changed += cu->nr_functions_changed;
+
 	printf("%s:\n", cu->name);
 	cu__for_each_class(cu, show_diffs_iterator, NULL);
 	printf("%u function%s changed", cu->nr_functions_changed,
 	       cu->nr_functions_changed > 1 ? "s" : "");
-	if (cu->function_bytes_added != 0)
+	if (cu->function_bytes_added != 0) {
+		total_function_bytes_added += cu->function_bytes_added;
 		printf(", %u bytes added", cu->function_bytes_added);
-	if (cu->function_bytes_removed != 0)
+	}
+	if (cu->function_bytes_removed != 0) {
+		total_function_bytes_removed += cu->function_bytes_removed;
 		printf(", %u bytes removed", cu->function_bytes_removed);
+	}
 	putchar('\n');
 	return 0;
 }
@@ -167,6 +180,21 @@ int main(int argc, char *argv[])
 
 	cus__for_each_cu(old_cus, cu_diff_iterator, new_cus);
 	cus__for_each_cu(old_cus, cu_show_diffs_iterator, NULL);
+
+	if (total_cus_changed > 1) {
+		printf("\n%s:\n", new_filename);
+
+		printf(" %u function%s changed", total_nr_functions_changed,
+		       total_nr_functions_changed > 1 ? "s" : "");
+
+		if (total_function_bytes_added != 0)
+			printf(", %lu bytes added", total_function_bytes_added);
+
+		if (total_function_bytes_removed != 0)
+			printf(", %lu bytes removed", total_function_bytes_removed);
+
+		putchar('\n');
+	}
 
 	return EXIT_SUCCESS;
 }
