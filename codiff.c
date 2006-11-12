@@ -18,8 +18,13 @@
 
 static struct option long_options[] = {
 	{ "help",			no_argument,		NULL, 'h' },
+	{ "structs",			no_argument,		NULL, 's' },
+	{ "functions",			no_argument,		NULL, 'f' },
 	{ NULL, 0, NULL, 0, }
 };
+
+static int show_struct_diffs;
+static int show_function_diffs;
 
 static unsigned int total_cus_changed;
 static unsigned int total_nr_functions_changed;
@@ -31,7 +36,10 @@ static void usage(void)
 	fprintf(stderr,
 		"usage: codiff [options] <old_file> <new_file>\n"
 		" where: \n"
-		"   -h, --help   usage options\n");
+		"   -h, --help        usage options\n"
+		"   -s, --structs     show struct diffs\n"
+		"   -f, --functions   show function diffs\n"
+		" without options all diffs are shown\n");
 }
 
 static void diff_function(struct cu *cu, struct cu *new_cu,
@@ -157,13 +165,13 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 
 	printf("%s:\n", cu->name);
 
-	if (cu->nr_structures_changed != 0) {
+	if (cu->nr_structures_changed != 0 && show_struct_diffs) {
 		cu__for_each_class(cu, show_structure_diffs_iterator, NULL);
 		printf(" %u struct%s changed\n", cu->nr_structures_changed,
 		       cu->nr_structures_changed > 1 ? "s" : "");
 	}
 
-	if (cu->nr_functions_changed != 0) {
+	if (cu->nr_functions_changed != 0 && show_function_diffs) {
 		total_nr_functions_changed += cu->nr_functions_changed;
 
 		cu__for_each_class(cu, show_function_diffs_iterator, NULL);
@@ -204,9 +212,11 @@ int main(int argc, char *argv[])
 	struct cus *old_cus, *new_cus;
 	const char *old_filename, *new_filename;
 
-	while ((option = getopt_long(argc, argv, "h",
+	while ((option = getopt_long(argc, argv, "fhs",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
+		case 'f': show_function_diffs = 1; break;
+		case 's': show_struct_diffs = 1;   break;
 		case 'h': usage(); return EXIT_SUCCESS;
 		default:  usage(); return EXIT_FAILURE;
 		}
@@ -222,6 +232,9 @@ int main(int argc, char *argv[])
 		usage();
 		return EXIT_FAILURE;
 	}
+
+	if (show_function_diffs == 0 && show_struct_diffs == 0)
+		show_function_diffs = show_struct_diffs = 1;
 
 	old_cus = cus__new(old_filename);
 	new_cus = cus__new(new_filename);
@@ -245,8 +258,10 @@ int main(int argc, char *argv[])
 	cus__for_each_cu(old_cus, cu_diff_iterator, new_cus);
 	cus__for_each_cu(old_cus, cu_show_diffs_iterator, NULL);
 
-	if (total_cus_changed > 1)
-		print_total_function_diff(new_filename);
+	if (total_cus_changed > 1) {
+		if (show_function_diffs)
+			print_total_function_diff(new_filename);
+	}
 
 	return EXIT_SUCCESS;
 }
