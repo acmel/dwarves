@@ -39,6 +39,7 @@ struct class {
 	struct list_head members;
 	struct list_head inline_expansions;
 	struct list_head variables;
+	struct cu	 *cu;
 	const char	 *name;
 	uint64_t	 size;
 	uint64_t	 id;

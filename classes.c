@@ -103,6 +103,7 @@ static struct cu *cu__new(unsigned int cu, const char *name)
 
 static void cu__add_class(struct cu *self, struct class *class)
 {
+	class->cu = self;
 	list_add_tail(&class->node, &self->classes);
 }
 
@@ -423,6 +424,7 @@ static struct class *class__new(const unsigned int tag,
 		INIT_LIST_HEAD(&self->variables);
 		INIT_LIST_HEAD(&self->inline_expansions);
 		self->tag	  = tag;
+		self->cu	  = NULL;
 		self->id	  = cu_offset;
 		self->type	  = type;
 		self->size	  = size;
