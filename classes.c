@@ -91,8 +91,9 @@ static struct cu *cu__new(unsigned int cu, const char *name)
 		self->name = strings__add(name);
 		self->nr_inline_expansions   = 0;
 		self->size_inline_expansions = 0;
+		self->nr_structures_changed    = 0;
 		self->nr_functions_changed     = 0;
-		self->max_len_changed_function = 0;
+		self->max_len_changed_item     = 0;
 		self->function_bytes_added     = 0;
 		self->function_bytes_removed   = 0;
 	}

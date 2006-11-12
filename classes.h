@@ -28,7 +28,8 @@ struct cu {
 	unsigned long	 nr_inline_expansions;
 	unsigned long	 size_inline_expansions;
 	unsigned int	 nr_functions_changed;
-	size_t		 max_len_changed_function;
+	unsigned int	 nr_structures_changed;
+	size_t		 max_len_changed_item;
 	size_t		 function_bytes_added;
 	size_t		 function_bytes_removed;
 };

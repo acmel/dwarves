@@ -51,8 +51,8 @@ static void diff_function(struct cu *cu, struct cu *new_cu,
 		if (function->diff != 0) {
 			const size_t len = strlen(function->name);
 
-			if (len > cu->max_len_changed_function)
-				cu->max_len_changed_function = len;
+			if (len > cu->max_len_changed_item)
+				cu->max_len_changed_item = len;
 
 			++cu->nr_functions_changed;
 			if (function->diff > 0)
@@ -63,11 +63,38 @@ static void diff_function(struct cu *cu, struct cu *new_cu,
 	}
 }
 
+static void diff_struct(struct cu *cu, struct cu *new_cu,
+			struct class *structure)
+{
+	struct class *new_structure;
+	size_t len;
+
+	assert(structure->tag == DW_TAG_structure_type);
+
+	if (structure->size == 0)
+		return;
+
+	new_structure = cu__find_class_by_name(new_cu, structure->name);
+	if (new_structure == NULL || new_structure->size == 0)
+		return;
+
+	structure->diff = new_structure->size - structure->size;
+	if (structure->diff == 0)
+		return;
+	++cu->nr_structures_changed;
+	len = strlen(structure->name) + sizeof("struct");
+	if (len > cu->max_len_changed_item)
+		cu->max_len_changed_item = len;
+}
+
 static int diff_iterator(struct cu *cu, struct class *class, void *new_cu)
 {
 	switch (class->tag) {
 	case DW_TAG_subprogram:
 		diff_function(cu, new_cu, class);
+		break;
+	case DW_TAG_structure_type:
+		diff_struct(cu, new_cu, class);
 		break;
 	}
 
@@ -85,21 +112,31 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 
 static void show_diffs_function(struct class *class, struct cu *cu)
 {
-	if (class->diff != 0)
-		printf(" %-*.*s | %+4d\n",
-		       cu->max_len_changed_function,
-		       cu->max_len_changed_function,
-		       class->name, class->diff);
+	printf("  %-*.*s | %+4d\n",
+	       cu->max_len_changed_item,
+	       cu->max_len_changed_item,
+	       class->name, class->diff);
 }
 
-static int show_diffs_iterator(struct cu *cu, struct class *class, void *new_cu)
+static void show_diffs_structure(struct class *class, struct cu *cu)
 {
-	switch (class->tag) {
-	case DW_TAG_subprogram:
-		show_diffs_function(class, cu);
-		break;
-	}
+	printf("  struct %-*.*s | %+4d\n",
+	       cu->max_len_changed_item - sizeof("struct"),
+	       cu->max_len_changed_item - sizeof("struct"),
+	       class->name, class->diff);
+}
 
+static int show_function_diffs_iterator(struct cu *cu, struct class *class, void *new_cu)
+{
+	if (class->diff != 0 && class->tag == DW_TAG_subprogram)
+		show_diffs_function(class, cu);
+	return 0;
+}
+
+static int show_structure_diffs_iterator(struct cu *cu, struct class *class, void *new_cu)
+{
+	if (class->diff != 0 && class->tag == DW_TAG_structure_type)
+		show_diffs_structure(class, cu);
 	return 0;
 }
 
@@ -107,7 +144,8 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 {
 	static int first_cu_printed;
 
-	if (cu->nr_functions_changed == 0)
+	if (cu->nr_functions_changed == 0 &&
+	    cu->nr_structures_changed == 0)
 		return 0;
 
 	if (first_cu_printed)
@@ -116,21 +154,31 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 		first_cu_printed = 1;
 
 	++total_cus_changed;
-	total_nr_functions_changed += cu->nr_functions_changed;
 
 	printf("%s:\n", cu->name);
-	cu__for_each_class(cu, show_diffs_iterator, NULL);
-	printf("%u function%s changed", cu->nr_functions_changed,
-	       cu->nr_functions_changed > 1 ? "s" : "");
-	if (cu->function_bytes_added != 0) {
-		total_function_bytes_added += cu->function_bytes_added;
-		printf(", %u bytes added", cu->function_bytes_added);
+
+	if (cu->nr_structures_changed != 0) {
+		cu__for_each_class(cu, show_structure_diffs_iterator, NULL);
+		printf(" %u struct%s changed\n", cu->nr_structures_changed,
+		       cu->nr_structures_changed > 1 ? "s" : "");
 	}
-	if (cu->function_bytes_removed != 0) {
-		total_function_bytes_removed += cu->function_bytes_removed;
-		printf(", %u bytes removed", cu->function_bytes_removed);
+
+	if (cu->nr_functions_changed != 0) {
+		total_nr_functions_changed += cu->nr_functions_changed;
+
+		cu__for_each_class(cu, show_function_diffs_iterator, NULL);
+		printf(" %u function%s changed", cu->nr_functions_changed,
+		       cu->nr_functions_changed > 1 ? "s" : "");
+		if (cu->function_bytes_added != 0) {
+			total_function_bytes_added += cu->function_bytes_added;
+			printf(", %u bytes added", cu->function_bytes_added);
+		}
+		if (cu->function_bytes_removed != 0) {
+			total_function_bytes_removed += cu->function_bytes_removed;
+			printf(", %u bytes removed", cu->function_bytes_removed);
+		}
+		putchar('\n');
 	}
-	putchar('\n');
 	return 0;
 }
 
