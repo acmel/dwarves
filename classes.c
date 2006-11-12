@@ -430,6 +430,7 @@ static struct class *class__new(const unsigned int tag,
 		self->cu_total_nr_inline_expansions = 0;
 		self->cu_total_size_inline_expansions = 0;
 		self->diff	  = 0;
+		self->class_to_diff = NULL;
 	}
 
 	return self;

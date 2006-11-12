@@ -61,6 +61,7 @@ struct class {
 	signed int	 diff;
 	unsigned int	 cu_total_nr_inline_expansions;
 	unsigned long	 cu_total_size_inline_expansions;
+	struct class	 *class_to_diff;
 };
 
 struct class_member {

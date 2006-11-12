@@ -20,11 +20,13 @@ static struct option long_options[] = {
 	{ "help",			no_argument,		NULL, 'h' },
 	{ "structs",			no_argument,		NULL, 's' },
 	{ "functions",			no_argument,		NULL, 'f' },
+	{ "verbose",			no_argument,		NULL, 'V' },
 	{ NULL, 0, NULL, 0, }
 };
 
 static int show_struct_diffs;
 static int show_function_diffs;
+static int verbose;
 
 static unsigned int total_cus_changed;
 static unsigned int total_nr_functions_changed;
@@ -39,6 +41,7 @@ static void usage(void)
 		"   -h, --help        usage options\n"
 		"   -s, --structs     show struct diffs\n"
 		"   -f, --functions   show function diffs\n"
+		"   -V, --verbose     show diffs details\n"
 		" without options all diffs are shown\n");
 }
 
@@ -93,6 +96,7 @@ static void diff_struct(struct cu *cu, struct cu *new_cu,
 	len = strlen(structure->name) + sizeof("struct");
 	if (len > cu->max_len_changed_item)
 		cu->max_len_changed_item = len;
+	structure->class_to_diff = new_structure;
 }
 
 static int diff_iterator(struct cu *cu, struct class *class, void *new_cu)
@@ -126,12 +130,23 @@ static void show_diffs_function(struct class *class, struct cu *cu)
 	       class->name, class->diff);
 }
 
-static void show_diffs_structure(struct class *class, struct cu *cu)
+static void show_diffs_structure(struct class *structure, struct cu *cu)
 {
+	int diff;
+	const struct class *new_structure;
+
 	printf("  struct %-*.*s | %+4d\n",
 	       cu->max_len_changed_item - sizeof("struct"),
 	       cu->max_len_changed_item - sizeof("struct"),
-	       class->name, class->diff);
+	       structure->name, structure->diff);
+
+	if (!verbose)
+		return;
+
+	new_structure = structure->class_to_diff;
+	diff = new_structure->nr_members - structure->nr_members;
+	if (diff != 0)
+		printf("   nr_members: %+d\n", diff);
 }
 
 static int show_function_diffs_iterator(struct cu *cu, struct class *class, void *new_cu)
@@ -212,11 +227,12 @@ int main(int argc, char *argv[])
 	struct cus *old_cus, *new_cus;
 	const char *old_filename, *new_filename;
 
-	while ((option = getopt_long(argc, argv, "fhs",
+	while ((option = getopt_long(argc, argv, "fhsV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'f': show_function_diffs = 1; break;
 		case 's': show_struct_diffs = 1;   break;
+		case 'V': verbose = 1;		   break;
 		case 'h': usage(); return EXIT_SUCCESS;
 		default:  usage(); return EXIT_FAILURE;
 		}
