@@ -74,6 +74,59 @@ static void diff_function(struct cu *cu, struct cu *new_cu,
 	}
 }
 
+static int check_print_change(const struct class_member *old,
+			      const struct class_member *new,
+			      const struct cu *cu, int print)
+{
+	char old_class_name[128];
+	char new_class_name[128];
+	char old_member_name[128];
+	char new_member_name[128];
+	uint64_t old_size;
+	uint64_t new_size;
+	int changes;
+
+	old_size = class_member__names(old, cu, old_class_name,
+				       sizeof(old_class_name),
+				       old_member_name,
+				       sizeof(old_member_name));
+	new_size = class_member__names(new, cu, new_class_name,
+				       sizeof(new_class_name),
+				       new_member_name,
+				       sizeof(new_member_name));
+	changes = (old_size != new_size || old->offset != new->offset ||
+		   old->bit_offset != new->bit_offset ||
+		   old->bit_size != new->bit_size ||
+		   strcmp(old_class_name, new_class_name));
+
+	if (changes && print)
+		printf("    %s\n"
+		       "     from: %-21s /* %5llu(%u) %5llu(%u) */\n"
+		       "     to:   %-21s /* %5llu(%u) %5llu(%u) */\n",
+		       old_member_name,
+		       old_class_name, old->offset, old->bit_offset, old_size, old->bit_size,
+		       new_class_name, new->offset, new->bit_offset, new_size, new->bit_size);
+
+	return changes;
+}
+
+static int check_print_members_changes(const struct class *structure,
+				       const struct class *new_structure,
+				       const struct cu *cu, int print)
+{
+	int changes = 0;
+	struct class_member *member;
+
+	list_for_each_entry(member, &structure->members, node) {
+		struct class_member *twin =
+			class__find_member_by_name(new_structure, member->name);
+		if (twin != NULL)
+			if (check_print_change(member, twin, cu, print))
+				changes = 1;
+	}
+	return changes;
+}
+
 static void diff_struct(struct cu *cu, struct cu *new_cu,
 			struct class *structure)
 {
@@ -89,8 +142,11 @@ static void diff_struct(struct cu *cu, struct cu *new_cu,
 	if (new_structure == NULL || new_structure->size == 0)
 		return;
 
-	structure->diff = new_structure->size - structure->size;
-	if (structure->diff == 0)
+	structure->diff = structure->size != new_structure->size ||
+			  structure->nr_members != new_structure->nr_members ||
+			  check_print_members_changes(structure,
+					  	      new_structure, cu, 0);
+	if (!structure->diff)
 		return;
 	++cu->nr_structures_changed;
 	len = strlen(structure->name) + sizeof("struct");
@@ -119,6 +175,7 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 
 	if (new_cu != NULL)
 		return cu__for_each_class(cu, diff_iterator, new_cu);
+
 	return 0;
 }
 
@@ -130,23 +187,66 @@ static void show_diffs_function(struct class *class, struct cu *cu)
 	       class->name, class->diff);
 }
 
+static void show_changed_member(char change,
+				const struct class_member *member,
+				const struct cu *cu)
+{
+	char class_name[128];
+	char member_name[128];
+	uint64_t size;
+
+	size = class_member__names(member, cu,
+				   class_name,
+				   sizeof(class_name),
+				   member_name,
+				   sizeof(member_name));
+	printf("    %c%-26s %-21s /* %5llu %5llu */\n",
+	       change, class_name, member_name, member->offset, size);
+}
+
+static void show_nr_members_changes(const struct class *structure,
+				    const struct class *new_structure,
+				    const struct cu *cu)
+{
+	struct class_member *member;
+
+	/* Find the removed ones */
+	list_for_each_entry(member, &structure->members, node) {
+		struct class_member *twin =
+			class__find_member_by_name(new_structure, member->name);
+		if (twin == NULL)
+			show_changed_member('-', member, cu);
+	}
+
+	/* Find the new ones */
+	list_for_each_entry(member, &new_structure->members, node) {
+		struct class_member *twin =
+			class__find_member_by_name(structure, member->name);
+		if (twin == NULL)
+			show_changed_member('+', member, cu);
+	}
+}
+
+
 static void show_diffs_structure(struct class *structure, struct cu *cu)
 {
-	int diff;
-	const struct class *new_structure;
+	const struct class *new_structure = structure->class_to_diff;
+	int diff = new_structure->size - structure->size;
 
 	printf("  struct %-*.*s | %+4d\n",
 	       cu->max_len_changed_item - sizeof("struct"),
 	       cu->max_len_changed_item - sizeof("struct"),
-	       structure->name, structure->diff);
+	       structure->name, diff);
 
 	if (!verbose)
 		return;
 
-	new_structure = structure->class_to_diff;
 	diff = new_structure->nr_members - structure->nr_members;
-	if (diff != 0)
+	if (diff != 0) {
 		printf("   nr_members: %+d\n", diff);
+		show_nr_members_changes(structure, new_structure, cu);
+	}
+	check_print_members_changes(structure, new_structure, cu, 1);
 }
 
 static int show_function_diffs_iterator(struct cu *cu, struct class *class, void *new_cu)

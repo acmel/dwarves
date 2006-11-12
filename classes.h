@@ -129,6 +129,15 @@ static inline uint32_t class__function_size(const struct class *self)
 	return self->high_pc - self->low_pc;
 }
 
+extern struct class_member *class__find_member_by_name(const struct class *self,
+						       const char *name);
+
+extern uint64_t class_member__names(const struct class_member *self,
+				    const struct cu *cu,
+				    char *class_name,
+				    size_t class_name_size,
+				    char *member_name,
+				    size_t member_name_size);
 extern unsigned int cacheline_size;
 
 #endif /* _PAHOLE_CLASSES_H_ */

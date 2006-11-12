@@ -323,21 +323,19 @@ static int class_member__size(const struct class_member *self,
 	return class != NULL ? class__size(class, cu) : -1;
 }
 
-static uint64_t class_member__print(struct class_member *self,
-				    const struct cu *cu)
+uint64_t class_member__names(const struct class_member *self,
+			     const struct cu *cu,
+			     char *class_name, size_t class_name_size,
+			     char *member_name, size_t member_name_size)
 {
 	struct class *class = cu__find_class_by_id(cu, self->type);
-	char class_name_bf[128];
-	char member_name_bf[128];
-	char bf[512];
-	const char *class_name = bf;
 	uint64_t size = -1;
 
-	snprintf(member_name_bf, sizeof(member_name_bf),
-		 "%s;", self->name ?: "");
+	snprintf(member_name, member_name_size, "%s;", self->name ?: "");
 
 	if (class == NULL)
-		snprintf(bf, sizeof(bf), "<%llx>", self->type);
+		snprintf(class_name, class_name_size, "<%llx>",
+			 self->type);
 	else {
 		size = class__size(class, cu);
 
@@ -350,36 +348,51 @@ static uint64_t class_member__print(struct class_member *self,
 			    ptr_class->tag == DW_TAG_subroutine_type) {
 				/* function has no return value (void) */
 				if (ptr_class->type == 0)
-					strcpy(bf, "void");
+					snprintf(class_name,
+						 class_name_size, "void");
 				else {
 					struct class *ret_class =
 					  cu__find_class_by_id(cu,
 							       ptr_class->type);
 
 					if (ret_class != NULL)
-						class_name = class__name(ret_class, cu,
-									 class_name_bf,
-									 sizeof(class_name_bf));
+						class__name(ret_class, cu,
+							    class_name,
+							    class_name_size);
 				}
-				snprintf(member_name_bf, sizeof(member_name_bf),
+				snprintf(member_name, member_name_size,
 					 "(*%s)();", self->name ?: "");
 				goto out;
 			}
 		}
 
-		class_name = class__name(class, cu, class_name_bf, sizeof(class_name_bf));
+		class__name(class, cu, class_name, class_name_size);
 		if (class->tag == DW_TAG_array_type)
-			snprintf(member_name_bf, sizeof(member_name_bf),
+			snprintf(member_name, member_name_size,
 				 "%s[%llu];", self->name ?: "",
 				 class->nr_entries);
 		else if (self->bit_size != 0)
-			snprintf(member_name_bf, sizeof(member_name_bf),
+			snprintf(member_name, member_name_size,
 				 "%s:%d;", self->name ?: "",
 				 self->bit_size);
 	}
 out:
+	return size;
+}
+
+static uint64_t class_member__print(struct class_member *self,
+				    const struct cu *cu)
+{
+	uint64_t size;
+	char class_name[128];
+	char member_name[128];
+
+	size = class_member__names(self, cu,
+				   class_name, sizeof(class_name),
+				   member_name, sizeof(member_name));
+
 	printf("        %-26s %-21s /* %5llu %5llu */\n",
-	       class_name, member_name_bf, self->offset, size);
+	       class_name, member_name, self->offset, size);
 	return size;
 }
 
@@ -496,6 +509,18 @@ void class__find_holes(struct class *self, const struct cu *cu)
 
 	if (last != NULL && last->offset + last_size != self->size)
 		self->padding = self->size - (last->offset + last_size);
+}
+
+struct class_member *class__find_member_by_name(const struct class *self,
+						const char *name)
+{
+	struct class_member *pos;
+
+	list_for_each_entry(pos, &self->members, node)
+		if (pos->name != NULL && strcmp(pos->name, name) == 0)
+			return pos;
+
+	return NULL;
 }
 
 void class__account_inline_expansions(struct class *self, struct cu *cu)
