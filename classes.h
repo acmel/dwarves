@@ -68,6 +68,7 @@ struct class {
 struct class_member {
 	struct list_head node;
 	char		 *name;
+	struct class	 *class;
 	uint64_t	 type;
 	uint64_t	 offset;
 	unsigned int	 bit_size;
@@ -131,7 +132,6 @@ extern struct class_member *class__find_member_by_name(const struct class *self,
 						       const char *name);
 
 extern uint64_t class_member__names(const struct class_member *self,
-				    const struct cu *cu,
 				    char *class_name,
 				    size_t class_name_size,
 				    char *member_name,

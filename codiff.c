@@ -98,13 +98,13 @@ static int check_print_change(const struct class_member *old,
 	uint64_t new_size;
 	int changes = 0;
 
-	old_size = class_member__names(old, old_cu, old_class_name,
+	old_size = class_member__names(old, old_class_name,
 				       sizeof(old_class_name),
 				       old_member_name,
 				       sizeof(old_member_name));
 	if (old_size == (uint64_t)-1)
 		return 0;
-	new_size = class_member__names(new, new_cu, new_class_name,
+	new_size = class_member__names(new, new_class_name,
 				       sizeof(new_class_name),
 				       new_member_name,
 				       sizeof(new_member_name));
@@ -232,11 +232,8 @@ static void show_changed_member(char change,
 	char member_name[128];
 	uint64_t size;
 
-	size = class_member__names(member, cu,
-				   class_name,
-				   sizeof(class_name),
-				   member_name,
-				   sizeof(member_name));
+	size = class_member__names(member, class_name, sizeof(class_name),
+				   member_name, sizeof(member_name));
 	printf("    %c%-26s %-21s /* %5llu %5llu */\n",
 	       change, class_name, member_name, member->offset, size);
 }

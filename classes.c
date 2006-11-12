@@ -313,19 +313,17 @@ static struct class_member *class_member__new(uint64_t type,
 	return self;
 }
 
-static int class_member__size(const struct class_member *self,
-			      const struct cu *cu)
+static int class_member__size(const struct class_member *self)
 {
-	struct class *class = cu__find_class_by_id(cu, self->type);
+	struct class *class = cu__find_class_by_id(self->class->cu, self->type);
 	return class != NULL ? class__size(class) : -1;
 }
 
 uint64_t class_member__names(const struct class_member *self,
-			     const struct cu *cu,
 			     char *class_name, size_t class_name_size,
 			     char *member_name, size_t member_name_size)
 {
-	struct class *class = cu__find_class_by_id(cu, self->type);
+	struct class *class = cu__find_class_by_id(self->class->cu, self->type);
 	uint64_t size = -1;
 
 	snprintf(member_name, member_name_size, "%s;", self->name ?: "");
@@ -339,7 +337,7 @@ uint64_t class_member__names(const struct class_member *self,
 		/* Is it a function pointer? */
 		if (class->tag == DW_TAG_pointer_type) {
 			struct class *ptr_class =
-					cu__find_class_by_id(cu, class->type);
+					cu__find_class_by_id(self->class->cu, class->type);
 
 			if (ptr_class != NULL &&
 			    ptr_class->tag == DW_TAG_subroutine_type) {
@@ -349,7 +347,7 @@ uint64_t class_member__names(const struct class_member *self,
 						 class_name_size, "void");
 				else {
 					struct class *ret_class =
-					  cu__find_class_by_id(cu,
+					  cu__find_class_by_id(self->class->cu,
 							       ptr_class->type);
 
 					if (ret_class != NULL)
@@ -377,15 +375,13 @@ out:
 	return size;
 }
 
-static uint64_t class_member__print(struct class_member *self,
-				    const struct cu *cu)
+static uint64_t class_member__print(struct class_member *self)
 {
 	uint64_t size;
 	char class_name[128];
 	char member_name[128];
 
-	size = class_member__names(self, cu,
-				   class_name, sizeof(class_name),
+	size = class_member__names(self, class_name, sizeof(class_name),
 				   member_name, sizeof(member_name));
 
 	printf("        %-26s %-21s /* %5llu %5llu */\n",
@@ -450,6 +446,7 @@ static struct class *class__new(const unsigned int tag,
 static void class__add_member(struct class *self, struct class_member *member)
 {
 	++self->nr_members;
+	member->class = self;
 	list_add_tail(&member->node, &self->members);
 }
 
@@ -491,7 +488,7 @@ void class__find_holes(struct class *self)
 			 }
 		 }
 
-		 size = class_member__size(pos, self->cu);
+		 size = class_member__size(pos);
 		 /*
 		  * check for bitfields, accounting for only the biggest
 		  * of the byte_size in the fields in each bitfield set.
@@ -654,7 +651,7 @@ static void class__print_struct(struct class *self)
 			printf("        /* ---------- cacheline "
 			       "%lu boundary ---------- */\n",
 			       sum / cacheline_size);
-		 size = class_member__print(pos, self->cu);
+		 size = class_member__print(pos);
 		 if (pos->hole > 0) {
 			printf("\n        /* XXX %d bytes hole, "
 			       "try to pack */\n\n", pos->hole);
