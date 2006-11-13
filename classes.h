@@ -90,6 +90,7 @@ struct variable {
 
 struct inline_expansion {
 	struct list_head node;
+	struct class	 *class;
 	uint64_t	 type;
 	uint64_t	 size;
 };
@@ -101,17 +102,19 @@ extern void class__print(struct class *self);
 
 extern struct cus   *cus__new(const char *filename);
 extern int	    cus__load(struct cus *self);
-extern struct cu    *cus__find_cu_by_name(struct cus *self, const char *name);
+extern struct cu    *cus__find_cu_by_name(const struct cus *self,
+					  const char *name);
 extern struct class *cu__find_class_by_id(const struct cu *cu,
 					  const uint64_t type);
-extern struct class *cu__find_class_by_name(struct cu *cu, const char *name);
+extern struct class *cu__find_class_by_name(const struct cu *cu,
+					    const char *name);
 extern int	    class__is_struct(const struct class *self,
 				     struct class **typedef_alias);
 extern void	    cus__print_classes(struct cus *cus,
 				       const unsigned int tag);
 extern void	    class__print_inline_expansions(struct class *self);
 extern void	    class__print_variables(struct class *self);
-extern struct class *cus__find_class_by_name(struct cus *self,
+extern struct class *cus__find_class_by_name(const struct cus *self,
 					     const char *name);
 extern void	    cu__account_inline_expansions(struct cu *self);
 extern int	    cu__for_each_class(struct cu *cu,

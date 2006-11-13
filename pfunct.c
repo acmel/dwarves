@@ -124,8 +124,8 @@ static void usage(void)
 		"   -V, --verbose                     be verbose\n");
 }
 
-static int class__has_parameter_of_type(struct class *self,
-					struct class *target)
+static int class__has_parameter_of_type(const struct class *self,
+					const struct class *target)
 {
 	struct class_member *pos;
 

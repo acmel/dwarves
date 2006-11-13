@@ -57,7 +57,7 @@ static void usage(void)
 		" without options all diffs are shown\n");
 }
 
-static void diff_function(struct cu *new_cu, struct class *function)
+static void diff_function(const struct cu *new_cu, struct class *function)
 {
 	struct class *new_function;
 
@@ -86,9 +86,7 @@ static void diff_function(struct cu *new_cu, struct class *function)
 }
 
 static int check_print_change(const struct class_member *old,
-			      const struct class_member *new,
-			      const struct cu *old_cu,
-			      const struct cu *new_cu, int print)
+			      const struct class_member *new, int print)
 {
 	char old_class_name[128];
 	char new_class_name[128];
@@ -156,14 +154,13 @@ static int check_print_members_changes(const struct class *structure,
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member->name);
 		if (twin != NULL)
-			if (check_print_change(member, twin, structure->cu,
-					       new_structure->cu, print))
+			if (check_print_change(member, twin, print))
 				changes = 1;
 	}
 	return changes;
 }
 
-static void diff_struct(struct cu *new_cu, struct class *structure)
+static void diff_struct(const struct cu *new_cu, struct class *structure)
 {
 	struct class *new_structure;
 	size_t len;
@@ -216,7 +213,7 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 	return 0;
 }
 
-static void show_diffs_function(struct class *class)
+static void show_diffs_function(const struct class *class)
 {
 	printf("  %-*.*s | %+4d\n",
 	       class->cu->max_len_changed_item,
@@ -224,9 +221,7 @@ static void show_diffs_function(struct class *class)
 	       class->name, class->diff);
 }
 
-static void show_changed_member(char change,
-				const struct class_member *member,
-				const struct cu *cu)
+static void show_changed_member(char change, const struct class_member *member)
 {
 	char class_name[128];
 	char member_name[128];
@@ -248,7 +243,7 @@ static void show_nr_members_changes(const struct class *structure,
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member->name);
 		if (twin == NULL)
-			show_changed_member('-', member, structure->cu);
+			show_changed_member('-', member);
 	}
 
 	/* Find the new ones */
@@ -256,11 +251,11 @@ static void show_nr_members_changes(const struct class *structure,
 		struct class_member *twin =
 			class__find_member_by_name(structure, member->name);
 		if (twin == NULL)
-			show_changed_member('+', member, new_structure->cu);
+			show_changed_member('+', member);
 	}
 }
 
-static void print_terse_type_changes(struct class *structure)
+static void print_terse_type_changes(const struct class *structure)
 {
 	const char *sep = "";
 
@@ -292,7 +287,7 @@ static void print_terse_type_changes(struct class *structure)
 	putchar('\n');
 }
 
-static void show_diffs_structure(struct class *structure)
+static void show_diffs_structure(const struct class *structure)
 {
 	const struct class *new_structure = structure->class_to_diff;
 	int diff = new_structure->size - structure->size;

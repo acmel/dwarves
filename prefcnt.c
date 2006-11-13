@@ -31,30 +31,31 @@ static void usage(void)
 
 static void refcnt_class(struct class *class);
 
-static void refcnt_member(struct class *class, struct class_member *member)
+static void refcnt_member(struct class_member *member)
 {
 	if (member->visited)
 		return;
 	member->visited = 1;
 	if (member->type != 0) { /* if not void */
-		struct class *type = cu__find_class_by_id(class->cu, member->type);
-
+		struct class *type = cu__find_class_by_id(member->class->cu,
+							  member->type);
 		if (type != NULL)
 			refcnt_class(type);
 	}
 }
 
-static void refcnt_parameter(struct cu *cu, struct class_member *member)
+static void refcnt_parameter(const struct class_member *member)
 {
 	if (member->type != 0) { /* if not void */
-		struct class *type = cu__find_class_by_id(cu, member->type);
+		struct class *type = cu__find_class_by_id(member->class->cu,
+							  member->type);
 
 		if (type != NULL)
 			refcnt_class(type);
 	}
 }
 
-static void refcnt_variable(struct variable *variable)
+static void refcnt_variable(const struct variable *variable)
 {
 	if (variable->type != 0) { /* if not void */
 		struct class *type = cu__find_class_by_id(variable->cu,
@@ -64,10 +65,11 @@ static void refcnt_variable(struct variable *variable)
 	}
 }
 
-static void refcnt_inline_expansion(struct cu *cu, struct inline_expansion *exp)
+static void refcnt_inline_expansion(const struct inline_expansion *exp)
 {
 	if (exp->type != 0) { /* if not void */
-		struct class *type = cu__find_class_by_id(cu, exp->type);
+		struct class *type = cu__find_class_by_id(exp->class->cu,
+							  exp->type);
 		assert(type != NULL);
 		refcnt_class(type);
 	}
@@ -91,17 +93,17 @@ static void refcnt_class(struct class *class)
 	if (class->tag == DW_TAG_structure_type ||
 	    class->tag == DW_TAG_union_type) {
 		list_for_each_entry(member, &class->members, node)
-			refcnt_member(class, member);
+			refcnt_member(member);
 	} else if (class->tag == DW_TAG_subprogram) {
 		list_for_each_entry(member, &class->members, node)
-			refcnt_parameter(class->cu, member);
+			refcnt_parameter(member);
 	}
 
 	list_for_each_entry(variable, &class->variables, class_node)
 		refcnt_variable(variable);
 
 	list_for_each_entry(exp, &class->inline_expansions, node)
-		refcnt_inline_expansion(class->cu, exp);
+		refcnt_inline_expansion(exp);
 }
 
 static void refcnt_function(struct class *function)

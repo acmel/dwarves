@@ -126,7 +126,7 @@ static const char *tag_name(const unsigned int tag)
 	return "";
 }
 
-struct class *cu__find_class_by_name(struct cu *self, const char *name)
+struct class *cu__find_class_by_name(const struct cu *self, const char *name)
 {
 	struct class *pos;
 
@@ -140,7 +140,7 @@ struct class *cu__find_class_by_name(struct cu *self, const char *name)
 	return NULL;
 }
 
-struct class *cus__find_class_by_name(struct cus *self, const char *name)
+struct class *cus__find_class_by_name(const struct cus *self, const char *name)
 {
 	struct cu *pos;
 
@@ -154,7 +154,7 @@ struct class *cus__find_class_by_name(struct cus *self, const char *name)
 	return NULL;
 }
 
-struct cu *cus__find_cu_by_name(struct cus *self, const char *name)
+struct cu *cus__find_cu_by_name(const struct cus *self, const char *name)
 {
 	struct cu *pos;
 
@@ -454,6 +454,7 @@ static void class__add_inline_expansion(struct class *self,
 					struct inline_expansion *exp)
 {
 	++self->nr_inline_expansions;
+	exp->class = self;
 	self->size_inline_expansions += exp->size;
 	list_add_tail(&exp->node, &self->inline_expansions);
 }
@@ -521,7 +522,7 @@ struct class_member *class__find_member_by_name(const struct class *self,
 	return NULL;
 }
 
-void class__account_inline_expansions(struct class *self, struct cu *cu)
+static void class__account_inline_expansions(struct class *self)
 {
 	struct class *class_type;
 	struct inline_expansion *pos;
@@ -530,7 +531,7 @@ void class__account_inline_expansions(struct class *self, struct cu *cu)
 		return;
 
 	list_for_each_entry(pos, &self->inline_expansions, node) {
-		class_type = cu__find_class_by_id(cu, pos->type);
+		class_type = cu__find_class_by_id(self->cu, pos->type);
 		if (class_type != NULL) {
 			class_type->cu_total_nr_inline_expansions++;
 			class_type->cu_total_size_inline_expansions += pos->size;
@@ -544,7 +545,7 @@ void cu__account_inline_expansions(struct cu *self)
 	struct class *pos;
 
 	list_for_each_entry(pos, &self->classes, node) {
-		class__account_inline_expansions(pos, self);
+		class__account_inline_expansions(pos);
 		self->nr_inline_expansions   += pos->nr_inline_expansions;
 		self->size_inline_expansions += pos->size_inline_expansions;
 	}
