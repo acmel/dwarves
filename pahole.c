@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
 		struct class *class = cus__find_class_by_name(cus, class_name);
 		struct class *alias;
 
-		if (class__is_struct(class, &alias)) {
+		if (class != NULL && class__is_struct(class, &alias)) {
 			class__find_holes(alias ?: class);
 			class__print(alias ?: class);
 		} else
