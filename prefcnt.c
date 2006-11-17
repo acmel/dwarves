@@ -109,14 +109,6 @@ static void refcnt_class(struct class *class)
 static void refcnt_function(struct class *function)
 {
 	assert(function->tag == DW_TAG_subprogram);
-	/*
-	 * We're not interested in inlines at this point, if we
-	 * have inline expansions we'll refcount the inline
-	 * definition and crawl into its return type and
-	 * parameters.
-	 */
-	if (function->inlined)
-		return;
 
 	refcnt_class(function);
 }
