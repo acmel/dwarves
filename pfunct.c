@@ -88,6 +88,7 @@ static void print_total_inline_stats(void)
 
 static struct option long_options[] = {
 	{ "class",			required_argument,	NULL, 'c' },
+	{ "externals",			no_argument,		NULL, 'e' },
 	{ "cu_inline_expansions_stats",	no_argument,		NULL, 'C' },
 	{ "function_name_len",		no_argument,		NULL, 'N' },
 	{ "goto_labels",		no_argument,		NULL, 'g' },
@@ -110,6 +111,7 @@ static void usage(void)
 		" where: \n"
 		"   -c, --class=<class>               functions that have <class> "
 					             "pointer parameters\n"
+		"   -e, --externals		      show just external functions\n"
 		"   -g, --goto_labels                 show number of goto labels\n"
 		"   -i, --inline_expansions           show inline expansions\n"
 		"   -I, --inline_expansions_stats     show inline expansions stats\n"
@@ -178,6 +180,19 @@ static int sizes_iterator(struct class *class, void *cookie)
 static int cu_sizes_iterator(struct cu *cu, void *cookie)
 {
 	return cu__for_each_class(cu, sizes_iterator, cookie);
+}
+
+static int externals_iterator(struct class *class, void *cookie)
+{
+	if (class->tag == DW_TAG_subprogram && !class->inlined && class->external)
+		puts(class->name);
+
+	return 0;
+}
+
+static int cu_externals_iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_class(cu, externals_iterator, cookie);
 }
 
 static int variables_iterator(struct class *class, void *cookie)
@@ -311,6 +326,7 @@ int main(int argc, char *argv[])
 	struct cus *cus;
 	char *class_name = NULL;
 	char *function_name = NULL;
+	int show_externals = 0;
 	int show_sizes = 0;
 	int show_nr_variables = 0;
 	int show_goto_labels = 0;
@@ -320,11 +336,12 @@ int main(int argc, char *argv[])
 	int show_inline_stats = 0;
 	int show_total_inline_expansion_stats = 0;
 
-	while ((option = getopt_long(argc, argv, "c:CgiINpsStTV",
+	while ((option = getopt_long(argc, argv, "c:CegiINpsStTV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': class_name = optarg;			break;
 		case 'C': show_inline_stats = 1;		break;
+		case 'e': show_externals = 1;			break;
 		case 's': show_sizes = 1;			break;
 		case 'S': show_nr_variables = 1;		break;
 		case 'p': show_nr_parameters = 1;		break;
@@ -376,6 +393,8 @@ int main(int argc, char *argv[])
 		cus__for_each_cu(cus, cu_goto_labels_iterator, NULL);
 	else if (show_sizes)
 		cus__for_each_cu(cus, cu_sizes_iterator, NULL);
+	else if (show_externals)
+		cus__for_each_cu(cus, cu_externals_iterator, NULL);
 	else if (show_function_name_len)
 		cus__for_each_cu(cus, cu_function_name_len_iterator, NULL);
 	else if (class_name != NULL)

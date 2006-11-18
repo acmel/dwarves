@@ -57,6 +57,7 @@ struct class {
 	unsigned short	 padding;
 	unsigned short	 inlined;
 	unsigned short	 nr_inline_expansions;
+	unsigned char	 external:1;
 	unsigned int	 refcnt;
 	unsigned int	 size_inline_expansions;
 	signed int	 diff;

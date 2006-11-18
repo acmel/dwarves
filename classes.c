@@ -406,7 +406,7 @@ static struct class *class__new(const unsigned int tag,
 				uint64_t cu_offset, uint64_t type,
 				const char *name, uint64_t size,
 				const char *decl_file, unsigned int decl_line,
-				unsigned short inlined,
+				unsigned short inlined, char external,
 				uint64_t low_pc, uint64_t high_pc)
 {
 	struct class *self = malloc(sizeof(*self));
@@ -432,6 +432,7 @@ static struct class *class__new(const unsigned int tag,
 		self->nr_inline_expansions = 0;
 		self->size_inline_expansions = 0;
 		self->inlined	  = inlined;
+		self->external	  = external;
 		self->low_pc	  = low_pc;
 		self->high_pc	  = high_pc;
 		self->cu_total_nr_inline_expansions = 0;
@@ -961,6 +962,7 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 	} else {
 		uint64_t size = attr_numeric(die, DW_AT_byte_size);
 		const unsigned short inlined = attr_numeric(die, DW_AT_inline);
+		const char external = dwarf_hasattr(die, DW_AT_external);
 		Dwarf_Addr high_pc, low_pc;
 		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
 		if (dwarf_lowpc(die, &low_pc)) low_pc = 0;
@@ -972,10 +974,10 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		if (cu__current_class != NULL)
 			cu__add_class(current_cu, cu__current_class);
 	    
-		cu__current_class = class__new(tag, cu_offset,
-						    type, name, size,
-						    decl_file, decl_line,
-						    inlined, low_pc, high_pc);
+		cu__current_class = class__new(tag, cu_offset, type, name,
+					       size, decl_file, decl_line,
+					       inlined, external,
+					       low_pc, high_pc);
 		if (cu__current_class == NULL)
 			oom("class__new");
 	}
