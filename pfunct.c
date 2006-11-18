@@ -131,13 +131,14 @@ static int class__has_parameter_of_type(const struct class *self,
 {
 	struct class_member *pos;
 
-	list_for_each_entry(pos, &self->members, node) {
-		struct class *class = cu__find_class_by_id(self->cu, pos->type);
+	list_for_each_entry(pos, &self->members, tag.node) {
+		struct class *class = cu__find_class_by_id(self->cu,
+							   pos->tag.type);
 
-		if (class != NULL && class->tag == DW_TAG_pointer_type) {
-			class = cu__find_class_by_id(self->cu, class->type);
+		if (class != NULL && class->tag.tag == DW_TAG_pointer_type) {
+			class = cu__find_class_by_id(self->cu, class->tag.type);
 			if (class != NULL &&
-			    class->id == target->id)
+			    class->tag.id == target->tag.id)
 				return 1;
 		}
 	}
@@ -146,7 +147,7 @@ static int class__has_parameter_of_type(const struct class *self,
 
 static int class_iterator(struct class *class, void *cookie)
 {
-	if (class->tag != DW_TAG_subprogram || class->inlined)
+	if (class->tag.tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
 	if (class__has_parameter_of_type(class, cookie)) {
@@ -170,7 +171,7 @@ static int cu_class_iterator(struct cu *cu, void *cookie)
 
 static int sizes_iterator(struct class *class, void *cookie)
 {
-	if (class->tag != DW_TAG_subprogram || class->inlined)
+	if (class->tag.tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
 	printf("%s: %u\n", class->name ?: "", class__function_size(class));
@@ -184,7 +185,8 @@ static int cu_sizes_iterator(struct cu *cu, void *cookie)
 
 static int externals_iterator(struct class *class, void *cookie)
 {
-	if (class->tag == DW_TAG_subprogram && !class->inlined && class->external)
+	if (class->tag.tag == DW_TAG_subprogram && !class->inlined &&
+	    class->external)
 		puts(class->name);
 
 	return 0;
@@ -197,7 +199,7 @@ static int cu_externals_iterator(struct cu *cu, void *cookie)
 
 static int variables_iterator(struct class *class, void *cookie)
 {
-	if (class->tag != DW_TAG_subprogram || class->inlined)
+	if (class->tag.tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
 	if (class->nr_variables > 0)
@@ -212,7 +214,7 @@ static int cu_variables_iterator(struct cu *cu, void *cookie)
 
 static int goto_labels_iterator(struct class *class, void *cookie)
 {
-	if (class->tag != DW_TAG_subprogram || class->inlined)
+	if (class->tag.tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
 	if (class->nr_labels > 0)
@@ -227,7 +229,7 @@ static int cu_goto_labels_iterator(struct cu *cu, void *cookie)
 
 static int function_iterator(struct class *class, void *cookie)
 {
-	if (class->tag != DW_TAG_subprogram || class->inlined)
+	if (class->tag.tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
 	if (cookie == NULL) {
@@ -253,7 +255,7 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 
 static int inlines_iterator(struct class *class, void *cookie)
 {
-	if (class->tag != DW_TAG_subprogram || !class->inlined)
+	if (class->tag.tag != DW_TAG_subprogram || !class->inlined)
 		return 0;
 
 	if (class->name != NULL)
@@ -276,7 +278,7 @@ static int cu_inlines_iterator(struct cu *cu, void *cookie)
 
 static int nr_parameters_iterator(struct class *class, void *cookie)
 {
-	if (class->tag != DW_TAG_subprogram || class->inlined)
+	if (class->tag.tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
 	if (class->nr_members > 0)
@@ -291,7 +293,7 @@ static int cu_nr_parameters_iterator(struct cu *cu, void *cookie)
 
 static int function_name_len_iterator(struct class *class, void *cookie)
 {
-	if (class->tag != DW_TAG_subprogram || class->inlined)
+	if (class->tag.tag != DW_TAG_subprogram || class->inlined)
 		return 0;
 
 	if (class->name != NULL)
@@ -306,7 +308,7 @@ static int cu_function_name_len_iterator(struct cu *cu, void *cookie)
 
 static int total_inlines_iterator(struct class *class, void *cookie)
 {
-	if (class->tag == DW_TAG_subprogram && class->inlined)
+	if (class->tag.tag == DW_TAG_subprogram && class->inlined)
 		inlines__add(class);
 	return 0;
 }

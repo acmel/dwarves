@@ -77,7 +77,7 @@ static void print_total_structure_stats(void)
 
 static int total_structure_iterator(struct class *class, void *cookie)
 {
-	if (class->tag == DW_TAG_structure_type && class->name != NULL)
+	if (class->tag.tag == DW_TAG_structure_type && class->name != NULL)
 		structures__add(class);
 	return 0;
 }
@@ -114,7 +114,7 @@ static void usage(void)
 
 static int nr_members_iterator(struct class *class, void *cookie)
 {
-	if (class->tag != DW_TAG_structure_type)
+	if (class->tag.tag != DW_TAG_structure_type)
 		return 0;
 
 	if (class->nr_members > 0 && class->name != NULL)

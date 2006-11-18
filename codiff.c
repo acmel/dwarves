@@ -61,7 +61,7 @@ static void diff_function(const struct cu *new_cu, struct class *function)
 {
 	struct class *new_function;
 
-	assert(function->tag == DW_TAG_subprogram);
+	assert(function->tag.tag == DW_TAG_subprogram);
 
 	if (function->inlined)
 		return;
@@ -150,7 +150,7 @@ static int check_print_members_changes(const struct class *structure,
 	int changes = 0;
 	struct class_member *member;
 
-	list_for_each_entry(member, &structure->members, node) {
+	list_for_each_entry(member, &structure->members, tag.node) {
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member->name);
 		if (twin != NULL)
@@ -165,7 +165,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure)
 	struct class *new_structure;
 	size_t len;
 
-	assert(structure->tag == DW_TAG_structure_type);
+	assert(structure->tag.tag == DW_TAG_structure_type);
 
 	if (structure->size == 0)
 		return;
@@ -174,7 +174,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure)
 	if (new_structure == NULL || new_structure->size == 0)
 		return;
 
-	assert(new_structure->tag == DW_TAG_structure_type);
+	assert(new_structure->tag.tag == DW_TAG_structure_type);
 
 	structure->diff = structure->size != new_structure->size ||
 			  structure->nr_members != new_structure->nr_members ||
@@ -191,7 +191,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure)
 
 static int diff_iterator(struct class *class, void *new_cu)
 {
-	switch (class->tag) {
+	switch (class->tag.tag) {
 	case DW_TAG_subprogram:
 		diff_function(new_cu, class);
 		break;
@@ -239,7 +239,7 @@ static void show_nr_members_changes(const struct class *structure,
 	struct class_member *member;
 
 	/* Find the removed ones */
-	list_for_each_entry(member, &structure->members, node) {
+	list_for_each_entry(member, &structure->members, tag.node) {
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member->name);
 		if (twin == NULL)
@@ -247,7 +247,7 @@ static void show_nr_members_changes(const struct class *structure,
 	}
 
 	/* Find the new ones */
-	list_for_each_entry(member, &new_structure->members, node) {
+	list_for_each_entry(member, &new_structure->members, tag.node) {
 		struct class_member *twin =
 			class__find_member_by_name(structure, member->name);
 		if (twin == NULL)
@@ -321,14 +321,14 @@ static void show_diffs_structure(const struct class *structure)
 
 static int show_function_diffs_iterator(struct class *class, void *new_cu)
 {
-	if (class->diff != 0 && class->tag == DW_TAG_subprogram)
+	if (class->diff != 0 && class->tag.tag == DW_TAG_subprogram)
 		show_diffs_function(class);
 	return 0;
 }
 
 static int show_structure_diffs_iterator(struct class *class, void *new_cu)
 {
-	if (class->diff != 0 && class->tag == DW_TAG_structure_type)
+	if (class->diff != 0 && class->tag.tag == DW_TAG_structure_type)
 		show_diffs_structure(class);
 	return 0;
 }

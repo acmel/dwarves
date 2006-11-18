@@ -34,22 +34,26 @@ struct cu {
 	size_t		 function_bytes_removed;
 };
 
-struct class {
+struct tag {
 	struct list_head node;
+	uint64_t	 type;
+	uint64_t	 id;
+	uint16_t	 tag;
+	uint16_t	 decl_line;
+	const char	 *decl_file;
+};
+
+struct class {
+	struct tag	 tag;
+	struct cu	 *cu;
 	struct list_head members;
 	struct list_head inline_expansions;
 	struct list_head variables;
-	struct cu	 *cu;
 	const char	 *name;
 	uint64_t	 size;
-	uint64_t	 id;
-	uint64_t	 type;
 	uint64_t	 low_pc;
 	uint64_t	 high_pc;
 	uint64_t	 nr_entries;	/* For arrays */
-	unsigned int	 tag;		/* struct, union, base type, etc */
-	const char	 *decl_file;
-	unsigned int	 decl_line;
 	unsigned short	 nr_members;
 	unsigned short	 nr_holes;
 	unsigned short	 nr_labels;
@@ -67,10 +71,9 @@ struct class {
 };
 
 struct class_member {
-	struct list_head node;
+	struct tag	 tag;
 	char		 *name;
 	struct class	 *class;
-	uint64_t	 type;
 	uint64_t	 offset;
 	unsigned int	 bit_size;
 	unsigned int	 bit_offset;
@@ -80,20 +83,17 @@ struct class_member {
 };
 
 struct variable {
-	struct list_head cu_node;
-	struct list_head class_node;
-	char		 *name;
+	struct tag	 tag;
 	struct cu	 *cu;
-	uint64_t	 id;
-	uint64_t	 type;
+	struct list_head cu_node;
+	char		 *name;
 	uint64_t	 abstract_origin;
 };
 
 struct inline_expansion {
-	struct list_head node;
+	struct tag	 tag;
 	struct class	 *class;
-	uint64_t	 type;
-	uint64_t	 size;
+	uint32_t	 size;
 };
 
 #define DEFAULT_CACHELINE_SIZE 32
