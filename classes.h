@@ -87,6 +87,7 @@ struct function {
 	unsigned short	 inlined;
 	unsigned short	 nr_inline_expansions;
 	unsigned char	 external:1;
+	unsigned char	 unspecified_parameters;
 	unsigned int	 refcnt;
 	unsigned int	 size_inline_expansions;
 	signed int	 diff;
@@ -119,7 +120,7 @@ struct inline_expansion {
 
 extern void class__find_holes(struct class *self);
 extern void class__print(struct class *self);
-extern void function__print(struct function *self);
+extern void function__print(const struct function *self);
 
 extern struct cus   *cus__new(const char *filename);
 extern int	    cus__load(struct cus *self);

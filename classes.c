@@ -744,7 +744,7 @@ void function__print_variables(struct function *self)
 	fputs("}\n", stdout);
 }
 
-void function__print(struct function *self)
+void function__print(const struct function *self)
 {
 	char bf[256];
 	struct class *class_type;
@@ -778,6 +778,8 @@ void function__print(struct function *self)
 	/* No parameters? */
 	if (first_parameter)
 		fputs("void", stdout);
+	else if (self->unspecified_parameters);
+		fputs(", ...", stdout);
 	fputs(");\n", stdout);
 	printf("/* size: %llu", self->high_pc - self->low_pc);
 	if (self->nr_variables > 0)
@@ -1147,6 +1149,9 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		function__add_variable(function, variable);
 		cu__add_variable(cu, variable);
 	}
+		break;
+	case DW_TAG_unspecified_parameters:
+		function->unspecified_parameters = 1;
 		break;
 	case DW_TAG_label:
 		++function->nr_labels;
