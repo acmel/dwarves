@@ -1137,6 +1137,9 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		uint32_t size = high_pc - low_pc;
 		struct inline_expansion *exp;
 
+		if (cu__current_function == NULL)
+			goto next_sibling;
+
 		if (size == 0) {
 			Dwarf_Addr base, start, end;
 			ptrdiff_t offset = 0;
