@@ -20,6 +20,76 @@
 #include "list.h"
 #include "classes.h"
 
+#if 0
+static const char *dwarf_tag_names[] = {
+	[DW_TAG_array_type]		  = "array_type",
+	[DW_TAG_class_type]		  = "class_type",
+	[DW_TAG_entry_point]		  = "entry_point",
+	[DW_TAG_enumeration_type]	  = "enumeration_type",
+	[DW_TAG_formal_parameter]	  = "formal_parameter",
+	[DW_TAG_imported_declaration]	  = "imported_declaration",
+	[DW_TAG_label]			  = "label",
+	[DW_TAG_lexical_block]		  = "lexical_block",
+	[DW_TAG_member]			  = "member",
+	[DW_TAG_pointer_type]		  = "pointer_type",
+	[DW_TAG_reference_type]		  = "reference_type",
+	[DW_TAG_compile_unit]		  = "compile_unit",
+	[DW_TAG_string_type]		  = "string_type",
+	[DW_TAG_structure_type]		  = "structure_type",
+	[DW_TAG_subroutine_type]	  = "subroutine_type",
+	[DW_TAG_typedef]		  = "typedef",
+	[DW_TAG_union_type]		  = "union_type",
+	[DW_TAG_unspecified_parameters]	  = "unspecified_parameters",
+	[DW_TAG_variant]		  = "variant",
+	[DW_TAG_common_block]		  = "common_block",
+	[DW_TAG_common_inclusion]	  = "common_inclusion",
+	[DW_TAG_inheritance]		  = "inheritance",
+	[DW_TAG_inlined_subroutine]	  = "inlined_subroutine",
+	[DW_TAG_module]			  = "module",
+	[DW_TAG_ptr_to_member_type]	  = "ptr_to_member_type",
+	[DW_TAG_set_type]		  = "set_type",
+	[DW_TAG_subrange_type]		  = "subrange_type",
+	[DW_TAG_with_stmt]		  = "with_stmt",
+	[DW_TAG_access_declaration]	  = "access_declaration",
+	[DW_TAG_base_type]		  = "base_type",
+	[DW_TAG_catch_block]		  = "catch_block",
+	[DW_TAG_const_type]		  = "const_type",
+	[DW_TAG_constant]		  = "constant",
+	[DW_TAG_enumerator]		  = "enumerator",
+	[DW_TAG_file_type]		  = "file_type",
+	[DW_TAG_friend]			  = "friend",
+	[DW_TAG_namelist]		  = "namelist",
+	[DW_TAG_namelist_item]		  = "namelist_item",
+	[DW_TAG_packed_type]		  = "packed_type",
+	[DW_TAG_subprogram]		  = "subprogram",
+	[DW_TAG_template_type_parameter]  = "template_type_parameter",
+	[DW_TAG_template_value_parameter] = "template_value_parameter",
+	[DW_TAG_thrown_type]		  = "thrown_type",
+	[DW_TAG_try_block]		  = "try_block",
+	[DW_TAG_variant_part]		  = "variant_part",
+	[DW_TAG_variable]		  = "variable",
+	[DW_TAG_volatile_type]		  = "volatile_type",
+	[DW_TAG_dwarf_procedure]	  = "dwarf_procedure",
+	[DW_TAG_restrict_type]		  = "restrict_type",
+	[DW_TAG_interface_type]		  = "interface_type",
+	[DW_TAG_namespace]		  = "namespace",
+	[DW_TAG_imported_module]	  = "imported_module",
+	[DW_TAG_unspecified_type]	  = "unspecified_type",
+	[DW_TAG_partial_unit]		  = "partial_unit",
+	[DW_TAG_imported_unit]		  = "imported_unit",
+	[DW_TAG_mutable_type]		  = "mutable_type",
+	[DW_TAG_condition]		  = "condition",
+	[DW_TAG_shared_type]		  = "shared_type",
+};
+
+static const char *dwarf_tag_name(const unsigned int tag)
+{
+	if (tag >= DW_TAG_array_type && tag <= DW_TAG_shared_type)
+		return dwarf_tag_names[tag];
+	return "INVALID";
+}
+#endif
+
 unsigned int cacheline_size = DEFAULT_CACHELINE_SIZE;
 
 static void *zalloc(const size_t size)
@@ -1136,7 +1206,7 @@ children:
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
 		cu__process_die(dwarf, &child);
 next_sibling:
-	if (dwarf_siblingof (die, die) == 0)
+	if (dwarf_siblingof(die, die) == 0)
 		cu__process_die(dwarf, die);
 }
 
