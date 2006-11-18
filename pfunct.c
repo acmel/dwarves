@@ -91,6 +91,7 @@ static struct option long_options[] = {
 	{ "class",			required_argument,	NULL, 'c' },
 	{ "externals",			no_argument,		NULL, 'e' },
 	{ "cc_inlined",			no_argument,		NULL, 'H' },
+	{ "cc_uninlined",		no_argument,		NULL, 'G' },
 	{ "cu_inline_expansions_stats",	no_argument,		NULL, 'C' },
 	{ "function_name_len",		no_argument,		NULL, 'N' },
 	{ "goto_labels",		no_argument,		NULL, 'g' },
@@ -115,6 +116,7 @@ static void usage(void)
 					             "pointer parameters\n"
 		"   -e, --externals		      show just external functions\n"
 		"   -g, --goto_labels                 show number of goto labels\n"
+		"   -G, --cc_uninlined		      declared inline, uninlined by compiler\n"
 		"   -H, --cc_inlined		      not declared inline, inlined by compiler\n"
 		"   -i, --inline_expansions           show inline expansions\n"
 		"   -I, --inline_expansions_stats     show inline expansions stats\n"
@@ -324,6 +326,18 @@ static int cu_cc_inlined_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_function(cu, cc_inlined_iterator, cookie);
 }
 
+static int cc_uninlined_iterator(struct function *function, void *cookie)
+{
+	if (function->inlined == DW_INL_declared_not_inlined)
+		puts(function->name);
+	return 0;
+}
+
+static int cu_cc_uninlined_iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_function(cu, cc_uninlined_iterator, cookie);
+}
+
 int main(int argc, char *argv[])
 {
 	int option, option_index;
@@ -341,8 +355,9 @@ int main(int argc, char *argv[])
 	int show_inline_stats = 0;
 	int show_total_inline_expansion_stats = 0;
 	int show_cc_inlined = 0;
+	int show_cc_uninlined = 0;
 
-	while ((option = getopt_long(argc, argv, "c:CegHiINpsStTV",
+	while ((option = getopt_long(argc, argv, "c:CegGHiINpsStTV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': class_name = optarg;			break;
@@ -352,6 +367,7 @@ int main(int argc, char *argv[])
 		case 'S': show_nr_variables = 1;		break;
 		case 'p': show_nr_parameters = 1;		break;
 		case 'g': show_goto_labels = 1;			break;
+		case 'G': show_cc_uninlined = 1;		break;
 		case 'H': show_cc_inlined = 1;			break;
 		case 'i': show_inline_expansions = 1;		break;
 		case 'I': show_inline_expansions_stats = 1;	break;
@@ -394,6 +410,8 @@ int main(int argc, char *argv[])
 		cus__for_each_cu(cus, cu_inlines_iterator, NULL);
 	else if (show_cc_inlined)
 		cus__for_each_cu(cus, cu_cc_inlined_iterator, NULL);
+	else if (show_cc_uninlined)
+		cus__for_each_cu(cus, cu_cc_uninlined_iterator, NULL);
 	else if (show_nr_parameters)
 		cus__for_each_cu(cus, cu_nr_parameters_iterator, NULL);
 	else if (show_nr_variables)
