@@ -22,6 +22,7 @@ struct cus {
 struct cu {
 	struct list_head node;
 	struct list_head classes;
+	struct list_head functions;
 	struct list_head variables;
 	const char	 *name;
 	unsigned int	 id;
@@ -47,26 +48,14 @@ struct class {
 	struct tag	 tag;
 	struct cu	 *cu;
 	struct list_head members;
-	struct list_head inline_expansions;
-	struct list_head variables;
 	const char	 *name;
 	uint64_t	 size;
-	uint64_t	 low_pc;
-	uint64_t	 high_pc;
 	uint64_t	 nr_entries;	/* For arrays */
 	unsigned short	 nr_members;
 	unsigned short	 nr_holes;
-	unsigned short	 nr_labels;
-	unsigned short	 nr_variables;
 	unsigned short	 padding;
-	unsigned short	 inlined;
-	unsigned short	 nr_inline_expansions;
-	unsigned char	 external:1;
 	unsigned int	 refcnt;
-	unsigned int	 size_inline_expansions;
 	signed int	 diff;
-	unsigned int	 cu_total_nr_inline_expansions;
-	unsigned long	 cu_total_size_inline_expansions;
 	struct class	 *class_to_diff;
 };
 
@@ -82,6 +71,35 @@ struct class_member {
 					   one (or the end of the struct) */
 };
 
+struct function {
+	struct tag	 tag;
+	struct cu	 *cu;
+	struct list_head parameters;
+	struct list_head inline_expansions;
+	struct list_head variables;
+	const char	 *name;
+	uint64_t	 low_pc;
+	uint64_t	 high_pc;
+	unsigned short	 nr_parameters;
+	unsigned short	 nr_labels;
+	unsigned short	 nr_variables;
+	unsigned short	 inlined;
+	unsigned short	 nr_inline_expansions;
+	unsigned char	 external:1;
+	unsigned int	 refcnt;
+	unsigned int	 size_inline_expansions;
+	signed int	 diff;
+	unsigned int	 cu_total_nr_inline_expansions;
+	unsigned long	 cu_total_size_inline_expansions;
+	struct class	 *class_to_diff;
+};
+
+struct parameter {
+	struct tag	 tag;
+	char		 *name;
+	struct function	 *function;
+};
+
 struct variable {
 	struct tag	 tag;
 	struct cu	 *cu;
@@ -92,7 +110,7 @@ struct variable {
 
 struct inline_expansion {
 	struct tag	 tag;
-	struct class	 *class;
+	struct function	 *function;
 	uint32_t	 size;
 };
 
@@ -100,6 +118,7 @@ struct inline_expansion {
 
 extern void class__find_holes(struct class *self);
 extern void class__print(struct class *self);
+extern void function__print(struct function *self);
 
 extern struct cus   *cus__new(const char *filename);
 extern int	    cus__load(struct cus *self);
@@ -113,8 +132,9 @@ extern int	    class__is_struct(const struct class *self,
 				     struct class **typedef_alias);
 extern void	    cus__print_classes(struct cus *cus,
 				       const unsigned int tag);
-extern void	    class__print_inline_expansions(struct class *self);
-extern void	    class__print_variables(struct class *self);
+extern void	    cus__print_functions(struct cus *cus);
+extern void	    function__print_inline_expansions(struct function *self);
+extern void	    function__print_variables(struct function *self);
 extern struct class *cus__find_class_by_name(const struct cus *self,
 					     const char *name);
 extern void	    cu__account_inline_expansions(struct cu *self);
@@ -122,12 +142,19 @@ extern int	    cu__for_each_class(struct cu *cu,
 				       int (*iterator)(struct class *class,
 						       void *cookie),
 				       void *cookie);
+extern int	    cu__for_each_function(struct cu *cu,
+					  int (*iterator)(struct function *func,
+							  void *cookie),
+					  void *cookie);
 extern void	    cus__for_each_cu(struct cus *self,
 				     int (*iterator)(struct cu *cu,
 						     void *cookie),
 				      void *cookie);
 
-static inline uint32_t class__function_size(const struct class *self)
+extern struct function *cu__find_function_by_name(const struct cu *cu,
+						  const char *name);
+
+static inline uint32_t function__size(const struct function *self)
 {
 	return self->high_pc - self->low_pc;
 }

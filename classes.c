@@ -101,6 +101,7 @@ static struct cu *cu__new(unsigned int cu, const char *name)
 
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->classes);
+		INIT_LIST_HEAD(&self->functions);
 		INIT_LIST_HEAD(&self->variables);
 		self->name = strings__add(name);
 		self->nr_inline_expansions   = 0;
@@ -119,6 +120,12 @@ static void cu__add_class(struct cu *self, struct class *class)
 {
 	class->cu = self;
 	list_add_tail(&class->tag.node, &self->classes);
+}
+
+static void cu__add_function(struct cu *self, struct function *function)
+{
+	function->cu = self;
+	list_add_tail(&function->tag.node, &self->functions);
 }
 
 static void cu__add_variable(struct cu *self, struct variable *variable)
@@ -183,6 +190,33 @@ struct class *cu__find_class_by_id(const struct cu *self, const uint64_t id)
 	struct class *pos;
 
 	list_for_each_entry(pos, &self->classes, tag.node)
+		if (pos->tag.id == id)
+			return pos;
+
+	return NULL;
+}
+
+struct function *cu__find_function_by_name(const struct cu *self,
+					   const char *name)
+{
+	struct function *pos;
+
+	if (name == NULL)
+		return NULL;
+
+	list_for_each_entry(pos, &self->functions, tag.node)
+		if (pos->name != NULL && strcmp(pos->name, name) == 0)
+			return pos;
+
+	return NULL;
+}
+
+struct function *cu__find_function_by_id(const struct cu *self,
+					 const uint64_t id)
+{
+	struct function *pos;
+
+	list_for_each_entry(pos, &self->functions, tag.node)
 		if (pos->tag.id == id)
 			return pos;
 
@@ -309,8 +343,7 @@ static const char *variable__name(struct variable *self)
 	return self->name;
 }
 
-static struct class_member *class_member__new(uint16_t tag,
-					      uint64_t id,
+static struct class_member *class_member__new(uint64_t id,
 					      uint64_t type,
 					      const char *decl_file,
 					      uint32_t decl_line,
@@ -322,7 +355,8 @@ static struct class_member *class_member__new(uint16_t tag,
 	struct class_member *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, tag, id, type, decl_file, decl_line);
+		tag__init(&self->tag, DW_TAG_member, id, type,
+			  decl_file, decl_line);
 		self->offset	  = offset;
 		self->bit_size	  = bit_size;
 		self->bit_offset  = bit_offset;
@@ -411,6 +445,22 @@ static uint64_t class_member__print(struct class_member *self)
 	return size;
 }
 
+static struct parameter *parameter__new(uint64_t id, uint64_t type,
+					const char *decl_file,
+					uint32_t decl_line,
+					const char *name)
+{
+	struct parameter *self = zalloc(sizeof(*self));
+
+	if (self != NULL) {
+		tag__init(&self->tag, DW_TAG_formal_parameter, id, type,
+			  decl_file, decl_line);
+		self->name	  = strings__add(name);
+	}
+
+	return self;
+}
+
 static struct inline_expansion *inline_expansion__new(uint64_t id,
 						      uint64_t type,
 						      const char *decl_file,
@@ -431,35 +481,15 @@ static struct inline_expansion *inline_expansion__new(uint64_t id,
 static struct class *class__new(const unsigned int tag,
 				uint64_t id, uint64_t type,
 				const char *name, uint64_t size,
-				const char *decl_file, unsigned int decl_line,
-				unsigned short inlined, char external,
-				uint64_t low_pc, uint64_t high_pc)
+				const char *decl_file, unsigned int decl_line)
 {
-	struct class *self = malloc(sizeof(*self));
+	struct class *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->tag, tag, id, type, decl_file, decl_line);
 		INIT_LIST_HEAD(&self->members);
-		INIT_LIST_HEAD(&self->variables);
-		INIT_LIST_HEAD(&self->inline_expansions);
-		self->size	  = size;
-		self->name	  = strings__add(name);
-		self->nr_holes	  = 0;
-		self->nr_labels	  = 0;
-		self->nr_members  = 0;
-		self->nr_variables = 0;
-		self->refcnt	  = 0;
-		self->padding	  = 0;
-		self->nr_inline_expansions = 0;
-		self->size_inline_expansions = 0;
-		self->inlined	  = inlined;
-		self->external	  = external;
-		self->low_pc	  = low_pc;
-		self->high_pc	  = high_pc;
-		self->cu_total_nr_inline_expansions = 0;
-		self->cu_total_size_inline_expansions = 0;
-		self->diff	  = 0;
-		self->class_to_diff = NULL;
+		self->size = size;
+		self->name = strings__add(name);
 	}
 
 	return self;
@@ -472,16 +502,51 @@ static void class__add_member(struct class *self, struct class_member *member)
 	list_add_tail(&member->tag.node, &self->members);
 }
 
-static void class__add_inline_expansion(struct class *self,
-					struct inline_expansion *exp)
+static struct function *function__new(uint64_t id, uint64_t type,
+				      const char *decl_file,
+				      unsigned int decl_line,
+				      const char *name,
+				      unsigned short inlined, char external,
+				      uint64_t low_pc, uint64_t high_pc)
+{
+	struct function *self = zalloc(sizeof(*self));
+
+	if (self != NULL) {
+		tag__init(&self->tag, DW_TAG_subprogram,
+			  id, type, decl_file, decl_line);
+
+		INIT_LIST_HEAD(&self->parameters);
+		INIT_LIST_HEAD(&self->variables);
+		INIT_LIST_HEAD(&self->inline_expansions);
+
+		self->name     = strings__add(name);
+		self->inlined  = inlined;
+		self->external = external;
+		self->low_pc   = low_pc;
+		self->high_pc  = high_pc;
+	}
+
+	return self;
+}
+
+static void function__add_parameter(struct function *self,
+				    struct parameter *parameter)
+{
+	++self->nr_parameters;
+	parameter->function = self;
+	list_add_tail(&parameter->tag.node, &self->parameters);
+}
+
+static void function__add_inline_expansion(struct function *self,
+					   struct inline_expansion *exp)
 {
 	++self->nr_inline_expansions;
-	exp->class = self;
+	exp->function = self;
 	self->size_inline_expansions += exp->size;
 	list_add_tail(&exp->tag.node, &self->inline_expansions);
 }
 
-static void class__add_variable(struct class *self, struct variable *var)
+static void function__add_variable(struct function *self, struct variable *var)
 {
 	++self->nr_variables;
 	list_add_tail(&var->tag.node, &self->variables);
@@ -544,19 +609,19 @@ struct class_member *class__find_member_by_name(const struct class *self,
 	return NULL;
 }
 
-static void class__account_inline_expansions(struct class *self)
+static void function__account_inline_expansions(struct function *self)
 {
-	struct class *class_type;
+	struct function *type;
 	struct inline_expansion *pos;
 
 	if (self->nr_inline_expansions == 0)
 		return;
 
 	list_for_each_entry(pos, &self->inline_expansions, tag.node) {
-		class_type = cu__find_class_by_id(self->cu, pos->tag.type);
-		if (class_type != NULL) {
-			class_type->cu_total_nr_inline_expansions++;
-			class_type->cu_total_size_inline_expansions += pos->size;
+		type = cu__find_function_by_id(self->cu, pos->tag.type);
+		if (type != NULL) {
+			type->cu_total_nr_inline_expansions++;
+			type->cu_total_size_inline_expansions += pos->size;
 		}
 
 	}
@@ -564,16 +629,16 @@ static void class__account_inline_expansions(struct class *self)
 
 void cu__account_inline_expansions(struct cu *self)
 {
-	struct class *pos;
+	struct function *pos;
 
-	list_for_each_entry(pos, &self->classes, tag.node) {
-		class__account_inline_expansions(pos);
+	list_for_each_entry(pos, &self->functions, tag.node) {
+		function__account_inline_expansions(pos);
 		self->nr_inline_expansions   += pos->nr_inline_expansions;
 		self->size_inline_expansions += pos->size_inline_expansions;
 	}
 }
 
-void class__print_inline_expansions(struct class *self)
+void function__print_inline_expansions(struct function *self)
 {
 	char bf[256];
 	struct class *class_type;
@@ -594,7 +659,7 @@ void class__print_inline_expansions(struct class *self)
 	fputs("*/\n", stdout);
 }
 
-void class__print_variables(struct class *self)
+void function__print_variables(struct function *self)
 {
 	struct variable *pos;
 
@@ -611,12 +676,12 @@ void class__print_variables(struct class *self)
 	fputs("}\n", stdout);
 }
 
-static void class__print_function(struct class *self)
+void function__print(struct function *self)
 {
 	char bf[256];
 	struct class *class_type;
 	const char *type = "<ERROR>";
-	struct class_member *pos;
+	struct parameter *pos;
 	int first_parameter = 1;
 
 	if (self->tag.type == 0)
@@ -627,9 +692,10 @@ static void class__print_function(struct class *self)
 			type = class__name(class_type, bf, sizeof(bf));
 	}
 
+	printf("/* %s:%u */\n", self->tag.decl_file, self->tag.decl_line);
 	printf("%s%s %s(", self->inlined ? "inline " : "",
 	       type, self->name ?: "");
-	list_for_each_entry(pos, &self->members, tag.node) {
+	list_for_each_entry(pos, &self->parameters, tag.node) {
 		if (!first_parameter)
 			fputs(", ", stdout);
 		else
@@ -645,8 +711,6 @@ static void class__print_function(struct class *self)
 	if (first_parameter)
 		fputs("void", stdout);
 	fputs(");\n", stdout);
-	if (self->size == 0)
-		return;
 	printf("/* size: %llu", self->high_pc - self->low_pc);
 	if (self->nr_variables > 0)
 		printf(", variables: %u", self->nr_variables);
@@ -655,7 +719,7 @@ static void class__print_function(struct class *self)
 	if (self->nr_inline_expansions > 0)
 		printf(", inline expansions: %u (%u bytes)",
 		       self->nr_inline_expansions, self->size_inline_expansions);
-	fputs(" */\n", stdout);
+	fputs(" */\n\n", stdout);
 }
 
 static void class__print_struct(struct class *self)
@@ -721,9 +785,6 @@ void class__print(struct class *self)
 	case DW_TAG_structure_type:
 		class__print_struct(self);
 		break;
-	case DW_TAG_subprogram:
-		class__print_function(self);
-		break;
 	default:
 		printf("%s%s;\n", tag_name(self->tag.tag), self->name ?: "");
 		break;
@@ -739,6 +800,19 @@ int cu__for_each_class(struct cu *cu,
 	struct class *pos;
 
 	list_for_each_entry(pos, &cu->classes, tag.node)
+		if (iterator(pos, cookie))
+			return 1;
+	return 0;
+}
+
+int cu__for_each_function(struct cu *cu,
+			  int (*iterator)(struct function *func, void *cookie),
+			  void *cookie)
+{
+
+	struct function *pos;
+
+	list_for_each_entry(pos, &cu->functions, tag.node)
 		if (iterator(pos, cookie))
 			return 1;
 	return 0;
@@ -772,7 +846,18 @@ void cus__print_classes(struct cus *self, const unsigned int tag)
 	}
 }
 
+void cus__print_functions(struct cus *self)
+{
+	struct cu *cu;
+	struct function *function;
+
+	list_for_each_entry(cu, &self->cus, node)
+		list_for_each_entry(function, &cu->functions, tag.node)
+			function__print(function);
+}
+
 static struct class *cu__current_class;
+static struct function *cu__current_function;
 static struct cu *current_cu;
 static unsigned int current_cu_id;
 
@@ -929,10 +1014,10 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 
 	dwarf_decl_line(die, &decl_line);
 
-	if (tag == DW_TAG_member || tag == DW_TAG_formal_parameter) {
+	if (tag == DW_TAG_member) {
 		struct class_member *member;
 		
-		member = class_member__new(tag, cu_offset, type,
+		member = class_member__new(cu_offset, type,
 					   decl_file, decl_line,
 					   name, attr_offset(die),
 					   attr_numeric(die, DW_AT_bit_size),
@@ -941,6 +1026,20 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 			oom("class_member__new");
 
 		class__add_member(cu__current_class, member);
+	} else if (tag == DW_TAG_formal_parameter) {
+		struct parameter *parameter;
+		
+		parameter = parameter__new(cu_offset, type,
+					   decl_file, decl_line, name);
+		if (parameter == NULL)
+			oom("parameter__new");
+
+		/*
+		 * For now we're interested just in DW_TAG_subprogram, not
+		 * DW_TAG_subroutine_type.
+		 */
+		if (cu__current_function != NULL)
+			function__add_parameter(cu__current_function, parameter);
 	} else if (tag == DW_TAG_subrange_type)
 		cu__current_class->nr_entries = attr_upper_bound(die);
 	else if (tag == DW_TAG_variable) {
@@ -954,10 +1053,12 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		if (variable == NULL)
 			oom("variable__new");
 
-		class__add_variable(cu__current_class, variable);
+		/* Global variable? */
+		if (cu__current_function != NULL)
+			function__add_variable(cu__current_function, variable);
 		cu__add_variable(current_cu, variable);
 	} else if (tag == DW_TAG_label)
-		++cu__current_class->nr_labels;
+		++cu__current_function->nr_labels;
 	else if (tag == DW_TAG_inlined_subroutine) {
 		Dwarf_Addr high_pc, low_pc;
 		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
@@ -983,30 +1084,52 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		if (exp == NULL)
 			oom("inline_expansion__new");
 
-		class__add_inline_expansion(cu__current_class, exp);
+		function__add_inline_expansion(cu__current_function, exp);
 		goto next_sibling;
 	} else if (tag == DW_TAG_lexical_block) {
 		/*
 		 * Not handled right now,
 		 * will be used for stack size calculation
 		 */
-	} else {
-		uint64_t size = attr_numeric(die, DW_AT_byte_size);
+	} else if (tag == DW_TAG_subprogram) {
 		const unsigned short inlined = attr_numeric(die, DW_AT_inline);
 		const char external = dwarf_hasattr(die, DW_AT_external);
 		Dwarf_Addr high_pc, low_pc;
-		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
-		if (dwarf_lowpc(die, &low_pc)) low_pc = 0;
+
+		if (dwarf_highpc(die, &high_pc))
+			high_pc = 0;
+		if (dwarf_lowpc(die, &low_pc))
+			low_pc = 0;
+
+		if (cu__current_class != NULL) {
+			cu__add_class(current_cu, cu__current_class);
+			cu__current_class = NULL;
+		}
+
+		if (cu__current_function != NULL)
+			cu__add_function(current_cu, cu__current_function);
+	    
+		cu__current_function = function__new(cu_offset, type,
+						     decl_file, decl_line, name,
+						     inlined, external,
+						     low_pc, high_pc);
+		if (cu__current_function == NULL)
+			oom("function__new");
+	} else {
+		uint64_t size = attr_numeric(die, DW_AT_byte_size);
 
 		if (cu__current_class != NULL)
 			cu__add_class(current_cu, cu__current_class);
 	    
 		cu__current_class = class__new(tag, cu_offset, type, name,
-					       size, decl_file, decl_line,
-					       inlined, external,
-					       low_pc, high_pc);
+					       size, decl_file, decl_line);
 		if (cu__current_class == NULL)
 			oom("class__new");
+
+		if (cu__current_function != NULL) {
+			cu__add_function(current_cu, cu__current_function);
+			cu__current_function = NULL;
+		}
 	}
 
 children:
@@ -1047,6 +1170,17 @@ int cus__load(struct cus *self)
 				oom("cu__new");
 			++current_cu_id;
 			cu__process_die(dwarf, &die);
+
+			if (cu__current_class != NULL) {
+				cu__add_class(current_cu, cu__current_class);
+				cu__current_class = NULL;
+			}
+
+			if (cu__current_function != NULL) {
+				cu__add_function(current_cu, cu__current_function);
+				cu__current_function = NULL;
+			}
+
 			cus__add(self, current_cu);
 		}
 
