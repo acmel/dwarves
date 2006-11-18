@@ -710,9 +710,6 @@ void cu__account_inline_expansions(struct cu *self)
 
 void function__print_inline_expansions(struct function *self)
 {
-	char bf[256];
-	struct class *class_type;
-	const char *type = "<ERROR>";
 	struct inline_expansion *pos;
 
 	if (self->nr_inline_expansions == 0)
@@ -720,11 +717,12 @@ void function__print_inline_expansions(struct function *self)
 
 	printf("/* inline expansions in %s:\n", self->name);
 	list_for_each_entry(pos, &self->inline_expansions, tag.node) {
-		type = "<ERROR>";
-		class_type = cu__find_class_by_id(self->cu, pos->tag.type);
-		if (class_type != NULL)
-			type = class__name(class_type, bf, sizeof(bf));
-		printf("%s: %u\n", type, pos->size);
+		const struct function *alias =
+				cu__find_function_by_id(self->cu, pos->tag.type);
+		if (alias != NULL)
+			printf("%s: %u\n", alias->name, pos->size);
+		else
+			printf("<%llx>: %u\n", pos->tag.type, pos->size);
 	}
 	fputs("*/\n", stdout);
 }
