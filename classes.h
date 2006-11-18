@@ -11,6 +11,7 @@
 
 
 #include <stdint.h>
+#include <dwarf.h>
 
 #include "list.h"
 
@@ -157,6 +158,18 @@ extern struct function *cu__find_function_by_name(const struct cu *cu,
 static inline uint32_t function__size(const struct function *self)
 {
 	return self->high_pc - self->low_pc;
+}
+
+static inline int function__declared_inline(const struct function *self)
+{
+	return (self->inlined == DW_INL_declared_inlined ||
+	        self->inlined == DW_INL_declared_not_inlined);
+}
+
+static inline int function__inlined(const struct function *self)
+{
+	return (self->inlined == DW_INL_inlined ||
+	        self->inlined == DW_INL_declared_inlined);
 }
 
 extern struct class_member *class__find_member_by_name(const struct class *self,

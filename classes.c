@@ -763,7 +763,7 @@ void function__print(struct function *self)
 	}
 
 	printf("/* %s:%u */\n", self->tag.decl_file, self->tag.decl_line);
-	printf("%s%s %s(", self->inlined ? "inline " : "",
+	printf("%s%s %s(", function__declared_inline(self) ? "inline " : "",
 	       type, self->name ?: "");
 	list_for_each_entry(pos, &self->parameters, tag.node) {
 		if (!first_parameter)
@@ -1127,9 +1127,10 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		if (cu__current_function != NULL)
 			function__add_variable(cu__current_function, variable);
 		cu__add_variable(current_cu, variable);
-	} else if (tag == DW_TAG_label)
-		++cu__current_function->nr_labels;
-	else if (tag == DW_TAG_inlined_subroutine) {
+	} else if (tag == DW_TAG_label) {
+		if (cu__current_function != NULL)
+			++cu__current_function->nr_labels;
+	} else if (tag == DW_TAG_inlined_subroutine) {
 		Dwarf_Addr high_pc, low_pc;
 		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
 		if (dwarf_lowpc(die, &low_pc)) low_pc = 0;
