@@ -924,11 +924,6 @@ void cus__print_functions(struct cus *self)
 			function__print(function);
 }
 
-static struct class *cu__current_class;
-static struct function *cu__current_function;
-static struct cu *current_cu;
-static unsigned int current_cu_id;
-
 static void oom(const char *msg)
 {
 	fprintf(stderr, "pahole: out of memory(%s)\n", msg);
@@ -1057,7 +1052,149 @@ static uint64_t attr_numeric(Dwarf_Die *die, unsigned int name)
 	return 0;
 }
 
-static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
+static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class)
+{
+	Dwarf_Die child;
+	Dwarf_Off cu_offset;
+	Dwarf_Attribute attr_name;
+	const char *decl_file, *name;
+	uint64_t type;
+	int decl_line = 0;
+	unsigned int tag = dwarf_tag(die);
+
+	if (tag == DW_TAG_invalid)
+		return;
+
+	cu_offset = dwarf_cuoffset(die);
+	decl_file = dwarf_decl_file(die);
+	type	  = attr_numeric(die, DW_AT_type);
+	name	  = attr_string(die, DW_AT_name, &attr_name);
+
+	dwarf_decl_line(die, &decl_line);
+
+	switch (tag) {
+	case DW_TAG_member: {
+		struct class_member *member;
+		
+		member = class_member__new(cu_offset, type,
+					   decl_file, decl_line,
+					   name, attr_offset(die),
+					   attr_numeric(die, DW_AT_bit_size),
+					   attr_numeric(die, DW_AT_bit_offset));
+		if (member == NULL)
+			oom("class_member__new");
+
+		class__add_member(class, member);
+	}
+		break;
+	case DW_TAG_subrange_type:
+		class->nr_entries = attr_upper_bound(die);
+		break;
+	}
+
+	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
+		cu__process_class(dwarf, &child, class);
+
+	if (dwarf_siblingof(die, die) == 0)
+		cu__process_class(dwarf, die, class);
+}
+
+static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
+				 struct cu *cu, struct function *function)
+{
+	Dwarf_Die child;
+	Dwarf_Off cu_offset;
+	Dwarf_Attribute attr_name;
+	const char *decl_file;
+	int decl_line = 0;
+	const char *name;
+	uint64_t type;
+	unsigned int tag = dwarf_tag(die);
+
+	if (tag == DW_TAG_invalid)
+		return;
+
+	cu_offset = dwarf_cuoffset(die);
+	name	  = attr_string(die, DW_AT_name, &attr_name);
+	type	  = attr_numeric(die, DW_AT_type);
+	decl_file = dwarf_decl_file(die);
+
+	dwarf_decl_line(die, &decl_line);
+
+	switch (tag) {
+	case DW_TAG_formal_parameter: {
+		struct parameter *parameter;
+		
+		parameter = parameter__new(cu_offset, type,
+					   decl_file, decl_line, name);
+		if (parameter == NULL)
+			oom("parameter__new");
+
+		function__add_parameter(function, parameter);
+	}
+		break;
+	case DW_TAG_variable: {
+		uint64_t abstract_origin = attr_numeric(die,
+							DW_AT_abstract_origin);
+		struct variable *variable;
+
+		variable = variable__new(name, cu_offset,
+					 type, decl_file, decl_line,
+					 abstract_origin);
+		if (variable == NULL)
+			oom("variable__new");
+
+		function__add_variable(function, variable);
+		cu__add_variable(cu, variable);
+	}
+		break;
+	case DW_TAG_label:
+		++function->nr_labels;
+		break;
+	case DW_TAG_inlined_subroutine: {
+		Dwarf_Addr high_pc, low_pc;
+		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
+		if (dwarf_lowpc(die, &low_pc)) low_pc = 0;
+		const uint64_t type = attr_numeric(die, DW_AT_abstract_origin);
+		uint32_t size = high_pc - low_pc;
+		struct inline_expansion *exp;
+
+		if (size == 0) {
+			Dwarf_Addr base, start, end;
+			ptrdiff_t offset = 0;
+
+			while (1) {
+				offset = dwarf_ranges(die, offset, &base, &start, &end);
+				if (offset <= 0)
+					break;
+				size += end - start;
+			}
+		}
+
+		exp = inline_expansion__new(cu_offset, type,
+					    decl_file, decl_line, size);
+		if (exp == NULL)
+			oom("inline_expansion__new");
+
+		function__add_inline_expansion(function, exp);
+	}
+		goto next_sibling;
+	case DW_TAG_lexical_block:
+		/*
+		 * Not handled right now,
+		 * will be used for stack size calculation
+		 */
+		break;
+	}
+
+	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
+		cu__process_function(dwarf, &child, cu, function);
+next_sibling:
+	if (dwarf_siblingof(die, die) == 0)
+		cu__process_function(dwarf, die, cu, function);
+}
+
+static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
 	Dwarf_Off cu_offset;
@@ -1082,88 +1219,13 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 
 	dwarf_decl_line(die, &decl_line);
 
-	if (tag == DW_TAG_member) {
-		struct class_member *member;
-		
-		member = class_member__new(cu_offset, type,
-					   decl_file, decl_line,
-					   name, attr_offset(die),
-					   attr_numeric(die, DW_AT_bit_size),
-					   attr_numeric(die, DW_AT_bit_offset));
-		if (member == NULL)
-			oom("class_member__new");
+	switch (tag) {
+	case DW_TAG_variable:
+		/* Handle global variables later */
+		break;
 
-		class__add_member(cu__current_class, member);
-	} else if (tag == DW_TAG_formal_parameter) {
-		struct parameter *parameter;
-		
-		parameter = parameter__new(cu_offset, type,
-					   decl_file, decl_line, name);
-		if (parameter == NULL)
-			oom("parameter__new");
-
-		/*
-		 * For now we're interested just in DW_TAG_subprogram, not
-		 * DW_TAG_subroutine_type.
-		 */
-		if (cu__current_function != NULL)
-			function__add_parameter(cu__current_function, parameter);
-	} else if (tag == DW_TAG_subrange_type)
-		cu__current_class->nr_entries = attr_upper_bound(die);
-	else if (tag == DW_TAG_variable) {
-		uint64_t abstract_origin = attr_numeric(die,
-							DW_AT_abstract_origin);
-		struct variable *variable;
-
-		variable = variable__new(name, cu_offset,
-					 type, decl_file, decl_line,
-					 abstract_origin);
-		if (variable == NULL)
-			oom("variable__new");
-
-		/* Global variable? */
-		if (cu__current_function != NULL)
-			function__add_variable(cu__current_function, variable);
-		cu__add_variable(current_cu, variable);
-	} else if (tag == DW_TAG_label) {
-		if (cu__current_function != NULL)
-			++cu__current_function->nr_labels;
-	} else if (tag == DW_TAG_inlined_subroutine) {
-		Dwarf_Addr high_pc, low_pc;
-		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
-		if (dwarf_lowpc(die, &low_pc)) low_pc = 0;
-		const uintmax_t	type  = attr_numeric(die, DW_AT_abstract_origin);
-		uint32_t size = high_pc - low_pc;
-		struct inline_expansion *exp;
-
-		if (cu__current_function == NULL)
-			goto next_sibling;
-
-		if (size == 0) {
-			Dwarf_Addr base, start, end;
-			ptrdiff_t offset = 0;
-
-			while (1) {
-				offset = dwarf_ranges(die, offset, &base, &start, &end);
-				if (offset <= 0)
-					break;
-				size += end - start;
-			}
-		}
-
-		exp = inline_expansion__new(cu_offset, type,
-					    decl_file, decl_line, size);
-		if (exp == NULL)
-			oom("inline_expansion__new");
-
-		function__add_inline_expansion(cu__current_function, exp);
-		goto next_sibling;
-	} else if (tag == DW_TAG_lexical_block) {
-		/*
-		 * Not handled right now,
-		 * will be used for stack size calculation
-		 */
-	} else if (tag == DW_TAG_subprogram) {
+	case DW_TAG_subprogram: {
+		struct function *function;
 		const unsigned short inlined = attr_numeric(die, DW_AT_inline);
 		const char external = dwarf_hasattr(die, DW_AT_external);
 		Dwarf_Addr high_pc, low_pc;
@@ -1173,49 +1235,43 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die)
 		if (dwarf_lowpc(die, &low_pc))
 			low_pc = 0;
 
-		if (cu__current_class != NULL) {
-			cu__add_class(current_cu, cu__current_class);
-			cu__current_class = NULL;
-		}
-
-		if (cu__current_function != NULL)
-			cu__add_function(current_cu, cu__current_function);
-	    
-		cu__current_function = function__new(cu_offset, type,
-						     decl_file, decl_line, name,
-						     inlined, external,
-						     low_pc, high_pc);
-		if (cu__current_function == NULL)
+		function = function__new(cu_offset, type,
+					 decl_file, decl_line,
+					 name, inlined, external,
+					 low_pc, high_pc);
+		if (function == NULL)
 			oom("function__new");
-	} else {
+		if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
+			cu__process_function(dwarf, &child, cu, function);
+		cu__add_function(cu, function);
+	}
+		goto next_sibling;
+	default: {
 		uint64_t size = attr_numeric(die, DW_AT_byte_size);
-
-		if (cu__current_class != NULL)
-			cu__add_class(current_cu, cu__current_class);
-	    
-		cu__current_class = class__new(tag, cu_offset, type, name,
-					       size, decl_file, decl_line);
-		if (cu__current_class == NULL)
+		struct class *class = class__new(tag, cu_offset, type, name,
+						 size, decl_file, decl_line);
+		if (class == NULL)
 			oom("class__new");
-
-		if (cu__current_function != NULL) {
-			cu__add_function(current_cu, cu__current_function);
-			cu__current_function = NULL;
-		}
+		if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
+			cu__process_class(dwarf, &child, class);
+		cu__add_class(cu, class);
+		goto next_sibling;
+	}
 	}
 
 children:
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_die(dwarf, &child);
+		cu__process_die(dwarf, &child, cu);
 next_sibling:
 	if (dwarf_siblingof(die, die) == 0)
-		cu__process_die(dwarf, die);
+		cu__process_die(dwarf, die, cu);
 }
 
 int cus__load(struct cus *self)
 {
 	Dwarf_Off offset, last_offset, abbrev_offset;
 	uint8_t addr_size, offset_size;
+	unsigned int cu_id;
 	size_t hdr_size;
 	Dwarf *dwarf;
 	int err = -1;
@@ -1229,31 +1285,21 @@ int cus__load(struct cus *self)
 		goto out_close;
 
 	offset = last_offset = 0;
+	cu_id = 0;
 	while (dwarf_nextcu(dwarf, offset, &offset, &hdr_size,
 			    &abbrev_offset, &addr_size, &offset_size) == 0) {
 		Dwarf_Die die;
 
 		if (dwarf_offdie(dwarf, last_offset + hdr_size, &die) != NULL) {
 			Dwarf_Attribute name;
-			current_cu = cu__new(current_cu_id,
-					     attr_string(&die, DW_AT_name,
-						     	 &name));
-			if (current_cu == NULL)
+			struct cu *cu = cu__new(cu_id,
+						attr_string(&die, DW_AT_name,
+							    &name));
+			if (cu == NULL)
 				oom("cu__new");
-			++current_cu_id;
-			cu__process_die(dwarf, &die);
-
-			if (cu__current_class != NULL) {
-				cu__add_class(current_cu, cu__current_class);
-				cu__current_class = NULL;
-			}
-
-			if (cu__current_function != NULL) {
-				cu__add_function(current_cu, cu__current_function);
-				cu__current_function = NULL;
-			}
-
-			cus__add(self, current_cu);
+			++cu_id;
+			cu__process_die(dwarf, &die, cu);
+			cus__add(self, cu);
 		}
 
 		last_offset = offset;
