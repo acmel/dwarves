@@ -1210,7 +1210,8 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class)
 }
 
 static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
-				 struct cu *cu, struct function *function)
+				 struct cu *cu, struct function *function,
+				 struct lexblock *lexblock)
 {
 	Dwarf_Die child;
 	Dwarf_Off cu_offset;
@@ -1254,7 +1255,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		if (variable == NULL)
 			oom("variable__new");
 
-		lexblock__add_variable(&function->lexblock, variable);
+		lexblock__add_variable(lexblock, variable);
 		cu__add_variable(cu, variable);
 	}
 		break;
@@ -1273,7 +1274,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		if (label == NULL)
 			oom("label__new");
 
-		lexblock__add_label(&function->lexblock, label);
+		lexblock__add_label(lexblock, label);
 	}
 		break;
 	case DW_TAG_inlined_subroutine: {
@@ -1305,7 +1306,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		if (exp == NULL)
 			oom("inline_expansion__new");
 
-		lexblock__add_inline_expansion(&function->lexblock, exp);
+		lexblock__add_inline_expansion(lexblock, exp);
 		exp->function = function;
 	}
 		goto next_sibling;
@@ -1318,10 +1319,10 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 	}
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_function(dwarf, &child, cu, function);
+		cu__process_function(dwarf, &child, cu, function, lexblock);
 next_sibling:
 	if (dwarf_siblingof(die, die) == 0)
-		cu__process_function(dwarf, die, cu, function);
+		cu__process_function(dwarf, die, cu, function, lexblock);
 }
 
 static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
@@ -1372,7 +1373,8 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 		if (function == NULL)
 			oom("function__new");
 		if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-			cu__process_function(dwarf, &child, cu, function);
+			cu__process_function(dwarf, &child, cu, function,
+					     &function->lexblock);
 		cu__add_function(cu, function);
 	}
 		goto next_sibling;
