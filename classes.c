@@ -547,6 +547,22 @@ static struct inline_expansion *inline_expansion__new(uint64_t id,
 	return self;
 }
 
+static struct label *label__new(uint64_t id, uint64_t type,
+				const char *decl_file, uint32_t decl_line,
+				const char *name, uint64_t low_pc)
+{
+	struct label *self = malloc(sizeof(*self));
+
+	if (self != NULL) {
+		tag__init(&self->tag, DW_TAG_label, id, type,
+			  decl_file, decl_line);
+		self->name   = strings__add(name);
+		self->low_pc = low_pc;
+	}
+
+	return self;
+}
+
 static struct class *class__new(const unsigned int tag,
 				uint64_t id, uint64_t type,
 				const char *name, uint64_t size,
@@ -584,6 +600,7 @@ static struct function *function__new(uint64_t id, uint64_t type,
 		tag__init(&self->tag, DW_TAG_subprogram,
 			  id, type, decl_file, decl_line);
 
+		INIT_LIST_HEAD(&self->labels);
 		INIT_LIST_HEAD(&self->parameters);
 		INIT_LIST_HEAD(&self->variables);
 		INIT_LIST_HEAD(&self->inline_expansions);
@@ -619,6 +636,12 @@ static void function__add_variable(struct function *self, struct variable *var)
 {
 	++self->nr_variables;
 	list_add_tail(&var->tag.node, &self->variables);
+}
+
+static void function__add_label(struct function *self, struct label *label)
+{
+	++self->nr_labels;
+	list_add_tail(&label->tag.node, &self->labels);
 }
 
 void class__find_holes(struct class *self)
@@ -735,9 +758,7 @@ static void tag__print(const struct tag *tag)
 {
 	char bf[512];
 	const void *vtag = tag;
-	int c;
-
-	fputs("        ", stdout);
+	int c = 8;
 
 	switch (tag->tag) {
 	case DW_TAG_inlined_subroutine: {
@@ -745,20 +766,29 @@ static void tag__print(const struct tag *tag)
 		const struct function *alias =
 				cu__find_function_by_id(exp->function->cu,
 							exp->tag.type);
-		c = printf("%s();", alias != NULL ? alias->name : "<ERROR>");
+
+		fputs("        ", stdout);
+		c += printf("%s();", alias != NULL ? alias->name : "<ERROR>");
 	}
 		break;
-	case DW_TAG_variable: {
-		c = printf("%s %s;", variable__type_name(vtag, bf, sizeof(bf)),
-			   variable__name(vtag));
+	case DW_TAG_variable:
+		fputs("        ", stdout);
+		c += printf("%s %s;", variable__type_name(vtag, bf, sizeof(bf)),
+			    variable__name(vtag));
+		break;
+	case DW_TAG_label: {
+		const struct label *label = vtag;
+		putchar('\n');
+		c = printf("%s:", label->name);
 	}
 		break;
 	default:
-		c= printf("%s <%llx>", dwarf_tag_name(tag->tag), tag->id);
+		fputs("        ", stdout);
+		c += printf("%s <%llx>", dwarf_tag_name(tag->tag), tag->id);
 		break;
 	}
 
-	printf("%-*.*s// %5u\n", 62 - c, 62 - c, " ",  tag->decl_line);
+	printf("%-*.*s// %5u\n", 70 - c, 70 - c, " ",  tag->decl_line);
 }
 
 static void tags__action(const void *nodep, const VISIT which, const int depth)
@@ -771,7 +801,8 @@ static void tags__action(const void *nodep, const VISIT which, const int depth)
 
 static void function__print_body(const struct function *self,
 				 const int show_variables,
-				 const int show_inline_expansions)
+				 const int show_inline_expansions,
+				 const int show_labels)
 {
 	void *tags = NULL;
 	struct tag *pos;
@@ -785,6 +816,13 @@ static void function__print_body(const struct function *self,
 
 	if (show_inline_expansions)
 		list_for_each_entry(pos, &self->inline_expansions, node) {
+			/* FIXME! this test shouln't be needed at all */
+			if (pos->decl_line >= self->tag.decl_line) 
+				tags__add(&tags, pos);
+		}
+
+	if (show_labels)
+		list_for_each_entry(pos, &self->labels, node) {
 			/* FIXME! this test shouln't be needed at all */
 			if (pos->decl_line >= self->tag.decl_line) 
 				tags__add(&tags, pos);
@@ -839,7 +877,7 @@ void function__print(const struct function *self, int show_stats,
 
 	if (show_variables || show_inline_expansions)
 		function__print_body(self, show_variables,
-				     show_inline_expansions);
+				     show_inline_expansions, 1);
 
 	if (show_stats) {
 		printf("/* size: %llu", self->high_pc - self->low_pc);
@@ -1215,8 +1253,20 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 	case DW_TAG_unspecified_parameters:
 		function->unspecified_parameters = 1;
 		break;
-	case DW_TAG_label:
-		++function->nr_labels;
+	case DW_TAG_label: {
+		struct label *label;
+		Dwarf_Addr low_pc;
+
+		if (dwarf_lowpc(die, &low_pc))
+			low_pc = 0;
+
+		label = label__new(cu_offset, type, decl_file, decl_line,
+				   name, low_pc);
+		if (label == NULL)
+			oom("label__new");
+
+		function__add_label(function, label);
+	}
 		break;
 	case DW_TAG_inlined_subroutine: {
 		Dwarf_Addr high_pc, low_pc;

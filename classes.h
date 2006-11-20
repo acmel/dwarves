@@ -78,6 +78,7 @@ struct function {
 	struct list_head parameters;
 	struct list_head inline_expansions;
 	struct list_head variables;
+	struct list_head labels;
 	const char	 *name;
 	uint64_t	 low_pc;
 	uint64_t	 high_pc;
@@ -114,6 +115,12 @@ struct inline_expansion {
 	struct tag	 tag;
 	struct function	 *function;
 	uint32_t	 size;
+};
+
+struct label {
+	struct tag	 tag;
+	char		 *name;
+	uint64_t	 low_pc;
 };
 
 #define DEFAULT_CACHELINE_SIZE 32
