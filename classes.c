@@ -587,6 +587,17 @@ static void class__add_member(struct class *self, struct class_member *member)
 	list_add_tail(&member->tag.node, &self->members);
 }
 
+static void lexblock__init(struct lexblock *self)
+{
+	INIT_LIST_HEAD(&self->labels);
+	INIT_LIST_HEAD(&self->variables);
+	INIT_LIST_HEAD(&self->inline_expansions);
+
+	self->nr_labels =
+		self->nr_variables =
+		self->nr_inline_expansions = 0;
+}
+
 static struct function *function__new(uint64_t id, uint64_t type,
 				      const char *decl_file,
 				      unsigned int decl_line,
@@ -600,11 +611,8 @@ static struct function *function__new(uint64_t id, uint64_t type,
 		tag__init(&self->tag, DW_TAG_subprogram,
 			  id, type, decl_file, decl_line);
 
-		INIT_LIST_HEAD(&self->lexblock.labels);
 		INIT_LIST_HEAD(&self->parameters);
-		INIT_LIST_HEAD(&self->lexblock.variables);
-		INIT_LIST_HEAD(&self->lexblock.inline_expansions);
-
+		lexblock__init(&self->lexblock);
 		self->name     = strings__add(name);
 		self->inlined  = inlined;
 		self->external = external;
