@@ -120,7 +120,9 @@ struct inline_expansion {
 
 extern void class__find_holes(struct class *self);
 extern void class__print(struct class *self);
-extern void function__print(const struct function *self);
+extern void function__print(const struct function *self, int show_stats,
+			    const int show_variables,
+			    const int show_inline_expansions);
 
 extern struct cus   *cus__new(const char *filename);
 extern int	    cus__load(struct cus *self);
@@ -135,8 +137,6 @@ extern int	    class__is_struct(const struct class *self,
 extern void	    cus__print_classes(struct cus *cus,
 				       const unsigned int tag);
 extern void	    cus__print_functions(struct cus *cus);
-extern void	    function__print_inline_expansions(struct function *self);
-extern void	    function__print_variables(struct function *self);
 extern struct class *cus__find_class_by_name(const struct cus *self,
 					     const char *name);
 extern void	    cu__account_inline_expansions(struct cu *self);
@@ -153,6 +153,8 @@ extern void	    cus__for_each_cu(struct cus *self,
 						     void *cookie),
 				      void *cookie);
 
+extern struct function *cu__find_function_by_id(const struct cu *self,
+						const uint64_t id);
 extern struct function *cu__find_function_by_name(const struct cu *cu,
 						  const char *name);
 
@@ -182,5 +184,11 @@ extern uint64_t class_member__names(const struct class_member *self,
 				    char *member_name,
 				    size_t member_name_size);
 extern unsigned int cacheline_size;
+
+extern const char *variable__name(const struct variable *self);
+extern const char *variable__type_name(const struct variable *self,
+				       char *bf, size_t len);
+
+extern const char *dwarf_tag_name(const unsigned int tag);
 
 #endif /* _PAHOLE_CLASSES_H_ */

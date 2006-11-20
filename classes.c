@@ -7,6 +7,7 @@
   published by the Free Software Foundation.
 */
 
+#define _GNU_SOURCE
 #include <dwarf.h>
 #include <fcntl.h>
 #include <libdw.h>
@@ -20,7 +21,6 @@
 #include "list.h"
 #include "classes.h"
 
-#if 0
 static const char *dwarf_tag_names[] = {
 	[DW_TAG_array_type]		  = "array_type",
 	[DW_TAG_class_type]		  = "class_type",
@@ -82,13 +82,12 @@ static const char *dwarf_tag_names[] = {
 	[DW_TAG_shared_type]		  = "shared_type",
 };
 
-static const char *dwarf_tag_name(const unsigned int tag)
+const char *dwarf_tag_name(const unsigned int tag)
 {
 	if (tag >= DW_TAG_array_type && tag <= DW_TAG_shared_type)
 		return dwarf_tag_names[tag];
 	return "INVALID";
 }
-#endif
 
 unsigned int cacheline_size = DEFAULT_CACHELINE_SIZE;
 
@@ -375,8 +374,8 @@ static const char *class__name(struct class *self, char *bf, size_t len)
 	return bf;
 }
 
-static const char *variable__type_name(struct variable *self,
-				       char *bf, size_t len)
+const char *variable__type_name(const struct variable *self,
+				char *bf, size_t len)
 {
 	if (self->tag.type != 0) {
 		struct class *class = cu__find_class_by_id(self->cu,
@@ -396,7 +395,7 @@ static const char *variable__type_name(struct variable *self,
 	return NULL;
 }
 
-static const char *variable__name(struct variable *self)
+const char *variable__name(const struct variable *self)
 {
 	if (self->name == NULL) {
 		if (self->abstract_origin == 0)
@@ -708,43 +707,99 @@ void cu__account_inline_expansions(struct cu *self)
 	}
 }
 
-void function__print_inline_expansions(struct function *self)
+static int tags__compare(const void *a, const void *b)
 {
-	struct inline_expansion *pos;
+	const struct tag *ta = a, *tb = b;
 
-	if (self->nr_inline_expansions == 0)
-		return;
+	if (a == b)
+		return 0;
+	if (ta->decl_line < tb->decl_line)
+	       return -1;
+	if (ta->decl_line > tb->decl_line)
+		return 1;
+	if (ta->tag == DW_TAG_inlined_subroutine)
+		return -1;
+	return 1;
+}
 
-	printf("/* inline expansions in %s:\n", self->name);
-	list_for_each_entry(pos, &self->inline_expansions, tag.node) {
+static void tags__free(void *a)
+{
+}
+
+static void tags__add(void *tags, const struct tag *tag)
+{
+	tsearch(tag, tags, tags__compare);
+}
+
+static void tag__print(const struct tag *tag)
+{
+	char bf[512];
+	const void *vtag = tag;
+	int c;
+
+	fputs("        ", stdout);
+
+	switch (tag->tag) {
+	case DW_TAG_inlined_subroutine: {
+		const struct inline_expansion *exp = vtag;
 		const struct function *alias =
-				cu__find_function_by_id(self->cu, pos->tag.type);
-		if (alias != NULL)
-			printf("%s: %u\n", alias->name, pos->size);
-		else
-			printf("<%llx>: %u\n", pos->tag.type, pos->size);
+				cu__find_function_by_id(exp->function->cu,
+							exp->tag.type);
+		c = printf("%s();", alias != NULL ? alias->name : "<ERROR>");
 	}
-	fputs("*/\n", stdout);
+		break;
+	case DW_TAG_variable: {
+		c = printf("%s %s;", variable__type_name(vtag, bf, sizeof(bf)),
+			   variable__name(vtag));
+	}
+		break;
+	default:
+		c= printf("%s <%llx>", dwarf_tag_name(tag->tag), tag->id);
+		break;
+	}
+
+	printf("%-*.*s// %5u\n", 62 - c, 62 - c, " ",  tag->decl_line);
 }
 
-void function__print_variables(struct function *self)
+static void tags__action(const void *nodep, const VISIT which, const int depth)
 {
-	struct variable *pos;
-
-	if (self->nr_variables == 0)
-		return;
-
-	printf("{\n        /* variables in %s: */\n", self->name);
-	list_for_each_entry(pos, &self->variables, tag.node) {
-		char bf[256];
-		printf("        %s %s;\n", 
-		       variable__type_name(pos, bf, sizeof(bf)),
-		       variable__name(pos));
+	if (which == postorder || which == leaf) {
+		const struct tag *tag = *(struct tag **)nodep;
+		tag__print(tag);
 	}
-	fputs("}\n", stdout);
 }
 
-void function__print(const struct function *self)
+static void function__print_body(const struct function *self,
+				 const int show_variables,
+				 const int show_inline_expansions)
+{
+	void *tags = NULL;
+	struct tag *pos;
+
+	if (show_variables)
+		list_for_each_entry(pos, &self->variables, node) {
+			/* FIXME! this test shouln't be needed at all */
+			if (pos->decl_line >= self->tag.decl_line) 
+				tags__add(&tags, pos);
+		}
+
+	if (show_inline_expansions)
+		list_for_each_entry(pos, &self->inline_expansions, node) {
+			/* FIXME! this test shouln't be needed at all */
+			if (pos->decl_line >= self->tag.decl_line) 
+				tags__add(&tags, pos);
+		}
+
+	puts("{");
+	twalk(tags, tags__action);
+	puts("}\n");
+
+	tdestroy(tags, tags__free);
+}
+
+void function__print(const struct function *self, int show_stats,
+		     const int show_variables,
+		     const int show_inline_expansions)
 {
 	char bf[256];
 	struct class *class_type;
@@ -781,15 +836,22 @@ void function__print(const struct function *self)
 	else if (self->unspecified_parameters)
 		fputs(", ...", stdout);
 	fputs(");\n", stdout);
-	printf("/* size: %llu", self->high_pc - self->low_pc);
-	if (self->nr_variables > 0)
-		printf(", variables: %u", self->nr_variables);
-	if (self->nr_labels > 0)
-		printf(", goto labels: %u", self->nr_labels);
-	if (self->nr_inline_expansions > 0)
-		printf(", inline expansions: %u (%u bytes)",
-		       self->nr_inline_expansions, self->size_inline_expansions);
-	fputs(" */\n\n", stdout);
+
+	if (show_variables || show_inline_expansions)
+		function__print_body(self, show_variables,
+				     show_inline_expansions);
+
+	if (show_stats) {
+		printf("/* size: %llu", self->high_pc - self->low_pc);
+		if (self->nr_variables > 0)
+			printf(", variables: %u", self->nr_variables);
+		if (self->nr_labels > 0)
+			printf(", goto labels: %u", self->nr_labels);
+		if (self->nr_inline_expansions > 0)
+			printf(", inline expansions: %u (%u bytes)",
+			       self->nr_inline_expansions, self->size_inline_expansions);
+		fputs(" */\n\n", stdout);
+	}
 }
 
 static void class__print_struct(struct class *self)
@@ -923,7 +985,7 @@ void cus__print_functions(struct cus *self)
 
 	list_for_each_entry(cu, &self->cus, node)
 		list_for_each_entry(function, &cu->functions, tag.node)
-			function__print(function);
+			function__print(function, 1, 1, 1);
 }
 
 static void oom(const char *msg)

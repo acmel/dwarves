@@ -7,7 +7,6 @@
   published by the Free Software Foundation.
 */
 
-#include <dwarf.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -157,7 +156,7 @@ static int class_iterator(struct function *function, void *cookie)
 
 	if (function__has_parameter_of_type(function, cookie)) {
 		if (verbose)
-			function__print(function);
+			function__print(function, 1, 0, 0);
 		else
 			printf("%s\n", function->name ?: "");
 	}
@@ -238,11 +237,8 @@ static int function_iterator(struct function *function, void *cookie)
 			       function->size_inline_expansions);
 	} else if (function->name != NULL &&
 		   strcmp(function->name, cookie) == 0) {
-		function__print(function);
-		if (show_inline_expansions)
-			function__print_inline_expansions(function);
-		if (show_variables)
-			function__print_variables(function);
+		function__print(function, 1, show_variables,
+				show_inline_expansions);
 		return 1;
 	}
 	return 0;
