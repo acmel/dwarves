@@ -778,7 +778,7 @@ void function__print(const struct function *self)
 	/* No parameters? */
 	if (first_parameter)
 		fputs("void", stdout);
-	else if (self->unspecified_parameters);
+	else if (self->unspecified_parameters)
 		fputs(", ...", stdout);
 	fputs(");\n", stdout);
 	printf("/* size: %llu", self->high_pc - self->low_pc);
