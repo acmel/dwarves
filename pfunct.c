@@ -202,9 +202,9 @@ static int cu_externals_iterator(struct cu *cu, void *cookie)
 
 static int variables_iterator(struct function *function, void *cookie)
 {
-	if (function->nr_variables > 0)
+	if (function->lexblock.nr_variables > 0)
 		printf("%s: %u\n", function->name ?: "",
-		      function->nr_variables);
+		      function->lexblock.nr_variables);
 	return 0;
 }
 
@@ -218,8 +218,8 @@ static int goto_labels_iterator(struct function *function, void *cookie)
 	if (function->inlined)
 		return 0;
 
-	if (function->nr_labels > 0)
-		printf("%s: %u\n", function->name ?: "", function->nr_labels);
+	if (function->lexblock.nr_labels > 0)
+		printf("%s: %u\n", function->name ?: "", function->lexblock.nr_labels);
 	return 0;
 }
 
@@ -231,9 +231,9 @@ static int cu_goto_labels_iterator(struct cu *cu, void *cookie)
 static int function_iterator(struct function *function, void *cookie)
 {
 	if (cookie == NULL) {
-		if (function->nr_inline_expansions > 0)
+		if (function->lexblock.nr_inline_expansions > 0)
 			printf("%s: %u %u\n", function->name ?: "",
-			       function->nr_inline_expansions,
+			       function->lexblock.nr_inline_expansions,
 			       function->size_inline_expansions);
 	} else if (function->name != NULL &&
 		   strcmp(function->name, cookie) == 0) {

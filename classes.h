@@ -72,21 +72,25 @@ struct class_member {
 					   one (or the end of the struct) */
 };
 
+struct lexblock {
+	struct list_head inline_expansions;
+	struct list_head labels;
+	struct list_head variables;
+	unsigned short	 nr_inline_expansions;
+	unsigned short	 nr_labels;
+	unsigned short	 nr_variables;
+};
+
 struct function {
 	struct tag	 tag;
 	struct cu	 *cu;
+	struct lexblock	 lexblock;
 	struct list_head parameters;
-	struct list_head inline_expansions;
-	struct list_head variables;
-	struct list_head labels;
 	const char	 *name;
 	uint64_t	 low_pc;
 	uint64_t	 high_pc;
 	unsigned short	 nr_parameters;
-	unsigned short	 nr_labels;
-	unsigned short	 nr_variables;
 	unsigned short	 inlined;
-	unsigned short	 nr_inline_expansions;
 	unsigned char	 external:1;
 	unsigned char	 unspecified_parameters;
 	unsigned int	 refcnt;

@@ -103,10 +103,10 @@ static void refcnt_function(struct function *function)
 	list_for_each_entry(parameter, &function->parameters, tag.node)
 		refcnt_parameter(parameter);
 
-	list_for_each_entry(variable, &function->variables, tag.node)
+	list_for_each_entry(variable, &function->lexblock.variables, tag.node)
 		refcnt_variable(variable);
 
-	list_for_each_entry(exp, &function->inline_expansions, tag.node)
+	list_for_each_entry(exp, &function->lexblock.inline_expansions, tag.node)
 		refcnt_inline_expansion(exp);
 }
 

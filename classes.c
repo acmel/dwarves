@@ -600,10 +600,10 @@ static struct function *function__new(uint64_t id, uint64_t type,
 		tag__init(&self->tag, DW_TAG_subprogram,
 			  id, type, decl_file, decl_line);
 
-		INIT_LIST_HEAD(&self->labels);
+		INIT_LIST_HEAD(&self->lexblock.labels);
 		INIT_LIST_HEAD(&self->parameters);
-		INIT_LIST_HEAD(&self->variables);
-		INIT_LIST_HEAD(&self->inline_expansions);
+		INIT_LIST_HEAD(&self->lexblock.variables);
+		INIT_LIST_HEAD(&self->lexblock.inline_expansions);
 
 		self->name     = strings__add(name);
 		self->inlined  = inlined;
@@ -626,22 +626,22 @@ static void function__add_parameter(struct function *self,
 static void function__add_inline_expansion(struct function *self,
 					   struct inline_expansion *exp)
 {
-	++self->nr_inline_expansions;
+	++self->lexblock.nr_inline_expansions;
 	exp->function = self;
 	self->size_inline_expansions += exp->size;
-	list_add_tail(&exp->tag.node, &self->inline_expansions);
+	list_add_tail(&exp->tag.node, &self->lexblock.inline_expansions);
 }
 
 static void function__add_variable(struct function *self, struct variable *var)
 {
-	++self->nr_variables;
-	list_add_tail(&var->tag.node, &self->variables);
+	++self->lexblock.nr_variables;
+	list_add_tail(&var->tag.node, &self->lexblock.variables);
 }
 
 static void function__add_label(struct function *self, struct label *label)
 {
-	++self->nr_labels;
-	list_add_tail(&label->tag.node, &self->labels);
+	++self->lexblock.nr_labels;
+	list_add_tail(&label->tag.node, &self->lexblock.labels);
 }
 
 void class__find_holes(struct class *self)
@@ -706,10 +706,10 @@ static void function__account_inline_expansions(struct function *self)
 	struct function *type;
 	struct inline_expansion *pos;
 
-	if (self->nr_inline_expansions == 0)
+	if (self->lexblock.nr_inline_expansions == 0)
 		return;
 
-	list_for_each_entry(pos, &self->inline_expansions, tag.node) {
+	list_for_each_entry(pos, &self->lexblock.inline_expansions, tag.node) {
 		type = cu__find_function_by_id(self->cu, pos->tag.type);
 		if (type != NULL) {
 			type->cu_total_nr_inline_expansions++;
@@ -725,7 +725,7 @@ void cu__account_inline_expansions(struct cu *self)
 
 	list_for_each_entry(pos, &self->functions, tag.node) {
 		function__account_inline_expansions(pos);
-		self->nr_inline_expansions   += pos->nr_inline_expansions;
+		self->nr_inline_expansions   += pos->lexblock.nr_inline_expansions;
 		self->size_inline_expansions += pos->size_inline_expansions;
 	}
 }
@@ -808,21 +808,21 @@ static void function__print_body(const struct function *self,
 	struct tag *pos;
 
 	if (show_variables)
-		list_for_each_entry(pos, &self->variables, node) {
+		list_for_each_entry(pos, &self->lexblock.variables, node) {
 			/* FIXME! this test shouln't be needed at all */
 			if (pos->decl_line >= self->tag.decl_line) 
 				tags__add(&tags, pos);
 		}
 
 	if (show_inline_expansions)
-		list_for_each_entry(pos, &self->inline_expansions, node) {
+		list_for_each_entry(pos, &self->lexblock.inline_expansions, node) {
 			/* FIXME! this test shouln't be needed at all */
 			if (pos->decl_line >= self->tag.decl_line) 
 				tags__add(&tags, pos);
 		}
 
 	if (show_labels)
-		list_for_each_entry(pos, &self->labels, node) {
+		list_for_each_entry(pos, &self->lexblock.labels, node) {
 			/* FIXME! this test shouln't be needed at all */
 			if (pos->decl_line >= self->tag.decl_line) 
 				tags__add(&tags, pos);
@@ -881,13 +881,13 @@ void function__print(const struct function *self, int show_stats,
 
 	if (show_stats) {
 		printf("/* size: %llu", self->high_pc - self->low_pc);
-		if (self->nr_variables > 0)
-			printf(", variables: %u", self->nr_variables);
-		if (self->nr_labels > 0)
-			printf(", goto labels: %u", self->nr_labels);
-		if (self->nr_inline_expansions > 0)
+		if (self->lexblock.nr_variables > 0)
+			printf(", variables: %u", self->lexblock.nr_variables);
+		if (self->lexblock.nr_labels > 0)
+			printf(", goto labels: %u", self->lexblock.nr_labels);
+		if (self->lexblock.nr_inline_expansions > 0)
 			printf(", inline expansions: %u (%u bytes)",
-			       self->nr_inline_expansions, self->size_inline_expansions);
+			       self->lexblock.nr_inline_expansions, self->size_inline_expansions);
 		fputs(" */\n\n", stdout);
 	}
 }
