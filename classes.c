@@ -623,25 +623,24 @@ static void function__add_parameter(struct function *self,
 	list_add_tail(&parameter->tag.node, &self->parameters);
 }
 
-static void function__add_inline_expansion(struct function *self,
+static void lexblock__add_inline_expansion(struct lexblock *self,
 					   struct inline_expansion *exp)
 {
-	++self->lexblock.nr_inline_expansions;
-	exp->function = self;
+	++self->nr_inline_expansions;
 	self->size_inline_expansions += exp->size;
-	list_add_tail(&exp->tag.node, &self->lexblock.inline_expansions);
+	list_add_tail(&exp->tag.node, &self->inline_expansions);
 }
 
-static void function__add_variable(struct function *self, struct variable *var)
+static void lexblock__add_variable(struct lexblock *self, struct variable *var)
 {
-	++self->lexblock.nr_variables;
-	list_add_tail(&var->tag.node, &self->lexblock.variables);
+	++self->nr_variables;
+	list_add_tail(&var->tag.node, &self->variables);
 }
 
-static void function__add_label(struct function *self, struct label *label)
+static void lexblock__add_label(struct lexblock *self, struct label *label)
 {
-	++self->lexblock.nr_labels;
-	list_add_tail(&label->tag.node, &self->lexblock.labels);
+	++self->nr_labels;
+	list_add_tail(&label->tag.node, &self->labels);
 }
 
 void class__find_holes(struct class *self)
@@ -726,7 +725,7 @@ void cu__account_inline_expansions(struct cu *self)
 	list_for_each_entry(pos, &self->functions, tag.node) {
 		function__account_inline_expansions(pos);
 		self->nr_inline_expansions   += pos->lexblock.nr_inline_expansions;
-		self->size_inline_expansions += pos->size_inline_expansions;
+		self->size_inline_expansions += pos->lexblock.size_inline_expansions;
 	}
 }
 
@@ -887,7 +886,8 @@ void function__print(const struct function *self, int show_stats,
 			printf(", goto labels: %u", self->lexblock.nr_labels);
 		if (self->lexblock.nr_inline_expansions > 0)
 			printf(", inline expansions: %u (%u bytes)",
-			       self->lexblock.nr_inline_expansions, self->size_inline_expansions);
+			       self->lexblock.nr_inline_expansions,
+			       self->lexblock.size_inline_expansions);
 		fputs(" */\n\n", stdout);
 	}
 }
@@ -1246,7 +1246,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		if (variable == NULL)
 			oom("variable__new");
 
-		function__add_variable(function, variable);
+		lexblock__add_variable(&function->lexblock, variable);
 		cu__add_variable(cu, variable);
 	}
 		break;
@@ -1265,7 +1265,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		if (label == NULL)
 			oom("label__new");
 
-		function__add_label(function, label);
+		lexblock__add_label(&function->lexblock, label);
 	}
 		break;
 	case DW_TAG_inlined_subroutine: {
@@ -1297,7 +1297,8 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		if (exp == NULL)
 			oom("inline_expansion__new");
 
-		function__add_inline_expansion(function, exp);
+		lexblock__add_inline_expansion(&function->lexblock, exp);
+		exp->function = function;
 	}
 		goto next_sibling;
 	case DW_TAG_lexical_block:

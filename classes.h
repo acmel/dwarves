@@ -79,6 +79,7 @@ struct lexblock {
 	unsigned short	 nr_inline_expansions;
 	unsigned short	 nr_labels;
 	unsigned short	 nr_variables;
+	uint32_t	 size_inline_expansions;
 };
 
 struct function {
@@ -94,7 +95,6 @@ struct function {
 	unsigned char	 external:1;
 	unsigned char	 unspecified_parameters;
 	unsigned int	 refcnt;
-	unsigned int	 size_inline_expansions;
 	signed int	 diff;
 	unsigned int	 cu_total_nr_inline_expansions;
 	unsigned long	 cu_total_size_inline_expansions;

@@ -234,7 +234,7 @@ static int function_iterator(struct function *function, void *cookie)
 		if (function->lexblock.nr_inline_expansions > 0)
 			printf("%s: %u %u\n", function->name ?: "",
 			       function->lexblock.nr_inline_expansions,
-			       function->size_inline_expansions);
+			       function->lexblock.size_inline_expansions);
 	} else if (function->name != NULL &&
 		   strcmp(function->name, cookie) == 0) {
 		function__print(function, 1, show_variables,
