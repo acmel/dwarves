@@ -92,6 +92,7 @@ static struct option long_options[] = {
 	{ "cacheline_size",	required_argument,	NULL, 'c' },
 	{ "class_name_len",	no_argument,		NULL, 'N' },
 	{ "help",		no_argument,		NULL, 'h' },
+	{ "holes",		no_argument,		NULL, 'H' },
 	{ "nr_members",		no_argument,		NULL, 'n' },
 	{ "sizes",		no_argument,		NULL, 's' },
 	{ "total_struct_stats",	no_argument,		NULL, 't' },
@@ -104,6 +105,7 @@ static void usage(void)
 		"usage: pfunct [options] <file_name> {<function_name>}\n"
 		" where: \n"
 		"   -h, --help                   show usage info\n"
+		"   -H, --holes                  show only structs with holes\n"
 		"   -c, --cacheline_size=<size>  set cacheline size (default=%d)\n"
 		"   -m, --nr_members             show number of members\n"
 		"   -N, --class_name_len         show size of classes\n"
@@ -152,6 +154,24 @@ static int cu_sizes_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_class(cu, sizes_iterator, cookie);
 }
 
+static int holes_iterator(struct class *class, void *cookie)
+{
+	struct class *typedef_alias;
+
+	if (!class__is_struct(class, &typedef_alias))
+		return 0;
+
+	class__find_holes(typedef_alias ?: class);
+	if (class->nr_holes != 0)
+		class__print(typedef_alias ?: class);
+	return 0;
+}
+
+static int cu_holes_iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_class(cu, holes_iterator, NULL);
+}
+
 int main(int argc, char *argv[])
 {
 	int option, option_index;
@@ -162,11 +182,13 @@ int main(int argc, char *argv[])
 	int show_nr_members = 0;
 	int show_class_name_len = 0;
 	int show_total_structure_stats = 0;
+	int show_only_with_holes = 0;
 
-	while ((option = getopt_long(argc, argv, "c:hnNst",
+	while ((option = getopt_long(argc, argv, "c:hHnNst",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
+		case 'H': show_only_with_holes = 1;	  break;
 		case 's': show_sizes = 1;		  break;
 		case 'n': show_nr_members = 1;		  break;
 		case 'N': show_class_name_len = 1;	  break;
@@ -206,6 +228,8 @@ int main(int argc, char *argv[])
 		cus__for_each_cu(cus, cu_nr_members_iterator, NULL);
 	else if (show_sizes)
 		cus__for_each_cu(cus, cu_sizes_iterator, NULL);
+	else if (show_only_with_holes)
+		cus__for_each_cu(cus, cu_holes_iterator, NULL);
 	else if (class_name != NULL) {
 		struct class *class = cus__find_class_by_name(cus, class_name);
 		struct class *alias;
