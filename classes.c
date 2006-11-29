@@ -456,6 +456,9 @@ uint64_t class_member__names(const struct class_member *self,
 		snprintf(class_name, class_name_size, "<%llx>",
 			 self->tag.type);
 	else {
+		if (class->tag.tag == DW_TAG_const_type)
+			class = cu__find_class_by_id(class->cu,
+						     class->tag.type);
 		size = class__size(class);
 
 		/* Is it a function pointer? */
