@@ -172,6 +172,25 @@ static int cu_holes_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_class(cu, holes_iterator, NULL);
 }
 
+static int class_name_len_iterator(struct class *class, void *cookie)
+{
+	struct class *typedef_alias;
+	const char *name;
+
+	if (!class__is_struct(class, &typedef_alias))
+		return 0;
+
+	name = (typedef_alias ?: class)->name;
+	if (name != NULL)
+		printf("%s: %u\n", name, strlen(name));
+	return 0;
+}
+
+static int cu_class_name_len_iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_class(cu, class_name_len_iterator, NULL);
+}
+
 int main(int argc, char *argv[])
 {
 	int option, option_index;
@@ -228,6 +247,8 @@ int main(int argc, char *argv[])
 		cus__for_each_cu(cus, cu_nr_members_iterator, NULL);
 	else if (show_sizes)
 		cus__for_each_cu(cus, cu_sizes_iterator, NULL);
+	else if (show_class_name_len)
+		cus__for_each_cu(cus, cu_class_name_len_iterator, NULL);
 	else if (show_only_with_holes)
 		cus__for_each_cu(cus, cu_holes_iterator, NULL);
 	else if (class_name != NULL) {
