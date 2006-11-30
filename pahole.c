@@ -107,7 +107,7 @@ static void usage(void)
 		"   -h, --help                   show usage info\n"
 		"   -H, --holes                  show only structs with holes\n"
 		"   -c, --cacheline_size=<size>  set cacheline size (default=%d)\n"
-		"   -m, --nr_members             show number of members\n"
+		"   -n, --nr_members             show number of members\n"
 		"   -N, --class_name_len         show size of classes\n"
 		"   -s, --sizes                  show size of classes\n"
 		"   -t, --total_struct_stats     show Multi-CU structure stats\n",
