@@ -15,6 +15,9 @@
 
 #include "classes.h"
 
+static char *exclude_prefix;
+static size_t exclude_prefix_len;
+
 struct structure {
 	struct list_head   node;
 	const struct class *class;
@@ -75,9 +78,33 @@ static void print_total_structure_stats(void)
 		structure__print(pos);
 }
 
+struct class *class__to_struct(struct class *class)
+{
+	struct class *typedef_alias;
+
+	if (!class__is_struct(class, &typedef_alias))
+		return NULL;
+	return typedef_alias ?: class;
+}
+
+struct class *class__filter(struct class *class)
+{
+	class = class__to_struct(class);
+	if (class == NULL) /* Not a structure */
+		return NULL;
+
+	if (exclude_prefix != NULL &&
+	    (class->name == NULL ||
+	     strncmp(exclude_prefix, class->name, exclude_prefix_len) == 0))
+		return NULL;
+
+	return class;
+}
+
 static int total_structure_iterator(struct class *class, void *cookie)
 {
-	if (class->tag.tag == DW_TAG_structure_type && class->name != NULL)
+	class = class__filter(class);
+	if (class != NULL && class->name != NULL)
 		structures__add(class);
 	return 0;
 }
@@ -96,6 +123,7 @@ static struct option long_options[] = {
 	{ "nr_members",		no_argument,		NULL, 'n' },
 	{ "sizes",		no_argument,		NULL, 's' },
 	{ "total_struct_stats",	no_argument,		NULL, 't' },
+	{ "exclude",		required_argument,	NULL, 'x' },
 	{ NULL, 0, NULL, 0, }
 };
 
@@ -110,16 +138,15 @@ static void usage(void)
 		"   -n, --nr_members             show number of members\n"
 		"   -N, --class_name_len         show size of classes\n"
 		"   -s, --sizes                  show size of classes\n"
-		"   -t, --total_struct_stats     show Multi-CU structure stats\n",
+		"   -t, --total_struct_stats     show Multi-CU structure stats\n"
+		"   -x, --exclude <path>         exclude path from reports\n",
 		DEFAULT_CACHELINE_SIZE);
 }
 
 static int nr_members_iterator(struct class *class, void *cookie)
 {
-	if (class->tag.tag != DW_TAG_structure_type)
-		return 0;
-
-	if (class->nr_members > 0 && class->name != NULL)
+	class = class__filter(class);
+	if (class != NULL && class->name == NULL && class->nr_members > 0)
 		printf("%s: %u\n", class->name, class->nr_members);
 	return 0;
 }
@@ -131,21 +158,12 @@ static int cu_nr_members_iterator(struct cu *cu, void *cookie)
 
 static int sizes_iterator(struct class *class, void *cookie)
 {
-	struct class *typedef_alias;
-
-	if (!class__is_struct(class, &typedef_alias))
-		return 0;
-
-	class__find_holes(typedef_alias ?: class);
-	if (typedef_alias != NULL) {
-		if (typedef_alias->size > 0)
-			printf("typedef %s:struct(%s): %llu %u\n",
-			       class->name ?: "",
-			       typedef_alias->name ?: "",
-			       typedef_alias->size, typedef_alias->nr_holes);
-	} else if (class->size > 0)
-		printf("struct %s: %llu %u\n", class->name ?: "<unknown>",
-		       class->size, class->nr_holes);
+	class = class__filter(class);
+	if (class != NULL && class->name != NULL && class->size > 0) {
+		class__find_holes(class);
+		printf("%s: %llu %u\n",
+		       class->name, class->size, class->nr_holes);
+	}
 	return 0;
 }
 
@@ -156,14 +174,12 @@ static int cu_sizes_iterator(struct cu *cu, void *cookie)
 
 static int holes_iterator(struct class *class, void *cookie)
 {
-	struct class *typedef_alias;
-
-	if (!class__is_struct(class, &typedef_alias))
-		return 0;
-
-	class__find_holes(typedef_alias ?: class);
-	if (class->nr_holes != 0)
-		class__print(typedef_alias ?: class);
+	class = class__filter(class);
+	if (class != NULL && class->name != NULL) {
+		class__find_holes(class);
+		if (class->nr_holes > 0)
+			class__print(class);
+	}
 	return 0;
 }
 
@@ -174,21 +190,31 @@ static int cu_holes_iterator(struct cu *cu, void *cookie)
 
 static int class_name_len_iterator(struct class *class, void *cookie)
 {
-	struct class *typedef_alias;
-	const char *name;
+	class = class__filter(class);
+	if (class != NULL && class->name != NULL)
+		printf("%s: %u\n", class->name, strlen(class->name));
 
-	if (!class__is_struct(class, &typedef_alias))
-		return 0;
-
-	name = (typedef_alias ?: class)->name;
-	if (name != NULL)
-		printf("%s: %u\n", name, strlen(name));
 	return 0;
 }
 
 static int cu_class_name_len_iterator(struct cu *cu, void *cookie)
 {
 	return cu__for_each_class(cu, class_name_len_iterator, NULL);
+}
+
+static int class__iterator(struct class *class, void *cookie)
+{
+	class = class__filter(class);
+	if (class != NULL) {
+		class__find_holes(class);
+		class__print(class);
+	}
+	return 0;
+}
+
+static int cu__iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_class(cu, class__iterator, NULL);
 }
 
 int main(int argc, char *argv[])
@@ -203,7 +229,7 @@ int main(int argc, char *argv[])
 	int show_total_structure_stats = 0;
 	int show_only_with_holes = 0;
 
-	while ((option = getopt_long(argc, argv, "c:hHnNst",
+	while ((option = getopt_long(argc, argv, "c:hHnNstx:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
@@ -212,6 +238,9 @@ int main(int argc, char *argv[])
 		case 'n': show_nr_members = 1;		  break;
 		case 'N': show_class_name_len = 1;	  break;
 		case 't': show_total_structure_stats = 1; break;
+		case 'x': exclude_prefix = optarg;
+			  exclude_prefix_len = strlen(exclude_prefix);
+			  				  break;
 		case 'h': usage();			  return EXIT_SUCCESS;
 		default:  usage();			  return EXIT_FAILURE;
 		}
@@ -261,7 +290,7 @@ int main(int argc, char *argv[])
 		} else
 			printf("struct %s not found!\n", class_name);
 	} else
-		cus__print_classes(cus, DW_TAG_structure_type);
+		cus__for_each_cu(cus, cu__iterator, NULL);
 
 	return EXIT_SUCCESS;
 }
