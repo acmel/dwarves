@@ -910,6 +910,7 @@ static void class__print_struct(struct class *self)
 	struct class_member *pos;
 	char name[128];
 	uint64_t last_size = 0, size;
+	unsigned int last_cacheline;
 	int last_bit_size = 0;
 	int last_offset = -1;
 
@@ -948,6 +949,11 @@ static void class__print_struct(struct class *self)
 		       sum, self->nr_holes, sum_holes);
 	if (self->padding > 0)
 		printf(", padding: %u", self->padding);
+	printf(", cachelines: %llu", (self->size + cacheline_size - 1) /
+				   cacheline_size);
+	last_cacheline = self->size % cacheline_size;
+	if (last_cacheline != 0)
+		printf(",\n      last cacheline: %u bytes", last_cacheline);
 	puts(" */");
 
 	if (sum + sum_holes != self->size - self->padding)
