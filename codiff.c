@@ -208,7 +208,7 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 	struct cu *new_cu = cus__find_cu_by_name(new_cus, cu->name);
 
 	if (new_cu != NULL) {
-		cu__for_each_class(cu, diff_class_iterator, new_cu);
+		cu__for_each_class(cu, diff_class_iterator, new_cu, NULL);
 		cu__for_each_function(cu, diff_function_iterator, new_cu);
 	}
 
@@ -353,12 +353,14 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	printf("%s:\n", cu->name);
 
 	if (show_terse_type_changes) {
-		cu__for_each_class(cu, show_structure_diffs_iterator, NULL);
+		cu__for_each_class(cu, show_structure_diffs_iterator,
+				   NULL, NULL);
 		return 0;
 	}
 
 	if (cu->nr_structures_changed != 0 && show_struct_diffs) {
-		cu__for_each_class(cu, show_structure_diffs_iterator, NULL);
+		cu__for_each_class(cu, show_structure_diffs_iterator,
+				   NULL, NULL);
 		printf(" %u struct%s changed\n", cu->nr_structures_changed,
 		       cu->nr_structures_changed > 1 ? "s" : "");
 	}

@@ -126,7 +126,7 @@ static int refcnt_class_iterator(struct class *class, void *cookie)
 
 static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 {
-	cu__for_each_class(cu, refcnt_class_iterator, cookie);
+	cu__for_each_class(cu, refcnt_class_iterator, cookie, NULL);
 	cu__for_each_function(cu, refcnt_function_iterator, cookie);
 	return 0;
 }
@@ -140,7 +140,7 @@ static int lost_iterator(struct class *class, void *cookie)
 
 static int cu_lost_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, lost_iterator, cookie);
+	return cu__for_each_class(cu, lost_iterator, cookie, NULL);
 }
 
 int main(int argc, char *argv[])

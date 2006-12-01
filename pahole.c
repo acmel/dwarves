@@ -107,10 +107,12 @@ struct class *class__filter(struct class *class)
 	if (class == NULL) /* Not a structure */
 		return NULL;
 
+	if (class->name == NULL)
+		return NULL;
+
 	if (class__exclude_prefix != NULL &&
-	    (class->name == NULL ||
-	     strncmp(class__exclude_prefix, class->name,
-		     class__exclude_prefix_len) == 0))
+	    strncmp(class__exclude_prefix, class->name,
+		    class__exclude_prefix_len) == 0)
 		return NULL;
 
 	return class;
@@ -118,15 +120,14 @@ struct class *class__filter(struct class *class)
 
 static int total_structure_iterator(struct class *class, void *cookie)
 {
-	class = class__filter(class);
-	if (class != NULL && class->name != NULL)
-		structures__add(class);
+	structures__add(class);
 	return 0;
 }
 
 static int cu_total_structure_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, total_structure_iterator, cookie);
+	return cu__for_each_class(cu, total_structure_iterator, cookie,
+				  class__filter);
 }
 
 static struct option long_options[] = {
@@ -161,21 +162,20 @@ static void usage(void)
 
 static int nr_members_iterator(struct class *class, void *cookie)
 {
-	class = class__filter(class);
-	if (class != NULL && class->name == NULL && class->nr_members > 0)
+	if (class->nr_members > 0)
 		printf("%s: %u\n", class->name, class->nr_members);
 	return 0;
 }
 
 static int cu_nr_members_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, nr_members_iterator, cookie);
+	return cu__for_each_class(cu, nr_members_iterator, cookie,
+				  class__filter);
 }
 
 static int sizes_iterator(struct class *class, void *cookie)
 {
-	class = class__filter(class);
-	if (class != NULL && class->name != NULL && class->size > 0) {
+	if (class->size > 0) {
 		class__find_holes(class);
 		printf("%s: %llu %u\n",
 		       class->name, class->size, class->nr_holes);
@@ -185,52 +185,45 @@ static int sizes_iterator(struct class *class, void *cookie)
 
 static int cu_sizes_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, sizes_iterator, cookie);
+	return cu__for_each_class(cu, sizes_iterator, cookie, class__filter);
 }
 
 static int holes_iterator(struct class *class, void *cookie)
 {
-	class = class__filter(class);
-	if (class != NULL && class->name != NULL) {
-		class__find_holes(class);
-		if (class->nr_holes > 0)
-			class__print(class);
-	}
+	class__find_holes(class);
+	if (class->nr_holes > 0)
+		class__print(class);
 	return 0;
 }
 
 static int cu_holes_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, holes_iterator, NULL);
+	return cu__for_each_class(cu, holes_iterator, NULL, class__filter);
 }
 
 static int class_name_len_iterator(struct class *class, void *cookie)
 {
-	class = class__filter(class);
-	if (class != NULL && class->name != NULL)
-		printf("%s: %u\n", class->name, strlen(class->name));
-
+	printf("%s: %u\n", class->name, strlen(class->name));
 	return 0;
 }
 
 static int cu_class_name_len_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, class_name_len_iterator, NULL);
+	return cu__for_each_class(cu, class_name_len_iterator, NULL,
+				  class__filter);
 }
 
 static int class__iterator(struct class *class, void *cookie)
 {
-	class = class__filter(class);
-	if (class != NULL) {
-		class__find_holes(class);
-		class__print(class);
-	}
+	class__find_holes(class);
+	class__print(class);
 	return 0;
 }
 
 static int cu__iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, class__iterator, NULL);
+	return cu__for_each_class(cu, class__iterator, NULL,
+				  class__filter);
 }
 
 int main(int argc, char *argv[])

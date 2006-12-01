@@ -973,16 +973,23 @@ void class__print(struct class *self)
 	putchar('\n');
 }
 
-int cu__for_each_class(struct cu *cu,
-			int (*iterator)(struct class *class, void *cookie),
-			void *cookie)
+int cu__for_each_class(struct cu *self,
+		       int (*iterator)(struct class *class, void *cookie),
+		       void *cookie,
+		       struct class *(*filter)(struct class *class))
 {
-
 	struct class *pos;
 
-	list_for_each_entry(pos, &cu->classes, tag.node)
-		if (iterator(pos, cookie))
+	list_for_each_entry(pos, &self->classes, tag.node) {
+		struct class *class = pos;
+		if (filter != NULL) {
+			class = filter(pos);
+			if (class == NULL)
+				continue;
+		}
+		if (iterator(class, cookie))
 			return 1;
+	}
 	return 0;
 }
 

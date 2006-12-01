@@ -151,10 +151,11 @@ extern void	    cus__print_functions(struct cus *cus);
 extern struct class *cus__find_class_by_name(const struct cus *self,
 					     const char *name);
 extern void	    cu__account_inline_expansions(struct cu *self);
-extern int	    cu__for_each_class(struct cu *cu,
+extern int	    cu__for_each_class(struct cu *self,
 				       int (*iterator)(struct class *class,
 						       void *cookie),
-				       void *cookie);
+				       void *cookie,
+				 struct class *(*filter)(struct class *class));
 extern int	    cu__for_each_function(struct cu *cu,
 					  int (*iterator)(struct function *func,
 							  void *cookie),
