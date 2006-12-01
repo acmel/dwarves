@@ -21,6 +21,9 @@ static size_t class__exclude_prefix_len;
 static char *cu__exclude_prefix;
 static size_t cu__exclude_prefix_len;
 
+static char *decl_exclude_prefix;
+static size_t decl_exclude_prefix_len;
+
 struct structure {
 	struct list_head   node;
 	const struct class *class;
@@ -115,6 +118,12 @@ struct class *class__filter(struct class *class)
 		    class__exclude_prefix_len) == 0)
 		return NULL;
 
+	if (decl_exclude_prefix != NULL &&
+	    (class->tag.decl_file == NULL ||
+	     strncmp(decl_exclude_prefix, class->tag.decl_file,
+		     decl_exclude_prefix_len) == 0))
+		return NULL;
+
 	return class;
 }
 
@@ -140,6 +149,7 @@ static struct option long_options[] = {
 	{ "total_struct_stats",	no_argument,		NULL, 't' },
 	{ "exclude",		required_argument,	NULL, 'x' },
 	{ "cu_exclude",		required_argument,	NULL, 'X' },
+	{ "decl_exclude",	required_argument,	NULL, 'D' },
 	{ NULL, 0, NULL, 0, }
 };
 
@@ -155,6 +165,7 @@ static void usage(void)
 		"   -N, --class_name_len         show size of classes\n"
 		"   -s, --sizes                  show size of classes\n"
 		"   -t, --total_struct_stats     show Multi-CU structure stats\n"
+		"   -D, --decl_exclude <prefix>  exclude classes declared in files with prefix\n"
 		"   -x, --exclude <prefix>       exclude prefixed classes from reports\n"
 		"   -X, --cu_exclude <prefix>    exclude prefixed compilation units from reports\n",
 		DEFAULT_CACHELINE_SIZE);
@@ -238,7 +249,7 @@ int main(int argc, char *argv[])
 	int show_total_structure_stats = 0;
 	int show_only_with_holes = 0;
 
-	while ((option = getopt_long(argc, argv, "c:hHnNstx:X:",
+	while ((option = getopt_long(argc, argv, "c:D:hHnNstx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
@@ -247,6 +258,9 @@ int main(int argc, char *argv[])
 		case 'n': show_nr_members = 1;		  break;
 		case 'N': show_class_name_len = 1;	  break;
 		case 't': show_total_structure_stats = 1; break;
+		case 'D': decl_exclude_prefix = optarg;
+			  decl_exclude_prefix_len = strlen(decl_exclude_prefix);
+			  				  break;
 		case 'x': class__exclude_prefix = optarg;
 			  class__exclude_prefix_len = strlen(class__exclude_prefix);
 			  				  break;
