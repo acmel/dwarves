@@ -126,9 +126,7 @@ static int total_structure_iterator(struct class *class, void *cookie)
 
 static int cu_total_structure_iterator(struct cu *cu, void *cookie)
 {
-	cu = cu__filter(cu);
-	return cu != NULL ? cu__for_each_class(cu, total_structure_iterator,
-					       cookie) : 0;
+	return cu__for_each_class(cu, total_structure_iterator, cookie);
 }
 
 static struct option long_options[] = {
@@ -171,9 +169,7 @@ static int nr_members_iterator(struct class *class, void *cookie)
 
 static int cu_nr_members_iterator(struct cu *cu, void *cookie)
 {
-	cu = cu__filter(cu);
-	return cu != NULL ? cu__for_each_class(cu, nr_members_iterator,
-					       cookie) : 0;
+	return cu__for_each_class(cu, nr_members_iterator, cookie);
 }
 
 static int sizes_iterator(struct class *class, void *cookie)
@@ -189,8 +185,7 @@ static int sizes_iterator(struct class *class, void *cookie)
 
 static int cu_sizes_iterator(struct cu *cu, void *cookie)
 {
-	cu = cu__filter(cu);
-	return cu != NULL ? cu__for_each_class(cu, sizes_iterator, cookie) : 0;
+	return cu__for_each_class(cu, sizes_iterator, cookie);
 }
 
 static int holes_iterator(struct class *class, void *cookie)
@@ -235,8 +230,7 @@ static int class__iterator(struct class *class, void *cookie)
 
 static int cu__iterator(struct cu *cu, void *cookie)
 {
-	cu = cu__filter(cu);
-	return cu != NULL ? cu__for_each_class(cu, class__iterator, NULL) : 0;
+	return cu__for_each_class(cu, class__iterator, NULL);
 }
 
 int main(int argc, char *argv[])
@@ -295,16 +289,20 @@ int main(int argc, char *argv[])
 	}
 
 	if (show_total_structure_stats) {
-		cus__for_each_cu(cus, cu_total_structure_iterator, NULL);
+		cus__for_each_cu(cus, cu_total_structure_iterator, NULL,
+				 cu__filter);
 		print_total_structure_stats();
 	} else if (show_nr_members)
-		cus__for_each_cu(cus, cu_nr_members_iterator, NULL);
+		cus__for_each_cu(cus, cu_nr_members_iterator, NULL,
+				 cu__filter);
 	else if (show_sizes)
-		cus__for_each_cu(cus, cu_sizes_iterator, NULL);
+		cus__for_each_cu(cus, cu_sizes_iterator, NULL, cu__filter);
 	else if (show_class_name_len)
-		cus__for_each_cu(cus, cu_class_name_len_iterator, NULL);
+		cus__for_each_cu(cus, cu_class_name_len_iterator, NULL,
+				 cu__filter);
 	else if (show_only_with_holes)
-		cus__for_each_cu(cus, cu_holes_iterator, NULL);
+		cus__for_each_cu(cus, cu_holes_iterator, NULL,
+				 cu__filter);
 	else if (class_name != NULL) {
 		struct class *class = cus__find_class_by_name(cus, class_name);
 		struct class *alias;
@@ -315,7 +313,7 @@ int main(int argc, char *argv[])
 		} else
 			printf("struct %s not found!\n", class_name);
 	} else
-		cus__for_each_cu(cus, cu__iterator, NULL);
+		cus__for_each_cu(cus, cu__iterator, NULL, cu__filter);
 
 	return EXIT_SUCCESS;
 }

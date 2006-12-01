@@ -178,8 +178,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	cus__for_each_cu(cus, cu_refcnt_iterator, NULL);
-	cus__for_each_cu(cus, cu_lost_iterator, NULL);
+	cus__for_each_cu(cus, cu_refcnt_iterator, NULL, NULL);
+	cus__for_each_cu(cus, cu_lost_iterator, NULL, NULL);
 
 	return EXIT_SUCCESS;
 }

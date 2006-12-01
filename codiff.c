@@ -450,8 +450,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	cus__for_each_cu(old_cus, cu_diff_iterator, new_cus);
-	cus__for_each_cu(old_cus, cu_show_diffs_iterator, NULL);
+	cus__for_each_cu(old_cus, cu_diff_iterator, new_cus, NULL);
+	cus__for_each_cu(old_cus, cu_show_diffs_iterator, NULL, NULL);
 
 	if (total_cus_changed > 1) {
 		if (show_function_diffs)

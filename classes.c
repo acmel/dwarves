@@ -1001,13 +1001,21 @@ int cu__for_each_function(struct cu *cu,
 
 void cus__for_each_cu(struct cus *self,
 		      int (*iterator)(struct cu *cu, void *cookie),
-		      void *cookie)
+		      void *cookie,
+		      struct cu *(*filter)(struct cu *cu))
 {
 	struct cu *pos;
 
-	list_for_each_entry(pos, &self->cus, node)
-		if (iterator(pos, cookie))
+	list_for_each_entry(pos, &self->cus, node) {
+		struct cu *cu = pos;
+		if (filter != NULL) {
+			cu = filter(pos);
+			if (cu == NULL)
+				continue;
+		}
+		if (iterator(cu, cookie))
 			break;
+	}
 }
 
 void cus__print_classes(struct cus *self, const unsigned int tag)

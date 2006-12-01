@@ -400,32 +400,34 @@ int main(int argc, char *argv[])
 	}
 
 	if (show_total_inline_expansion_stats) {
-		cus__for_each_cu(cus, cu_total_inlines_iterator, NULL);
+		cus__for_each_cu(cus, cu_total_inlines_iterator, NULL, NULL);
 		print_total_inline_stats();
 	} else if (show_inline_stats)
-		cus__for_each_cu(cus, cu_inlines_iterator, NULL);
+		cus__for_each_cu(cus, cu_inlines_iterator, NULL, NULL);
 	else if (show_cc_inlined)
-		cus__for_each_cu(cus, cu_cc_inlined_iterator, NULL);
+		cus__for_each_cu(cus, cu_cc_inlined_iterator, NULL, NULL);
 	else if (show_cc_uninlined)
-		cus__for_each_cu(cus, cu_cc_uninlined_iterator, NULL);
+		cus__for_each_cu(cus, cu_cc_uninlined_iterator, NULL, NULL);
 	else if (show_nr_parameters)
-		cus__for_each_cu(cus, cu_nr_parameters_iterator, NULL);
+		cus__for_each_cu(cus, cu_nr_parameters_iterator, NULL, NULL);
 	else if (show_nr_variables)
-		cus__for_each_cu(cus, cu_variables_iterator, NULL);
+		cus__for_each_cu(cus, cu_variables_iterator, NULL, NULL);
 	else if (show_goto_labels)
-		cus__for_each_cu(cus, cu_goto_labels_iterator, NULL);
+		cus__for_each_cu(cus, cu_goto_labels_iterator, NULL, NULL);
 	else if (show_sizes)
-		cus__for_each_cu(cus, cu_sizes_iterator, NULL);
+		cus__for_each_cu(cus, cu_sizes_iterator, NULL, NULL);
 	else if (show_externals)
-		cus__for_each_cu(cus, cu_externals_iterator, NULL);
+		cus__for_each_cu(cus, cu_externals_iterator, NULL, NULL);
 	else if (show_function_name_len)
-		cus__for_each_cu(cus, cu_function_name_len_iterator, NULL);
+		cus__for_each_cu(cus, cu_function_name_len_iterator,
+				 NULL, NULL);
 	else if (class_name != NULL)
-		cus__for_each_cu(cus, cu_class_iterator, class_name);
+		cus__for_each_cu(cus, cu_class_iterator, class_name, NULL);
 	else if (function_name == NULL && !show_inline_expansions_stats)
 		cus__print_functions(cus);
 	else
-		cus__for_each_cu(cus, cu_function_iterator, function_name);
+		cus__for_each_cu(cus, cu_function_iterator,
+				 function_name, NULL);
 
 	return EXIT_SUCCESS;
 }

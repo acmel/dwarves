@@ -162,7 +162,8 @@ extern int	    cu__for_each_function(struct cu *cu,
 extern void	    cus__for_each_cu(struct cus *self,
 				     int (*iterator)(struct cu *cu,
 						     void *cookie),
-				      void *cookie);
+				     void *cookie,
+				     struct cu *(*filter)(struct cu *cu));
 
 extern struct function *cu__find_function_by_id(const struct cu *self,
 						const uint64_t id);
