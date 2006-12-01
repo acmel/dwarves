@@ -18,6 +18,9 @@
 static char *class__exclude_prefix;
 static size_t class__exclude_prefix_len;
 
+static char *cu__exclude_prefix;
+static size_t cu__exclude_prefix_len;
+
 struct structure {
 	struct list_head   node;
 	const struct class *class;
@@ -78,6 +81,17 @@ static void print_total_structure_stats(void)
 		structure__print(pos);
 }
 
+struct cu *cu__filter(struct cu *cu)
+{
+	if (cu__exclude_prefix != NULL &&
+	    (cu->name == NULL ||
+	     strncmp(cu__exclude_prefix, cu->name,
+		     cu__exclude_prefix_len) == 0))
+		return NULL;
+
+	return cu;
+}
+
 struct class *class__to_struct(struct class *class)
 {
 	struct class *typedef_alias;
@@ -112,8 +126,9 @@ static int total_structure_iterator(struct class *class, void *cookie)
 
 static int cu_total_structure_iterator(struct cu *cu, void *cookie)
 {
-	cu__for_each_class(cu, total_structure_iterator, cookie);
-	return 0;
+	cu = cu__filter(cu);
+	return cu != NULL ? cu__for_each_class(cu, total_structure_iterator,
+					       cookie) : 0;
 }
 
 static struct option long_options[] = {
@@ -125,6 +140,7 @@ static struct option long_options[] = {
 	{ "sizes",		no_argument,		NULL, 's' },
 	{ "total_struct_stats",	no_argument,		NULL, 't' },
 	{ "exclude",		required_argument,	NULL, 'x' },
+	{ "cu_exclude",		required_argument,	NULL, 'X' },
 	{ NULL, 0, NULL, 0, }
 };
 
@@ -140,7 +156,8 @@ static void usage(void)
 		"   -N, --class_name_len         show size of classes\n"
 		"   -s, --sizes                  show size of classes\n"
 		"   -t, --total_struct_stats     show Multi-CU structure stats\n"
-		"   -x, --exclude <path>         exclude path from reports\n",
+		"   -x, --exclude <prefix>       exclude prefixed classes from reports\n"
+		"   -X, --cu_exclude <prefix>    exclude prefixed compilation units from reports\n",
 		DEFAULT_CACHELINE_SIZE);
 }
 
@@ -154,7 +171,9 @@ static int nr_members_iterator(struct class *class, void *cookie)
 
 static int cu_nr_members_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, nr_members_iterator, cookie);
+	cu = cu__filter(cu);
+	return cu != NULL ? cu__for_each_class(cu, nr_members_iterator,
+					       cookie) : 0;
 }
 
 static int sizes_iterator(struct class *class, void *cookie)
@@ -170,7 +189,8 @@ static int sizes_iterator(struct class *class, void *cookie)
 
 static int cu_sizes_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, sizes_iterator, cookie);
+	cu = cu__filter(cu);
+	return cu != NULL ? cu__for_each_class(cu, sizes_iterator, cookie) : 0;
 }
 
 static int holes_iterator(struct class *class, void *cookie)
@@ -215,7 +235,8 @@ static int class__iterator(struct class *class, void *cookie)
 
 static int cu__iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, class__iterator, NULL);
+	cu = cu__filter(cu);
+	return cu != NULL ? cu__for_each_class(cu, class__iterator, NULL) : 0;
 }
 
 int main(int argc, char *argv[])
@@ -230,7 +251,7 @@ int main(int argc, char *argv[])
 	int show_total_structure_stats = 0;
 	int show_only_with_holes = 0;
 
-	while ((option = getopt_long(argc, argv, "c:hHnNstx:",
+	while ((option = getopt_long(argc, argv, "c:hHnNstx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
@@ -241,6 +262,9 @@ int main(int argc, char *argv[])
 		case 't': show_total_structure_stats = 1; break;
 		case 'x': class__exclude_prefix = optarg;
 			  class__exclude_prefix_len = strlen(class__exclude_prefix);
+			  				  break;
+		case 'X': cu__exclude_prefix = optarg;
+			  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
 			  				  break;
 		case 'h': usage();			  return EXIT_SUCCESS;
 		default:  usage();			  return EXIT_FAILURE;
