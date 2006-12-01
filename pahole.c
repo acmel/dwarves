@@ -15,8 +15,8 @@
 
 #include "classes.h"
 
-static char *exclude_prefix;
-static size_t exclude_prefix_len;
+static char *class__exclude_prefix;
+static size_t class__exclude_prefix_len;
 
 struct structure {
 	struct list_head   node;
@@ -93,9 +93,10 @@ struct class *class__filter(struct class *class)
 	if (class == NULL) /* Not a structure */
 		return NULL;
 
-	if (exclude_prefix != NULL &&
+	if (class__exclude_prefix != NULL &&
 	    (class->name == NULL ||
-	     strncmp(exclude_prefix, class->name, exclude_prefix_len) == 0))
+	     strncmp(class__exclude_prefix, class->name,
+		     class__exclude_prefix_len) == 0))
 		return NULL;
 
 	return class;
@@ -238,8 +239,8 @@ int main(int argc, char *argv[])
 		case 'n': show_nr_members = 1;		  break;
 		case 'N': show_class_name_len = 1;	  break;
 		case 't': show_total_structure_stats = 1; break;
-		case 'x': exclude_prefix = optarg;
-			  exclude_prefix_len = strlen(exclude_prefix);
+		case 'x': class__exclude_prefix = optarg;
+			  class__exclude_prefix_len = strlen(class__exclude_prefix);
 			  				  break;
 		case 'h': usage();			  return EXIT_SUCCESS;
 		default:  usage();			  return EXIT_FAILURE;
