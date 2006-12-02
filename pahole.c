@@ -143,7 +143,7 @@ static struct option long_options[] = {
 	{ "cacheline_size",	required_argument,	NULL, 'c' },
 	{ "class_name_len",	no_argument,		NULL, 'N' },
 	{ "help",		no_argument,		NULL, 'h' },
-	{ "holes",		no_argument,		NULL, 'H' },
+	{ "holes",		required_argument,	NULL, 'H' },
 	{ "nr_members",		no_argument,		NULL, 'n' },
 	{ "sizes",		no_argument,		NULL, 's' },
 	{ "total_struct_stats",	no_argument,		NULL, 't' },
@@ -159,8 +159,8 @@ static void usage(void)
 		"usage: pfunct [options] <file_name> {<function_name>}\n"
 		" where: \n"
 		"   -h, --help                   show usage info\n"
-		"   -H, --holes                  show only structs with holes\n"
-		"   -c, --cacheline_size=<size>  set cacheline size (default=%d)\n"
+		"   -H, --holes <nr_holes>       show only structs at least <nr_holes> holes\n"
+		"   -c, --cacheline_size <size>  set cacheline size (default=%d)\n"
 		"   -n, --nr_members             show number of members\n"
 		"   -N, --class_name_len         show size of classes\n"
 		"   -s, --sizes                  show size of classes\n"
@@ -201,15 +201,16 @@ static int cu_sizes_iterator(struct cu *cu, void *cookie)
 
 static int holes_iterator(struct class *class, void *cookie)
 {
+	const unsigned int nr_holes = *(unsigned int *)cookie;
 	class__find_holes(class);
-	if (class->nr_holes > 0)
+	if (class->nr_holes >= nr_holes)
 		class__print(class);
 	return 0;
 }
 
 static int cu_holes_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, holes_iterator, NULL, class__filter);
+	return cu__for_each_class(cu, holes_iterator, cookie, class__filter);
 }
 
 static int class_name_len_iterator(struct class *class, void *cookie)
@@ -247,13 +248,13 @@ int main(int argc, char *argv[])
 	int show_nr_members = 0;
 	int show_class_name_len = 0;
 	int show_total_structure_stats = 0;
-	int show_only_with_holes = 0;
+	int nr_holes = 0;
 
-	while ((option = getopt_long(argc, argv, "c:D:hHnNstx:X:",
+	while ((option = getopt_long(argc, argv, "c:D:hH:nNstx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
-		case 'H': show_only_with_holes = 1;	  break;
+		case 'H': nr_holes = atoi(optarg);	  break;
 		case 's': show_sizes = 1;		  break;
 		case 'n': show_nr_members = 1;		  break;
 		case 'N': show_class_name_len = 1;	  break;
@@ -307,9 +308,8 @@ int main(int argc, char *argv[])
 	else if (show_class_name_len)
 		cus__for_each_cu(cus, cu_class_name_len_iterator, NULL,
 				 cu__filter);
-	else if (show_only_with_holes)
-		cus__for_each_cu(cus, cu_holes_iterator, NULL,
-				 cu__filter);
+	else if (nr_holes > 0)
+		cus__for_each_cu(cus, cu_holes_iterator, &nr_holes, cu__filter);
 	else if (class_name != NULL) {
 		struct class *class = cus__find_class_by_name(cus, class_name);
 		struct class *alias;
