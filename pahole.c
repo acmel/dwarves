@@ -84,7 +84,7 @@ static void print_total_structure_stats(void)
 		structure__print(pos);
 }
 
-struct cu *cu__filter(struct cu *cu)
+static struct cu *cu__filter(struct cu *cu)
 {
 	if (cu__exclude_prefix != NULL &&
 	    (cu->name == NULL ||
@@ -95,7 +95,7 @@ struct cu *cu__filter(struct cu *cu)
 	return cu;
 }
 
-struct class *class__to_struct(struct class *class)
+static struct class *class__to_struct(struct class *class)
 {
 	struct class *typedef_alias;
 
@@ -104,7 +104,7 @@ struct class *class__to_struct(struct class *class)
 	return typedef_alias ?: class;
 }
 
-struct class *class__filter(struct class *class)
+static struct class *class__filter(struct class *class)
 {
 	class = class__to_struct(class);
 	if (class == NULL) /* Not a structure */
