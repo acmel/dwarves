@@ -1304,12 +1304,16 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 	case DW_TAG_inlined_subroutine: {
 		Dwarf_Addr high_pc, low_pc;
 		Dwarf_Attribute attr_call_file;
-		if (dwarf_highpc(die, &high_pc)) high_pc = 0;
-		if (dwarf_lowpc(die, &low_pc)) low_pc = 0;
 		const uint64_t type = attr_numeric(die, DW_AT_abstract_origin);
-		uint32_t size = high_pc - low_pc;
 		struct inline_expansion *exp;
+		uint32_t size;
 
+		if (dwarf_highpc(die, &high_pc))
+			high_pc = 0;
+		if (dwarf_lowpc(die, &low_pc))
+			low_pc = 0;
+
+		size = high_pc - low_pc;
 		if (size == 0) {
 			Dwarf_Addr base, start, end;
 			ptrdiff_t offset = 0;
