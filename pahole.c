@@ -264,13 +264,13 @@ int main(int argc, char *argv[])
 		case 't': opts |= FLAG_show_total_structure_stats; break;
 		case 'D': decl_exclude_prefix = optarg;
 			  decl_exclude_prefix_len = strlen(decl_exclude_prefix);
-			  				  break;
+							  break;
 		case 'x': class__exclude_prefix = optarg;
 			  class__exclude_prefix_len = strlen(class__exclude_prefix);
-			  				  break;
+							  break;
 		case 'X': cu__exclude_prefix = optarg;
 			  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
-			  				  break;
+							  break;
 		case 'h': usage();			  return EXIT_SUCCESS;
 		default:  usage();			  return EXIT_FAILURE;
 		}
