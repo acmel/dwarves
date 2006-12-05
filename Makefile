@@ -7,40 +7,70 @@ libdir =	$(exec_prefix)/lib
 
 INSTALL_DATA =	${INSTALL} -m 644
 CC =		gcc
-LIBS =		 -ldw -lelf
+LIBS =		-L. -lclasses -ldw -lelf
 INCLUDES =	-I. -I/usr/include/elfutils
-CFLAGS =	-g -O2 $(INCLUDES) -Wall
-LDFLAGS =	  $(LIBS)
+CFLAGS =	-g -O2 -Wall
+CPPFLAGS +=	$(INCLUDES)
+LDFLAGS +=	$(LIBS)
+LINKFLAGS =	-shared
 
 INSTALL = cp
 
 binprefix =
 
-PAHOLE_SOURCES = pahole.c classes.c classes.h
-PFUNCT_SOURCES = pfunct.c classes.c classes.h
-PREFCNT_SOURCES = prefcnt.c classes.c classes.h
-CODIFF_SOURCES = codiff.c classes.c classes.h
+LIBCLASSES_SOURCES = classes.c
+LIBCLASSES_OBJECTS = classes.o
+LIBCLASSES_MAJOR = 1
+LIBCLASSES_MINOR = 0
+LIBCLASSES_PATCH = 0
 
-PAHOLE_OBJECTS = pahole.o classes.c classes.h
-PFUNCT_OBJECTS = pfunct.o classes.c classes.h
-PREFCNT_OBJECTS = prefcnt.o classes.c classes.h
-CODIFF_OBJECTS = codiff.o classes.c classes.h
+ifdef STATIC
+LIBCLASSES  = libclasses.a
+else
+LIBCLASSES  = libclasses.so
+LDFLAGS += -Wl,-rpath,$(CURDIR)/$(srcdir)
+endif
+
+PAHOLE_SOURCES = pahole.c
+PFUNCT_SOURCES = pfunct.c
+PREFCNT_SOURCES = prefcnt.c
+CODIFF_SOURCES = codiff.c
+
+PAHOLE_OBJECTS = pahole.o
+PFUNCT_OBJECTS = pfunct.o
+PREFCNT_OBJECTS = prefcnt.o
+CODIFF_OBJECTS = codiff.o
 
 all: pahole pfunct prefcnt codiff
 
 default: $(TARGETS)
 
-pahole: $(PAHOLE_OBJECTS)
-	$(CC) $(CFLAGS) -o $@ $(PAHOLE_OBJECTS) $(LDFLAGS) 
+$(LIBCLASSES_OBJECTS): $(LIBCLASSES_SOURCES) classes.h
 
-pfunct: $(PFUNCT_OBJECTS)
-	$(CC) $(CFLAGS) -o $@ $(PFUNCT_OBJECTS) $(LDFLAGS) 
+libclasses.so: $(LIBCLASSES_OBJECTS)
+	$(CC) $(LINKFLAGS) \
+	  -o $@.$(LIBCLASSES_MAJOR).$(LIBCLASSES_MINOR).$(LIBCLASSES_PATCH) $<
+	ln -f -s $@.$(LIBCLASSES_MAJOR).$(LIBCLASSES_MINOR).$(LIBCLASSES_PATCH) \
+	  $@.$(LIBCLASSES_MAJOR).$(LIBCLASSES_MINOR)
+	ln -f -s $@.$(LIBCLASSES_MAJOR).$(LIBCLASSES_MINOR) \
+	  $@.$(LIBCLASSES_MAJOR)
+	ln -f -s $@.$(LIBCLASSES_MAJOR) \
+	  $@
 
-prefcnt: $(PREFCNT_OBJECTS)
-	$(CC) $(CFLAGS) -o $@ $(PREFCNT_OBJECTS) $(LDFLAGS) 
+libclasses.a: $(LIBCLASSES_OBJECTS)
+	$(AR) $(ARFLAGS) $@ $^
 
-codiff: $(CODIFF_OBJECTS)
-	$(CC) $(CFLAGS) -o $@ $(CODIFF_OBJECTS) $(LDFLAGS) 
+pahole: $(PAHOLE_OBJECTS) $(LIBCLASSES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $(PAHOLE_OBJECTS) $(LDFLAGS) 
+
+pfunct: $(PFUNCT_OBJECTS) $(LIBCLASSES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $(PFUNCT_OBJECTS) $(LDFLAGS) 
+
+prefcnt: $(PREFCNT_OBJECTS) $(LIBCLASSES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $(PREFCNT_OBJECTS) $(LDFLAGS) 
+
+codiff: $(CODIFF_OBJECTS) $(LIBCLASSES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $(CODIFF_OBJECTS) $(LDFLAGS) 
 
 install: all
 	$(INSTALL) pahole $(bindir)/pahole
@@ -52,7 +82,7 @@ uninstall:
 	-rm -f $(bindir)/{pahole,pfunct,prefcnt,codiff}
 
 clean:
-	rm -f *.o pahole pfunct prefcnt codiff *~
+	rm -f *.o pahole pfunct prefcnt codiff *~ libclasses.*
 
 distclean: clean
 	rm -f tags
