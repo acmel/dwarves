@@ -244,10 +244,13 @@ int main(int argc, char *argv[])
 	struct cus *cus;
 	char *file_name;
 	char *class_name = NULL;
-	int show_sizes = 0;
-	int show_nr_members = 0;
-	int show_class_name_len = 0;
-	int show_total_structure_stats = 0;
+	unsigned opts = 0;
+	enum {
+		FLAG_show_sizes = 1,
+		FLAG_show_nr_members,
+		FLAG_show_class_name_len,
+		FLAG_show_total_structure_stats
+	};
 	int nr_holes = 0;
 
 	while ((option = getopt_long(argc, argv, "c:D:hH:nNstx:X:",
@@ -255,10 +258,10 @@ int main(int argc, char *argv[])
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
 		case 'H': nr_holes = atoi(optarg);	  break;
-		case 's': show_sizes = 1;		  break;
-		case 'n': show_nr_members = 1;		  break;
-		case 'N': show_class_name_len = 1;	  break;
-		case 't': show_total_structure_stats = 1; break;
+		case 's': opts |= FLAG_show_sizes;	  break;
+		case 'n': opts |= FLAG_show_nr_members;	  break;
+		case 'N': opts |= FLAG_show_class_name_len;  break;
+		case 't': opts |= FLAG_show_total_structure_stats; break;
 		case 'D': decl_exclude_prefix = optarg;
 			  decl_exclude_prefix_len = strlen(decl_exclude_prefix);
 			  				  break;
@@ -296,16 +299,16 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (show_total_structure_stats) {
+	if (opts & FLAG_show_total_structure_stats) {
 		cus__for_each_cu(cus, cu_total_structure_iterator, NULL,
 				 cu__filter);
 		print_total_structure_stats();
-	} else if (show_nr_members)
+	} else if (opts & FLAG_show_nr_members)
 		cus__for_each_cu(cus, cu_nr_members_iterator, NULL,
 				 cu__filter);
-	else if (show_sizes)
+	else if (opts & FLAG_show_sizes)
 		cus__for_each_cu(cus, cu_sizes_iterator, NULL, cu__filter);
-	else if (show_class_name_len)
+	else if (opts & FLAG_show_class_name_len)
 		cus__for_each_cu(cus, cu_class_name_len_iterator, NULL,
 				 cu__filter);
 	else if (nr_holes > 0)
