@@ -1186,7 +1186,27 @@ static uint64_t attr_numeric(Dwarf_Die *die, unsigned int name)
 	return 0;
 }
 
-static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class)
+static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die,
+			      struct class *class, struct cu *cu);
+
+static void cu__create_new_class(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
+				 unsigned int tag, Dwarf_Off cu_offset,
+				 const char *name, uint64_t type,
+				 const char *decl_file, int decl_line)
+{
+	Dwarf_Die child;
+	uint64_t size = attr_numeric(die, DW_AT_byte_size);
+	struct class *class = class__new(tag, cu_offset, type, name, size,
+					 decl_file, decl_line);
+	if (class == NULL)
+		oom("class__new");
+	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
+		cu__process_class(dwarf, &child, class, cu);
+	cu__add_class(cu, class);
+}
+
+static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
+			      struct cu *cu)
 {
 	Dwarf_Die child;
 	Dwarf_Off cu_offset;
@@ -1207,6 +1227,21 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class)
 	dwarf_decl_line(die, &decl_line);
 
 	switch (tag) {
+	case DW_TAG_structure_type:
+		/*
+		 * structs within structs: C++
+		 *
+		 * FIXME: For now classes defined within classes are being
+		 * visible externally, in a flat namespace. This ins not so
+		 * much of a problem as every class has a different id, the
+		 * cu_offset, but we need to have namespaces, so that we
+		 * can properly print it in class__print_struct and so that
+		 * we can specify 'pahole QDebug::Stream' as in the example
+		 * that led to supporting classes within classes.
+		 */
+		cu__create_new_class(dwarf, die, cu, tag, cu_offset,
+				     name, type, decl_file, decl_line);
+		goto next_sibling;
 	case DW_TAG_member: {
 		struct class_member *member;
 		
@@ -1227,10 +1262,10 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class)
 	}
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_class(dwarf, &child, class);
-
+		cu__process_class(dwarf, &child, class, cu);
+next_sibling:
 	if (dwarf_siblingof(die, die) == 0)
-		cu__process_class(dwarf, die, class);
+		cu__process_class(dwarf, die, class, cu);
 }
 
 static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
@@ -1406,17 +1441,10 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 		cu__add_function(cu, function);
 	}
 		goto next_sibling;
-	default: {
-		uint64_t size = attr_numeric(die, DW_AT_byte_size);
-		struct class *class = class__new(tag, cu_offset, type, name,
-						 size, decl_file, decl_line);
-		if (class == NULL)
-			oom("class__new");
-		if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-			cu__process_class(dwarf, &child, class);
-		cu__add_class(cu, class);
+	default:
+		cu__create_new_class(dwarf, die, cu, tag, cu_offset,
+				     name, type, decl_file, decl_line);
 		goto next_sibling;
-	}
 	}
 
 children:
