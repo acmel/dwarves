@@ -1227,21 +1227,6 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
 	dwarf_decl_line(die, &decl_line);
 
 	switch (tag) {
-	case DW_TAG_structure_type:
-		/*
-		 * structs within structs: C++
-		 *
-		 * FIXME: For now classes defined within classes are being
-		 * visible externally, in a flat namespace. This ins not so
-		 * much of a problem as every class has a different id, the
-		 * cu_offset, but we need to have namespaces, so that we
-		 * can properly print it in class__print_struct and so that
-		 * we can specify 'pahole QDebug::Stream' as in the example
-		 * that led to supporting classes within classes.
-		 */
-		cu__create_new_class(dwarf, die, cu, tag, cu_offset,
-				     name, type, decl_file, decl_line);
-		goto next_sibling;
 	case DW_TAG_member: {
 		struct class_member *member;
 		
@@ -1259,6 +1244,25 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
 	case DW_TAG_subrange_type:
 		class->nr_entries = attr_upper_bound(die);
 		break;
+	case DW_TAG_structure_type:
+		/*
+		 * structs within structs: C++
+		 *
+		 * FIXME: For now classes defined within classes are being
+		 * visible externally, in a flat namespace. This ins not so
+		 * much of a problem as every class has a different id, the
+		 * cu_offset, but we need to have namespaces, so that we
+		 * can properly print it in class__print_struct and so that
+		 * we can specify 'pahole QDebug::Stream' as in the example
+		 * that led to supporting classes within classes.
+		 */
+	default: /*
+		  * Fall thru, enums, etc can also be defined inside
+		  * C++ classes
+		 */
+		cu__create_new_class(dwarf, die, cu, tag, cu_offset,
+				     name, type, decl_file, decl_line);
+		goto next_sibling;
 	}
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
