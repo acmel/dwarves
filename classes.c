@@ -921,28 +921,28 @@ static void class__print_struct(struct class *self)
 				"%lu boundary ---------- */\n",
 				sum / cacheline_size);
 		fputs("        ", stdout);
-		 size = class_member__print(pos);
+		size = class_member__print(pos);
 		putchar('\n');
-		 if (pos->hole > 0) {
+		if (pos->hole > 0) {
 			printf("\n        /* XXX %d bytes hole, "
 			       "try to pack */\n\n", pos->hole);
 			sum_holes += pos->hole;
-		 }
-		 /*
-		  * check for bitfields, accounting for only the biggest
-		  * of the byte_size in the fields in each bitfield set.
-		  */
-		 if (last_offset != pos->offset ||
-		     pos->bit_size == 0 || last_bit_size == 0) {
-			 last_size = size;
-			 sum += last_size;
-		 } else if (size > last_size) {
+		}
+		/*
+		 * check for bitfields, accounting for only the biggest
+		 * of the byte_size in the fields in each bitfield set.
+		 */
+		if (last_offset != pos->offset ||
+		    pos->bit_size == 0 || last_bit_size == 0) {
+			last_size = size;
+			sum += last_size;
+		} else if (size > last_size) {
 			sum += size - last_size;
 			last_size = size;
-		 }
+		}
 
-		 last_offset = pos->offset;
-		 last_bit_size = pos->bit_size;
+		last_offset = pos->offset;
+		last_bit_size = pos->bit_size;
 	}
 
 	printf("}; /* size: %llu", self->size);
