@@ -512,7 +512,7 @@ static uint64_t class_member__print(struct class_member *self)
 	size = class_member__names(self, class_name, sizeof(class_name),
 				   member_name, sizeof(member_name));
 
-	printf("        %-26s %-21s /* %5llu %5llu */\n",
+	printf("%-26s %-21s /* %5llu %5llu */",
 	       class_name, member_name, self->offset, size);
 	return size;
 }
@@ -918,9 +918,11 @@ static void class__print_struct(struct class *self)
 	list_for_each_entry(pos, &self->members, tag.node) {
 		if (sum > 0 && last_size > 0 && sum % cacheline_size == 0)
 			printf("        /* ---------- cacheline "
-			       "%lu boundary ---------- */\n",
-			       sum / cacheline_size);
+				"%lu boundary ---------- */\n",
+				sum / cacheline_size);
+		fputs("        ", stdout);
 		 size = class_member__print(pos);
+		putchar('\n');
 		 if (pos->hole > 0) {
 			printf("\n        /* XXX %d bytes hole, "
 			       "try to pack */\n\n", pos->hole);
