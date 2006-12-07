@@ -654,6 +654,23 @@ static void lexblock__add_label(struct lexblock *self, struct label *label)
 	list_add_tail(&label->tag.node, &self->labels);
 }
 
+const struct class_member *class__find_bit_hole(const struct class *self,
+					    const struct class_member *trailer,
+						const size_t bit_hole_size)
+{
+	struct class_member *pos;
+	const size_t byte_hole_size = bit_hole_size / 8;
+
+	list_for_each_entry(pos, &self->members, tag.node)
+		if (pos == trailer)
+			break;
+		else if (pos->hole >= byte_hole_size ||
+			 pos->bit_hole >= bit_hole_size)
+			return pos;
+
+	return NULL;
+}
+
 void class__find_holes(struct class *self)
 {
 	struct class_member *pos, *last = NULL;

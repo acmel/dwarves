@@ -170,6 +170,11 @@ extern void	    cus__for_each_cu(struct cus *self,
 				     void *cookie,
 				     struct cu *(*filter)(struct cu *cu));
 
+extern const struct class_member *
+		class__find_bit_hole(const struct class *self,
+				     const struct class_member *trailer,
+				     const size_t bit_hole_size);
+
 extern struct function *cu__find_function_by_id(const struct cu *self,
 						const uint64_t id);
 extern struct function *cu__find_function_by_name(const struct cu *cu,
