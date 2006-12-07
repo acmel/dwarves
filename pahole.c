@@ -24,6 +24,9 @@ static size_t cu__exclude_prefix_len;
 static char *decl_exclude_prefix;
 static size_t decl_exclude_prefix_len;
 
+static unsigned short nr_holes;
+static unsigned short nr_bit_holes;
+
 struct structure {
 	struct list_head   node;
 	const struct class *class;
@@ -143,6 +146,7 @@ static struct option long_options[] = {
 	{ "cacheline_size",	required_argument,	NULL, 'c' },
 	{ "class_name_len",	no_argument,		NULL, 'N' },
 	{ "help",		no_argument,		NULL, 'h' },
+	{ "bit_holes",		required_argument,	NULL, 'B' },
 	{ "holes",		required_argument,	NULL, 'H' },
 	{ "nr_members",		no_argument,		NULL, 'n' },
 	{ "sizes",		no_argument,		NULL, 's' },
@@ -159,6 +163,7 @@ static void usage(void)
 		"usage: pfunct [options] <file_name> {<function_name>}\n"
 		" where: \n"
 		"   -h, --help                   show usage info\n"
+		"   -B, --bit_holes <nr_holes>   show only structs at least <nr_holes> bit holes\n"
 		"   -H, --holes <nr_holes>       show only structs at least <nr_holes> holes\n"
 		"   -c, --cacheline_size <size>  set cacheline size (default=%d)\n"
 		"   -n, --nr_members             show number of members\n"
@@ -201,9 +206,9 @@ static int cu_sizes_iterator(struct cu *cu, void *cookie)
 
 static int holes_iterator(struct class *class, void *cookie)
 {
-	const unsigned int nr_holes = *(unsigned int *)cookie;
 	class__find_holes(class);
-	if (class->nr_holes >= nr_holes)
+	if ((nr_holes != 0 && class->nr_holes >= nr_holes) ||
+	    (nr_bit_holes != 0 && class->nr_bit_holes >= nr_bit_holes))
 		class__print(class);
 	return 0;
 }
@@ -251,13 +256,13 @@ int main(int argc, char *argv[])
 		FLAG_show_class_name_len,
 		FLAG_show_total_structure_stats
 	};
-	int nr_holes = 0;
 
-	while ((option = getopt_long(argc, argv, "c:D:hH:nNstx:X:",
+	while ((option = getopt_long(argc, argv, "B:c:D:hH:nNstx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
 		case 'H': nr_holes = atoi(optarg);	  break;
+		case 'B': nr_bit_holes = atoi(optarg);	  break;
 		case 's': opts |= FLAG_show_sizes;	  break;
 		case 'n': opts |= FLAG_show_nr_members;	  break;
 		case 'N': opts |= FLAG_show_class_name_len;  break;
@@ -311,8 +316,8 @@ int main(int argc, char *argv[])
 	else if (opts & FLAG_show_class_name_len)
 		cus__for_each_cu(cus, cu_class_name_len_iterator, NULL,
 				 cu__filter);
-	else if (nr_holes > 0)
-		cus__for_each_cu(cus, cu_holes_iterator, &nr_holes, cu__filter);
+	else if (nr_holes > 0 || nr_bit_holes > 0)
+		cus__for_each_cu(cus, cu_holes_iterator, NULL, cu__filter);
 	else if (class_name != NULL) {
 		struct class *class = cus__find_class_by_name(cus, class_name);
 		struct class *alias;
