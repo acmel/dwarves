@@ -26,6 +26,7 @@ struct cu {
 	struct list_head functions;
 	struct list_head variables;
 	const char	 *name;
+	unsigned short	 language;
 	unsigned int	 id;
 	unsigned long	 nr_inline_expansions;
 	unsigned long	 size_inline_expansions;

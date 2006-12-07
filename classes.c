@@ -203,11 +203,13 @@ static void cu__add_variable(struct cu *self, struct variable *variable)
 	list_add_tail(&variable->cu_node, &self->variables);
 }
 
-static const char *tag_name(const unsigned int tag)
+static const char *tag_name(const struct cu *cu, const unsigned int tag)
 {
 	switch (tag) {
 	case DW_TAG_enumeration_type:	return "enum ";
-	case DW_TAG_structure_type:	return "struct ";
+	case DW_TAG_structure_type:
+		return cu->language == DW_LANG_C_plus_plus ? "class " :
+							     "struct ";
 	case DW_TAG_union_type:		return "union ";
 	case DW_TAG_pointer_type:	return " *";
 	}
@@ -369,7 +371,7 @@ static const char *class__name(struct class *self, char *bf, size_t len)
 		if (ptr_class != NULL)
 			return class__name(ptr_class, bf, len);
 	} else
-		snprintf(bf, len, "%s%s", tag_name(self->tag.tag),
+		snprintf(bf, len, "%s%s", tag_name(self->cu, self->tag.tag),
 			 self->name ?: "");
 	return bf;
 }
@@ -1042,7 +1044,8 @@ void class__print(struct class *self)
 		class__print_struct(self);
 		break;
 	default:
-		printf("%s%s;\n", tag_name(self->tag.tag), self->name ?: "");
+		printf("%s%s;\n", tag_name(self->cu, self->tag.tag),
+		       self->name ?: "");
 		break;
 	}
 	putchar('\n');
@@ -1475,9 +1478,10 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 	if (tag == DW_TAG_invalid)
 		return;
 
-	/* Tags we trow away */
-	if (tag == DW_TAG_compile_unit)
+	if (tag == DW_TAG_compile_unit) {
+		cu->language = attr_numeric(die, DW_AT_language);
 		goto children;
+	}
 
 	cu_offset = dwarf_cuoffset(die);
 	name	  = attr_string(die, DW_AT_name, &attr_name);
