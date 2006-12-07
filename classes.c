@@ -658,6 +658,7 @@ void class__find_holes(struct class *self)
 {
 	struct class_member *pos, *last = NULL;
 	uint64_t last_size = 0, size;
+	unsigned int bit_sum = 0;
 
 	self->nr_holes = 0;
 
@@ -676,7 +677,20 @@ void class__find_holes(struct class *self)
 				 if (last->hole > 0)
 					 ++self->nr_holes;
 			 }
+
 		 }
+
+		if (pos->bit_size == 0) {
+			if (bit_sum != 0) {
+				last->bit_hole = (last_size * 8) - bit_sum;
+
+				if (last->bit_hole != 0)
+					++self->nr_bit_holes;
+
+				bit_sum = 0;
+			}
+		} else
+			bit_sum += pos->bit_size;
 
 		 size = class_member__size(pos);
 		 /*
@@ -692,8 +706,12 @@ void class__find_holes(struct class *self)
 		 last = pos;
 	}
 
-	if (last != NULL && last->offset + last_size != self->size)
-		self->padding = self->size - (last->offset + last_size);
+	if (last != NULL) {
+		if (last->offset + last_size != self->size)
+			self->padding = self->size - (last->offset + last_size);
+		if (last->bit_size != 0)
+			self->bit_padding = (last_size * 8) - bit_sum;
+	}
 }
 
 struct class_member *class__find_member_by_name(const struct class *self,
@@ -913,6 +931,7 @@ static void class__print_struct(struct class *self)
 	unsigned int last_cacheline = 0;
 	int last_bit_size = 0;
 	int last_offset = -1;
+	unsigned int sum_bit_holes = 0;
 
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, tag.node) {
@@ -942,6 +961,11 @@ static void class__print_struct(struct class *self)
 			       "try to pack */\n\n", pos->hole);
 			sum_holes += pos->hole;
 		}
+		if (pos->bit_hole != 0) {
+			printf("\n        /* XXX %d bits hole, "
+			       "try to pack */\n\n", pos->bit_hole);
+			sum_bit_holes += pos->bit_hole;
+		}
 		/*
 		 * check for bitfields, accounting for only the biggest
 		 * of the byte_size in the fields in each bitfield set.
@@ -959,18 +983,21 @@ static void class__print_struct(struct class *self)
 		last_bit_size = pos->bit_size;
 	}
 
-	printf("}; /* size: %llu", self->size);
+	printf("}; /* size: %llu, cachelines: %llu */\n", self->size,
+	       (self->size + cacheline_size - 1) / cacheline_size);
 	if (sum_holes > 0)
-		printf(", sum members: %lu, holes: %d, sum holes: %lu",
+		printf("   /* sum members: %lu, holes: %d, sum holes: %lu */\n",
 		       sum, self->nr_holes, sum_holes);
+	if (sum_bit_holes > 0)
+		printf("   /* bit holes: %d, sum bit holes: %lu bits */\n",
+		       self->nr_bit_holes, sum_bit_holes);
 	if (self->padding > 0)
-		printf(", padding: %u", self->padding);
-	printf(", cachelines: %llu", (self->size + cacheline_size - 1) /
-				   cacheline_size);
+		printf("   /* padding: %u */\n", self->padding);
+	if (self->bit_padding > 0)
+		printf("   /* bit_padding: %u bits */\n", self->bit_padding);
 	last_cacheline = self->size % cacheline_size;
 	if (last_cacheline != 0)
-		printf(",\n      last cacheline: %u bytes", last_cacheline);
-	puts(" */");
+		printf("   /* last cacheline: %u bytes */\n", last_cacheline);
 
 	if (sum + sum_holes != self->size - self->padding)
 		printf("\n/* BRAIN FART ALERT! %llu != "

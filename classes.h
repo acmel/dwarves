@@ -54,7 +54,9 @@ struct class {
 	uint64_t	 nr_entries;	/* For arrays */
 	unsigned short	 nr_members;
 	unsigned short	 nr_holes;
+	unsigned short	 nr_bit_holes;
 	unsigned short	 padding;
+	unsigned short	 bit_padding;
 	unsigned int	 refcnt;
 	signed int	 diff;
 	struct class	 *class_to_diff;
@@ -69,6 +71,8 @@ struct class_member {
 	unsigned int	 bit_offset;
 	unsigned char	 visited:1;
 	unsigned short	 hole;		/* If there is a hole before the next
+					   one (or the end of the struct) */
+	unsigned short	 bit_hole;	/* If there is a bit hole before the next
 					   one (or the end of the struct) */
 };
 
