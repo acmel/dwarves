@@ -419,6 +419,7 @@ const char *variable__name(const struct variable *self)
 }
 
 static struct class_member *class_member__new(uint64_t id,
+					      uint16_t tag,
 					      uint64_t type,
 					      const char *decl_file,
 					      uint32_t decl_line,
@@ -430,7 +431,7 @@ static struct class_member *class_member__new(uint64_t id,
 	struct class_member *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, DW_TAG_member, id, type,
+		tag__init(&self->tag, tag, id, type,
 			  decl_file, decl_line);
 		self->offset	  = offset;
 		self->bit_size	  = bit_size;
@@ -517,6 +518,12 @@ static uint64_t class_member__print(struct class_member *self)
 
 	size = class_member__names(self, class_name, sizeof(class_name),
 				   member_name, sizeof(member_name));
+
+	if (self->tag.tag == DW_TAG_inheritance) {
+		snprintf(member_name, sizeof(member_name),
+			 "/* ancestor class */");
+		strncat(class_name, ";", sizeof(class_name));
+	}
 
 	printf("%-26s %-21s /* %5llu %5llu */",
 	       class_name, member_name, self->offset, size);
@@ -1314,10 +1321,11 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
 	dwarf_decl_line(die, &decl_line);
 
 	switch (tag) {
+	case DW_TAG_inheritance:
 	case DW_TAG_member: {
 		struct class_member *member;
 		
-		member = class_member__new(cu_offset, type,
+		member = class_member__new(cu_offset, tag, type,
 					   decl_file, decl_line,
 					   name, attr_offset(die),
 					   attr_numeric(die, DW_AT_bit_size),
