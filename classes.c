@@ -582,7 +582,8 @@ static struct label *label__new(uint64_t id, uint64_t type,
 static struct class *class__new(const unsigned int tag,
 				uint64_t id, uint64_t type,
 				const char *name, uint64_t size,
-				const char *decl_file, unsigned int decl_line)
+				const char *decl_file, unsigned int decl_line,
+				unsigned char declaration)
 {
 	struct class *self = zalloc(sizeof(*self));
 
@@ -591,6 +592,7 @@ static struct class *class__new(const unsigned int tag,
 		INIT_LIST_HEAD(&self->members);
 		self->size = size;
 		self->name = strings__add(name);
+		self->declaration = declaration;
 	}
 
 	return self;
@@ -1272,6 +1274,8 @@ static uint64_t attr_numeric(Dwarf_Die *die, unsigned int name)
 		if (dwarf_formref(&attr, &ref) == 0)
 			return (uintmax_t)ref;
 	}
+	case DW_FORM_flag:
+		return 1;
 	default:
 		printf("DW_AT_<0x%x>=0x%x\n", name, form);
 		break;
@@ -1291,7 +1295,8 @@ static void cu__create_new_class(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 	Dwarf_Die child;
 	uint64_t size = attr_numeric(die, DW_AT_byte_size);
 	struct class *class = class__new(tag, cu_offset, type, name, size,
-					 decl_file, decl_line);
+					 decl_file, decl_line,
+					 attr_numeric(die, DW_AT_declaration));
 	if (class == NULL)
 		oom("class__new");
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)

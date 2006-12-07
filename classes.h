@@ -61,6 +61,7 @@ struct class {
 	unsigned int	 refcnt;
 	signed int	 diff;
 	struct class	 *class_to_diff;
+	unsigned char	 declaration:1;
 };
 
 struct class_member {
