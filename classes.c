@@ -958,16 +958,19 @@ static void class__print_struct(struct class *self)
 		size = class_member__print(pos);
 
 		if (pos->bit_hole != 0) {
-			printf("\n\n        /* XXX %d bits hole, "
-			       "try to pack */\n", pos->bit_hole);
+			printf("\n\n        /* XXX %d bit%s hole, "
+			       "try to pack */\n",
+			       pos->bit_hole,
+			       pos->bit_hole != 1 ? "s" : "");
 			sum_bit_holes += pos->bit_hole;
 		}
 
 		if (pos->hole > 0) {
 			if (pos->bit_hole == 0)
 				putchar('\n');
-			printf("\n        /* XXX %d bytes hole, "
-			       "try to pack */\n", pos->hole);
+			printf("\n        /* XXX %d byte%s hole, "
+			       "try to pack */\n",
+			       pos->hole, pos->hole != 1 ? "s" : "");
 			sum_holes += pos->hole;
 		}
 
