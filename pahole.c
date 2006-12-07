@@ -27,6 +27,14 @@ static size_t decl_exclude_prefix_len;
 static unsigned short nr_holes;
 static unsigned short nr_bit_holes;
 
+static enum {
+	FLAG_show_sizes			= (1 << 0),
+	FLAG_show_nr_members		= (1 << 1),
+	FLAG_show_class_name_len	= (1 << 2),
+	FLAG_show_total_structure_stats = (1 << 3),
+	FLAG_show_packable		= (1 << 4),
+} opts;
+
 struct structure {
 	struct list_head   node;
 	const struct class *class;
@@ -98,6 +106,24 @@ static struct cu *cu__filter(struct cu *cu)
 	return cu;
 }
 
+static int class__packable(const struct class *self)
+{
+	struct class_member *pos;
+
+	if (self->nr_holes == 0 && self->nr_bit_holes == 0)
+		return 0;
+
+	list_for_each_entry(pos, &self->members, tag.node)
+		if (pos->hole != 0 &&
+		    class__find_bit_hole(self, pos, pos->hole * 8) != NULL)
+			return 1;
+		else if (pos->bit_hole != 0 &&
+			 class__find_bit_hole(self, pos, pos->bit_hole) != NULL)
+			return 1;
+
+	return 0;
+}
+
 static struct class *class__to_struct(struct class *class)
 {
 	struct class *typedef_alias;
@@ -127,6 +153,11 @@ static struct class *class__filter(struct class *class)
 		     decl_exclude_prefix_len) == 0))
 		return NULL;
 
+	class__find_holes(class);
+
+	if ((opts & FLAG_show_packable) && !class__packable(class))
+		return NULL;
+
 	return class;
 }
 
@@ -154,6 +185,7 @@ static struct option long_options[] = {
 	{ "exclude",		required_argument,	NULL, 'x' },
 	{ "cu_exclude",		required_argument,	NULL, 'X' },
 	{ "decl_exclude",	required_argument,	NULL, 'D' },
+	{ "packable",		no_argument,		NULL, 'p' },
 	{ NULL, 0, NULL, 0, }
 };
 
@@ -165,6 +197,7 @@ static void usage(void)
 		"   -h, --help                   show usage info\n"
 		"   -B, --bit_holes <nr_holes>   show only structs at least <nr_holes> bit holes\n"
 		"   -H, --holes <nr_holes>       show only structs at least <nr_holes> holes\n"
+		"   -p, --packable		 show only structs that has holes that can be packed\n"
 		"   -c, --cacheline_size <size>  set cacheline size (default=%d)\n"
 		"   -n, --nr_members             show number of members\n"
 		"   -N, --class_name_len         show size of classes\n"
@@ -191,11 +224,9 @@ static int cu_nr_members_iterator(struct cu *cu, void *cookie)
 
 static int sizes_iterator(struct class *class, void *cookie)
 {
-	if (class->size > 0) {
-		class__find_holes(class);
+	if (class->size > 0)
 		printf("%s: %llu %u\n",
 		       class->name, class->size, class->nr_holes);
-	}
 	return 0;
 }
 
@@ -206,7 +237,6 @@ static int cu_sizes_iterator(struct cu *cu, void *cookie)
 
 static int holes_iterator(struct class *class, void *cookie)
 {
-	class__find_holes(class);
 	if ((nr_holes != 0 && class->nr_holes >= nr_holes) ||
 	    (nr_bit_holes != 0 && class->nr_bit_holes >= nr_bit_holes))
 		class__print(class);
@@ -232,7 +262,6 @@ static int cu_class_name_len_iterator(struct cu *cu, void *cookie)
 
 static int class__iterator(struct class *class, void *cookie)
 {
-	class__find_holes(class);
 	class__print(class);
 	return 0;
 }
@@ -249,15 +278,8 @@ int main(int argc, char *argv[])
 	struct cus *cus;
 	char *file_name;
 	char *class_name = NULL;
-	unsigned opts = 0;
-	enum {
-		FLAG_show_sizes = 1,
-		FLAG_show_nr_members,
-		FLAG_show_class_name_len,
-		FLAG_show_total_structure_stats
-	};
 
-	while ((option = getopt_long(argc, argv, "B:c:D:hH:nNstx:X:",
+	while ((option = getopt_long(argc, argv, "B:c:D:hH:nNpstx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
@@ -266,6 +288,7 @@ int main(int argc, char *argv[])
 		case 's': opts |= FLAG_show_sizes;	  break;
 		case 'n': opts |= FLAG_show_nr_members;	  break;
 		case 'N': opts |= FLAG_show_class_name_len;  break;
+		case 'p': opts |= FLAG_show_packable;	  break;
 		case 't': opts |= FLAG_show_total_structure_stats; break;
 		case 'D': decl_exclude_prefix = optarg;
 			  decl_exclude_prefix_len = strlen(decl_exclude_prefix);
