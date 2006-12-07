@@ -945,6 +945,30 @@ void function__print(const struct function *self, int show_stats,
 	}
 }
 
+static int class__print_cacheline_boundary(uint32_t last_cacheline,
+					   size_t sum, size_t sum_holes)
+{
+	const unsigned int real_sum = sum + sum_holes;
+	const unsigned int cacheline = real_sum / cacheline_size;
+
+	if (cacheline > last_cacheline) {
+		const unsigned int cacheline_pos = real_sum % cacheline_size;
+		const unsigned cacheline_in_bytes = real_sum - cacheline_pos;
+		if (cacheline_pos == 0)
+			printf("        /* --- cacheline "
+				"%u boundary (%u bytes) --- */\n",
+				cacheline, cacheline_in_bytes);
+		else
+			printf("        /* --- cacheline "
+				"%u boundary (%u bytes) was %u "
+				"bytes ago --- */\n",
+				cacheline, cacheline_in_bytes,
+				cacheline_pos);
+	}
+
+	return cacheline;
+}
+
 static void class__print_struct(struct class *self)
 {
 	unsigned long sum = 0;
@@ -959,24 +983,9 @@ static void class__print_struct(struct class *self)
 
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, tag.node) {
-		const unsigned int real_sum = sum + sum_holes;
-		const unsigned int cacheline = real_sum / cacheline_size;
-
-		if (cacheline > last_cacheline) {
-			const unsigned int cacheline_pos = real_sum % cacheline_size;
-			const unsigned cacheline_in_bytes = real_sum - cacheline_pos;
-			if (cacheline_pos == 0)
-				printf("        /* --- cacheline "
-					"%u boundary (%u bytes) --- */\n",
-					cacheline, cacheline_in_bytes);
-			else
-				printf("        /* --- cacheline "
-					"%u boundary (%u bytes) was %u "
-					"bytes ago --- */\n",
-					cacheline, cacheline_in_bytes,
-					cacheline_pos);
-			last_cacheline = cacheline;
-		}
+		last_cacheline = class__print_cacheline_boundary(last_cacheline,
+								 sum,
+								 sum_holes);
 		fputs("        ", stdout);
 		size = class_member__print(pos);
 
@@ -1014,6 +1023,8 @@ static void class__print_struct(struct class *self)
 		last_offset = pos->offset;
 		last_bit_size = pos->bit_size;
 	}
+
+	class__print_cacheline_boundary(last_cacheline, sum, sum_holes);
 
 	printf("}; /* size: %llu, cachelines: %llu */\n", self->size,
 	       (self->size + cacheline_size - 1) / cacheline_size);
