@@ -661,6 +661,7 @@ void class__find_holes(struct class *self)
 	unsigned int bit_sum = 0;
 
 	self->nr_holes = 0;
+	self->nr_bit_holes = 0;
 
 	list_for_each_entry(pos, &self->members, tag.node) {
 		 if (last != NULL) {
@@ -955,17 +956,22 @@ static void class__print_struct(struct class *self)
 		}
 		fputs("        ", stdout);
 		size = class_member__print(pos);
-		putchar('\n');
-		if (pos->hole > 0) {
-			printf("\n        /* XXX %d bytes hole, "
-			       "try to pack */\n\n", pos->hole);
-			sum_holes += pos->hole;
-		}
+
 		if (pos->bit_hole != 0) {
-			printf("\n        /* XXX %d bits hole, "
-			       "try to pack */\n\n", pos->bit_hole);
+			printf("\n\n        /* XXX %d bits hole, "
+			       "try to pack */\n", pos->bit_hole);
 			sum_bit_holes += pos->bit_hole;
 		}
+
+		if (pos->hole > 0) {
+			if (pos->bit_hole == 0)
+				putchar('\n');
+			printf("\n        /* XXX %d bytes hole, "
+			       "try to pack */\n", pos->hole);
+			sum_holes += pos->hole;
+		}
+
+		putchar('\n');
 		/*
 		 * check for bitfields, accounting for only the biggest
 		 * of the byte_size in the fields in each bitfield set.
@@ -989,7 +995,7 @@ static void class__print_struct(struct class *self)
 		printf("   /* sum members: %lu, holes: %d, sum holes: %lu */\n",
 		       sum, self->nr_holes, sum_holes);
 	if (sum_bit_holes > 0)
-		printf("   /* bit holes: %d, sum bit holes: %lu bits */\n",
+		printf("   /* bit holes: %d, sum bit holes: %u bits */\n",
 		       self->nr_bit_holes, sum_bit_holes);
 	if (self->padding > 0)
 		printf("   /* padding: %u */\n", self->padding);
