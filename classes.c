@@ -910,16 +910,26 @@ static void class__print_struct(struct class *self)
 	struct class_member *pos;
 	char name[128];
 	uint64_t last_size = 0, size;
-	unsigned int last_cacheline;
+	unsigned int last_cacheline = 0;
 	int last_bit_size = 0;
 	int last_offset = -1;
 
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, tag.node) {
-		if (sum > 0 && last_size > 0 && sum % cacheline_size == 0)
-			printf("        /* ---------- cacheline "
-				"%lu boundary ---------- */\n",
-				sum / cacheline_size);
+		const unsigned int cacheline = sum / cacheline_size;
+
+		if (cacheline > last_cacheline) {
+			const unsigned int cacheline_pos = sum % cacheline_size;
+			if (cacheline_pos == 0)
+				printf("        /* ----- cacheline "
+					"%u boundary ----- */\n",
+					cacheline);
+			else
+				printf("        /* ----- cacheline "
+					"%u boundary was %u bytes ago ----- */\n",
+					cacheline, cacheline_pos);
+			last_cacheline = cacheline;
+		}
 		fputs("        ", stdout);
 		size = class_member__print(pos);
 		putchar('\n');
