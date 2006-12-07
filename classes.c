@@ -225,7 +225,11 @@ struct class *cu__find_class_by_name(const struct cu *self, const char *name)
 		return NULL;
 
 	list_for_each_entry(pos, &self->classes, tag.node)
-		if (pos->name != NULL && strcmp(pos->name, name) == 0)
+		if (pos->name != NULL &&
+		    /* FIXME: here there shouldn't be anything other
+		     * than DW_TAG_structure types anyway...  */
+		    pos->tag.tag == DW_TAG_structure_type &&
+		    strcmp(pos->name, name) == 0)
 			return pos;
 
 	return NULL;
