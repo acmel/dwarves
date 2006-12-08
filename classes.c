@@ -99,6 +99,14 @@ static void *zalloc(const size_t size)
 	return s;
 }
 
+void *memdup(const void *src, size_t len)
+{
+	void *s = malloc(len);
+	if (s != NULL)
+		memcpy(s, src, len);
+	return s;
+}
+
 static void *strings;
 
 static int strings__compare(const void *a, const void *b)
@@ -324,6 +332,17 @@ int class__is_struct(const struct class *self,
 	return self->tag.tag == DW_TAG_structure_type;
 }
 
+static size_t class__array_nr_entries(const struct class *self)
+{
+	int i;
+	size_t nr_entries = 1;
+
+	for (i = 0; i < self->array.dimensions; ++i)
+		nr_entries *= self->array.nr_entries[i];
+
+	return nr_entries;
+}
+
 static uint64_t class__size(const struct class *self)
 {
 	uint64_t size = self->size;
@@ -336,7 +355,7 @@ static uint64_t class__size(const struct class *self)
 	}
 
 	if (self->tag.tag == DW_TAG_array_type)
-		size *= self->nr_entries;
+		size *= class__array_nr_entries(self);
 
 	return size;
 }
@@ -497,11 +516,22 @@ uint64_t class_member__names(const struct class_member *self,
 		}
 
 		class__name(class, class_name, class_name_size);
-		if (class->tag.tag == DW_TAG_array_type)
-			snprintf(member_name, member_name_size,
-				 "%s[%llu];", self->name ?: "",
-				 class->nr_entries);
-		else if (self->bit_size != 0)
+		if (class->tag.tag == DW_TAG_array_type) {
+			int i = 0;
+			size_t n = snprintf(member_name, member_name_size,
+					    "%s", self->name);
+			member_name += n;
+			member_name_size -= n;
+
+			for (i = 0; i < class->array.dimensions; ++i) {
+				n = snprintf(member_name, member_name_size,
+					     "[%u]",
+					     class->array.nr_entries[i]);
+				member_name += n;
+				member_name_size -= n;
+			}
+			strncat(member_name, ";", member_name_size);
+		} else if (self->bit_size != 0)
 			snprintf(member_name, member_name_size,
 				 "%s:%d;", self->name ?: "",
 				 self->bit_size);
@@ -1304,6 +1334,53 @@ static void cu__create_new_class(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 	cu__add_class(cu, class);
 }
 
+static void cu__create_new_array(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
+				 Dwarf_Off cu_offset, uint64_t type,
+				 const char *decl_file, int decl_line)
+{
+	Dwarf_Die child;
+	/* "64 dimensions will be enough for everybody." acme, 2006 */
+	const uint8_t max_dimensions = 64;
+	uint32_t nr_entries[max_dimensions];
+	const uint64_t size = attr_numeric(die, DW_AT_byte_size);
+	struct class *class = class__new(DW_TAG_array_type, cu_offset, type,
+					 NULL, size, decl_file, decl_line, 0);
+	if (class == NULL)
+		oom("class__new");
+
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
+		fprintf(stderr, "%s: DW_TAG_array_type with no children!\n",
+			__FUNCTION__);
+		return;
+	}
+
+	die = &child;
+	class->array.dimensions = 0;
+	do {
+		const uint16_t tag = dwarf_tag(die);
+
+		if (tag == DW_TAG_subrange_type) {
+			nr_entries[class->array.dimensions++] = attr_upper_bound(die);
+			if (class->array.dimensions == max_dimensions) {
+				fprintf(stderr, "%s: only %u dimensions are "
+						"supported!\n",
+					__FUNCTION__, max_dimensions);
+				break;
+			}
+		} else
+			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
+				__FUNCTION__, dwarf_tag_name(tag));
+	} while (dwarf_siblingof(die, die) == 0);
+
+	class->array.nr_entries = memdup(nr_entries,
+					 (class->array.dimensions *
+					  sizeof(uint32_t)));
+	if (class->array.nr_entries == NULL)
+		oom("memdup(array.nr_entries)");
+
+	cu__add_class(cu, class);
+}
+
 static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
 			      struct cu *cu)
 {
@@ -1340,9 +1417,6 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
 
 		class__add_member(class, member);
 	}
-		break;
-	case DW_TAG_subrange_type:
-		class->nr_entries = attr_upper_bound(die);
 		break;
 	case DW_TAG_structure_type:
 		/*
@@ -1522,7 +1596,6 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 	case DW_TAG_variable:
 		/* Handle global variables later */
 		break;
-
 	case DW_TAG_subprogram: {
 		struct function *function;
 		const unsigned short inlined = attr_numeric(die, DW_AT_inline);
@@ -1545,6 +1618,10 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 					     &function->lexblock);
 		cu__add_function(cu, function);
 	}
+		goto next_sibling;
+	case DW_TAG_array_type:
+		cu__create_new_array(dwarf, die, cu, cu_offset, type,
+				     decl_file, decl_line);
 		goto next_sibling;
 	default:
 		cu__create_new_class(dwarf, die, cu, tag, cu_offset,

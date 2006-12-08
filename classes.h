@@ -52,7 +52,10 @@ struct class {
 	struct list_head members;
 	const char	 *name;
 	uint64_t	 size;
-	uint64_t	 nr_entries;	/* For arrays */
+	struct {
+		uint8_t	 dimensions;
+		uint32_t *nr_entries;
+	}		 array;
 	unsigned short	 nr_members;
 	unsigned short	 nr_holes;
 	unsigned short	 nr_bit_holes;
