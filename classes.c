@@ -10,7 +10,7 @@
 #define _GNU_SOURCE
 #include <dwarf.h>
 #include <fcntl.h>
-#include <libdw.h>
+#include <elfutils/libdw.h>
 #include <libelf.h>
 #include <search.h>
 #include <stdio.h>
