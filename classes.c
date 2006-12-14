@@ -1016,6 +1016,7 @@ static void class__print_struct(struct class *self)
 	unsigned int last_cacheline = 0;
 	int last_bit_size = 0;
 	int last_offset = -1;
+	uint8_t newline = 0;
 	unsigned int sum_bit_holes = 0;
 
 	printf("%s {\n", class__name(self, name, sizeof(name)));
@@ -1023,22 +1024,29 @@ static void class__print_struct(struct class *self)
 		last_cacheline = class__print_cacheline_boundary(last_cacheline,
 								 sum,
 								 sum_holes);
+		if (newline) {
+			putchar('\n');
+			newline = 0;
+		}
+
 		fputs("        ", stdout);
 		size = class_member__print(pos);
 
 		if (pos->bit_hole != 0) {
-			printf("\n\n        /* XXX %d bit%s hole, "
-			       "try to pack */\n",
+			if (!newline++)
+				putchar('\n');
+			printf("\n        /* XXX %d bit%s hole, "
+			       "try to pack */",
 			       pos->bit_hole,
 			       pos->bit_hole != 1 ? "s" : "");
 			sum_bit_holes += pos->bit_hole;
 		}
 
 		if (pos->hole > 0) {
-			if (pos->bit_hole == 0)
+			if (!newline++)
 				putchar('\n');
 			printf("\n        /* XXX %d byte%s hole, "
-			       "try to pack */\n",
+			       "try to pack */",
 			       pos->hole, pos->hole != 1 ? "s" : "");
 			sum_holes += pos->hole;
 		}
