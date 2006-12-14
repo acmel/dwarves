@@ -739,22 +739,20 @@ void class__find_holes(struct class *self)
 				 last->hole = cc_last_size - last_size;
 				 if (last->hole > 0)
 					 ++self->nr_holes;
-			 }
 
+				if (bit_sum != 0) {
+					last->bit_hole = (last_size * 8) -
+							 bit_sum;
+
+					if (last->bit_hole != 0)
+						++self->nr_bit_holes;
+
+					bit_sum = 0;
+				}
+			 }
 		 }
 
-		if (pos->bit_size == 0) {
-			if (bit_sum != 0) {
-				last->bit_hole = (last_size * 8) - bit_sum;
-
-				if (last->bit_hole != 0)
-					++self->nr_bit_holes;
-
-				bit_sum = 0;
-			}
-		} else
-			bit_sum += pos->bit_size;
-
+		bit_sum += pos->bit_size;
 		 size = class_member__size(pos);
 		 /*
 		  * check for bitfields, accounting for only the biggest
