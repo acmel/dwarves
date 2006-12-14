@@ -1,4 +1,4 @@
-/* 
+/*
   Copyright (C) 2006 Mandriva Conectiva S.A.
   Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
 
@@ -384,7 +384,7 @@ static const char *class__name(struct class *self, char *bf, size_t len)
 			char vol_class_name[128];
 			snprintf(bf, len, "%s %s ",
 				 self->tag.tag == DW_TAG_volatile_type ?
-				 	"volatile" : "const",
+					"volatile" : "const",
 				 class__name(vol_class, vol_class_name,
 					     sizeof(vol_class_name)));
 		}
@@ -726,45 +726,45 @@ void class__find_holes(struct class *self)
 	self->nr_bit_holes = 0;
 
 	list_for_each_entry(pos, &self->members, tag.node) {
-		 if (last != NULL) {
-			 const int cc_last_size = pos->offset - last->offset;
+		if (last != NULL) {
+			const int cc_last_size = pos->offset - last->offset;
 
-			 /*
-			  * If the offset is the same this better
-			  * be a bitfield or an empty struct (see
-			  * rwlock_t in the Linux kernel sources when
-			  * compiled for UP) or...
-			  */
-			 if (cc_last_size > 0) {
-				 last->hole = cc_last_size - last_size;
-				 if (last->hole > 0)
-					 ++self->nr_holes;
+			/*
+			 * If the offset is the same this better be a bitfield
+			 * or an empty struct (see rwlock_t in the Linux kernel
+			 * sources when compiled for UP) or...
+			 */
+			if (cc_last_size > 0) {
+				last->hole = cc_last_size - last_size;
+				if (last->hole > 0)
+					++self->nr_holes;
 
 				if (bit_sum != 0) {
 					last->bit_hole = (last_size * 8) -
 							 bit_sum;
-
 					if (last->bit_hole != 0)
 						++self->nr_bit_holes;
 
 					bit_sum = 0;
 				}
-			 }
-		 }
+			}
+		}
 
 		bit_sum += pos->bit_size;
-		 size = class_member__size(pos);
-		 /*
-		  * check for bitfields, accounting for only the biggest
-		  * of the byte_size in the fields in each bitfield set.
-		  */
-		 if (last == NULL || last->offset != pos->offset ||
-		     pos->bit_size == 0 || last->bit_size == 0) {
-			 last_size = size;
-		 } else if (size > last_size)
+		size = class_member__size(pos);
+
+		/*
+		 * check for bitfields, accounting for only the biggest of the
+		 * byte_size in the fields in each bitfield set.
+		 */
+
+		if (last == NULL || last->offset != pos->offset ||
+		    pos->bit_size == 0 || last->bit_size == 0) {
+			last_size = size;
+		} else if (size > last_size)
 			last_size = size;
 
-		 last = pos;
+		last = pos;
 	}
 
 	if (last != NULL) {
@@ -826,7 +826,7 @@ static int tags__compare(const void *a, const void *b)
 	if (a == b)
 		return 0;
 	if (ta->decl_line < tb->decl_line)
-	       return -1;
+		return -1;
 	if (ta->decl_line > tb->decl_line)
 		return 1;
 	if (ta->tag == DW_TAG_inlined_subroutine)
@@ -899,21 +899,21 @@ static void function__print_body(const struct function *self,
 	if (show_variables)
 		list_for_each_entry(pos, &self->lexblock.variables, node) {
 			/* FIXME! this test shouln't be needed at all */
-			if (pos->decl_line >= self->tag.decl_line) 
+			if (pos->decl_line >= self->tag.decl_line)
 				tags__add(&tags, pos);
 		}
 
 	if (show_inline_expansions)
 		list_for_each_entry(pos, &self->lexblock.inline_expansions, node) {
 			/* FIXME! this test shouln't be needed at all */
-			if (pos->decl_line >= self->tag.decl_line) 
+			if (pos->decl_line >= self->tag.decl_line)
 				tags__add(&tags, pos);
 		}
 
 	if (show_labels)
 		list_for_each_entry(pos, &self->lexblock.labels, node) {
 			/* FIXME! this test shouln't be needed at all */
-			if (pos->decl_line >= self->tag.decl_line) 
+			if (pos->decl_line >= self->tag.decl_line)
 				tags__add(&tags, pos);
 		}
 
@@ -1236,7 +1236,7 @@ static uint64_t attr_offset(Dwarf_Die *die)
 	Dwarf_Attribute attr;
 
 	if (dwarf_attr(die, DW_AT_data_member_location, &attr) != NULL) {
-      		Dwarf_Block block;
+		Dwarf_Block block;
 
 		if (dwarf_formblock(&attr, &block) == 0) {
 			uint64_t uleb;
@@ -1254,7 +1254,7 @@ static uint64_t attr_upper_bound(Dwarf_Die *die)
 	Dwarf_Attribute attr;
 
 	if (dwarf_attr(die, DW_AT_upper_bound, &attr) != NULL) {
-      		Dwarf_Word num;
+		Dwarf_Word num;
 
 		if (dwarf_formudata(&attr, &num) == 0) {
 			return (uintmax_t)num + 1;
