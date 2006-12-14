@@ -735,6 +735,15 @@ void class__find_holes(struct class *self)
 			 * sources when compiled for UP) or...
 			 */
 			if (cc_last_size > 0) {
+				/*
+				 * Check if the DWARF byte_size info is smaller
+				 * than the size used by the compiler, i.e.
+				 * when combining small bitfields with the next
+				 * member.
+				*/
+				if (cc_last_size < last_size)
+					last_size = cc_last_size;
+
 				last->hole = cc_last_size - last_size;
 				if (last->hole > 0)
 					++self->nr_holes;
@@ -983,7 +992,8 @@ void function__print(const struct function *self, int show_stats,
 }
 
 static int class__print_cacheline_boundary(uint32_t last_cacheline,
-					   size_t sum, size_t sum_holes)
+					   size_t sum, size_t sum_holes,
+					   uint8_t *newline)
 {
 	const unsigned int real_sum = sum + sum_holes;
 	const unsigned int cacheline = real_sum / cacheline_size;
@@ -991,6 +1001,12 @@ static int class__print_cacheline_boundary(uint32_t last_cacheline,
 	if (cacheline > last_cacheline) {
 		const unsigned int cacheline_pos = real_sum % cacheline_size;
 		const unsigned cacheline_in_bytes = real_sum - cacheline_pos;
+
+		if (*newline) {
+			putchar('\n');
+			*newline = 0;
+		}
+
 		if (cacheline_pos == 0)
 			printf("        /* --- cacheline "
 				"%u boundary (%u bytes) --- */\n",
@@ -1021,9 +1037,45 @@ static void class__print_struct(struct class *self)
 
 	printf("%s {\n", class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, tag.node) {
+		const int cc_last_size = pos->offset - last_offset;
+
 		last_cacheline = class__print_cacheline_boundary(last_cacheline,
 								 sum,
-								 sum_holes);
+								 sum_holes,
+								 &newline);
+
+		if (last_offset != -1) {
+			if (cc_last_size < last_size && cc_last_size > 0) {
+				if (!newline++)
+					putchar('\n');
+				printf("        /* Bitfield WARNING: DWARF "
+				       "size=%llu, real size=%u */\n",
+				       last_size, cc_last_size);
+				sum -= last_size - cc_last_size;
+				/*
+				 * Confusing huh? think about this case then,
+				 * should clarify:
+				 */
+#if 0
+			struct foo {
+				int   a:1;   /*     0     4 */
+
+				/* XXX 7 bits hole, try to pack */
+				/* WARNING: DWARF size: 4, compiler size: 1 */
+
+				char  b;     /*     1     1 */
+			}; /* size: 4, cachelines: 1 */
+			   /* bit holes: 1, sum bit holes: 7 bits */
+			   /* padding: 2 */
+			   /* last cacheline: 4 bytes */
+#endif
+				/*
+				 * Yeah, this could somehow be simplified,
+				 * send me a patch 8-)
+				 */
+			}
+		}
+
 		if (newline) {
 			putchar('\n');
 			newline = 0;
@@ -1069,7 +1121,8 @@ static void class__print_struct(struct class *self)
 		last_bit_size = pos->bit_size;
 	}
 
-	class__print_cacheline_boundary(last_cacheline, sum, sum_holes);
+	class__print_cacheline_boundary(last_cacheline, sum, sum_holes,
+					&newline);
 
 	printf("}; /* size: %llu, cachelines: %llu */\n", self->size,
 	       (self->size + cacheline_size - 1) / cacheline_size);
