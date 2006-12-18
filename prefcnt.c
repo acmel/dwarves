@@ -127,7 +127,7 @@ static int refcnt_class_iterator(struct class *class, void *cookie)
 static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 {
 	cu__for_each_class(cu, refcnt_class_iterator, cookie, NULL);
-	cu__for_each_function(cu, refcnt_function_iterator, cookie);
+	cu__for_each_function(cu, refcnt_function_iterator, cookie, NULL);
 	return 0;
 }
 

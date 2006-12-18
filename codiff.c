@@ -209,7 +209,7 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 
 	if (new_cu != NULL) {
 		cu__for_each_class(cu, diff_class_iterator, new_cu, NULL);
-		cu__for_each_function(cu, diff_function_iterator, new_cu);
+		cu__for_each_function(cu, diff_function_iterator, new_cu, NULL);
 	}
 
 	return 0;
@@ -368,7 +368,8 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	if (cu->nr_functions_changed != 0 && show_function_diffs) {
 		total_nr_functions_changed += cu->nr_functions_changed;
 
-		cu__for_each_function(cu, show_function_diffs_iterator, NULL);
+		cu__for_each_function(cu, show_function_diffs_iterator,
+				      NULL, NULL);
 		printf(" %u function%s changed", cu->nr_functions_changed,
 		       cu->nr_functions_changed > 1 ? "s" : "");
 		if (cu->function_bytes_added != 0) {
