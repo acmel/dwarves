@@ -27,14 +27,7 @@ static size_t decl_exclude_prefix_len;
 
 static unsigned short nr_holes;
 static unsigned short nr_bit_holes;
-
-static enum {
-	FLAG_show_sizes		 = (1 << 0),
-	FLAG_show_nr_members	 = (1 << 1),
-	FLAG_show_class_name_len = (1 << 2),
-	FLAG_show_nr_definitions = (1 << 3),
-	FLAG_show_packable	 = (1 << 4),
-} opts;
+static uint8_t show_packable;
 
 struct structure {
 	struct list_head   node;
@@ -231,7 +224,7 @@ static struct class *class__filter(struct class *class)
 		return NULL;
 	}
 
-	if ((opts & FLAG_show_packable) && !class__packable(class))
+	if (show_packable && !class__packable(class))
 		return NULL;
 
 	return class;
@@ -291,6 +284,7 @@ int main(int argc, char *argv[])
 	struct cus *cus;
 	char *file_name;
 	char *class_name = NULL;
+	void (*formatter)(const struct structure *s) = class_formatter;
 
 	while ((option = getopt_long(argc, argv, "B:c:D:hH:nNpstx:X:",
 				     long_options, &option_index)) >= 0)
@@ -298,11 +292,11 @@ int main(int argc, char *argv[])
 		case 'c': cacheline_size = atoi(optarg);  break;
 		case 'H': nr_holes = atoi(optarg);	  break;
 		case 'B': nr_bit_holes = atoi(optarg);	  break;
-		case 's': opts |= FLAG_show_sizes;	  break;
-		case 'n': opts |= FLAG_show_nr_members;	  break;
-		case 'N': opts |= FLAG_show_class_name_len;  break;
-		case 'p': opts |= FLAG_show_packable;	  break;
-		case 't': opts |= FLAG_show_nr_definitions; break;
+		case 's': formatter = size_formatter;		break;
+		case 'n': formatter = nr_members_formatter;	break;
+		case 'N': formatter = class_name_len_formatter;	break;
+		case 'p': show_packable	= 1;			break;
+		case 't': formatter = nr_definitions_formatter;	break;
 		case 'D': decl_exclude_prefix = optarg;
 			  decl_exclude_prefix_len = strlen(decl_exclude_prefix);
 							  break;
@@ -350,20 +344,8 @@ int main(int argc, char *argv[])
 			return EXIT_FAILURE;
 		}
 		class__print(s->class);
-	} else {
-		void (*formatter)(const struct structure *s) = class_formatter;
-
-		if (opts & FLAG_show_nr_definitions)
-			formatter = nr_definitions_formatter;
-		else if (opts & FLAG_show_nr_members)
-			formatter = nr_members_formatter;
-		else if (opts & FLAG_show_sizes)
-			formatter = size_formatter;
-		else if (opts & FLAG_show_class_name_len)
-			formatter = class_name_len_formatter;
-
+	} else
 		print_classes(formatter);
-	}
 
 	return EXIT_SUCCESS;
 }
