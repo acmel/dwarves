@@ -10,6 +10,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <dwarf.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -28,11 +29,11 @@ static unsigned short nr_holes;
 static unsigned short nr_bit_holes;
 
 static enum {
-	FLAG_show_sizes			= (1 << 0),
-	FLAG_show_nr_members		= (1 << 1),
-	FLAG_show_class_name_len	= (1 << 2),
-	FLAG_show_total_structure_stats = (1 << 3),
-	FLAG_show_packable		= (1 << 4),
+	FLAG_show_sizes		 = (1 << 0),
+	FLAG_show_nr_members	 = (1 << 1),
+	FLAG_show_class_name_len = (1 << 2),
+	FLAG_show_nr_definitions = (1 << 3),
+	FLAG_show_packable	 = (1 << 4),
 } opts;
 
 struct structure {
@@ -67,32 +68,46 @@ static struct structure *structures__find(const char *name)
 
 static void structures__add(const struct class *class)
 {
-	struct structure *str = structures__find(class->name);
+	struct structure *str = structure__new(class);
 
-	if (str == NULL) {
-		str = structure__new(class);
-		if (str != NULL)
-			list_add(&str->node, &structures__list);
-	} else {
-		if (str->class->size != class->size)
-			printf("%s size changed! was %llu, now its %llu\n",
-			       class->name, str->class->size, class->size);
-		str->nr_files++;
-	}
+	if (str != NULL)
+		list_add(&str->node, &structures__list);
 }
 
-static void structure__print(struct structure *self)
+static void nr_definitions_formatter(const struct structure *self)
 {
-	printf("%-32.32s %5u\n", self->class->name, self->nr_files);
+	printf("%s: %u\n", self->class->name, self->nr_files);
 }
 
-static void print_total_structure_stats(void)
+static void nr_members_formatter(const struct structure *self)
+{
+	printf("%s: %u\n", self->class->name, self->class->nr_members);
+}
+
+static void size_formatter(const struct structure *self)
+{
+	printf("%s: %llu %u\n", self->class->name, self->class->size,
+	       self->class->nr_holes);
+}
+
+static void class_name_len_formatter(const struct structure *self)
+{
+	printf("%s: %u\n", self->class->name, strlen(self->class->name));
+}
+
+static void class_formatter(const struct structure *self)
+{
+	class__print(self->class);
+	printf("   /* definitions: %u */\n", self->nr_files);
+	putchar('\n');
+}
+
+static void print_classes(void (*formatter)(const struct structure *s))
 {
 	struct structure *pos;
 
-	printf("%-32.32s %5.5s\n", "name", "src#");
 	list_for_each_entry(pos, &structures__list, node)
-		structure__print(pos);
+		formatter(pos);
 }
 
 static struct cu *cu__filter(struct cu *cu)
@@ -124,6 +139,35 @@ static int class__packable(const struct class *self)
 	return 0;
 }
 
+static void class__dupmsg(const struct class *self, const struct class *dup,
+			  char *hdr, const char *fmt, ...)
+{
+	va_list args;
+
+	if (!*hdr)
+		printf("class: %s\nfirst: %s\ncurrent: %s\n",
+		       self->name, self->cu->name, dup->cu->name);
+	
+	va_start(args, fmt);
+	vprintf(fmt, args);
+	va_end(args);
+	*hdr = 1;
+}
+
+static void class__chkdupdef(const struct class *self, struct class *dup)
+{
+	char hdr = 0;
+
+	if (self->size != dup->size)
+		class__dupmsg(self, dup, &hdr, "size: %llu != %llu\n",
+			      self->size, dup->size);
+
+	/* XXX put more checks here: member types, member ordering, etc */
+
+	if (hdr)
+		putchar('\n');
+}
+
 static struct class *class__to_struct(struct class *class)
 {
 	struct class *typedef_alias;
@@ -135,11 +179,16 @@ static struct class *class__to_struct(struct class *class)
 
 static struct class *class__filter(struct class *class)
 {
+	struct structure *str;
+
 	class = class__to_struct(class);
 	if (class == NULL) /* Not a structure */
 		return NULL;
 
 	if (class->name == NULL)
+		return NULL;
+
+	if (class->declaration)
 		return NULL;
 
 	if (class__exclude_prefix != NULL &&
@@ -155,21 +204,32 @@ static struct class *class__filter(struct class *class)
 
 	class__find_holes(class);
 
+	if (class->nr_holes < nr_holes ||
+	    class->nr_bit_holes < nr_bit_holes)
+		return NULL;
+
+	str = structures__find(class->name);
+	if (str != NULL) {
+		class__chkdupdef(str->class, class);
+		str->nr_files++;
+		return NULL;
+	}
+
 	if ((opts & FLAG_show_packable) && !class__packable(class))
 		return NULL;
 
 	return class;
 }
 
-static int total_structure_iterator(struct class *class, void *cookie)
+static int unique_iterator(struct class *class, void *cookie)
 {
 	structures__add(class);
 	return 0;
 }
 
-static int cu_total_structure_iterator(struct cu *cu, void *cookie)
+static int cu_unique_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, total_structure_iterator, cookie,
+	return cu__for_each_class(cu, unique_iterator, cookie,
 				  class__filter);
 }
 
@@ -181,7 +241,7 @@ static struct option long_options[] = {
 	{ "holes",		required_argument,	NULL, 'H' },
 	{ "nr_members",		no_argument,		NULL, 'n' },
 	{ "sizes",		no_argument,		NULL, 's' },
-	{ "total_struct_stats",	no_argument,		NULL, 't' },
+	{ "nr_definitions",	no_argument,		NULL, 't' },
 	{ "exclude",		required_argument,	NULL, 'x' },
 	{ "cu_exclude",		required_argument,	NULL, 'X' },
 	{ "decl_exclude",	required_argument,	NULL, 'D' },
@@ -202,74 +262,11 @@ static void usage(void)
 		"   -n, --nr_members             show number of members\n"
 		"   -N, --class_name_len         show size of classes\n"
 		"   -s, --sizes                  show size of classes\n"
-		"   -t, --total_struct_stats     show Multi-CU structure stats\n"
+		"   -t, --nr_definitions         show how many times struct was defined\n"
 		"   -D, --decl_exclude <prefix>  exclude classes declared in files with prefix\n"
 		"   -x, --exclude <prefix>       exclude prefixed classes from reports\n"
 		"   -X, --cu_exclude <prefix>    exclude prefixed compilation units from reports\n",
 		DEFAULT_CACHELINE_SIZE);
-}
-
-static int nr_members_iterator(struct class *class, void *cookie)
-{
-	if (class->nr_members > 0)
-		printf("%s: %u\n", class->name, class->nr_members);
-	return 0;
-}
-
-static int cu_nr_members_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_class(cu, nr_members_iterator, cookie,
-				  class__filter);
-}
-
-static int sizes_iterator(struct class *class, void *cookie)
-{
-	if (class->size > 0)
-		printf("%s: %llu %u\n",
-		       class->name, class->size, class->nr_holes);
-	return 0;
-}
-
-static int cu_sizes_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_class(cu, sizes_iterator, cookie, class__filter);
-}
-
-static int holes_iterator(struct class *class, void *cookie)
-{
-	if ((nr_holes != 0 && class->nr_holes >= nr_holes) ||
-	    (nr_bit_holes != 0 && class->nr_bit_holes >= nr_bit_holes))
-		class__print(class);
-	return 0;
-}
-
-static int cu_holes_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_class(cu, holes_iterator, cookie, class__filter);
-}
-
-static int class_name_len_iterator(struct class *class, void *cookie)
-{
-	printf("%s: %u\n", class->name, strlen(class->name));
-	return 0;
-}
-
-static int cu_class_name_len_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_class(cu, class_name_len_iterator, NULL,
-				  class__filter);
-}
-
-static int class__iterator(struct class *class, void *cookie)
-{
-	class__print(class);
-	return 0;
-}
-
-static int cu__iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_class(cu, class__iterator, NULL,
-				  class__filter);
 }
 
 int main(int argc, char *argv[])
@@ -289,7 +286,7 @@ int main(int argc, char *argv[])
 		case 'n': opts |= FLAG_show_nr_members;	  break;
 		case 'N': opts |= FLAG_show_class_name_len;  break;
 		case 'p': opts |= FLAG_show_packable;	  break;
-		case 't': opts |= FLAG_show_total_structure_stats; break;
+		case 't': opts |= FLAG_show_nr_definitions; break;
 		case 'D': decl_exclude_prefix = optarg;
 			  decl_exclude_prefix_len = strlen(decl_exclude_prefix);
 							  break;
@@ -327,31 +324,30 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (opts & FLAG_show_total_structure_stats) {
-		cus__for_each_cu(cus, cu_total_structure_iterator, NULL,
-				 cu__filter);
-		print_total_structure_stats();
-	} else if (opts & FLAG_show_nr_members)
-		cus__for_each_cu(cus, cu_nr_members_iterator, NULL,
-				 cu__filter);
-	else if (opts & FLAG_show_sizes)
-		cus__for_each_cu(cus, cu_sizes_iterator, NULL, cu__filter);
-	else if (opts & FLAG_show_class_name_len)
-		cus__for_each_cu(cus, cu_class_name_len_iterator, NULL,
-				 cu__filter);
-	else if (nr_holes > 0 || nr_bit_holes > 0)
-		cus__for_each_cu(cus, cu_holes_iterator, NULL, cu__filter);
-	else if (class_name != NULL) {
-		struct class *class = cus__find_class_by_name(cus, class_name);
-		struct class *alias;
+	cus__for_each_cu(cus, cu_unique_iterator, NULL, cu__filter);
 
-		if (class != NULL && class__is_struct(class, &alias)) {
-			class__find_holes(alias ?: class);
-			class__print(alias ?: class);
-		} else
+	if (class_name != NULL) {
+		struct structure *s = structures__find(class_name);
+
+		if (s == NULL) {
 			printf("struct %s not found!\n", class_name);
-	} else
-		cus__for_each_cu(cus, cu__iterator, NULL, cu__filter);
+			return EXIT_FAILURE;
+		}
+		class__print(s->class);
+	} else {
+		void (*formatter)(const struct structure *s) = class_formatter;
+
+		if (opts & FLAG_show_nr_definitions)
+			formatter = nr_definitions_formatter;
+		else if (opts & FLAG_show_nr_members)
+			formatter = nr_members_formatter;
+		else if (opts & FLAG_show_sizes)
+			formatter = size_formatter;
+		else if (opts & FLAG_show_class_name_len)
+			formatter = class_name_len_formatter;
+
+		print_classes(formatter);
+	}
 
 	return EXIT_SUCCESS;
 }
