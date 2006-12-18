@@ -139,7 +139,7 @@ struct label {
 #define DEFAULT_CACHELINE_SIZE 32
 
 extern void class__find_holes(struct class *self);
-extern void class__print(struct class *self);
+extern void class__print(const struct class *self);
 extern void function__print(const struct function *self, int show_stats,
 			    const int show_variables,
 			    const int show_inline_expansions);

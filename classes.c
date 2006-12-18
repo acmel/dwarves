@@ -360,7 +360,7 @@ static uint64_t class__size(const struct class *self)
 	return size;
 }
 
-static const char *class__name(struct class *self, char *bf, size_t len)
+static const char *class__name(const struct class *self, char *bf, size_t len)
 {
 	if (self->tag.tag == DW_TAG_pointer_type) {
 		if (self->tag.type == 0) /* No type == void */
@@ -1022,7 +1022,7 @@ static int class__print_cacheline_boundary(uint32_t last_cacheline,
 	return cacheline;
 }
 
-static void class__print_struct(struct class *self)
+static void class__print_struct(const struct class *self)
 {
 	unsigned long sum = 0;
 	unsigned long sum_holes = 0;
@@ -1148,7 +1148,7 @@ static void class__print_struct(struct class *self)
 	putchar('\n');
 }
 
-void class__print(struct class *self)
+void class__print(const struct class *self)
 {
 	printf("/* %s:%u */\n", self->tag.decl_file, self->tag.decl_line);
 
