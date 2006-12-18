@@ -987,7 +987,7 @@ void function__print(const struct function *self, int show_stats,
 			printf(", inline expansions: %u (%u bytes)",
 			       self->lexblock.nr_inline_expansions,
 			       self->lexblock.size_inline_expansions);
-		fputs(" */\n\n", stdout);
+		fputs(" */\n", stdout);
 	}
 }
 
@@ -1184,14 +1184,22 @@ int cu__for_each_class(struct cu *self,
 
 int cu__for_each_function(struct cu *cu,
 			  int (*iterator)(struct function *func, void *cookie),
-			  void *cookie)
+			  void *cookie,
+			  struct function *(*filter)(struct function *function))
 {
 
 	struct function *pos;
 
-	list_for_each_entry(pos, &cu->functions, tag.node)
-		if (iterator(pos, cookie))
+	list_for_each_entry(pos, &cu->functions, tag.node) {
+		struct function *function = pos;
+		if (filter != NULL) {
+			function = filter(pos);
+			if (function == NULL)
+				continue;
+		}
+		if (iterator(function, cookie))
 			return 1;
+	}
 	return 0;
 }
 
