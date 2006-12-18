@@ -154,9 +154,6 @@ extern struct class *cu__find_class_by_name(const struct cu *cu,
 					    const char *name);
 extern int	    class__is_struct(const struct class *self,
 				     struct class **typedef_alias);
-extern void	    cus__print_classes(struct cus *cus,
-				       const unsigned int tag);
-extern void	    cus__print_functions(struct cus *cus);
 extern struct class *cus__find_class_by_name(const struct cus *self,
 					     const char *name);
 extern void	    cu__account_inline_expansions(struct cu *self);

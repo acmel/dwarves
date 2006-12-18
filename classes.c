@@ -1222,33 +1222,6 @@ void cus__for_each_cu(struct cus *self,
 	}
 }
 
-void cus__print_classes(struct cus *self, const unsigned int tag)
-{
-	struct cu *cu_pos;
-
-	list_for_each_entry(cu_pos, &self->cus, node) {
-		struct class *class_pos;
-
-		list_for_each_entry(class_pos, &cu_pos->classes, tag.node)
-			if (class_pos->tag.tag == tag &&
-			    class_pos->name != NULL) {
-				if (tag == DW_TAG_structure_type)
-					class__find_holes(class_pos);
-				class__print(class_pos);
-			}
-	}
-}
-
-void cus__print_functions(struct cus *self)
-{
-	struct cu *cu;
-	struct function *function;
-
-	list_for_each_entry(cu, &self->cus, node)
-		list_for_each_entry(function, &cu->functions, tag.node)
-			function__print(function, 1, 1, 1);
-}
-
 static void oom(const char *msg)
 {
 	fprintf(stderr, "pahole: out of memory(%s)\n", msg);
