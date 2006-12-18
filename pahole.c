@@ -162,6 +162,22 @@ static void class__chkdupdef(const struct class *self, struct class *dup)
 		class__dupmsg(self, dup, &hdr, "size: %llu != %llu\n",
 			      self->size, dup->size);
 
+	if (self->nr_members != dup->nr_members)
+		class__dupmsg(self, dup, &hdr, "nr_members: %u != %u\n",
+			      self->nr_members, dup->nr_members);
+
+	if (self->nr_holes != dup->nr_holes)
+		class__dupmsg(self, dup, &hdr, "nr_holes: %u != %u\n",
+			      self->nr_holes, dup->nr_holes);
+
+	if (self->nr_bit_holes != dup->nr_bit_holes)
+		class__dupmsg(self, dup, &hdr, "nr_bit_holes: %u != %u\n",
+			      self->nr_bit_holes, dup->nr_bit_holes);
+
+	if (self->padding != dup->padding)
+		class__dupmsg(self, dup, &hdr, "padding: %u != %u\n",
+			      self->padding, dup->padding);
+
 	/* XXX put more checks here: member types, member ordering, etc */
 
 	if (hdr)
