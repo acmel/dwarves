@@ -1145,7 +1145,6 @@ static void class__print_struct(const struct class *self)
 		       "%lu + %lu(holes), diff = %llu */\n\n",
 		       self->size, sum, sum_holes,
 		       self->size - (sum + sum_holes));
-	putchar('\n');
 }
 
 void class__print(const struct class *self)
@@ -1161,7 +1160,6 @@ void class__print(const struct class *self)
 		       self->name ?: "");
 		break;
 	}
-	putchar('\n');
 }
 
 int cu__for_each_class(struct cu *self,
