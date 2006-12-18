@@ -8,6 +8,7 @@
 */
 
 #include <getopt.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,22 +18,24 @@
 static int verbose;
 static int show_inline_expansions;
 static int show_variables;
+static int show_externals;
+static int show_cc_inlined;
+static int show_cc_uninlined;
 
-struct inline_function {
+struct fn_stats {
 	struct list_head node;
-	const char *name;
+	const struct function *function;
 	unsigned long nr_expansions;
 	unsigned long size_expansions;
 	unsigned int nr_files;
 };
 
-static struct inline_function *
-			inline_function__new(const struct function *function)
+static struct fn_stats * fn_stats__new(const struct function *function)
 {
-	struct inline_function *self = malloc(sizeof(*self));
+	struct fn_stats *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->name = function->name;
+		self->function = function;
 		self->nr_files = 1;
 		self->nr_expansions = function->cu_total_nr_inline_expansions;
 		self->size_expansions = function->cu_total_size_inline_expansions;
@@ -41,49 +44,176 @@ static struct inline_function *
 	return self;
 }
 
-static LIST_HEAD(inlines__list);
+static LIST_HEAD(fn_stats__list);
 
-static struct inline_function *inlines__find(const char *name)
+static struct fn_stats *fn_stats__find(const char *name)
 {
-	struct inline_function *pos;
+	struct fn_stats *pos;
 
-	list_for_each_entry(pos, &inlines__list, node)
-		if (strcmp(pos->name, name) == 0)
+	list_for_each_entry(pos, &fn_stats__list, node)
+		if (strcmp(pos->function->name, name) == 0)
 			return pos;
 	return NULL;
 }
 
-static void inlines__add(const struct function *function)
+static void fn_stats__add(const struct function *function)
 {
-	struct inline_function *inl = inlines__find(function->name);
-
-	if (inl == NULL) {
-		inl = inline_function__new(function);
-		if (inl != NULL)
-			list_add(&inl->node, &inlines__list);
-	} else {
-		inl->nr_expansions   += function->cu_total_nr_inline_expansions;
-		inl->size_expansions += function->cu_total_size_inline_expansions;
-		inl->nr_files++;
-	}
+	struct fn_stats *inl = fn_stats__new(function);
+	if (inl != NULL)
+		list_add(&inl->node, &fn_stats__list);
 }
 
-static void inline_function__print(struct inline_function *self)
+static void fn_stats_inline_exps_fmtr(const struct fn_stats *self)
 {
-	printf("%-31.31s %6lu %7lu  %6lu %6u\n", self->name,
-	       self->size_expansions, self->nr_expansions,
-	       self->size_expansions / self->nr_expansions,
-	       self->nr_files);
+	if (self->function->lexblock.nr_inline_expansions > 0)
+		printf("%s: %u %u\n", self->function->name,
+		       self->function->lexblock.nr_inline_expansions,
+		       self->function->lexblock.size_inline_expansions);
+}
+
+static void fn_stats_labels_fmtr(const struct fn_stats *self)
+{
+	if (self->function->lexblock.nr_labels > 0)
+		printf("%s: %u\n", self->function->name,
+		       self->function->lexblock.nr_labels);
+}
+
+static void fn_stats_variables_fmtr(const struct fn_stats *self)
+{
+	if (self->function->lexblock.nr_variables > 0)
+		printf("%s: %u\n", self->function->name,
+		       self->function->lexblock.nr_variables);
+}
+
+static void fn_stats_nr_parms_fmtr(const struct fn_stats *self)
+{
+	printf("%s: %u\n", self->function->name, self->function->nr_parameters);
+}
+
+static void fn_stats_name_len_fmtr(const struct fn_stats *self)
+{
+	printf("%s: %u\n", self->function->name, strlen(self->function->name));
+}
+
+static void fn_stats_size_fmtr(const struct fn_stats *self)
+{
+	const size_t size = function__size(self->function);
+	if (size != 0)
+		printf("%s: %u\n", self->function->name, size);
+}
+
+static void fn_stats_fmtr(const struct fn_stats *self)
+{
+	if (verbose) {
+		function__print(self->function, 1, show_variables, show_inline_expansions);
+		printf("/* definitions: %u */\n", self->nr_files);
+		putchar('\n');
+	} else
+		puts(self->function->name);
+}
+
+static void print_fn_stats(void (*formatter)(const struct fn_stats *f))
+{
+	struct fn_stats *pos;
+
+	list_for_each_entry(pos, &fn_stats__list, node)
+		formatter(pos);
+}
+
+static void fn_stats_inline_stats_fmtr(const struct fn_stats *self)
+{
+	if (self->nr_expansions > 1)
+		printf("%-31.31s %6lu %7lu  %6lu %6u\n", self->function->name,
+		       self->size_expansions, self->nr_expansions,
+		       self->size_expansions / self->nr_expansions,
+		       self->nr_files);
 }
 
 static void print_total_inline_stats(void)
 {
-	struct inline_function *pos;
-
 	printf("%-32.32s  %5.5s / %5.5s = %5.5s  %s\n", "name", "totsz", "exp#", "avgsz", "src#");
-	list_for_each_entry(pos, &inlines__list, node)
-		if (pos->nr_expansions > 1)
-			inline_function__print(pos);
+	print_fn_stats(fn_stats_inline_stats_fmtr);
+}
+
+static void fn_stats__dupmsg(const struct function *self,
+			     const struct function *dup, char *hdr,
+			     const char *fmt, ...)
+{
+	va_list args;
+
+	if (!*hdr)
+		printf("function: %s\nfirst: %s\ncurrent: %s\n",
+		       self->name, self->cu->name, dup->cu->name);
+	
+	va_start(args, fmt);
+	vprintf(fmt, args);
+	va_end(args);
+	*hdr = 1;
+}
+
+static void fn_stats__chkdupdef(const struct function *self,
+				       const struct function *dup)
+{
+	char hdr = 0;
+	const size_t self_size = function__size(self);
+	const size_t dup_size = function__size(dup);
+
+	if (self_size != dup_size)
+		fn_stats__dupmsg(self, dup, &hdr, "size: %zd != %zd\n",
+					self_size, dup_size);
+
+	if (self->nr_parameters != dup->nr_parameters)
+		fn_stats__dupmsg(self, dup, &hdr,
+					"nr_parameters: %u != %u\n",
+					self->nr_parameters,
+					dup->nr_parameters);
+
+	/* XXX put more checks here: member types, member ordering, etc */
+
+	if (hdr)
+		putchar('\n');
+}
+
+static struct function *function__filter(struct function *function)
+{
+	struct fn_stats *fstats;
+
+	if (function->name == NULL)
+		return NULL;
+
+	if (show_externals && !function->external)
+		return NULL;
+
+	if (show_cc_uninlined &&
+	    function->inlined != DW_INL_declared_not_inlined)
+		return NULL;
+
+	if (show_cc_inlined && function->inlined != DW_INL_inlined)
+		return NULL;
+
+	fstats = fn_stats__find(function->name);
+	if (fstats != NULL && fstats->function->external) {
+		fn_stats__chkdupdef(fstats->function, function);
+		fstats->nr_expansions   += function->cu_total_nr_inline_expansions;
+		fstats->size_expansions += function->cu_total_size_inline_expansions;
+		fstats->nr_files++;
+		return NULL;
+	}
+
+	return function;
+}
+
+static int unique_iterator(struct function *function, void *cookie)
+{
+	fn_stats__add(function);
+	return 0;
+}
+
+static int cu_unique_iterator(struct cu *cu, void *cookie)
+{
+	cu__account_inline_expansions(cu);
+	return cu__for_each_function(cu, unique_iterator, cookie,
+				     function__filter);
 }
 
 static struct option long_options[] = {
@@ -91,7 +221,6 @@ static struct option long_options[] = {
 	{ "externals",			no_argument,		NULL, 'e' },
 	{ "cc_inlined",			no_argument,		NULL, 'H' },
 	{ "cc_uninlined",		no_argument,		NULL, 'G' },
-	{ "cu_inline_expansions_stats",	no_argument,		NULL, 'C' },
 	{ "function_name_len",		no_argument,		NULL, 'N' },
 	{ "goto_labels",		no_argument,		NULL, 'g' },
 	{ "inline_expansions",		no_argument,		NULL, 'i' },
@@ -119,7 +248,6 @@ static void usage(void)
 		"   -H, --cc_inlined		      not declared inline, inlined by compiler\n"
 		"   -i, --inline_expansions           show inline expansions\n"
 		"   -I, --inline_expansions_stats     show inline expansions stats\n"
-		"   -C, --cu_inline_expansions_stats  show CU inline expansions stats\n"
 		"   -t, --total_inline_stats	      show Multi-CU total inline "
 						     "expansions stats\n"
 		"   -s, --sizes                       show size of functions\n"
@@ -170,73 +298,13 @@ static int cu_class_iterator(struct cu *cu, void *cookie)
 	if (target == NULL)
 		return 0;
 
-	return cu__for_each_function(cu, class_iterator, target);
-}
-
-static int sizes_iterator(struct function *function, void *cookie)
-{
-	if (function->inlined)
-		return 0;
-
-	printf("%s: %u\n", function->name ?: "", function__size(function));
-	return 0;
-}
-
-static int cu_sizes_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_function(cu, sizes_iterator, cookie);
-}
-
-static int externals_iterator(struct function *function, void *cookie)
-{
-	if (function->external)
-		puts(function->name);
-
-	return 0;
-}
-
-static int cu_externals_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_function(cu, externals_iterator, cookie);
-}
-
-static int variables_iterator(struct function *function, void *cookie)
-{
-	if (function->lexblock.nr_variables > 0)
-		printf("%s: %u\n", function->name ?: "",
-		      function->lexblock.nr_variables);
-	return 0;
-}
-
-static int cu_variables_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_function(cu, variables_iterator, cookie);
-}
-
-static int goto_labels_iterator(struct function *function, void *cookie)
-{
-	if (function->inlined)
-		return 0;
-
-	if (function->lexblock.nr_labels > 0)
-		printf("%s: %u\n", function->name ?: "", function->lexblock.nr_labels);
-	return 0;
-}
-
-static int cu_goto_labels_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_function(cu, goto_labels_iterator, cookie);
+	return cu__for_each_function(cu, class_iterator, target, NULL);
 }
 
 static int function_iterator(struct function *function, void *cookie)
 {
-	if (cookie == NULL) {
-		if (function->lexblock.nr_inline_expansions > 0)
-			printf("%s: %u %u\n", function->name ?: "",
-			       function->lexblock.nr_inline_expansions,
-			       function->lexblock.size_inline_expansions);
-	} else if (function->name != NULL &&
-		   strcmp(function->name, cookie) == 0) {
+	if (function->name != NULL &&
+	    strcmp(function->name, cookie) == 0) {
 		function__print(function, 1, show_variables,
 				show_inline_expansions);
 		return 1;
@@ -246,92 +314,7 @@ static int function_iterator(struct function *function, void *cookie)
 
 static int cu_function_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_function(cu, function_iterator, cookie);
-}
-
-static int inlines_iterator(struct function *function, void *cookie)
-{
-	if (!function__inlined(function))
-		return 0;
-
-	if (function->name != NULL)
-		printf("%s: %u %lu\n", function->name,
-		       function->cu_total_nr_inline_expansions,
-		       function->cu_total_size_inline_expansions);
-	return 0;
-}
-
-static int cu_inlines_iterator(struct cu *cu, void *cookie)
-{
-	cu__account_inline_expansions(cu);
-	if (cu->nr_inline_expansions > 0) {
-		printf("%s: %lu %lu\n", cu->name, cu->nr_inline_expansions,
-		       cu->size_inline_expansions);
-		cu__for_each_function(cu, inlines_iterator, cookie);
-	}
-	return 0;
-}
-
-static int nr_parameters_iterator(struct function *function, void *cookie)
-{
-	printf("%s: %u\n", function->name ?: "", function->nr_parameters);
-	return 0;
-}
-
-static int cu_nr_parameters_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_function(cu, nr_parameters_iterator, cookie);
-}
-
-static int function_name_len_iterator(struct function *function, void *cookie)
-{
-	if (function->name != NULL)
-		printf("%s: %u\n", function->name, strlen(function->name));
-	return 0;
-}
-
-static int cu_function_name_len_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_function(cu, function_name_len_iterator, cookie);
-}
-
-static int total_inlines_iterator(struct function *function, void *cookie)
-{
-	if (function__inlined(function))
-		inlines__add(function);
-	return 0;
-}
-
-static int cu_total_inlines_iterator(struct cu *cu, void *cookie)
-{
-	cu__account_inline_expansions(cu);
-	if (cu->nr_inline_expansions > 0)
-		cu__for_each_function(cu, total_inlines_iterator, cookie);
-	return 0;
-}
-
-static int cc_inlined_iterator(struct function *function, void *cookie)
-{
-	if (function->inlined == DW_INL_inlined)
-		puts(function->name);
-	return 0;
-}
-
-static int cu_cc_inlined_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_function(cu, cc_inlined_iterator, cookie);
-}
-
-static int cc_uninlined_iterator(struct function *function, void *cookie)
-{
-	if (function->inlined == DW_INL_declared_not_inlined)
-		puts(function->name);
-	return 0;
-}
-
-static int cu_cc_uninlined_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_function(cu, cc_uninlined_iterator, cookie);
+	return cu__for_each_function(cu, function_iterator, cookie, NULL);
 }
 
 int main(int argc, char *argv[])
@@ -341,35 +324,25 @@ int main(int argc, char *argv[])
 	struct cus *cus;
 	char *class_name = NULL;
 	char *function_name = NULL;
-	int show_externals = 0;
-	int show_sizes = 0;
-	int show_nr_variables = 0;
-	int show_goto_labels = 0;
-	int show_nr_parameters = 0;
-	int show_function_name_len = 0;
-	int show_inline_expansions_stats = 0;
-	int show_inline_stats = 0;
 	int show_total_inline_expansion_stats = 0;
-	int show_cc_inlined = 0;
-	int show_cc_uninlined = 0;
+	void (*formatter)(const struct fn_stats *f) = fn_stats_fmtr;
 
-	while ((option = getopt_long(argc, argv, "c:CegGHiINpsStTV",
+	while ((option = getopt_long(argc, argv, "c:egGHiINpsStTV",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': class_name = optarg;			break;
-		case 'C': show_inline_stats = 1;		break;
 		case 'e': show_externals = 1;			break;
-		case 's': show_sizes = 1;			break;
-		case 'S': show_nr_variables = 1;		break;
-		case 'p': show_nr_parameters = 1;		break;
-		case 'g': show_goto_labels = 1;			break;
+		case 's': formatter = fn_stats_size_fmtr;	break;
+		case 'S': formatter = fn_stats_variables_fmtr;	break;
+		case 'p': formatter = fn_stats_nr_parms_fmtr;	break;
+		case 'g': formatter = fn_stats_labels_fmtr;	break;
 		case 'G': show_cc_uninlined = 1;		break;
 		case 'H': show_cc_inlined = 1;			break;
-		case 'i': show_inline_expansions = 1;		break;
-		case 'I': show_inline_expansions_stats = 1;	break;
-		case 't': show_total_inline_expansion_stats = 1;break;
+		case 'i': show_inline_expansions = verbose = 1;	break;
+		case 'I': formatter = fn_stats_inline_exps_fmtr; break;
+		case 't': show_total_inline_expansion_stats = 1; break;
 		case 'T': show_variables = 1;			break;
-		case 'N': show_function_name_len = 1;		break;
+		case 'N': formatter = fn_stats_name_len_fmtr;	break;
 		case 'V': verbose = 1;				break;
 		case 'h': usage(); return EXIT_SUCCESS;
 		default:  usage(); return EXIT_FAILURE;
@@ -399,35 +372,17 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (show_total_inline_expansion_stats) {
-		cus__for_each_cu(cus, cu_total_inlines_iterator, NULL, NULL);
+	cus__for_each_cu(cus, cu_unique_iterator, NULL, NULL);
+
+	if (show_total_inline_expansion_stats)
 		print_total_inline_stats();
-	} else if (show_inline_stats)
-		cus__for_each_cu(cus, cu_inlines_iterator, NULL, NULL);
-	else if (show_cc_inlined)
-		cus__for_each_cu(cus, cu_cc_inlined_iterator, NULL, NULL);
-	else if (show_cc_uninlined)
-		cus__for_each_cu(cus, cu_cc_uninlined_iterator, NULL, NULL);
-	else if (show_nr_parameters)
-		cus__for_each_cu(cus, cu_nr_parameters_iterator, NULL, NULL);
-	else if (show_nr_variables)
-		cus__for_each_cu(cus, cu_variables_iterator, NULL, NULL);
-	else if (show_goto_labels)
-		cus__for_each_cu(cus, cu_goto_labels_iterator, NULL, NULL);
-	else if (show_sizes)
-		cus__for_each_cu(cus, cu_sizes_iterator, NULL, NULL);
-	else if (show_externals)
-		cus__for_each_cu(cus, cu_externals_iterator, NULL, NULL);
-	else if (show_function_name_len)
-		cus__for_each_cu(cus, cu_function_name_len_iterator,
-				 NULL, NULL);
 	else if (class_name != NULL)
 		cus__for_each_cu(cus, cu_class_iterator, class_name, NULL);
-	else if (function_name == NULL && !show_inline_expansions_stats)
-		cus__print_functions(cus);
-	else
+	else if (function_name != NULL)
 		cus__for_each_cu(cus, cu_function_iterator,
 				 function_name, NULL);
+	else 
+		print_fn_stats(formatter);
 
 	return EXIT_SUCCESS;
 }
