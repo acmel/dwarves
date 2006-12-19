@@ -360,7 +360,7 @@ static uint64_t class__size(const struct class *self)
 	return size;
 }
 
-static const char *class__name(const struct class *self, char *bf, size_t len)
+const char *class__name(const struct class *self, char *bf, size_t len)
 {
 	if (self->tag.tag == DW_TAG_pointer_type) {
 		if (self->tag.type == 0) /* No type == void */
