@@ -30,7 +30,7 @@ struct fn_stats {
 	unsigned int nr_files;
 };
 
-static struct fn_stats * fn_stats__new(const struct function *function)
+static struct fn_stats *fn_stats__new(const struct function *function)
 {
 	struct fn_stats *self = malloc(sizeof(*self));
 
@@ -131,7 +131,8 @@ static void fn_stats_inline_stats_fmtr(const struct fn_stats *self)
 
 static void print_total_inline_stats(void)
 {
-	printf("%-32.32s  %5.5s / %5.5s = %5.5s  %s\n", "name", "totsz", "exp#", "avgsz", "src#");
+	printf("%-32.32s  %5.5s / %5.5s = %5.5s  %s\n",
+	       "name", "totsz", "exp#", "avgsz", "src#");
 	print_fn_stats(fn_stats_inline_stats_fmtr);
 }
 
@@ -216,48 +217,6 @@ static int cu_unique_iterator(struct cu *cu, void *cookie)
 				     function__filter);
 }
 
-static struct option long_options[] = {
-	{ "class",			required_argument,	NULL, 'c' },
-	{ "externals",			no_argument,		NULL, 'e' },
-	{ "cc_inlined",			no_argument,		NULL, 'H' },
-	{ "cc_uninlined",		no_argument,		NULL, 'G' },
-	{ "function_name_len",		no_argument,		NULL, 'N' },
-	{ "goto_labels",		no_argument,		NULL, 'g' },
-	{ "inline_expansions",		no_argument,		NULL, 'i' },
-	{ "inline_expansions_stats",	no_argument,		NULL, 'I' },
-	{ "total_inline_stats",		no_argument,		NULL, 't' },
-	{ "help",			no_argument,		NULL, 'h' },
-	{ "nr_parameters",		no_argument,		NULL, 'p' },
-	{ "sizes",			no_argument,		NULL, 's' },
-	{ "nr_variables",		no_argument,		NULL, 'S' },
-	{ "variables",			no_argument,		NULL, 'T' },
-	{ "verbose",			no_argument,		NULL, 'V' },
-	{ NULL, 0, NULL, 0, }
-};
-
-static void usage(void)
-{
-	fprintf(stderr,
-		"usage: pfunct [options] <file_name> {<function_name>}\n"
-		" where: \n"
-		"   -c, --class=<class>               functions that have <class> "
-					             "pointer parameters\n"
-		"   -e, --externals		      show just external functions\n"
-		"   -g, --goto_labels                 show number of goto labels\n"
-		"   -G, --cc_uninlined		      declared inline, uninlined by compiler\n"
-		"   -H, --cc_inlined		      not declared inline, inlined by compiler\n"
-		"   -i, --inline_expansions           show inline expansions\n"
-		"   -I, --inline_expansions_stats     show inline expansions stats\n"
-		"   -t, --total_inline_stats	      show Multi-CU total inline "
-						     "expansions stats\n"
-		"   -s, --sizes                       show size of functions\n"
-		"   -N, --function_name_len           show size of functions\n"
-		"   -p, --nr_parameters               show number or parameters\n"
-		"   -S, --nr_variables                show number of variables\n"
-		"   -T, --variables                   show variables\n"
-		"   -V, --verbose                     be verbose\n");
-}
-
 static int function__has_parameter_of_type(const struct function *self,
 					   const struct class *target)
 {
@@ -315,6 +274,57 @@ static int function_iterator(struct function *function, void *cookie)
 static int cu_function_iterator(struct cu *cu, void *cookie)
 {
 	return cu__for_each_function(cu, function_iterator, cookie, NULL);
+}
+
+static struct option long_options[] = {
+	{ "class",			required_argument,	NULL, 'c' },
+	{ "externals",			no_argument,		NULL, 'e' },
+	{ "cc_inlined",			no_argument,		NULL, 'H' },
+	{ "cc_uninlined",		no_argument,		NULL, 'G' },
+	{ "function_name_len",		no_argument,		NULL, 'N' },
+	{ "goto_labels",		no_argument,		NULL, 'g' },
+	{ "inline_expansions",		no_argument,		NULL, 'i' },
+	{ "inline_expansions_stats",	no_argument,		NULL, 'I' },
+	{ "total_inline_stats",		no_argument,		NULL, 't' },
+	{ "help",			no_argument,		NULL, 'h' },
+	{ "nr_parameters",		no_argument,		NULL, 'p' },
+	{ "sizes",			no_argument,		NULL, 's' },
+	{ "nr_variables",		no_argument,		NULL, 'S' },
+	{ "variables",			no_argument,		NULL, 'T' },
+	{ "verbose",			no_argument,		NULL, 'V' },
+	{ NULL, 0, NULL, 0, }
+};
+
+static void usage(void)
+{
+	fprintf(stdout,
+		"usage: pfunct [options] <file_name> {<function_name>}\n"
+		" where: \n"
+		"   -c, --class=<class>               functions that have "
+						     "<class> pointer "
+						     "parameters\n"
+		"   -e, --externals		      show just external "
+						     "functions\n"
+		"   -g, --goto_labels                 show number of goto "
+						     "labels\n"
+		"   -G, --cc_uninlined		      declared inline, "
+						     "uninlined by compiler\n"
+		"   -H, --cc_inlined		      not declared inline, "
+						     "inlined by compiler\n"
+		"   -i, --inline_expansions           show inline expansions\n"
+		"   -I, --inline_expansions_stats     show inline expansions "
+						     "stats\n"
+		"   -t, --total_inline_stats	      show Multi-CU total "
+						     "inline expansions "
+						     "stats\n"
+		"   -s, --sizes                       show size of functions\n"
+		"   -N, --function_name_len           show size of functions\n"
+		"   -p, --nr_parameters               show number of "
+						     "parameters\n"
+		"   -S, --nr_variables                show number of "
+						     "variables\n"
+		"   -T, --variables                   show variables\n"
+		"   -V, --verbose                     be verbose\n");
 }
 
 int main(int argc, char *argv[])
