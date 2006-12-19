@@ -362,37 +362,34 @@ static uint64_t class__size(const struct class *self)
 
 const char *class__name(const struct class *self, char *bf, size_t len)
 {
-	if (self->tag.tag == DW_TAG_pointer_type) {
+	if (self == NULL)
+		strncpy(bf, "void", len);
+	else if (self->tag.tag == DW_TAG_pointer_type) {
 		if (self->tag.type == 0) /* No type == void */
 			strncpy(bf, "void *", len);
 		else {
 			struct class *ptr_class =
 					cu__find_class_by_id(self->cu,
 							     self->tag.type);
-			if (ptr_class != NULL) {
-				char ptr_class_name[128];
-				snprintf(bf, len, "%s *",
-					 class__name(ptr_class, ptr_class_name,
-						     sizeof(ptr_class_name)));
-			}
+			char ptr_class_name[128];
+			snprintf(bf, len, "%s *",
+				 class__name(ptr_class, ptr_class_name,
+					     sizeof(ptr_class_name)));
 		}
 	} else if (self->tag.tag == DW_TAG_volatile_type ||
 		   self->tag.tag == DW_TAG_const_type) {
 		struct class *vol_class = cu__find_class_by_id(self->cu,
 							       self->tag.type);
-		if (vol_class != NULL) {
-			char vol_class_name[128];
-			snprintf(bf, len, "%s %s ",
-				 self->tag.tag == DW_TAG_volatile_type ?
-					"volatile" : "const",
-				 class__name(vol_class, vol_class_name,
-					     sizeof(vol_class_name)));
-		}
+		char vol_class_name[128];
+		snprintf(bf, len, "%s %s ",
+			 self->tag.tag == DW_TAG_volatile_type ?
+				"volatile" : "const",
+			 class__name(vol_class, vol_class_name,
+				     sizeof(vol_class_name)));
 	} else if (self->tag.tag == DW_TAG_array_type) {
 		struct class *ptr_class = cu__find_class_by_id(self->cu,
 							       self->tag.type);
-		if (ptr_class != NULL)
-			return class__name(ptr_class, bf, len);
+		return class__name(ptr_class, bf, len);
 	} else
 		snprintf(bf, len, "%s%s", tag_name(self->cu, self->tag.tag),
 			 self->name ?: "");
@@ -405,8 +402,6 @@ const char *variable__type_name(const struct variable *self,
 	if (self->tag.type != 0) {
 		struct class *class = cu__find_class_by_id(self->cu,
 							   self->tag.type);
-		if (class == NULL)
-			return NULL;
 		return class__name(class, bf, len);
 	} else if (self->abstract_origin != 0) {
 		struct variable *var;
@@ -504,10 +499,8 @@ uint64_t class_member__names(const struct class_member *self,
 				     cu__find_class_by_id(self->class->cu,
 							  ptr_class->tag.type);
 
-					if (ret_class != NULL)
-						class__name(ret_class,
-							    class_name,
-							    class_name_size);
+					class__name(ret_class, class_name,
+						    class_name_size);
 				}
 				snprintf(member_name, member_name_size,
 					 "(*%s)();", self->name ?: "");
@@ -943,13 +936,8 @@ void function__print(const struct function *self, int show_stats,
 	struct parameter *pos;
 	int first_parameter = 1;
 
-	if (self->tag.type == 0)
-		type = "void";
-	else {
-		class_type = cu__find_class_by_id(self->cu, self->tag.type);
-		if (class_type != NULL)
-			type = class__name(class_type, bf, sizeof(bf));
-	}
+	class_type = cu__find_class_by_id(self->cu, self->tag.type);
+	type = class__name(class_type, bf, sizeof(bf));
 
 	printf("/* %s:%u */\n", self->tag.decl_file, self->tag.decl_line);
 	printf("%s%s %s(", function__declared_inline(self) ? "inline " : "",
@@ -961,8 +949,7 @@ void function__print(const struct function *self, int show_stats,
 			first_parameter = 0;
 		type = "<ERROR>";
 		class_type = cu__find_class_by_id(self->cu, pos->tag.type);
-		if (class_type != NULL)
-			type = class__name(class_type, bf, sizeof(bf));
+		type = class__name(class_type, bf, sizeof(bf));
 		printf("%s %s", type, pos->name ?: "");
 	}
 
