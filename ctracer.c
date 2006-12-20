@@ -21,7 +21,7 @@ static void method__add(struct cu *cu, struct function *function)
 static struct function *function__filter(struct function *function,
 					 void *cookie)
 {
-	if (function->name == NULL || function__inlined(function) ||
+	if (function__inlined(function) ||
 	    !function__has_parameter_of_type(function, cookie))
 		return NULL;
 
