@@ -25,6 +25,7 @@ struct cu {
 	struct list_head classes;
 	struct list_head functions;
 	struct list_head variables;
+	struct list_head tool_list;	/* To be used by tools such as ctracer */
 	const char	 *name;
 	unsigned short	 language;
 	unsigned int	 id;
@@ -96,6 +97,7 @@ struct function {
 	struct cu	 *cu;
 	struct lexblock	 lexblock;
 	struct list_head parameters;
+	struct list_head tool_node;	/* Node to be used by tools */
 	const char	 *name;
 	uint64_t	 low_pc;
 	uint64_t	 high_pc;

@@ -180,6 +180,7 @@ static struct cu *cu__new(unsigned int cu, const char *name)
 		INIT_LIST_HEAD(&self->classes);
 		INIT_LIST_HEAD(&self->functions);
 		INIT_LIST_HEAD(&self->variables);
+		INIT_LIST_HEAD(&self->tool_list);
 		self->name = strings__add(name);
 		self->nr_inline_expansions   = 0;
 		self->size_inline_expansions = 0;
