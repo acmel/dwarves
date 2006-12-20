@@ -66,7 +66,7 @@ static int function__emit_kprobes(const struct function *self,
 	char bf[128];
 	size_t bodyl = 2048, printed;
 	char body[bodyl], *bodyp = body;
-	struct class_member *pos;
+	struct parameter *pos;
 	struct class *type = cu__find_class_by_id(self->cu, self->tag.type);
 	const char *stype = class__name(type, bf, sizeof(bf));
 	int first = 1;
