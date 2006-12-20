@@ -66,24 +66,31 @@ static int function__emit_kprobes(const struct function *self,
 	char bf[128];
 	size_t bodyl = 2048, printed;
 	char body[bodyl], *bodyp = body;
+	char class_name[128], parm_name[256];
 	struct parameter *pos;
 	struct class *type = cu__find_class_by_id(self->cu, self->tag.type);
 	const char *stype = class__name(type, bf, sizeof(bf));
 	int first = 1;
 
 	body[0] = '\0';
+	/*
+	 * FIXME: how to handle enums, forward declarations doesn't help...
+	 */
+	if (type != NULL && type->tag.tag == DW_TAG_enumeration_type)
+		stype = "int";
 	printf("static %s jprobe_entry__%s(", stype, self->name);
 
 	list_for_each_entry(pos, &self->parameters, tag.node) {
 		type = cu__find_class_by_id(self->cu, pos->tag.type);
-		stype = class__name(type, bf, sizeof(bf));
+		parameter__names(pos, class_name, sizeof(class_name),
+				 parm_name, sizeof(parm_name));
 
 		if (!first)
 			fputs(", ", stdout);
 		else
 			first = 0;
 
-		printf("%s %s", stype, pos->name);
+		printf("%s %s", class_name, parm_name);
 
 		if (type->tag.tag != DW_TAG_pointer_type)
 			continue;
