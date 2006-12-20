@@ -224,4 +224,6 @@ extern const char *variable__type_name(const struct variable *self,
 
 extern const char *dwarf_tag_name(const unsigned int tag);
 
+extern int tag__fwd_decl(const struct cu *cu, const struct tag *tag);
+
 #endif /* _PAHOLE_CLASSES_H_ */

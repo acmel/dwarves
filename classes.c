@@ -226,6 +226,37 @@ static const char *tag_name(const struct cu *cu, const unsigned int tag)
 	return "";
 }
 
+int tag__fwd_decl(const struct cu *cu, const struct tag *tag)
+{
+	struct class *type = cu__find_class_by_id(cu, tag->type);
+
+	/* void ? */
+	if (type == NULL)
+		return 0;
+
+	if (type->tag.tag == DW_TAG_enumeration_type)
+		goto out;
+
+	if (type->tag.tag != DW_TAG_pointer_type)
+		return 0;
+
+next_indirection:
+	type = cu__find_class_by_id(cu, type->tag.type);
+	if (type != NULL && type->tag.tag == DW_TAG_pointer_type)
+		goto next_indirection;
+
+	if (type == NULL || type->tag.tag != DW_TAG_structure_type)
+		return 0;
+
+	if (type->visited)
+		return 0;
+out:
+	type->visited = 1;
+	printf("%s%s;\n", tag_name(cu, type->tag.tag), type->name);
+
+	return 1;
+}
+
 struct class *cu__find_class_by_name(const struct cu *self, const char *name)
 {
 	struct class *pos;
