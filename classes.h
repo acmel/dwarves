@@ -166,7 +166,8 @@ extern int	    cu__for_each_function(struct cu *cu,
 					  int (*iterator)(struct function *func,
 							  void *cookie),
 					  void *cookie,
-			struct function *(*filter)(struct function *function));
+			struct function *(*filter)(struct function *function,
+						   void *cookie));
 extern void	    cus__for_each_cu(struct cus *self,
 				     int (*iterator)(struct cu *cu,
 						     void *cookie),

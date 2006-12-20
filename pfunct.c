@@ -175,7 +175,8 @@ static void fn_stats__chkdupdef(const struct function *self,
 		putchar('\n');
 }
 
-static struct function *function__filter(struct function *function)
+static struct function *function__filter(struct function *function,
+					 void *cookie)
 {
 	struct fn_stats *fstats;
 

@@ -1191,7 +1191,8 @@ int cu__for_each_class(struct cu *self,
 int cu__for_each_function(struct cu *cu,
 			  int (*iterator)(struct function *func, void *cookie),
 			  void *cookie,
-			  struct function *(*filter)(struct function *function))
+			  struct function *(*filter)(struct function *function,
+				  		     void *cookie))
 {
 
 	struct function *pos;
@@ -1199,7 +1200,7 @@ int cu__for_each_function(struct cu *cu,
 	list_for_each_entry(pos, &cu->functions, tag.node) {
 		struct function *function = pos;
 		if (filter != NULL) {
-			function = filter(pos);
+			function = filter(pos, cookie);
 			if (function == NULL)
 				continue;
 		}
