@@ -5,3 +5,15 @@ Build instructions:
 3. cd build
 4. cmake ..
 5. make
+
+Known to work scenarios:
+
+Mandriva Cooker:
+
+cmake 2.4.5-1mdv2007.1
+libelfutils1-devel 0.123-1mdv2007.1
+
+Debian Unstable:
+
+cmake 2.4.5-1
+libdw-dev 0.123-2
