@@ -664,6 +664,25 @@ static struct function *function__new(uint64_t id, uint64_t type,
 	return self;
 }
 
+int function__has_parameter_of_type(const struct function *self,
+				    const struct class *target)
+{
+	struct class_member *pos;
+
+	list_for_each_entry(pos, &self->parameters, tag.node) {
+		struct class *class = cu__find_class_by_id(self->cu,
+							   pos->tag.type);
+
+		if (class != NULL && class->tag.tag == DW_TAG_pointer_type) {
+			class = cu__find_class_by_id(self->cu, class->tag.type);
+			if (class != NULL &&
+			    class->tag.id == target->tag.id)
+				return 1;
+		}
+	}
+	return 0;
+}
+
 static void function__add_parameter(struct function *self,
 				    struct parameter *parameter)
 {

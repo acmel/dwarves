@@ -217,25 +217,6 @@ static int cu_unique_iterator(struct cu *cu, void *cookie)
 				     function__filter);
 }
 
-static int function__has_parameter_of_type(const struct function *self,
-					   const struct class *target)
-{
-	struct class_member *pos;
-
-	list_for_each_entry(pos, &self->parameters, tag.node) {
-		struct class *class = cu__find_class_by_id(self->cu,
-							   pos->tag.type);
-
-		if (class != NULL && class->tag.tag == DW_TAG_pointer_type) {
-			class = cu__find_class_by_id(self->cu, class->tag.type);
-			if (class != NULL &&
-			    class->tag.id == target->tag.id)
-				return 1;
-		}
-	}
-	return 0;
-}
-
 static int class_iterator(struct function *function, void *cookie)
 {
 	if (function->inlined)

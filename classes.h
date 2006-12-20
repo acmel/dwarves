@@ -200,6 +200,9 @@ static inline int function__inlined(const struct function *self)
 	        self->inlined == DW_INL_declared_inlined);
 }
 
+extern int function__has_parameter_of_type(const struct function *self,
+					   const struct class *target);
+
 extern const char *class__name(const struct class *self, char *bf, size_t len);
 
 extern struct class_member *class__find_member_by_name(const struct class *self,
