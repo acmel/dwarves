@@ -261,7 +261,7 @@ static struct option long_options[] = {
 static void usage(void)
 {
 	fprintf(stderr,
-		"usage: pfunct [options] <file_name> {<function_name>}\n"
+		"usage: pahole [options] <file_name> {<function_name>}\n"
 		" where: \n"
 		"   -h, --help                   show usage info\n"
 		"   -B, --bit_holes <nr_holes>   show only structs at least <nr_holes> bit holes\n"
