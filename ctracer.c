@@ -99,6 +99,8 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node)
 		function__emit_kprobes(pos, target);
+
+	return 0;
 }
 
 static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
@@ -109,6 +111,8 @@ static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
 	list_for_each_entry(pos, &cu->tool_list, tool_node)
 		printf("\t&jprobe__%s,\n", pos->name);
 	puts("\tNULL,\n};\n");
+
+	return 0;
 }
 
 static void emit_module_preamble(void)
