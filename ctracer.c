@@ -45,6 +45,21 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 				     function__filter);
 }
 
+static int function__fwd_decl(const struct function *self)
+{
+	struct parameter *pos;
+	/* First check the function return type */
+	int printed = tag__fwd_decl(self->cu, &self->tag);
+
+	/* Then its parameters */
+	list_for_each_entry(pos, &self->parameters, tag.node)
+		if (tag__fwd_decl(self->cu, &pos->tag))
+			printed = 1;
+
+	if (printed)
+		putchar('\n');
+}
+
 static int function__emit_kprobes(const struct function *self,
 				  const struct class *target)
 {
@@ -97,8 +112,10 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 	struct class *target = cu__find_class_by_name(cu, cookie);
 	struct function *pos;
 
-	list_for_each_entry(pos, &cu->tool_list, tool_node)
+	list_for_each_entry(pos, &cu->tool_list, tool_node) {
+		function__fwd_decl(pos);
 		function__emit_kprobes(pos, target);
+	}
 
 	return 0;
 }
