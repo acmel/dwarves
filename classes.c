@@ -273,6 +273,9 @@ struct class *cu__find_class_by_id(const struct cu *self, const uint64_t id)
 {
 	struct class *pos;
 
+	if (id == 0)
+		return NULL;
+
 	list_for_each_entry(pos, &self->classes, tag.node)
 		if (pos->tag.id == id)
 			return pos;
