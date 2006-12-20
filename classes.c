@@ -568,6 +568,75 @@ out:
 	return size;
 }
 
+size_t parameter__names(const struct parameter *self,
+			char *class_name, size_t class_name_size,
+			char *parameter_name, size_t parameter_name_size)
+{
+	struct class *class = cu__find_class_by_id(self->function->cu,
+						   self->tag.type);
+	size_t size = -1;
+
+	snprintf(parameter_name, parameter_name_size, "%s", self->name ?: "");
+
+	if (class == NULL)
+		snprintf(class_name, class_name_size, "<%llx>",
+			 self->tag.type);
+	else {
+		if (class->tag.tag == DW_TAG_const_type)
+			class = cu__find_class_by_id(class->cu,
+						     class->tag.type);
+		size = class__size(class);
+
+		/* Is it a function pointer? */
+		if (class->tag.tag == DW_TAG_pointer_type) {
+			struct class *ptr_class =
+				   cu__find_class_by_id(self->function->cu,
+							class->tag.type);
+
+			if (ptr_class != NULL &&
+			    ptr_class->tag.tag == DW_TAG_subroutine_type) {
+				/* function has no return value (void) */
+				if (ptr_class->tag.type == 0)
+					snprintf(class_name,
+						 class_name_size, "void");
+				else {
+					struct class *ret_class =
+				     cu__find_class_by_id(self->function->cu,
+							  ptr_class->tag.type);
+
+					class__name(ret_class, class_name,
+						    class_name_size);
+				}
+				snprintf(parameter_name, parameter_name_size,
+					 "(*%s)(void /* FIXME: add "
+					 "parameter list */)",
+					 self->name ?: "");
+				goto out;
+			}
+		}
+
+		class__name(class, class_name, class_name_size);
+		if (class->tag.tag == DW_TAG_array_type) {
+			int i = 0;
+			size_t n = snprintf(parameter_name,
+					    parameter_name_size,
+					    "%s", self->name);
+			parameter_name += n;
+			parameter_name_size -= n;
+
+			for (i = 0; i < class->array.dimensions; ++i) {
+				n = snprintf(parameter_name,
+					     parameter_name_size, "[%u]",
+					     class->array.nr_entries[i]);
+				parameter_name += n;
+				parameter_name_size -= n;
+			}
+		}
+	}
+out:
+	return size;
+}
+
 static uint64_t class_member__print(struct class_member *self)
 {
 	uint64_t size;

@@ -226,4 +226,9 @@ extern const char *dwarf_tag_name(const unsigned int tag);
 
 extern int tag__fwd_decl(const struct cu *cu, const struct tag *tag);
 
+extern size_t parameter__names(const struct parameter *self,
+			       char *class_name, size_t class_name_size,
+			       char *parameter_name,
+			       size_t parameter_name_size);
+
 #endif /* _PAHOLE_CLASSES_H_ */
