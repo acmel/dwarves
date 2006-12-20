@@ -1,0 +1,22 @@
+Basic instructions to use ctracer:
+
+1. build the kernel with CONFIG_DEBUG_INFO=y, i.e. gcc -g, that will
+   insert the DWARF info needed by all the pahole tools, ctracer, etc.
+
+2. Run ctracer to generate the kprobes module:
+
+[acme@newtoy linux-2.6]$ ctracer fs/ext3/built-in.o inode > module.c
+
+3. build module.c following the instructions in Documentation/kprobes.txt
+
+4. load the resulting module, that will, as of now, just use printk, in the
+   future will use relayfs like blktrace does, but for now you'll get:
+
+[root@qemu ~]# dmesg | tail
+[32178.442056] ext3_init_block_alloc_info: inode=cf5fecdc
+[32178.455011] ext3_new_blocks: inode=cf5fecdc
+[32178.480993] ext3_discard_reservation: inode=cf5fecdc
+[32200.609075] ext3_free_blocks: inode=cf5fecdc
+[32200.620973] ext3_discard_reservation: inode=cf5fecdc
+[32200.624582] ext3_discard_reservation: inode=cf5fecdc
+[32368.284849] ext3_free_blocks: inode=cf6e15ec

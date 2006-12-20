@@ -14,6 +14,10 @@ SET(codiff_SRCS codiff.c)
 ADD_EXECUTABLE(codiff ${codiff_SRCS})
 TARGET_LINK_LIBRARIES(codiff classes ${DWARF_LIBRARIES})
 
+SET(ctracer_SRCS ctracer.c)
+ADD_EXECUTABLE(ctracer ${ctracer_SRCS})
+TARGET_LINK_LIBRARIES(ctracer classes ${DWARF_LIBRARIES})
+
 SET(pahole_SRCS pahole.c)
 ADD_EXECUTABLE(pahole ${pahole_SRCS})
 TARGET_LINK_LIBRARIES(pahole classes ${DWARF_LIBRARIES})
