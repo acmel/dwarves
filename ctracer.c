@@ -107,10 +107,8 @@ static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
 {
 	struct function *pos;
 
-	puts("static struct jprobe *jprobes[] = {");
 	list_for_each_entry(pos, &cu->tool_list, tool_node)
 		printf("\t&jprobe__%s,\n", pos->name);
-	puts("\tNULL,\n};\n");
 
 	return 0;
 }
@@ -210,7 +208,9 @@ int main(int argc, char *argv[])
 	emit_module_preamble();
 	cus__for_each_cu(cus, cu_find_methods_iterator, class_name, NULL);
 	cus__for_each_cu(cus, cu_emit_kprobes_iterator, class_name, NULL);
+	puts("static struct jprobe *jprobes[] = {");
 	cus__for_each_cu(cus, cu_emit_kprobes_table_iterator, NULL, NULL);
+	puts("\tNULL,\n};\n");
 	emit_module_init();
 	emit_module_exit();
 
