@@ -17,7 +17,6 @@
 
 struct cus {
 	struct list_head cus;
-	const char	 *filename;
 };
 
 struct cu {
@@ -146,8 +145,8 @@ extern void function__print(const struct function *self, int show_stats,
 			    const int show_variables,
 			    const int show_inline_expansions);
 
-extern struct cus   *cus__new(const char *filename);
-extern int	    cus__load(struct cus *self);
+extern struct cus   *cus__new(void);
+extern int	    cus__load(struct cus *self, const char *filename);
 extern struct cu    *cus__find_cu_by_name(const struct cus *self,
 					  const char *name);
 extern struct class *cu__find_class_by_id(const struct cu *cu,

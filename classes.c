@@ -1683,7 +1683,7 @@ next_sibling:
 		cu__process_die(dwarf, die, cu);
 }
 
-int cus__load(struct cus *self)
+int cus__load(struct cus *self, const char *filename)
 {
 	Dwarf_Off offset, last_offset, abbrev_offset;
 	uint8_t addr_size, offset_size;
@@ -1691,7 +1691,7 @@ int cus__load(struct cus *self)
 	size_t hdr_size;
 	Dwarf *dwarf;
 	int err = -1;
-	int fd = open(self->filename, O_RDONLY);	
+	int fd = open(filename, O_RDONLY);	
 
 	if (fd < 0)
 		goto out;
@@ -1729,14 +1729,12 @@ out:
 	return err;
 }
 
-struct cus *cus__new(const char *filename)
+struct cus *cus__new(void)
 {
 	struct cus *self = malloc(sizeof(*self));
 
-	if (self != NULL) {
+	if (self != NULL)
 		INIT_LIST_HEAD(&self->cus);
-		self->filename = strings__add(filename);
-	}
 
 	return self;
 }

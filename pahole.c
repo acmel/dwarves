@@ -322,13 +322,13 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	cus = cus__new(file_name);
+	cus = cus__new();
 	if (cus == NULL) {
 		fputs("pahole: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
 
-	if (cus__load(cus) != 0) {
+	if (cus__load(cus, file_name) != 0) {
 		fprintf(stderr, "pahole: couldn't load DWARF info from %s\n",
 		       file_name);
 		return EXIT_FAILURE;

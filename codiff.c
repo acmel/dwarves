@@ -434,20 +434,20 @@ int main(int argc, char *argv[])
 	    show_terse_type_changes == 0)
 		show_function_diffs = show_struct_diffs = 1;
 
-	old_cus = cus__new(old_filename);
-	new_cus = cus__new(new_filename);
+	old_cus = cus__new();
+	new_cus = cus__new();
 	if (old_cus == NULL || new_cus == NULL) {
 		fputs("codiff: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
 
-	if (cus__load(old_cus) != 0) {
+	if (cus__load(old_cus, old_filename) != 0) {
 		fprintf(stderr, "codiff: couldn't load DWARF info from %s\n",
 			old_filename);
 		return EXIT_FAILURE;
 	}
 
-	if (cus__load(new_cus) != 0) {
+	if (cus__load(new_cus, new_filename) != 0) {
 		fprintf(stderr, "codiff: couldn't load DWARF info from %s\n",
 			new_filename);
 		return EXIT_FAILURE;
