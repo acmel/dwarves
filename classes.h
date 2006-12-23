@@ -17,6 +17,8 @@
 
 struct cus {
 	struct list_head cus;
+	struct list_head definitions;
+	struct list_head fwd_decls;
 };
 
 struct cu {
@@ -50,6 +52,7 @@ struct class {
 	struct tag	 tag;
 	struct cu	 *cu;
 	struct list_head members;
+	struct list_head node;
 	const char	 *name;
 	uint64_t	 size;
 	struct {

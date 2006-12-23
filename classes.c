@@ -1840,8 +1840,11 @@ struct cus *cus__new(void)
 {
 	struct cus *self = malloc(sizeof(*self));
 
-	if (self != NULL)
+	if (self != NULL) {
 		INIT_LIST_HEAD(&self->cus);
+		INIT_LIST_HEAD(&self->definitions);
+		INIT_LIST_HEAD(&self->fwd_decls);
+	}
 
 	return self;
 }
