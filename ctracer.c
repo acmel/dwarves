@@ -165,7 +165,15 @@ static void emit_module_initcall(const char *fn)
 
 static void emit_module_exitcall(const char *fn)
 {
-	printf("int cleanup_module(void) __attribute__((alias(\"%s\")));\n", fn);
+	printf("int cleanup_module(void) __attribute__((alias(\"%s\")));\n\n", fn);
+}
+
+static void emit_module_license(const char *license)
+{
+	printf("static const char __mod_license[] "
+	       "__attribute__((__used__)) \n"
+	       "\t__attribute__((section(\".modinfo\"),unused)) = "
+	       "\"license=%s\";\n\n", license);
 }
 
 static void emit_module_init(void)
@@ -258,6 +266,7 @@ int main(int argc, char *argv[])
 	puts("\t(void *)0,\n};\n");
 	emit_module_init();
 	emit_module_exit();
+	emit_module_license("GPL");
 
 	return EXIT_SUCCESS;
 }
