@@ -315,6 +315,38 @@ struct cu *cus__find_cu_by_name(const struct cus *self, const char *name)
 	return NULL;
 }
 
+struct class *cus__find_definition(const struct cus *self, const char *name)
+{
+	struct class *pos;
+
+	list_for_each_entry(pos, &self->definitions, node)
+		if (strcmp(pos->name, name) == 0)
+			return pos;
+
+	return NULL;
+}
+
+struct class *cus__find_fwd_decl(const struct cus *self, const char *name)
+{
+	struct class *pos;
+
+	list_for_each_entry(pos, &self->fwd_decls, node)
+		if (strcmp(pos->name, name) == 0)
+			return pos;
+
+	return NULL;
+}
+
+static void cus__add_definition(struct cus *self, struct class *class)
+{
+	list_add_tail(&class->node, &self->definitions);
+}
+
+static void cus__add_fwd_decl(struct cus *self, struct class *class)
+{
+	list_add_tail(&class->node, &self->fwd_decls);
+}
+
 struct class *cu__find_class_by_id(const struct cu *self, const uint64_t id)
 {
 	struct class *pos;
