@@ -176,9 +176,7 @@ static void emit_module_exit(void)
 	       "		++i;\n"
 	       "	}\n\n"
 	       "}\n\n"
-	       "module_exit(jprobe_exit);\n\n"
-	       "MODULE_AUTHOR(\"ctracer\");\n"
-	       "MODULE_LICENSE(\"GPL\");\n");
+	       "module_exit(jprobe_exit);\n\n");
 }
 
 static struct option long_options[] = {
