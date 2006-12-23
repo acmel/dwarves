@@ -339,11 +339,13 @@ struct class *cus__find_fwd_decl(const struct cus *self, const char *name)
 
 static void cus__add_definition(struct cus *self, struct class *class)
 {
+	class->visited = 1;
 	list_add_tail(&class->node, &self->definitions);
 }
 
 static void cus__add_fwd_decl(struct cus *self, struct class *class)
 {
+	class->fwd_decl_emitted = 1;
 	list_add_tail(&class->node, &self->fwd_decls);
 }
 
