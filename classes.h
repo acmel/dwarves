@@ -69,6 +69,7 @@ struct class {
 	struct class	 *class_to_diff;
 	uint8_t		 declaration:1;
 	uint8_t		 visited:1;
+	uint8_t		 fwd_decl_emitted:1;
 };
 
 struct class_member {
@@ -156,6 +157,12 @@ extern struct cu    *cus__find_cu_by_name(const struct cus *self,
 					  const char *name);
 extern struct function *cus__find_function_by_name(const struct cus *self,
 						   const char *name);
+extern int cus__emit_function_definitions(struct cus *self,
+					  struct function *function);
+extern int cus__emit_struct_definitions(struct cus *self, struct class *class,
+					const char *prefix,
+					const char *suffix);
+
 extern struct class *cu__find_class_by_id(const struct cu *cu,
 					  const uint64_t type);
 extern struct class *cu__find_class_by_name(const struct cu *cu,

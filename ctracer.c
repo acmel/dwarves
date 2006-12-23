@@ -13,6 +13,8 @@
 
 #include "classes.h"
 
+static struct cus *cus;
+
 static void method__add(struct cu *cu, struct function *function)
 {
 	list_add(&function->tool_node, &cu->tool_list);
@@ -43,21 +45,6 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 
 	return cu__for_each_function(cu, find_methods_iterator, target,
 				     function__filter);
-}
-
-static int function__fwd_decl(const struct function *self)
-{
-	struct parameter *pos;
-	/* First check the function return type */
-	int printed = tag__fwd_decl(self->cu, &self->tag);
-
-	/* Then its parameters */
-	list_for_each_entry(pos, &self->parameters, tag.node)
-		if (tag__fwd_decl(self->cu, &pos->tag))
-			printed = 1;
-
-	if (printed)
-		putchar('\n');
 }
 
 static int function__emit_kprobes(const struct function *self,
@@ -120,7 +107,7 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
-		function__fwd_decl(pos);
+		cus__emit_function_definitions(cus, pos);
 		function__emit_kprobes(pos, target);
 	}
 
@@ -139,11 +126,36 @@ static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
 
 static void emit_module_preamble(void)
 {
-	puts("#include <linux/kernel.h>\n"
-	     "#include <linux/module.h>\n"
-	     "#include <linux/fs.h>\n"
-	     "#include <linux/uio.h>\n"
-	     "#include <linux/kprobes.h>\n");
+	struct class *c;
+	struct function *f;
+
+	f = cus__find_function_by_name(cus, "printk");
+	if (f != NULL) {
+		cus__emit_function_definitions(cus, f);
+		function__print(f, 0, 0, 0);
+		putchar('\n');
+	}
+	f = cus__find_function_by_name(cus, "register_jprobe");
+	if (f != NULL) {
+		cus__emit_function_definitions(cus, f);
+		function__print(f, 0, 0, 0);
+		putchar('\n');
+	}
+	f = cus__find_function_by_name(cus, "unregister_jprobe");
+	if (f != NULL) {
+		cus__emit_function_definitions(cus, f);
+		function__print(f, 0, 0, 0);
+		putchar('\n');
+	}
+	f = cus__find_function_by_name(cus, "jprobe_return");
+	if (f != NULL) {
+		cus__emit_function_definitions(cus, f);
+		function__print(f, 0, 0, 0);
+		putchar('\n');
+	}
+	c = cus__find_class_by_name(cus, "jprobe");
+	if (c != NULL)
+		cus__emit_struct_definitions(cus, c, NULL, NULL);
 }
 
 static void emit_module_init(void)
@@ -196,7 +208,6 @@ int main(int argc, char *argv[])
 {
 	int option, option_index;
 	const char *file_name;
-	struct cus *cus;
 	char *class_name = NULL;
 
 	while ((option = getopt_long(argc, argv, "h",

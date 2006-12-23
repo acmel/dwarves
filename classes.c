@@ -1895,3 +1895,159 @@ struct cus *cus__new(void)
 
 	return self;
 }
+
+const char *class__subroutine_ptr_mask(const struct class *self,
+				       char *bf, size_t len)
+{
+	char ret_type_name[128];
+
+	if (self->tag.type == 0)
+		snprintf(ret_type_name, sizeof(ret_type_name), "void");
+	else {
+		struct class *ret_class = cu__find_class_by_id(self->cu,
+							       self->tag.type);
+
+		class__name(ret_class, ret_type_name, sizeof(ret_type_name));
+	}
+	snprintf(bf, len, "%s (*%%s)(void /* FIXME: add parm list */)",
+		 ret_type_name);
+	return bf;
+}
+
+static int cus__emit_typedef_definitions(struct cus *self, struct class *class)
+{
+	struct class *type;
+	char bf[512];
+
+	/* Have we already emitted this in this CU? */
+	if (class->visited)
+		return 0;
+
+	/* Ok, lets look at the previous CUs: */
+	if (cus__find_definition(self, class->name) != NULL) {
+		/*
+		 * Yes, so lets mark it visited on this CU too,
+		 * to speed up the lookup.
+		 */
+		class->visited = 1;
+		return 0;
+	}
+	type = cu__find_class_by_id(class->cu, class->tag.type);
+
+	if (type->tag.tag == DW_TAG_typedef)
+		cus__emit_typedef_definitions(self, type);
+
+	switch (type->tag.tag) {
+	case DW_TAG_pointer_type: {
+		struct class *ptr_type = cu__find_class_by_id(type->cu, type->tag.type);
+		if (ptr_type->tag.tag == DW_TAG_subroutine_type) {
+			class__subroutine_ptr_mask(ptr_type, bf, sizeof(bf));
+			fputs("typedef ", stdout);
+			printf(bf, class->name);
+			puts(";");
+			goto out;
+		}
+		break;
+	}
+	case DW_TAG_structure_type:
+		cus__emit_struct_definitions(self, type,
+					     "typedef ", class->name);
+		goto out;
+	}
+	printf("typedef %s %s;\n", class__name(type, bf, sizeof(bf)),
+	       class->name);
+out:
+	cus__add_definition(self, class);
+	return 1;
+}
+
+static int cus__emit_fwd_decl(struct cus *self, struct class *class)
+{
+	struct class *type;
+	char bf[256];
+
+	/* Have we already emitted this in this CU? */
+	if (class->fwd_decl_emitted)
+		return 0;
+
+	/* Ok, lets look at the previous CUs: */
+	if (cus__find_fwd_decl(self, class->name) != NULL) {
+		/*
+		 * Yes, so lets mark it visited on this CU too,
+		 * to speed up the lookup.
+		 */
+		class->fwd_decl_emitted = 1;
+		return 0;
+	}
+
+	printf("struct %s;\n", class->name); 
+	cus__add_fwd_decl(self, class);
+	return 1;
+}
+
+static int cus__emit_tag_definitions(struct cus *self, struct cu *cu,
+				     struct tag *tag)
+{
+	struct class *type = cu__find_class_by_id(cu, tag->type);
+	int pointer = 0;
+
+	if (type == NULL)
+		return 0;
+next_indirection:
+	if (type->tag.tag == DW_TAG_pointer_type) {
+		pointer = 1;
+		type = cu__find_class_by_id(cu, type->tag.type);
+		if (type == NULL)
+			return 0;
+		goto next_indirection;
+	}
+
+	switch (type->tag.tag) {
+	case DW_TAG_typedef:
+		return cus__emit_typedef_definitions(self, type);
+	case DW_TAG_structure_type:
+		if (pointer)
+			return cus__emit_fwd_decl(self, type);
+		else
+			return cus__emit_struct_definitions(self, type,
+							    NULL, NULL);
+	}
+
+	return 0;
+}
+
+int cus__emit_function_definitions(struct cus *self,
+				   struct function *function)
+{
+	struct parameter *pos;
+	/* First check the function return type */
+	int printed = cus__emit_tag_definitions(self, function->cu, &function->tag);
+
+	/* Then its parameters */
+	list_for_each_entry(pos, &function->parameters, tag.node)
+		if (cus__emit_tag_definitions(self, function->cu, &pos->tag))
+			printed = 1;
+
+	if (printed)
+		putchar('\n');
+	return printed;
+}
+
+int cus__emit_struct_definitions(struct cus *self, struct class *class,
+				 const char *prefix, const char *suffix)
+{
+	struct class_member *pos;
+	int printed = 0;
+
+	list_for_each_entry(pos, &class->members, tag.node)
+		if (cus__emit_tag_definitions(self, class->cu, &pos->tag))
+			printed = 1;
+
+	if (printed)
+		putchar('\n');
+
+	class__find_holes(class);
+	class__print(class, prefix, suffix);
+	putchar('\n');
+	return 1;
+}
