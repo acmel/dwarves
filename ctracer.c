@@ -124,38 +124,28 @@ static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
+static void emit_function_defs(const char *fn)
+{
+	struct function *f = cus__find_function_by_name(cus, fn);
+
+	if (f != NULL) {
+		cus__emit_function_definitions(cus, f);
+		function__print(f, 0, 0, 0);
+		putchar('\n');
+	}
+}
+
 static void emit_module_preamble(void)
 {
-	struct class *c;
-	struct function *f;
+	struct class *c = cus__find_class_by_name(cus, "jprobe");
 
-	f = cus__find_function_by_name(cus, "printk");
-	if (f != NULL) {
-		cus__emit_function_definitions(cus, f);
-		function__print(f, 0, 0, 0);
-		putchar('\n');
-	}
-	f = cus__find_function_by_name(cus, "register_jprobe");
-	if (f != NULL) {
-		cus__emit_function_definitions(cus, f);
-		function__print(f, 0, 0, 0);
-		putchar('\n');
-	}
-	f = cus__find_function_by_name(cus, "unregister_jprobe");
-	if (f != NULL) {
-		cus__emit_function_definitions(cus, f);
-		function__print(f, 0, 0, 0);
-		putchar('\n');
-	}
-	f = cus__find_function_by_name(cus, "jprobe_return");
-	if (f != NULL) {
-		cus__emit_function_definitions(cus, f);
-		function__print(f, 0, 0, 0);
-		putchar('\n');
-	}
-	c = cus__find_class_by_name(cus, "jprobe");
 	if (c != NULL)
 		cus__emit_struct_definitions(cus, c, NULL, NULL);
+
+	emit_function_defs("printk");
+	emit_function_defs("register_jprobe");
+	emit_function_defs("unregister_jprobe");
+	emit_function_defs("jprobe_return");
 }
 
 static void emit_module_initcall(const char *fn)
