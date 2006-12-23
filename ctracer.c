@@ -109,7 +109,7 @@ static int function__emit_kprobes(const struct function *self,
 	       body, self->tag.type != 0 ? "\n\treturn 0;" : "");
 	printf("static struct jprobe jprobe__%s = {\n"
 	       "\t.kp = { .symbol_name = \"%s\", },\n"
-	       "\t.entry = JPROBE_ENTRY(jprobe_entry__%s),\n"
+	       "\t.entry = (kprobe_opcode_t *)jprobe_entry__%s,\n"
 	       "};\n\n", self->name, self->name, self->name);
 	return 0;
 }
