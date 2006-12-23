@@ -151,7 +151,7 @@ static void emit_module_init(void)
 	printf("static int __init jprobe_init(void)\n"
 	       "{\n"
 	       "	int i = 0;\n"
-	       "	while (jprobes[i] != NULL) {\n"
+	       "	while (jprobes[i] != (void *)0) {\n"
 	       "		int err = register_jprobe(jprobes[i]);\n"
 	       "		if (err != 0)\n"
 	       "			printk(\"register_jprobe(%%s) failed, "
@@ -169,7 +169,7 @@ static void emit_module_exit(void)
 	printf("static void __exit jprobe_exit(void)\n"
 	       "{\n"
 	       "	int i = 0;\n"
-	       "	while (jprobes[i] != NULL) {\n"
+	       "	while (jprobes[i] != (void *)0) {\n"
 	       "		unregister_jprobe(jprobes[i]);\n"
 	       "		++i;\n"
 	       "	}\n\n"
@@ -234,7 +234,7 @@ int main(int argc, char *argv[])
 	cus__for_each_cu(cus, cu_emit_kprobes_iterator, class_name, NULL);
 	puts("static struct jprobe *jprobes[] = {");
 	cus__for_each_cu(cus, cu_emit_kprobes_table_iterator, NULL, NULL);
-	puts("\tNULL,\n};\n");
+	puts("\t(void *)0,\n};\n");
 	emit_module_init();
 	emit_module_exit();
 
