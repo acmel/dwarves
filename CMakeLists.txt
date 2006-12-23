@@ -4,8 +4,9 @@ project(pahole)
 # before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
+SET(CMAKE_BUILD_TYPE debug)
+
 find_package(DWARF REQUIRED)
-SET(CMAKE_BUILD_TYPE Debug)
 
 SET(classes_LIB_SRCS classes.c)
 ADD_LIBRARY(classes SHARED ${classes_LIB_SRCS})
