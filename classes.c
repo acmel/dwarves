@@ -545,6 +545,24 @@ static int class_member__size(const struct class_member *self)
 	return class != NULL ? class__size(class) : -1;
 }
 
+const char *class__subroutine_ptr_mask(const struct class *self,
+				       char *bf, size_t len)
+{
+	char ret_type_name[128];
+
+	if (self->tag.type == 0)
+		snprintf(ret_type_name, sizeof(ret_type_name), "void");
+	else {
+		struct class *ret_class = cu__find_class_by_id(self->cu,
+							       self->tag.type);
+
+		class__name(ret_class, ret_type_name, sizeof(ret_type_name));
+	}
+	snprintf(bf, len, "%s (*%%s)(void /* FIXME: add parm list */)",
+		 ret_type_name);
+	return bf;
+}
+
 uint64_t class_member__names(const struct class_member *self,
 			     char *class_name, size_t class_name_size,
 			     char *member_name, size_t member_name_size)
@@ -1894,24 +1912,6 @@ struct cus *cus__new(void)
 	}
 
 	return self;
-}
-
-const char *class__subroutine_ptr_mask(const struct class *self,
-				       char *bf, size_t len)
-{
-	char ret_type_name[128];
-
-	if (self->tag.type == 0)
-		snprintf(ret_type_name, sizeof(ret_type_name), "void");
-	else {
-		struct class *ret_class = cu__find_class_by_id(self->cu,
-							       self->tag.type);
-
-		class__name(ret_class, ret_type_name, sizeof(ret_type_name));
-	}
-	snprintf(bf, len, "%s (*%%s)(void /* FIXME: add parm list */)",
-		 ret_type_name);
-	return bf;
 }
 
 static int cus__emit_typedef_definitions(struct cus *self, struct class *class)
