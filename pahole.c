@@ -90,7 +90,7 @@ static void class_name_len_formatter(const struct structure *self)
 
 static void class_formatter(const struct structure *self)
 {
-	class__print(self->class);
+	class__print(self->class, NULL, NULL);
 	printf("   /* definitions: %u */\n", self->nr_files);
 	putchar('\n');
 }
@@ -343,7 +343,7 @@ int main(int argc, char *argv[])
 			printf("struct %s not found!\n", class_name);
 			return EXIT_FAILURE;
 		}
-		class__print(s->class);
+		class__print(s->class, NULL, NULL);
 	} else
 		print_classes(formatter);
 

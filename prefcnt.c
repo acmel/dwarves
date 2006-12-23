@@ -134,7 +134,7 @@ static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 static int lost_iterator(struct class *class, void *cookie)
 {
 	if (class->refcnt == 0 && class->tag.decl_file != NULL)
-		class__print(class);
+		class__print(class, NULL, NULL);
 	return 0;
 }
 

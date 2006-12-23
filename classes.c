@@ -1132,7 +1132,8 @@ static int class__print_cacheline_boundary(uint32_t last_cacheline,
 	return cacheline;
 }
 
-static void class__print_struct(const struct class *self)
+static void class__print_struct(const struct class *self,
+				const char *prefix, const char *suffix)
 {
 	unsigned long sum = 0;
 	unsigned long sum_holes = 0;
@@ -1145,7 +1146,8 @@ static void class__print_struct(const struct class *self)
 	uint8_t newline = 0;
 	unsigned int sum_bit_holes = 0;
 
-	printf("%s {\n", class__name(self, name, sizeof(name)));
+	printf("%s%s {\n", prefix ? : "",
+	       class__name(self, name, sizeof(name)));
 	list_for_each_entry(pos, &self->members, tag.node) {
 		const int cc_last_size = pos->offset - last_offset;
 
@@ -1234,7 +1236,8 @@ static void class__print_struct(const struct class *self)
 	class__print_cacheline_boundary(last_cacheline, sum, sum_holes,
 					&newline);
 
-	printf("}; /* size: %llu, cachelines: %llu */\n", self->size,
+	printf("}%s; /* size: %llu, cachelines: %llu */\n",
+	       suffix ?: "", self->size,
 	       (self->size + cacheline_size - 1) / cacheline_size);
 	if (sum_holes > 0)
 		printf("   /* sum members: %lu, holes: %d, sum holes: %lu */\n",
@@ -1257,13 +1260,14 @@ static void class__print_struct(const struct class *self)
 		       self->size - (sum + sum_holes));
 }
 
-void class__print(const struct class *self)
+void class__print(const struct class *self,
+		  const char *prefix, const char *suffix)
 {
 	printf("/* %s:%u */\n", self->tag.decl_file, self->tag.decl_line);
 
 	switch (self->tag.tag) {
 	case DW_TAG_structure_type:
-		class__print_struct(self);
+		class__print_struct(self, prefix, suffix);
 		break;
 	default:
 		printf("%s%s;\n", tag_name(self->cu, self->tag.tag),
