@@ -154,6 +154,8 @@ extern struct cus   *cus__new(void);
 extern int	    cus__load(struct cus *self, const char *filename);
 extern struct cu    *cus__find_cu_by_name(const struct cus *self,
 					  const char *name);
+extern struct function *cus__find_function_by_name(const struct cus *self,
+						   const char *name);
 extern struct class *cu__find_class_by_id(const struct cu *cu,
 					  const uint64_t type);
 extern struct class *cu__find_class_by_name(const struct cu *cu,

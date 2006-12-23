@@ -289,6 +289,21 @@ struct class *cus__find_class_by_name(const struct cus *self, const char *name)
 	return NULL;
 }
 
+struct function *cus__find_function_by_name(const struct cus *self,
+					    const char *name)
+{
+	struct cu *pos;
+
+	list_for_each_entry(pos, &self->cus, node) {
+		struct function *function = cu__find_function_by_name(pos, name);
+
+		if (function != NULL)
+			return function;
+	}
+
+	return NULL;
+}
+
 struct cu *cus__find_cu_by_name(const struct cus *self, const char *name)
 {
 	struct cu *pos;
