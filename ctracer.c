@@ -148,7 +148,8 @@ static void emit_module_preamble(void)
 
 static void emit_module_init(void)
 {
-	printf("static int __init jprobe_init(void)\n"
+	printf("static int __attribute__ "
+	       "((__section__ (\".init.text\"))) jprobe_init(void)\n"
 	       "{\n"
 	       "	int i = 0;\n"
 	       "	while (jprobes[i] != (void *)0) {\n"
@@ -166,7 +167,8 @@ static void emit_module_init(void)
 
 static void emit_module_exit(void)
 {
-	printf("static void __exit jprobe_exit(void)\n"
+	printf("static void __attribute__ "
+	       "((__section__ (\".exit.text\"))) jprobe_exit(void)\n"
 	       "{\n"
 	       "	int i = 0;\n"
 	       "	while (jprobes[i] != (void *)0) {\n"
