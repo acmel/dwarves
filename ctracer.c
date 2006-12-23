@@ -158,6 +158,16 @@ static void emit_module_preamble(void)
 		cus__emit_struct_definitions(cus, c, NULL, NULL);
 }
 
+static void emit_module_initcall(const char *fn)
+{
+	printf("int init_module(void) __attribute__((alias(\"%s\")));\n\n", fn);
+}
+
+static void emit_module_exitcall(const char *fn)
+{
+	printf("int cleanup_module(void) __attribute__((alias(\"%s\")));\n", fn);
+}
+
 static void emit_module_init(void)
 {
 	printf("static int __attribute__ "
@@ -173,8 +183,8 @@ static void emit_module_init(void)
 	       "		++i;\n"
 	       "	}\n\n"
 	       "        return 0;\n"
-	       "}\n\n"
-	       "module_init(jprobe_init);\n\n");
+	       "}\n\n");
+	emit_module_initcall("jprobe_init");
 }
 
 static void emit_module_exit(void)
@@ -187,8 +197,8 @@ static void emit_module_exit(void)
 	       "		unregister_jprobe(jprobes[i]);\n"
 	       "		++i;\n"
 	       "	}\n\n"
-	       "}\n\n"
-	       "module_exit(jprobe_exit);\n\n");
+	       "}\n\n");
+	emit_module_exitcall("jprobe_exit");
 }
 
 static struct option long_options[] = {
