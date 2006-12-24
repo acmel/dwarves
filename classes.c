@@ -319,8 +319,11 @@ struct class *cus__find_definition(const struct cus *self, const char *name)
 {
 	struct class *pos;
 
+	if (name == NULL)
+		return NULL;
+
 	list_for_each_entry(pos, &self->definitions, node)
-		if (strcmp(pos->name, name) == 0)
+		if (pos->name != NULL && strcmp(pos->name, name) == 0)
 			return pos;
 
 	return NULL;
