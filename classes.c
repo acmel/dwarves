@@ -1306,7 +1306,6 @@ static void class__print_struct(const struct class *self,
 	unsigned long sum = 0;
 	unsigned long sum_holes = 0;
 	struct class_member *pos;
-	char name[128];
 	uint64_t last_size = 0, size;
 	unsigned int last_cacheline = 0;
 	int last_bit_size = 0;
@@ -1314,8 +1313,8 @@ static void class__print_struct(const struct class *self,
 	uint8_t newline = 0;
 	unsigned int sum_bit_holes = 0;
 
-	printf("%s%s {\n", prefix ? : "",
-	       class__name(self, name, sizeof(name)));
+	printf("%s%sstruct%s%s {\n", prefix ?: "", prefix ? " " : "",
+	       self->name ? " " : "", self->name ?: "");
 	list_for_each_entry(pos, &self->members, tag.node) {
 		const int cc_last_size = pos->offset - last_offset;
 
@@ -1404,8 +1403,8 @@ static void class__print_struct(const struct class *self,
 	class__print_cacheline_boundary(last_cacheline, sum, sum_holes,
 					&newline);
 
-	printf("}%s; /* size: %llu, cachelines: %llu */\n",
-	       suffix ?: "", self->size,
+	printf("}%s%s; /* size: %llu, cachelines: %llu */\n",
+	       suffix ? " ": "", suffix ?: "", self->size,
 	       (self->size + cacheline_size - 1) / cacheline_size);
 	if (sum_holes > 0)
 		printf("   /* sum members: %lu, holes: %d, sum holes: %lu */\n",
@@ -2113,7 +2112,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct class *class)
 	case DW_TAG_structure_type:
 		if (type->name == NULL)
 			cus__emit_struct_definitions(self, type,
-						     "typedef ", class->name);
+						     "typedef", class->name);
 		else
 			printf("typedef struct %s %s;\n",
 			       type->name, class->name);
