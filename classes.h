@@ -42,7 +42,7 @@ struct cu {
 
 struct tag {
 	struct list_head node;
-	uint64_t	 type;
+	Dwarf_Off	 type;
 	Dwarf_Off	 id;
 	uint16_t	 tag;
 	uint16_t	 decl_line;
@@ -172,7 +172,7 @@ extern int cus__emit_struct_definitions(struct cus *self, struct class *class,
 extern int cus__emit_fwd_decl(struct cus *self, struct class *class);
 
 extern struct class *cu__find_class_by_id(const struct cu *cu,
-					  const uint64_t type);
+					  const Dwarf_Off type);
 extern struct class *cu__find_class_by_name(const struct cu *cu,
 					    const char *name);
 extern int	    class__is_struct(const struct class *self,

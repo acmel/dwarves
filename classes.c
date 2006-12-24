@@ -141,7 +141,7 @@ static char *strings__add(const char *str)
 }
 
 static void tag__init(struct tag *self, uint16_t tag,
-		      Dwarf_Off id, uint64_t type,
+		      Dwarf_Off id, Dwarf_Off type,
 		      const char *decl_file, uint32_t decl_line)
 {
 	self->tag	= tag;
@@ -195,7 +195,7 @@ static void enumeration__print(const struct class *self, const char *suffix,
 	printf("%s\n", bf);
 }
 
-static struct enumerator *enumerator__new(Dwarf_Off id, uint64_t type,
+static struct enumerator *enumerator__new(Dwarf_Off id, Dwarf_Off type,
 					  const char *decl_file,
 					  uint32_t decl_line,
 					  const char *name, uint32_t value)
@@ -214,7 +214,7 @@ static struct enumerator *enumerator__new(Dwarf_Off id, uint64_t type,
 }
 
 static struct variable *variable__new(const char *name, Dwarf_Off id,
-				      uint64_t type,
+				      Dwarf_Off type,
 				      const char *decl_file,
 				      uint32_t decl_line,
 				      uint64_t abstract_origin)
@@ -585,7 +585,7 @@ const char *variable__name(const struct variable *self)
 
 static struct class_member *class_member__new(Dwarf_Off id,
 					      uint16_t tag,
-					      uint64_t type,
+					      Dwarf_Off type,
 					      const char *decl_file,
 					      uint32_t decl_line,
 					      const char *name,
@@ -816,7 +816,7 @@ out:
 	return size;
 }
 
-static struct parameter *parameter__new(Dwarf_Off id, uint64_t type,
+static struct parameter *parameter__new(Dwarf_Off id, Dwarf_Off type,
 					const char *decl_file,
 					uint32_t decl_line,
 					const char *name)
@@ -833,7 +833,7 @@ static struct parameter *parameter__new(Dwarf_Off id, uint64_t type,
 }
 
 static struct inline_expansion *inline_expansion__new(Dwarf_Off id,
-						      uint64_t type,
+						      Dwarf_Off type,
 						      const char *decl_file,
 						      uint32_t decl_line,
 						      uint32_t size)
@@ -849,7 +849,7 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Off id,
 	return self;
 }
 
-static struct label *label__new(Dwarf_Off id, uint64_t type,
+static struct label *label__new(Dwarf_Off id, Dwarf_Off type,
 				const char *decl_file, uint32_t decl_line,
 				const char *name, uint64_t low_pc)
 {
@@ -866,7 +866,7 @@ static struct label *label__new(Dwarf_Off id, uint64_t type,
 }
 
 static struct class *class__new(const unsigned int tag,
-				Dwarf_Off id, uint64_t type,
+				Dwarf_Off id, Dwarf_Off type,
 				const char *name, uint64_t size,
 				const char *decl_file, unsigned int decl_line,
 				unsigned char declaration)
@@ -910,7 +910,7 @@ static void lexblock__init(struct lexblock *self)
 		self->nr_inline_expansions = 0;
 }
 
-static struct function *function__new(Dwarf_Off id, uint64_t type,
+static struct function *function__new(Dwarf_Off id, Dwarf_Off type,
 				      const char *decl_file,
 				      unsigned int decl_line,
 				      const char *name,
@@ -1639,7 +1639,7 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die,
 
 static void cu__create_new_class(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 				 unsigned int tag, Dwarf_Off cu_offset,
-				 const char *name, uint64_t type,
+				 const char *name, Dwarf_Off type,
 				 const char *decl_file, int decl_line)
 {
 	Dwarf_Die child;
@@ -1655,7 +1655,7 @@ static void cu__create_new_class(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 }
 
 static void cu__create_new_array(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
-				 Dwarf_Off cu_offset, uint64_t type,
+				 Dwarf_Off cu_offset, Dwarf_Off type,
 				 const char *decl_file, int decl_line)
 {
 	Dwarf_Die child;
@@ -1708,7 +1708,7 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
 	Dwarf_Off cu_offset;
 	Dwarf_Attribute attr_name;
 	const char *decl_file, *name;
-	uint64_t type;
+	Dwarf_Off type;
 	int decl_line = 0;
 	unsigned int tag = dwarf_tag(die);
 
@@ -1776,7 +1776,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 	const char *decl_file;
 	int decl_line = 0;
 	const char *name;
-	uint64_t type;
+	Dwarf_Off type;
 	unsigned int tag = dwarf_tag(die);
 
 	if (tag == DW_TAG_invalid)
@@ -1837,7 +1837,8 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 	case DW_TAG_inlined_subroutine: {
 		Dwarf_Addr high_pc, low_pc;
 		Dwarf_Attribute attr_call_file;
-		const uint64_t type = attr_numeric(die, DW_AT_abstract_origin);
+		const Dwarf_Off type = attr_numeric(die,
+						    DW_AT_abstract_origin);
 		struct inline_expansion *exp;
 		uint32_t size;
 
@@ -1887,7 +1888,7 @@ next_sibling:
 }
 
 static void cu__create_new_enumeration(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
-				       Dwarf_Off cu_offset, uint64_t type,
+				       Dwarf_Off cu_offset, Dwarf_Off type,
 				       const char *decl_file, int decl_line,
 				       const char *name)
 {
@@ -1913,7 +1914,7 @@ static void cu__create_new_enumeration(Dwarf *dwarf, Dwarf_Die *die, struct cu *
 		uint32_t decl_line;
 		const uint16_t tag    = dwarf_tag(die);
 		const Dwarf_Off id    = dwarf_cuoffset(die);
-		const uint64_t type   = attr_numeric(die, DW_AT_type);
+		const Dwarf_Off type  = attr_numeric(die, DW_AT_type);
 		const uint32_t value  = attr_numeric(die, DW_AT_const_value);
 		const char *decl_file = dwarf_decl_file(die);
 		const char *name      = attr_string(die, DW_AT_name,
@@ -1944,7 +1945,7 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 	const char *decl_file;
 	int decl_line = 0;
 	const char *name;
-	uint64_t type;
+	Dwarf_Off type;
 	unsigned int tag = dwarf_tag(die);
 
 	if (tag == DW_TAG_invalid)
