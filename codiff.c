@@ -174,11 +174,16 @@ static void diff_struct(const struct cu *new_cu, struct class *structure)
 
 	assert(structure->tag.tag == DW_TAG_structure_type);
 
-	if (structure->size == 0)
+	if (structure->size == 0 || structure->name == NULL)
 		return;
 
 	new_structure = cu__find_class_by_name(new_cu, structure->name);
-	if (new_structure == NULL || new_structure->size == 0)
+	if (new_structure == NULL) {
+		structure->diff = 1;
+		goto out;
+	}
+
+	if (new_structure->size == 0)
 		return;
 
 	assert(new_structure->tag.tag == DW_TAG_structure_type);
@@ -189,6 +194,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure)
 					  	      new_structure, 0);
 	if (!structure->diff)
 		return;
+out:
 	++structure->cu->nr_structures_changed;
 	len = strlen(structure->name) + sizeof("struct");
 	if (len > structure->cu->max_len_changed_item)
@@ -232,13 +238,36 @@ static int find_new_functions_iterator(struct function *function, void *old_cu)
 	return 0;
 }
 
+static int find_new_classes_iterator(struct class *class, void *old_cu)
+{
+	size_t len;
+
+	if (class->tag.tag != DW_TAG_structure_type || class->name == NULL)
+		return 0;
+
+	if (class->size == 0)
+		return 0;
+
+	if (cu__find_class_by_name(old_cu, class->name) != NULL)
+		return 0;
+
+	class->diff = 1;
+	++class->cu->nr_structures_changed;
+
+	len = strlen(class->name) + sizeof("struct");
+	if (len > class->cu->max_len_changed_item)
+		class->cu->max_len_changed_item = len;
+	class->class_to_diff = NULL;
+	return 0;
+}
+
 static int cu_find_new_classes_iterator(struct cu *new_cu, void *old_cus)
 {
 	struct cu *old_cu = cus__find_cu_by_name(old_cus, new_cu->name);
 
 	if (old_cu != NULL) {
-		//cu__for_each_class(new_cu, diff_class_iterator,
-		//		     old_cu, NULL);
+		cu__for_each_class(new_cu, find_new_classes_iterator,
+				   old_cu, NULL);
 		cu__for_each_function(new_cu, find_new_functions_iterator,
 				      old_cu, NULL);
 	}
@@ -335,7 +364,7 @@ static void print_terse_type_changes(const struct class *structure)
 static void show_diffs_structure(const struct class *structure)
 {
 	const struct class *new_structure = structure->class_to_diff;
-	int diff = new_structure->size - structure->size;
+	int diff = (new_structure != NULL ? new_structure->size : 0) - structure->size;
 
 	terse_type_changes = 0;
 
@@ -351,15 +380,20 @@ static void show_diffs_structure(const struct class *structure)
 	if (!verbose && !show_terse_type_changes)
 		return;
 
-	diff = new_structure->nr_members - structure->nr_members;
+	if (new_structure == NULL)
+		diff = -structure->nr_members;
+	else
+		diff = new_structure->nr_members - structure->nr_members;
 	if (diff != 0) {
 		terse_type_changes |= TCHANGEF__NR_MEMBERS;
 		if (!show_terse_type_changes) {
 			printf("   nr_members: %+d\n", diff);
-			show_nr_members_changes(structure, new_structure);
+			if (new_structure != NULL)
+				show_nr_members_changes(structure, new_structure);
 		}
 	}
-	check_print_members_changes(structure, new_structure, 1);
+	if (new_structure != NULL)
+		check_print_members_changes(structure, new_structure, 1);
 	if (show_terse_type_changes)
 		print_terse_type_changes(structure);
 }
