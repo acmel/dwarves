@@ -672,7 +672,8 @@ uint64_t class_member__names(const struct class *type,
 						    class_name_size);
 				}
 				snprintf(member_name, member_name_size,
-					 "(*%s)();", self->name ?: "");
+					 "(*%s)(void /* FIXME: add parm list */);",
+					 self->name ?: "");
 				goto out;
 			}
 		}
