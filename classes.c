@@ -1970,7 +1970,7 @@ out:
 	return 1;
 }
 
-static int cus__emit_fwd_decl(struct cus *self, struct class *class)
+int cus__emit_fwd_decl(struct cus *self, struct class *class)
 {
 	struct class *type;
 	char bf[256];

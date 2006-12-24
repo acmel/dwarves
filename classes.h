@@ -162,6 +162,7 @@ extern int cus__emit_function_definitions(struct cus *self,
 extern int cus__emit_struct_definitions(struct cus *self, struct class *class,
 					const char *prefix,
 					const char *suffix);
+extern int cus__emit_fwd_decl(struct cus *self, struct class *class);
 
 extern struct class *cu__find_class_by_id(const struct cu *cu,
 					  const uint64_t type);
