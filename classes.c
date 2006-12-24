@@ -614,8 +614,8 @@ static int class_member__size(const struct class_member *self)
 	return class != NULL ? class__size(class) : -1;
 }
 
-const char *class__subroutine_ptr_mask(const struct class *self,
-				       char *bf, size_t len)
+const char *class__subroutine_mask(const struct class *self,
+				   char *bf, size_t len, int is_pointer)
 {
 	char ret_type_name[128];
 
@@ -627,8 +627,8 @@ const char *class__subroutine_ptr_mask(const struct class *self,
 
 		class__name(ret_class, ret_type_name, sizeof(ret_type_name));
 	}
-	snprintf(bf, len, "%s (*%%s)(void /* FIXME: add parm list */)",
-		 ret_type_name);
+	snprintf(bf, len, "%s (%s%%s)(void /* FIXME: add parm list */)",
+		 ret_type_name, is_pointer ? "*" : "");
 	return bf;
 }
 
@@ -2073,7 +2073,8 @@ struct cus *cus__new(void)
 
 static int cus__emit_typedef_definitions(struct cus *self, struct class *class)
 {
-	struct class *type;
+	struct class *type, *ptr_type;
+	int is_pointer = 0;
 	char bf[512];
 
 	/* Have we already emitted this in this CU? */
@@ -2095,17 +2096,19 @@ static int cus__emit_typedef_definitions(struct cus *self, struct class *class)
 		cus__emit_typedef_definitions(self, type);
 
 	switch (type->tag.tag) {
-	case DW_TAG_pointer_type: {
-		struct class *ptr_type = cu__find_class_by_id(type->cu, type->tag.type);
-		if (ptr_type->tag.tag == DW_TAG_subroutine_type) {
-			class__subroutine_ptr_mask(ptr_type, bf, sizeof(bf));
-			fputs("typedef ", stdout);
-			printf(bf, class->name);
-			puts(";");
-			goto out;
-		}
-		break;
-	}
+	case DW_TAG_pointer_type:
+		ptr_type = cu__find_class_by_id(type->cu, type->tag.type);
+		if (ptr_type->tag.tag != DW_TAG_subroutine_type)
+			break;
+		type = ptr_type;
+		is_pointer = 1;
+		/* Fall thru */
+	case DW_TAG_subroutine_type:
+		class__subroutine_mask(type, bf, sizeof(bf), is_pointer);
+		fputs("typedef ", stdout);
+		printf(bf, class->name);
+		puts(";");
+		goto out;
 	case DW_TAG_structure_type:
 		cus__emit_struct_definitions(self, type,
 					     "typedef ", class->name);
