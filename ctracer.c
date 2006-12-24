@@ -87,7 +87,7 @@ static int function__emit_kprobes(const struct function *self,
 			continue;
 
 		printed = snprintf(bodyp, bodyl,
-				   "\tprintk(\"%s: %s=%%p\\n\", %s);\n",
+				   "\tprintk(\"-> %s: %s=%%p\\n\", %s);\n",
 				   self->name, pos->name, pos->name);
 		bodyp += printed;
 		bodyl -= printed;
@@ -124,6 +124,41 @@ static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
+static int function__emit_kretprobes(const struct function *self)
+{
+	printf("static int kretprobe_handler__%s(struct kretprobe_instance *ri, "
+	       "struct pt_regs *regs)\n"
+	       "{\n"
+	       "\tprintk(\"<- %s\\n\");\n"
+	       "\treturn 0;\n"
+	       "}\n\n", self->name, self->name);
+	printf("static struct kretprobe kretprobe__%s = {\n"
+	       "\t.kp = { .symbol_name = \"%s\", },\n"
+	       "\t.handler = (kretprobe_handler_t)kretprobe_handler__%s,\n"
+	       "\t.maxactive = -1,\n\n"
+	       "};", self->name, self->name, self->name);
+}
+
+static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie)
+{
+	struct function *pos;
+
+	list_for_each_entry(pos, &cu->tool_list, tool_node)
+		function__emit_kretprobes(pos);
+
+	return 0;
+}
+
+static int cu_emit_kretprobes_table_iterator(struct cu *cu, void *cookie)
+{
+	struct function *pos;
+
+	list_for_each_entry(pos, &cu->tool_list, tool_node)
+		printf("\t&kretprobe__%s,\n", pos->name);
+
+	return 0;
+}
+
 static void emit_function_defs(const char *fn)
 {
 	struct function *f = cus__find_function_by_name(cus, fn);
@@ -138,13 +173,26 @@ static void emit_function_defs(const char *fn)
 static void emit_module_preamble(void)
 {
 	struct class *c = cus__find_class_by_name(cus, "jprobe");
-
 	if (c != NULL)
 		cus__emit_struct_definitions(cus, c, NULL, NULL);
+
+	c = cus__find_class_by_name(cus, "kretprobe");
+	if (c != NULL)
+		cus__emit_struct_definitions(cus, c, NULL, NULL);
+
+	c = cus__find_class_by_name(cus, "pt_regs");
+	if (c != NULL)
+		cus__emit_fwd_decl(cus, c);
+
+	c = cus__find_class_by_name(cus, "kretprobe_instance");
+	if (c != NULL)
+		cus__emit_fwd_decl(cus, c);
 
 	emit_function_defs("printk");
 	emit_function_defs("register_jprobe");
 	emit_function_defs("unregister_jprobe");
+	emit_function_defs("register_kretprobe");
+	emit_function_defs("unregister_kretprobe");
 	emit_function_defs("jprobe_return");
 }
 
@@ -171,7 +219,7 @@ static void emit_module_init(void)
 	printf("static int __attribute__ "
 	       "((__section__ (\".init.text\"))) jprobe_init(void)\n"
 	       "{\n"
-	       "	unsigned int i = 0, n = 0;\n"
+	       "	unsigned int i = 0, nj = 0, nr = 0;\n"
 	       "	while (jprobes[i] != (void *)0) {\n"
 	       "		int err = register_jprobe(jprobes[i]);\n"
 	       "		if (err != 0)\n"
@@ -179,10 +227,18 @@ static void emit_module_init(void)
 					        "returned %%d\\n\",\n"
 	       "			       jprobes[i]->kp.symbol_name, err);\n"
 	       "		else\n"
-	       "			++n;\n"
+	       "			++nj;\n"
+	       "		err = register_kretprobe(kretprobes[i]);\n"
+	       "		if (err != 0)\n"
+	       "			printk(\"register_kretprobe(%%s) failed, "
+					        "returned %%d\\n\",\n"
+	       "			       kretprobes[i]->kp.symbol_name, err);\n"
+	       "		else\n"
+	       "			++nr;\n"
 	       "		++i;\n"
 	       "	}\n\n"
-	       "	printk(\"ctracer: registered %%u probes\\n\", n);\n"
+	       "	printk(\"ctracer: registered %%u entry probes\\n\", nj);\n"
+	       "	printk(\"ctracer: registered %%u exit probes\\n\", nr);\n"
 	       "\n"
 	       "        return 0;\n"
 	       "}\n\n");
@@ -197,6 +253,7 @@ static void emit_module_exit(void)
 	       "	int i = 0;\n"
 	       "	while (jprobes[i] != (void *)0) {\n"
 	       "		unregister_jprobe(jprobes[i]);\n"
+	       "		unregister_kretprobe(kretprobes[i]);\n"
 	       "		++i;\n"
 	       "	}\n\n"
 	       "}\n\n");
@@ -255,9 +312,13 @@ int main(int argc, char *argv[])
 	emit_module_preamble();
 	cus__for_each_cu(cus, cu_find_methods_iterator, class_name, NULL);
 	cus__for_each_cu(cus, cu_emit_kprobes_iterator, class_name, NULL);
+	cus__for_each_cu(cus, cu_emit_kretprobes_iterator, NULL, NULL);
 	puts("static struct jprobe *jprobes[] = {");
 	cus__for_each_cu(cus, cu_emit_kprobes_table_iterator, NULL, NULL);
 	puts("\t(void *)0,\n};\n");
+	puts("static struct kretprobe *kretprobes[] = {");
+	cus__for_each_cu(cus, cu_emit_kretprobes_table_iterator, NULL, NULL);
+	puts("\t(void *)0,\n};\n\n");
 	emit_module_init();
 	emit_module_exit();
 	emit_module_license("GPL");
