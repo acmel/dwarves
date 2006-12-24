@@ -2173,6 +2173,7 @@ static int cus__emit_tag_definitions(struct cus *self, struct cu *cu,
 		return 0;
 next_indirection:
 	if (type->tag.tag == DW_TAG_pointer_type ||
+	    type->tag.tag == DW_TAG_array_type ||
 	    type->tag.tag == DW_TAG_const_type ||
 	    type->tag.tag == DW_TAG_volatile_type) {
 		pointer = 1;
