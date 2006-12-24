@@ -166,23 +166,27 @@ static void emit_function_defs(const char *fn)
 	}
 }
 
+static void emit_struct_defs(const char *name)
+{
+	struct class *c = cus__find_class_by_name(cus, name);
+	if (c != NULL)
+		cus__emit_struct_definitions(cus, c, NULL, NULL);
+}
+
+static void emit_class_fwd_decl(const char *name)
+{
+	struct class *c = cus__find_class_by_name(cus, name);
+	if (c != NULL)
+		cus__emit_fwd_decl(cus, c);
+}
+
 static void emit_module_preamble(void)
 {
-	struct class *c = cus__find_class_by_name(cus, "jprobe");
-	if (c != NULL)
-		cus__emit_struct_definitions(cus, c, NULL, NULL);
+	emit_struct_defs("jprobe");
+	emit_struct_defs("kretprobe");
 
-	c = cus__find_class_by_name(cus, "kretprobe");
-	if (c != NULL)
-		cus__emit_struct_definitions(cus, c, NULL, NULL);
-
-	c = cus__find_class_by_name(cus, "pt_regs");
-	if (c != NULL)
-		cus__emit_fwd_decl(cus, c);
-
-	c = cus__find_class_by_name(cus, "kretprobe_instance");
-	if (c != NULL)
-		cus__emit_fwd_decl(cus, c);
+	emit_class_fwd_decl("pt_regs");
+	emit_class_fwd_decl("kretprobe_instance");
 
 	emit_function_defs("printk");
 	emit_function_defs("register_jprobe");
