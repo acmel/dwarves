@@ -82,6 +82,13 @@ static void diff_function(const struct cu *new_cu, struct function *function)
 			else
 				function->cu->function_bytes_removed += -function->diff;
 		}
+	} else {
+		const size_t len = strlen(function->name);
+		if (len > function->cu->max_len_changed_item)
+			function->cu->max_len_changed_item = len;
+		function->diff = -function__size(function);
+		++function->cu->nr_functions_changed;
+		function->cu->function_bytes_removed += -function->diff;
 	}
 }
 
@@ -200,6 +207,42 @@ static int diff_class_iterator(struct class *class, void *new_cu)
 static int diff_function_iterator(struct function *function, void *new_cu)
 {
 	diff_function(new_cu, function);
+	return 0;
+}
+
+static int find_new_functions_iterator(struct function *function, void *old_cu)
+{
+	struct function *old_function;
+
+	assert(function->tag.tag == DW_TAG_subprogram);
+
+	if (function->inlined)
+		return 0;
+
+	old_function = cu__find_function_by_name(old_cu, function->name);
+	if (old_function == NULL) {
+		const size_t len = strlen(function->name);
+		if (len > function->cu->max_len_changed_item)
+			function->cu->max_len_changed_item = len;
+		function->diff = function__size(function);
+		++function->cu->nr_functions_changed;
+		function->cu->function_bytes_added += function->diff;
+	}
+
+	return 0;
+}
+
+static int cu_find_new_classes_iterator(struct cu *new_cu, void *old_cus)
+{
+	struct cu *old_cu = cus__find_cu_by_name(old_cus, new_cu->name);
+
+	if (old_cu != NULL) {
+		//cu__for_each_class(new_cu, diff_class_iterator,
+		//		     old_cu, NULL);
+		cu__for_each_function(new_cu, find_new_functions_iterator,
+				      old_cu, NULL);
+	}
+
 	return 0;
 }
 
@@ -385,6 +428,10 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
+static int cu_show_new_classes_iterator(struct cu *cu, void *cookie)
+{
+}
+
 static void print_total_function_diff(const char *filename)
 {
 	printf("\n%s:\n", filename);
@@ -454,7 +501,9 @@ int main(int argc, char *argv[])
 	}
 
 	cus__for_each_cu(old_cus, cu_diff_iterator, new_cus, NULL);
+	cus__for_each_cu(new_cus, cu_find_new_classes_iterator, old_cus, NULL);
 	cus__for_each_cu(old_cus, cu_show_diffs_iterator, NULL, NULL);
+	cus__for_each_cu(new_cus, cu_show_diffs_iterator, NULL, NULL);
 
 	if (total_cus_changed > 1) {
 		if (show_function_diffs)
