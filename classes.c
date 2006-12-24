@@ -2111,8 +2111,12 @@ static int cus__emit_typedef_definitions(struct cus *self, struct class *class)
 		puts(";");
 		goto out;
 	case DW_TAG_structure_type:
-		cus__emit_struct_definitions(self, type,
-					     "typedef ", class->name);
+		if (type->name == NULL)
+			cus__emit_struct_definitions(self, type,
+						     "typedef ", class->name);
+		else
+			printf("typedef struct %s %s;\n",
+			       type->name, class->name);
 		goto out;
 	}
 	printf("typedef %s %s;\n", class__name(type, bf, sizeof(bf)),
