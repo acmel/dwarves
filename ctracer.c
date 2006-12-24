@@ -132,7 +132,7 @@ static int function__emit_kretprobes(const struct function *self)
 	       "\t.kp = { .symbol_name = \"%s\", },\n"
 	       "\t.handler = (kretprobe_handler_t)kretprobe_handler__%s,\n"
 	       "\t.maxactive = -1,\n\n"
-	       "};", self->name, self->name, self->name);
+	       "};\n\n", self->name, self->name, self->name);
 }
 
 static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie)
