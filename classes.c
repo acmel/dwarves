@@ -340,13 +340,16 @@ struct class *cus__find_fwd_decl(const struct cus *self, const char *name)
 static void cus__add_definition(struct cus *self, struct class *class)
 {
 	class->visited = 1;
+	if (!list_empty(&class->node))
+		list_del(&class->node);
 	list_add_tail(&class->node, &self->definitions);
 }
 
 static void cus__add_fwd_decl(struct cus *self, struct class *class)
 {
 	class->fwd_decl_emitted = 1;
-	list_add_tail(&class->node, &self->fwd_decls);
+	if (list_empty(&class->node))
+		list_add_tail(&class->node, &self->fwd_decls);
 }
 
 struct class *cu__find_class_by_id(const struct cu *self, const uint64_t id)
@@ -784,6 +787,7 @@ static struct class *class__new(const unsigned int tag,
 	if (self != NULL) {
 		tag__init(&self->tag, tag, id, type, decl_file, decl_line);
 		INIT_LIST_HEAD(&self->members);
+		INIT_LIST_HEAD(&self->node);
 		self->size = size;
 		self->name = strings__add(name);
 		self->declaration = declaration;
