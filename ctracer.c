@@ -60,11 +60,7 @@ static int function__emit_kprobes(const struct function *self,
 	int first = 1;
 
 	body[0] = '\0';
-	/*
-	 * FIXME: how to handle enums, forward declarations doesn't help...
-	 */
-	if (type != NULL && type->tag.tag == DW_TAG_enumeration_type)
-		stype = "int";
+
 	printf("static %s jprobe_entry__%s(", stype, self->name);
 
 	list_for_each_entry(pos, &self->parameters, tag.node) {

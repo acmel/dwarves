@@ -142,6 +142,12 @@ struct label {
 	uint64_t	 low_pc;
 };
 
+struct enumerator {
+	struct tag	 tag;
+	const char	 *name;
+	uint32_t	 value;
+};
+
 #define DEFAULT_CACHELINE_SIZE 32
 
 extern void class__find_holes(struct class *self);
@@ -225,7 +231,8 @@ extern const char *class__name(const struct class *self, char *bf, size_t len);
 extern struct class_member *class__find_member_by_name(const struct class *self,
 						       const char *name);
 
-extern uint64_t class_member__names(const struct class_member *self,
+extern uint64_t class_member__names(const struct class *type,
+				    const struct class_member *self,
 				    char *class_name,
 				    size_t class_name_size,
 				    char *member_name,

@@ -8,6 +8,7 @@
 */
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <dwarf.h>
 #include <fcntl.h>
 #include <elfutils/libdw.h>
@@ -89,6 +90,8 @@ const char *dwarf_tag_name(const unsigned int tag)
 	return "INVALID";
 }
 
+static const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
+
 unsigned int cacheline_size = DEFAULT_CACHELINE_SIZE;
 
 static void *zalloc(const size_t size)
@@ -147,6 +150,68 @@ static void tag__init(struct tag *self, uint16_t tag,
 	self->type	= type;
 	self->decl_file = strings__add(decl_file);
 	self->decl_line = decl_line;
+}
+
+static size_t enumeration__snprintf(const struct class *self,
+				    char *bf, size_t len,
+				    const char *suffix, uint8_t ntabs)
+{
+	struct enumerator *pos;
+	char *s = bf;
+	size_t printed = 0, n;
+
+	if (ntabs >= sizeof(tabs))
+		ntabs = sizeof(tabs) - 1;
+
+	n = snprintf(s, len, "enum%s%s {\n",
+		     self->name ? " " : "", self->name ?: "");
+	s += n;
+	len -= n;
+	printed += n;
+	list_for_each_entry(pos, &self->members, tag.node) {
+		n = snprintf(s, len, "%.*s\t%s = %u,\n", ntabs, tabs,
+			     pos->name, pos->value);
+		s += n;
+		len -= n;
+		printed += n;
+	}
+
+	n = snprintf(s, len, "%.*s}%s%s;", ntabs, tabs,
+		     suffix ? " " : "", suffix ?: "");
+	return printed + n;
+}
+
+static void enumeration__print(const struct class *self, const char *suffix,
+			       uint8_t ntabs)
+{
+	struct enumerator *pos;
+	char bf[4096];
+
+	if (ntabs >= sizeof(tabs))
+		ntabs = sizeof(tabs) - 1;
+
+	printf("%.*s/* %s:%u */\n", ntabs, tabs,
+	       self->tag.decl_file, self->tag.decl_line);
+	enumeration__snprintf(self, bf, sizeof(bf), suffix, ntabs);
+	printf("%s\n", bf);
+}
+
+static struct enumerator *enumerator__new(uint64_t id, uint64_t type,
+					  const char *decl_file,
+					  uint32_t decl_line,
+					  const char *name, uint32_t value)
+{
+	struct enumerator *self = zalloc(sizeof(*self));
+
+	if (self != NULL) {
+		tag__init(&self->tag, DW_TAG_enumerator,
+			  id, type, decl_file, decl_line);
+
+		self->name  = strings__add(name);
+		self->value = value;
+	}
+
+	return self;
 }
 
 static struct variable *variable__new(const char *name, uint64_t id,
@@ -233,9 +298,6 @@ int tag__fwd_decl(const struct cu *cu, const struct tag *tag)
 	/* void ? */
 	if (type == NULL)
 		return 0;
-
-	if (type->tag.tag == DW_TAG_enumeration_type)
-		goto out;
 
 	if (type->tag.tag != DW_TAG_pointer_type)
 		return 0;
@@ -571,30 +633,30 @@ const char *class__subroutine_ptr_mask(const struct class *self,
 	return bf;
 }
 
-uint64_t class_member__names(const struct class_member *self,
+uint64_t class_member__names(const struct class *type,
+			     const struct class_member *self,
 			     char *class_name, size_t class_name_size,
 			     char *member_name, size_t member_name_size)
 {
-	struct class *class = cu__find_class_by_id(self->class->cu,
-						   self->tag.type);
 	uint64_t size = -1;
 
+	if (type == NULL)
+		type = cu__find_class_by_id(self->class->cu, self->tag.type);
 	snprintf(member_name, member_name_size, "%s;", self->name ?: "");
 
-	if (class == NULL)
+	if (type == NULL)
 		snprintf(class_name, class_name_size, "<%llx>",
 			 self->tag.type);
 	else {
-		if (class->tag.tag == DW_TAG_const_type)
-			class = cu__find_class_by_id(class->cu,
-						     class->tag.type);
-		size = class__size(class);
+		if (type->tag.tag == DW_TAG_const_type)
+			type = cu__find_class_by_id(type->cu, type->tag.type);
+		size = class__size(type);
 
 		/* Is it a function pointer? */
-		if (class->tag.tag == DW_TAG_pointer_type) {
+		if (type->tag.tag == DW_TAG_pointer_type) {
 			struct class *ptr_class =
 				   cu__find_class_by_id(self->class->cu,
-							class->tag.type);
+							type->tag.type);
 
 			if (ptr_class != NULL &&
 			    ptr_class->tag.tag == DW_TAG_subroutine_type) {
@@ -616,18 +678,18 @@ uint64_t class_member__names(const struct class_member *self,
 			}
 		}
 
-		class__name(class, class_name, class_name_size);
-		if (class->tag.tag == DW_TAG_array_type) {
+		class__name(type, class_name, class_name_size);
+		if (type->tag.tag == DW_TAG_array_type) {
 			int i = 0;
 			size_t n = snprintf(member_name, member_name_size,
 					    "%s", self->name);
 			member_name += n;
 			member_name_size -= n;
 
-			for (i = 0; i < class->array.dimensions; ++i) {
+			for (i = 0; i < type->array.dimensions; ++i) {
 				n = snprintf(member_name, member_name_size,
 					     "[%u]",
-					     class->array.nr_entries[i]);
+					     type->array.nr_entries[i]);
 				member_name += n;
 				member_name_size -= n;
 			}
@@ -713,11 +775,35 @@ out:
 static uint64_t class_member__print(struct class_member *self)
 {
 	uint64_t size;
-	char class_name[128];
+	char class_name[4096];
 	char member_name[128];
+	struct class *type = cu__find_class_by_id(self->class->cu,
+						  self->tag.type);
 
-	size = class_member__names(self, class_name, sizeof(class_name),
-				   member_name, sizeof(member_name));
+	assert(type != NULL);
+	if (type->tag.tag == DW_TAG_enumeration_type) {
+		size = type->size;
+
+		if (type->name != NULL) {
+			snprintf(class_name, sizeof(class_name), "enum %s",
+				 type->name);
+			snprintf(member_name, sizeof(member_name), "%s;",
+				 self->name);
+		} else {
+			const size_t spacing = 45 - strlen(self->name);
+			enumeration__snprintf(type, class_name,
+					      sizeof(class_name),
+					      self->name, 1);
+
+			printf("%s %*.*s/* %5llu %5llu */",
+			       class_name, spacing, spacing, " ",
+			       self->offset, size);
+			goto out;
+		}
+	} else
+		size = class_member__names(type, self, class_name,
+					   sizeof(class_name),
+					   member_name, sizeof(member_name));
 
 	if (self->tag.tag == DW_TAG_inheritance) {
 		snprintf(member_name, sizeof(member_name),
@@ -727,6 +813,7 @@ static uint64_t class_member__print(struct class_member *self)
 
 	printf("%-26s %-21s /* %5llu %5llu */",
 	       class_name, member_name, self->offset, size);
+out:
 	return size;
 }
 
@@ -804,6 +891,13 @@ static void class__add_member(struct class *self, struct class_member *member)
 	++self->nr_members;
 	member->class = self;
 	list_add_tail(&member->tag.node, &self->members);
+}
+
+static void enumeration__add(struct class *self,
+			     struct enumerator *enumerator)
+{
+	++self->nr_members;
+	list_add_tail(&enumerator->tag.node, &self->members);
 }
 
 static void lexblock__init(struct lexblock *self)
@@ -1793,6 +1887,56 @@ next_sibling:
 		cu__process_function(dwarf, die, cu, function, lexblock);
 }
 
+static void cu__create_new_enumeration(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
+				       Dwarf_Off cu_offset, uint64_t type,
+				       const char *decl_file, int decl_line,
+				       const char *name)
+{
+	Dwarf_Die child;
+	const uint64_t size = attr_numeric(die, DW_AT_byte_size);
+	struct class *enumeration = class__new(DW_TAG_enumeration_type,
+					       cu_offset, type, name, size,
+					       decl_file, decl_line,
+					 attr_numeric(die, DW_AT_declaration));
+	if (enumeration == NULL)
+		oom("class__new");
+
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
+		fprintf(stderr, "%s: DW_TAG_enumeration_type with no "
+				"children!\n", __FUNCTION__);
+		return;
+	}
+
+	die = &child;
+	do {
+		Dwarf_Attribute attr_name;
+		struct enumerator *enumerator;
+		uint32_t decl_line;
+		const uint16_t tag    = dwarf_tag(die);
+		const Dwarf_Off id    = dwarf_cuoffset(die);
+		const uint64_t type   = attr_numeric(die, DW_AT_type);
+		const uint32_t value  = attr_numeric(die, DW_AT_const_value);
+		const char *decl_file = dwarf_decl_file(die);
+		const char *name      = attr_string(die, DW_AT_name,
+						    &attr_name);
+		dwarf_decl_line(die, &decl_line);
+
+		if (tag != DW_TAG_enumerator) {
+			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
+				__FUNCTION__, dwarf_tag_name(tag));
+			continue;
+		}
+		enumerator = enumerator__new(id, type, decl_file, decl_line,
+					     name, value);
+		if (enumerator == NULL)
+			oom("enumerator__new");
+
+		enumeration__add(enumeration, enumerator);
+	} while (dwarf_siblingof(die, die) == 0);
+
+	cu__add_class(cu, enumeration);
+}
+
 static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
@@ -1849,6 +1993,10 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 	case DW_TAG_array_type:
 		cu__create_new_array(dwarf, die, cu, cu_offset, type,
 				     decl_file, decl_line);
+		goto next_sibling;
+	case DW_TAG_enumeration_type:
+		cu__create_new_enumeration(dwarf, die, cu, cu_offset, type,
+					   decl_file, decl_line, name);
 		goto next_sibling;
 	default:
 		cu__create_new_class(dwarf, die, cu, tag, cu_offset,
@@ -1970,6 +2118,27 @@ out:
 	return 1;
 }
 
+static int cus__emit_enumeration_definitions(struct cus *self,
+					     struct class *enumeration)
+{
+	/* Have we already emitted this in this CU? */
+	if (enumeration->visited)
+		return 0;
+
+	/* Ok, lets look at the previous CUs: */
+	if (cus__find_definition(self, enumeration->name) != NULL) {
+		/*
+		 * Yes, so lets mark it visited on this CU too,
+		 * to speed up the lookup.
+		 */
+		enumeration->visited = 1;
+		return 0;
+	}
+	enumeration__print(enumeration, NULL, 0);
+	enumeration->visited = 1;
+	return 1;
+}
+
 int cus__emit_fwd_decl(struct cus *self, struct class *class)
 {
 	struct class *type;
@@ -1989,7 +2158,7 @@ int cus__emit_fwd_decl(struct cus *self, struct class *class)
 		return 0;
 	}
 
-	printf("struct %s;\n", class->name); 
+	printf("struct %s;\n", class->name);
 	cus__add_fwd_decl(self, class);
 	return 1;
 }
@@ -2014,6 +2183,10 @@ next_indirection:
 	switch (type->tag.tag) {
 	case DW_TAG_typedef:
 		return cus__emit_typedef_definitions(self, type);
+	case DW_TAG_enumeration_type:
+		if (type->name != NULL)
+			return cus__emit_enumeration_definitions(self, type);
+		break;
 	case DW_TAG_structure_type:
 		if (pointer)
 			return cus__emit_fwd_decl(self, type);
