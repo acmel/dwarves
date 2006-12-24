@@ -29,7 +29,7 @@ struct cu {
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
 	const char	 *name;
 	unsigned short	 language;
-	unsigned int	 id;
+	uint32_t	 id;
 	unsigned long	 nr_inline_expansions;
 	unsigned long	 size_inline_expansions;
 	unsigned int	 nr_functions_changed;

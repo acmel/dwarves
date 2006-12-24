@@ -237,7 +237,7 @@ static void cus__add(struct cus *self, struct cu *cu)
 	list_add_tail(&cu->node, &self->cus);
 }
 
-static struct cu *cu__new(unsigned int cu, const char *name)
+static struct cu *cu__new(uint32_t cu, const char *name)
 {
 	struct cu *self = malloc(sizeof(*self));
 
@@ -2016,7 +2016,7 @@ int cus__load(struct cus *self, const char *filename)
 {
 	Dwarf_Off offset, last_offset, abbrev_offset;
 	uint8_t addr_size, offset_size;
-	unsigned int cu_id;
+	uint32_t cu_id;
 	size_t hdr_size;
 	Dwarf *dwarf;
 	int err = -1;
