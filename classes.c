@@ -11,7 +11,6 @@
 #include <assert.h>
 #include <dwarf.h>
 #include <fcntl.h>
-#include <elfutils/libdw.h>
 #include <libelf.h>
 #include <search.h>
 #include <stdio.h>
@@ -142,7 +141,7 @@ static char *strings__add(const char *str)
 }
 
 static void tag__init(struct tag *self, uint16_t tag,
-		      uint64_t id, uint64_t type,
+		      Dwarf_Off id, uint64_t type,
 		      const char *decl_file, uint32_t decl_line)
 {
 	self->tag	= tag;
@@ -196,7 +195,7 @@ static void enumeration__print(const struct class *self, const char *suffix,
 	printf("%s\n", bf);
 }
 
-static struct enumerator *enumerator__new(uint64_t id, uint64_t type,
+static struct enumerator *enumerator__new(Dwarf_Off id, uint64_t type,
 					  const char *decl_file,
 					  uint32_t decl_line,
 					  const char *name, uint32_t value)
@@ -214,7 +213,7 @@ static struct enumerator *enumerator__new(uint64_t id, uint64_t type,
 	return self;
 }
 
-static struct variable *variable__new(const char *name, uint64_t id,
+static struct variable *variable__new(const char *name, Dwarf_Off id,
 				      uint64_t type,
 				      const char *decl_file,
 				      uint32_t decl_line,
@@ -417,7 +416,7 @@ static void cus__add_fwd_decl(struct cus *self, struct class *class)
 		list_add_tail(&class->node, &self->fwd_decls);
 }
 
-struct class *cu__find_class_by_id(const struct cu *self, const uint64_t id)
+struct class *cu__find_class_by_id(const struct cu *self, const Dwarf_Off id)
 {
 	struct class *pos;
 
@@ -447,7 +446,7 @@ struct function *cu__find_function_by_name(const struct cu *self,
 }
 
 struct function *cu__find_function_by_id(const struct cu *self,
-					 const uint64_t id)
+					 const Dwarf_Off id)
 {
 	struct function *pos;
 
@@ -458,7 +457,7 @@ struct function *cu__find_function_by_id(const struct cu *self,
 	return NULL;
 }
 
-struct variable *cu__find_variable_by_id(const struct cu *self, const uint64_t id)
+struct variable *cu__find_variable_by_id(const struct cu *self, const Dwarf_Off id)
 {
 	struct variable *pos;
 
@@ -584,7 +583,7 @@ const char *variable__name(const struct variable *self)
 	return self->name;
 }
 
-static struct class_member *class_member__new(uint64_t id,
+static struct class_member *class_member__new(Dwarf_Off id,
 					      uint16_t tag,
 					      uint64_t type,
 					      const char *decl_file,
@@ -817,7 +816,7 @@ out:
 	return size;
 }
 
-static struct parameter *parameter__new(uint64_t id, uint64_t type,
+static struct parameter *parameter__new(Dwarf_Off id, uint64_t type,
 					const char *decl_file,
 					uint32_t decl_line,
 					const char *name)
@@ -833,7 +832,7 @@ static struct parameter *parameter__new(uint64_t id, uint64_t type,
 	return self;
 }
 
-static struct inline_expansion *inline_expansion__new(uint64_t id,
+static struct inline_expansion *inline_expansion__new(Dwarf_Off id,
 						      uint64_t type,
 						      const char *decl_file,
 						      uint32_t decl_line,
@@ -850,7 +849,7 @@ static struct inline_expansion *inline_expansion__new(uint64_t id,
 	return self;
 }
 
-static struct label *label__new(uint64_t id, uint64_t type,
+static struct label *label__new(Dwarf_Off id, uint64_t type,
 				const char *decl_file, uint32_t decl_line,
 				const char *name, uint64_t low_pc)
 {
@@ -867,7 +866,7 @@ static struct label *label__new(uint64_t id, uint64_t type,
 }
 
 static struct class *class__new(const unsigned int tag,
-				uint64_t id, uint64_t type,
+				Dwarf_Off id, uint64_t type,
 				const char *name, uint64_t size,
 				const char *decl_file, unsigned int decl_line,
 				unsigned char declaration)
@@ -911,7 +910,7 @@ static void lexblock__init(struct lexblock *self)
 		self->nr_inline_expansions = 0;
 }
 
-static struct function *function__new(uint64_t id, uint64_t type,
+static struct function *function__new(Dwarf_Off id, uint64_t type,
 				      const char *decl_file,
 				      unsigned int decl_line,
 				      const char *name,

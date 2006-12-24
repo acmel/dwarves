@@ -12,6 +12,7 @@
 
 #include <stdint.h>
 #include <dwarf.h>
+#include <elfutils/libdw.h>
 
 #include "list.h"
 
@@ -42,7 +43,7 @@ struct cu {
 struct tag {
 	struct list_head node;
 	uint64_t	 type;
-	uint64_t	 id;
+	Dwarf_Off	 id;
 	uint16_t	 tag;
 	uint16_t	 decl_line;
 	const char	 *decl_file;
@@ -202,7 +203,7 @@ extern const struct class_member *
 				     const size_t bit_hole_size);
 
 extern struct function *cu__find_function_by_id(const struct cu *self,
-						const uint64_t id);
+						const Dwarf_Off id);
 extern struct function *cu__find_function_by_name(const struct cu *cu,
 						  const char *name);
 
