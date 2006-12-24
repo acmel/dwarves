@@ -2048,6 +2048,17 @@ int cus__emit_struct_definitions(struct cus *self, struct class *class,
 	struct class_member *pos;
 	int printed = 0;
 
+	if (class->visited)
+		return 0;
+
+	/* Ok, lets look at the previous CUs: */
+	if (cus__find_definition(self, class->name) != NULL) {
+		class->visited = 1;
+		return 0;
+	}
+
+	cus__add_definition(self, class);
+
 	list_for_each_entry(pos, &class->members, tag.node)
 		if (cus__emit_tag_definitions(self, class->cu, &pos->tag))
 			printed = 1;
