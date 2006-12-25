@@ -32,7 +32,7 @@ struct cu {
 	unsigned short	 language;
 	uint32_t	 id;
 	unsigned long	 nr_inline_expansions;
-	unsigned long	 size_inline_expansions;
+	size_t		 size_inline_expansions;
 	unsigned int	 nr_functions_changed;
 	unsigned int	 nr_structures_changed;
 	size_t		 max_len_changed_item;
@@ -55,7 +55,7 @@ struct class {
 	struct list_head members;
 	struct list_head node;
 	const char	 *name;
-	uint64_t	 size;
+	size_t		 size;
 	struct {
 		uint8_t	 dimensions;
 		uint32_t *nr_entries;
@@ -78,7 +78,7 @@ struct class_member {
 	char		 *name;
 	struct class	 *class;
 	uint64_t	 offset;
-	unsigned int	 bit_size;
+	size_t		 bit_size;
 	unsigned int	 bit_offset;
 	unsigned char	 visited:1;
 	unsigned short	 hole;		/* If there is a hole before the next
@@ -94,7 +94,7 @@ struct lexblock {
 	unsigned short	 nr_inline_expansions;
 	unsigned short	 nr_labels;
 	unsigned short	 nr_variables;
-	uint32_t	 size_inline_expansions;
+	size_t		 size_inline_expansions;
 };
 
 struct function {
@@ -113,7 +113,7 @@ struct function {
 	unsigned int	 refcnt;
 	signed int	 diff;
 	unsigned int	 cu_total_nr_inline_expansions;
-	unsigned long	 cu_total_size_inline_expansions;
+	size_t		 cu_total_size_inline_expansions;
 	struct class	 *class_to_diff;
 };
 
@@ -134,7 +134,7 @@ struct variable {
 struct inline_expansion {
 	struct tag	 tag;
 	struct function	 *function;
-	uint32_t	 size;
+	size_t		 size;
 };
 
 struct label {
@@ -207,7 +207,7 @@ extern struct function *cu__find_function_by_id(const struct cu *self,
 extern struct function *cu__find_function_by_name(const struct cu *cu,
 						  const char *name);
 
-static inline uint32_t function__size(const struct function *self)
+static inline size_t function__size(const struct function *self)
 {
 	return self->high_pc - self->low_pc;
 }
@@ -232,13 +232,11 @@ extern const char *class__name(const struct class *self, char *bf, size_t len);
 extern struct class_member *class__find_member_by_name(const struct class *self,
 						       const char *name);
 
-extern uint64_t class_member__names(const struct class *type,
-				    const struct class_member *self,
-				    char *class_name,
-				    size_t class_name_size,
-				    char *member_name,
-				    size_t member_name_size);
-extern unsigned int cacheline_size;
+extern size_t class_member__names(const struct class *type,
+				  const struct class_member *self,
+				  char *class_name, size_t class_name_size,
+				  char *member_name, size_t member_name_size);
+extern size_t cacheline_size;
 
 extern const char *variable__name(const struct variable *self);
 extern const char *variable__type_name(const struct variable *self,

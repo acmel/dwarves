@@ -91,7 +91,7 @@ const char *dwarf_tag_name(const unsigned int tag)
 
 static const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
-unsigned int cacheline_size = DEFAULT_CACHELINE_SIZE;
+size_t cacheline_size = DEFAULT_CACHELINE_SIZE;
 
 static void *zalloc(const size_t size)
 {
@@ -494,9 +494,9 @@ static size_t class__array_nr_entries(const struct class *self)
 	return nr_entries;
 }
 
-static uint64_t class__size(const struct class *self)
+static size_t class__size(const struct class *self)
 {
-	uint64_t size = self->size;
+	size_t size = self->size;
 
 	if (self->tag.tag != DW_TAG_pointer_type && self->tag.type != 0) {
 		struct class *class = cu__find_class_by_id(self->cu,
@@ -590,7 +590,7 @@ static struct class_member *class_member__new(Dwarf_Off id,
 					      uint32_t decl_line,
 					      const char *name,
 					      uint64_t offset,
-					      unsigned int bit_size,
+					      size_t bit_size,
 					      unsigned int bit_offset)
 {
 	struct class_member *self = zalloc(sizeof(*self));
@@ -607,11 +607,12 @@ static struct class_member *class_member__new(Dwarf_Off id,
 	return self;
 }
 
-static int class_member__size(const struct class_member *self)
+static size_t class_member__size(const struct class_member *self)
 {
 	struct class *class = cu__find_class_by_id(self->class->cu,
 						   self->tag.type);
-	return class != NULL ? class__size(class) : -1;
+	assert(class != NULL);
+	return class__size(class);
 }
 
 const char *class__subroutine_mask(const struct class *self,
@@ -632,12 +633,12 @@ const char *class__subroutine_mask(const struct class *self,
 	return bf;
 }
 
-uint64_t class_member__names(const struct class *type,
-			     const struct class_member *self,
-			     char *class_name, size_t class_name_size,
-			     char *member_name, size_t member_name_size)
+size_t class_member__names(const struct class *type,
+			   const struct class_member *self,
+			   char *class_name, size_t class_name_size,
+			   char *member_name, size_t member_name_size)
 {
-	uint64_t size = -1;
+	size_t size = -1;
 
 	if (type == NULL)
 		type = cu__find_class_by_id(self->class->cu, self->tag.type);
@@ -772,9 +773,9 @@ out:
 	return size;
 }
 
-static uint64_t class_member__print(struct class_member *self)
+static size_t class_member__print(struct class_member *self)
 {
-	uint64_t size;
+	size_t size;
 	char class_name[4096];
 	char member_name[128];
 	struct class *type = cu__find_class_by_id(self->class->cu,
@@ -795,7 +796,7 @@ static uint64_t class_member__print(struct class_member *self)
 					      sizeof(class_name),
 					      self->name, 1);
 
-			printf("%s %*.*s/* %5llu %5llu */",
+			printf("%s %*.*s/* %5llu %5u */",
 			       class_name, spacing, spacing, " ",
 			       self->offset, size);
 			goto out;
@@ -811,7 +812,7 @@ static uint64_t class_member__print(struct class_member *self)
 		strncat(class_name, ";", sizeof(class_name));
 	}
 
-	printf("%-26s %-21s /* %5llu %5llu */",
+	printf("%-26s %-21s /* %5llu %5u */",
 	       class_name, member_name, self->offset, size);
 out:
 	return size;
@@ -837,7 +838,7 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Off id,
 						      Dwarf_Off type,
 						      const char *decl_file,
 						      uint32_t decl_line,
-						      uint32_t size)
+						      size_t size)
 {
 	struct inline_expansion *self = zalloc(sizeof(*self));
 
@@ -868,7 +869,7 @@ static struct label *label__new(Dwarf_Off id, Dwarf_Off type,
 
 static struct class *class__new(const unsigned int tag,
 				Dwarf_Off id, Dwarf_Off type,
-				const char *name, uint64_t size,
+				const char *name, size_t size,
 				const char *decl_file, unsigned int decl_line,
 				unsigned char declaration)
 {
@@ -1003,7 +1004,7 @@ const struct class_member *class__find_bit_hole(const struct class *self,
 void class__find_holes(struct class *self)
 {
 	struct class_member *pos, *last = NULL;
-	uint64_t last_size = 0, size;
+	size_t last_size = 0, size;
 	unsigned int bit_sum = 0;
 
 	self->nr_holes = 0;
@@ -1011,7 +1012,7 @@ void class__find_holes(struct class *self)
 
 	list_for_each_entry(pos, &self->members, tag.node) {
 		if (last != NULL) {
-			const int cc_last_size = pos->offset - last->offset;
+			const ssize_t cc_last_size = pos->offset - last->offset;
 
 			/*
 			 * If the offset is the same this better be a bitfield
@@ -1273,8 +1274,8 @@ static int class__print_cacheline_boundary(uint32_t last_cacheline,
 					   size_t sum, size_t sum_holes,
 					   uint8_t *newline)
 {
-	const unsigned int real_sum = sum + sum_holes;
-	const unsigned int cacheline = real_sum / cacheline_size;
+	const size_t real_sum = sum + sum_holes;
+	const size_t cacheline = real_sum / cacheline_size;
 
 	if (cacheline > last_cacheline) {
 		const unsigned int cacheline_pos = real_sum % cacheline_size;
@@ -1306,9 +1307,9 @@ static void class__print_struct(const struct class *self,
 	unsigned long sum = 0;
 	unsigned long sum_holes = 0;
 	struct class_member *pos;
-	uint64_t last_size = 0, size;
+	size_t last_size = 0, size;
 	unsigned int last_cacheline = 0;
-	int last_bit_size = 0;
+	size_t last_bit_size = 0;
 	int last_offset = -1;
 	uint8_t newline = 0;
 	unsigned int sum_bit_holes = 0;
@@ -1316,7 +1317,7 @@ static void class__print_struct(const struct class *self,
 	printf("%s%sstruct%s%s {\n", prefix ?: "", prefix ? " " : "",
 	       self->name ? " " : "", self->name ?: "");
 	list_for_each_entry(pos, &self->members, tag.node) {
-		const int cc_last_size = pos->offset - last_offset;
+		const ssize_t cc_last_size = pos->offset - last_offset;
 
 		last_cacheline = class__print_cacheline_boundary(last_cacheline,
 								 sum,
@@ -1328,7 +1329,7 @@ static void class__print_struct(const struct class *self,
 				if (!newline++)
 					putchar('\n');
 				printf("        /* Bitfield WARNING: DWARF "
-				       "size=%llu, real size=%u */\n",
+				       "size=%u, real size=%u */\n",
 				       last_size, cc_last_size);
 				sum -= last_size - cc_last_size;
 				/*
@@ -1403,7 +1404,7 @@ static void class__print_struct(const struct class *self,
 	class__print_cacheline_boundary(last_cacheline, sum, sum_holes,
 					&newline);
 
-	printf("}%s%s; /* size: %llu, cachelines: %llu */\n",
+	printf("}%s%s; /* size: %u, cachelines: %u */\n",
 	       suffix ? " ": "", suffix ?: "", self->size,
 	       (self->size + cacheline_size - 1) / cacheline_size);
 	if (sum_holes > 0)
@@ -1421,8 +1422,8 @@ static void class__print_struct(const struct class *self,
 		printf("   /* last cacheline: %u bytes */\n", last_cacheline);
 
 	if (sum + sum_holes != self->size - self->padding)
-		printf("\n/* BRAIN FART ALERT! %llu != "
-		       "%lu + %lu(holes), diff = %llu */\n\n",
+		printf("\n/* BRAIN FART ALERT! %u != "
+		       "%u + %u(holes), diff = %u */\n\n",
 		       self->size, sum, sum_holes,
 		       self->size - (sum + sum_holes));
 }
@@ -1643,7 +1644,7 @@ static void cu__create_new_class(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 				 const char *decl_file, int decl_line)
 {
 	Dwarf_Die child;
-	uint64_t size = attr_numeric(die, DW_AT_byte_size);
+	size_t size = attr_numeric(die, DW_AT_byte_size);
 	struct class *class = class__new(tag, cu_offset, type, name, size,
 					 decl_file, decl_line,
 					 attr_numeric(die, DW_AT_declaration));
@@ -1662,7 +1663,7 @@ static void cu__create_new_array(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 	/* "64 dimensions will be enough for everybody." acme, 2006 */
 	const uint8_t max_dimensions = 64;
 	uint32_t nr_entries[max_dimensions];
-	const uint64_t size = attr_numeric(die, DW_AT_byte_size);
+	const size_t size = attr_numeric(die, DW_AT_byte_size);
 	struct class *class = class__new(DW_TAG_array_type, cu_offset, type,
 					 NULL, size, decl_file, decl_line, 0);
 	if (class == NULL)
@@ -1840,7 +1841,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		const Dwarf_Off type = attr_numeric(die,
 						    DW_AT_abstract_origin);
 		struct inline_expansion *exp;
-		uint32_t size;
+		size_t size;
 
 		if (dwarf_highpc(die, &high_pc))
 			high_pc = 0;
@@ -1893,7 +1894,7 @@ static void cu__create_new_enumeration(Dwarf *dwarf, Dwarf_Die *die, struct cu *
 				       const char *name)
 {
 	Dwarf_Die child;
-	const uint64_t size = attr_numeric(die, DW_AT_byte_size);
+	const size_t size = attr_numeric(die, DW_AT_byte_size);
 	struct class *enumeration = class__new(DW_TAG_enumeration_type,
 					       cu_offset, type, name, size,
 					       decl_file, decl_line,
