@@ -231,6 +231,56 @@ static struct variable *variable__new(const char *name, Dwarf_Off id,
 	return self;
 }
 
+static size_t union__snprintf(const struct class *self,
+			      char *bf, size_t len,
+			      const char *suffix, uint8_t ntabs)
+{
+	char class_name[4096];
+	char member_name[128];
+	struct class_member *pos;
+	char *s = bf;
+	size_t printed = 0, n;
+
+	if (ntabs >= sizeof(tabs))
+		ntabs = sizeof(tabs) - 1;
+
+	n = snprintf(s, len, "union%s%s {\n",
+		     self->name ? " " : "", self->name ?: "");
+	s += n;
+	len -= n;
+	printed += n;
+	list_for_each_entry(pos, &self->members, tag.node) {
+		const size_t size = class_member__names(NULL, pos, class_name,
+							sizeof(class_name),
+							member_name,
+							sizeof(member_name));
+		n = snprintf(s, len, "%.*s\t%-18s %-21s /* %11u */\n",
+			     ntabs, tabs, class_name, member_name, size);
+		s += n;
+		len -= n;
+		printed += n;
+	}
+
+	n = snprintf(s, len, "%.*s}%s%s;", ntabs, tabs,
+		     suffix ? " " : "", suffix ?: "");
+	return printed + n;
+}
+
+static void union__print(const struct class *self, const char *suffix,
+			 uint8_t ntabs)
+{
+	struct enumerator *pos;
+	char bf[4096];
+
+	if (ntabs >= sizeof(tabs))
+		ntabs = sizeof(tabs) - 1;
+
+	printf("%.*s/* %s:%u */\n", ntabs, tabs,
+	       self->tag.decl_file, self->tag.decl_line);
+	union__snprintf(self, bf, sizeof(bf), suffix, ntabs);
+	printf("%s\n", bf);
+}
+
 static void cus__add(struct cus *self, struct cu *cu)
 {
 	list_add_tail(&cu->node, &self->cus);
@@ -796,6 +846,24 @@ static size_t class_member__print(struct class_member *self)
 					      sizeof(class_name),
 					      self->name, 1);
 
+			printf("%s %*.*s/* %5llu %5u */",
+			       class_name, spacing, spacing, " ",
+			       self->offset, size);
+			goto out;
+		}
+	} else if (type->tag.tag == DW_TAG_union_type) {
+		size = type->size;
+
+		if (type->name != NULL) {
+			snprintf(class_name, sizeof(class_name), "union %s",
+				 type->name);
+			snprintf(member_name, sizeof(member_name), "%s;",
+				 self->name);
+		} else {
+			const size_t spacing = 45 - (self->name ?
+						     strlen(self->name) : -1);
+			union__snprintf(type, class_name, sizeof(class_name),
+					self->name, 1);
 			printf("%s %*.*s/* %5llu %5u */",
 			       class_name, spacing, spacing, " ",
 			       self->offset, size);
