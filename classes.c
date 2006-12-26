@@ -838,14 +838,18 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Off id,
 						      Dwarf_Off type,
 						      const char *decl_file,
 						      uint32_t decl_line,
-						      size_t size)
+						      size_t size,
+						      Dwarf_Addr low_pc,
+						      Dwarf_Addr high_pc)
 {
 	struct inline_expansion *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->tag, DW_TAG_inlined_subroutine, id, type,
 			  decl_file, decl_line);
-		self->size = size;
+		self->size    = size;
+		self->low_pc  = low_pc;
+		self->high_pc = high_pc;
 	}
 
 	return self;
@@ -1150,8 +1154,10 @@ static void tag__print(const struct tag *tag)
 				cu__find_function_by_id(exp->function->cu,
 							exp->tag.type);
 
+		assert(alias != NULL);
 		fputs("        ", stdout);
-		c += printf("%s();", alias != NULL ? alias->name : "<ERROR>");
+		c += printf("%s(); /* low_pc=%#llx */",
+			    alias->name, exp->low_pc);
 	}
 		break;
 	case DW_TAG_variable:
@@ -1850,14 +1856,19 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 
 		size = high_pc - low_pc;
 		if (size == 0) {
-			Dwarf_Addr base, start, end;
+			Dwarf_Addr base, start;
 			ptrdiff_t offset = 0;
 
 			while (1) {
-				offset = dwarf_ranges(die, offset, &base, &start, &end);
+				offset = dwarf_ranges(die, offset,
+						      &base, &start, &high_pc);
+				start = (unsigned long)start;
+				high_pc = (unsigned long)high_pc;
 				if (offset <= 0)
 					break;
-				size += end - start;
+				size += high_pc - start;
+				if (low_pc == 0)
+					low_pc = start;
 			}
 		}
 
@@ -1865,7 +1876,8 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		decl_line = attr_numeric(die, DW_AT_call_line);
 
 		exp = inline_expansion__new(cu_offset, type,
-					    decl_file, decl_line, size);
+					    decl_file, decl_line, size,
+					    low_pc, high_pc);
 		if (exp == NULL)
 			oom("inline_expansion__new");
 

@@ -135,6 +135,8 @@ struct inline_expansion {
 	struct tag	 tag;
 	struct function	 *function;
 	size_t		 size;
+	Dwarf_Addr	 low_pc;
+	Dwarf_Addr	 high_pc;
 };
 
 struct label {
