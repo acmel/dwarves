@@ -165,6 +165,8 @@ extern void function__print(const struct function *self, int show_stats,
 extern struct cus *cus__new(struct list_head *definitions,
 			    struct list_head *fwd_decls);
 extern int cus__load(struct cus *self, const char *filename);
+extern int cus__load_dir(struct cus *self, const char *dirname,
+			 const char *filename_mask, const int recursive);
 extern struct cu *cus__find_cu_by_name(const struct cus *self,
 				       const char *name);
 extern struct function *cus__find_function_by_name(const struct cus *self,

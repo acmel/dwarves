@@ -9,8 +9,10 @@
 
 #define _GNU_SOURCE
 #include <assert.h>
+#include <dirent.h>
 #include <dwarf.h>
 #include <fcntl.h>
+#include <fnmatch.h>
 #include <libelf.h>
 #include <search.h>
 #include <stdio.h>
@@ -2091,6 +2093,54 @@ children:
 next_sibling:
 	if (dwarf_siblingof(die, die) == 0)
 		cu__process_die(dwarf, die, cu);
+}
+
+int cus__load_dir(struct cus *self, const char *dirname,
+		  const char *filename_mask, const int recursive)
+{
+	struct dirent *entry;
+	int err = -1;
+	DIR *dir = opendir(dirname);
+
+	if (dir == NULL)
+		goto out;
+
+	err = 0;
+	while ((entry = readdir(dir)) != NULL) {
+		char pathname[PATH_MAX];
+		struct stat st;
+
+		if (strcmp(entry->d_name, ".") == 0 ||
+		    strcmp(entry->d_name, "..") == 0)
+		    continue;
+
+		snprintf(pathname, sizeof(pathname), "%s/%s",
+			 dirname, entry->d_name);
+
+		err = lstat(pathname, &st);
+		if (err != 0)
+			break;
+
+		if (S_ISDIR(st.st_mode)) {
+			if (!recursive)
+				continue;
+
+			err = cus__load_dir(self, pathname,
+					    filename_mask, recursive);
+			if (err != 0)
+				break;
+		} else if (fnmatch(filename_mask, entry->d_name, 0) == 0) {
+			err = cus__load(self, pathname);
+			if (err != 0)
+				break;
+		}
+	}
+
+	if (err == -1)
+		puts(dirname);
+	closedir(dir);
+out:
+	return err;
 }
 
 int cus__load(struct cus *self, const char *filename)
