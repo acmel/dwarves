@@ -433,7 +433,7 @@ struct class *cus__find_definition(const struct cus *self, const char *name)
 	if (name == NULL)
 		return NULL;
 
-	list_for_each_entry(pos, &self->definitions, node)
+	list_for_each_entry(pos, self->definitions, node)
 		if (pos->name != NULL && strcmp(pos->name, name) == 0)
 			return pos;
 
@@ -444,7 +444,7 @@ struct class *cus__find_fwd_decl(const struct cus *self, const char *name)
 {
 	struct class *pos;
 
-	list_for_each_entry(pos, &self->fwd_decls, node)
+	list_for_each_entry(pos, self->fwd_decls, node)
 		if (strcmp(pos->name, name) == 0)
 			return pos;
 
@@ -456,14 +456,14 @@ static void cus__add_definition(struct cus *self, struct class *class)
 	class->visited = 1;
 	if (!list_empty(&class->node))
 		list_del(&class->node);
-	list_add_tail(&class->node, &self->definitions);
+	list_add_tail(&class->node, self->definitions);
 }
 
 static void cus__add_fwd_decl(struct cus *self, struct class *class)
 {
 	class->fwd_decl_emitted = 1;
 	if (list_empty(&class->node))
-		list_add_tail(&class->node, &self->fwd_decls);
+		list_add_tail(&class->node, self->fwd_decls);
 }
 
 struct class *cu__find_class_by_id(const struct cu *self, const Dwarf_Off id)
@@ -2139,14 +2139,17 @@ out:
 	return err;
 }
 
-struct cus *cus__new(void)
+struct cus *cus__new(struct list_head *definitions,
+		     struct list_head *fwd_decls)
 {
 	struct cus *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->cus);
-		INIT_LIST_HEAD(&self->definitions);
-		INIT_LIST_HEAD(&self->fwd_decls);
+		INIT_LIST_HEAD(&self->priv_definitions);
+		INIT_LIST_HEAD(&self->priv_fwd_decls);
+		self->definitions = definitions ?: &self->priv_definitions;
+		self->fwd_decls = fwd_decls ?: &self->priv_fwd_decls;
 	}
 
 	return self;

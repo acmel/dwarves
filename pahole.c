@@ -322,7 +322,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	cus = cus__new();
+	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
 		fputs("pahole: insufficient memory\n", stderr);
 		return EXIT_FAILURE;

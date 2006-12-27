@@ -18,8 +18,10 @@
 
 struct cus {
 	struct list_head cus;
-	struct list_head definitions;
-	struct list_head fwd_decls;
+	struct list_head priv_definitions;
+	struct list_head priv_fwd_decls;
+	struct list_head *definitions;
+	struct list_head *fwd_decls;
 };
 
 struct cu {
@@ -160,10 +162,11 @@ extern void function__print(const struct function *self, int show_stats,
 			    const int show_variables,
 			    const int show_inline_expansions);
 
-extern struct cus   *cus__new(void);
-extern int	    cus__load(struct cus *self, const char *filename);
-extern struct cu    *cus__find_cu_by_name(const struct cus *self,
-					  const char *name);
+extern struct cus *cus__new(struct list_head *definitions,
+			    struct list_head *fwd_decls);
+extern int cus__load(struct cus *self, const char *filename);
+extern struct cu *cus__find_cu_by_name(const struct cus *self,
+				       const char *name);
 extern struct function *cus__find_function_by_name(const struct cus *self,
 						   const char *name);
 extern int cus__emit_function_definitions(struct cus *self,
