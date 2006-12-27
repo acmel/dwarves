@@ -8,12 +8,18 @@
 */
 
 #include <getopt.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 
 #include "classes.h"
 
 static struct cus *cus;
+static struct cus *kprobes_cus;
+
+static LIST_HEAD(cus__definitions);
+static LIST_HEAD(cus__fwd_decls);
 
 static void method__add(struct cu *cu, struct function *function)
 {
@@ -157,10 +163,10 @@ static int cu_emit_kretprobes_table_iterator(struct cu *cu, void *cookie)
 
 static void emit_function_defs(const char *fn)
 {
-	struct function *f = cus__find_function_by_name(cus, fn);
+	struct function *f = cus__find_function_by_name(kprobes_cus, fn);
 
 	if (f != NULL) {
-		cus__emit_function_definitions(cus, f);
+		cus__emit_function_definitions(kprobes_cus, f);
 		function__print(f, 0, 0, 0);
 		putchar('\n');
 	}
@@ -168,16 +174,16 @@ static void emit_function_defs(const char *fn)
 
 static void emit_struct_defs(const char *name)
 {
-	struct class *c = cus__find_class_by_name(cus, name);
+	struct class *c = cus__find_class_by_name(kprobes_cus, name);
 	if (c != NULL)
-		cus__emit_struct_definitions(cus, c, NULL, NULL);
+		cus__emit_struct_definitions(kprobes_cus, c, NULL, NULL);
 }
 
 static void emit_class_fwd_decl(const char *name)
 {
-	struct class *c = cus__find_class_by_name(cus, name);
+	struct class *c = cus__find_class_by_name(kprobes_cus, name);
 	if (c != NULL)
-		cus__emit_fwd_decl(cus, c);
+		cus__emit_fwd_decl(kprobes_cus, c);
 }
 
 static void emit_module_preamble(void)
@@ -261,6 +267,10 @@ static void emit_module_exit(void)
 }
 
 static struct option long_options[] = {
+	{ "dir",			required_argument,	NULL, 'D' },
+	{ "glob",			required_argument,	NULL, 'g' },
+	{ "kprobes",			required_argument,	NULL, 'k' },
+	{ "recursive",			no_argument,		NULL, 'r' },
 	{ "help",			no_argument,		NULL, 'h' },
 	{ NULL, 0, NULL, 0, }
 };
@@ -268,27 +278,41 @@ static struct option long_options[] = {
 static void usage(void)
 {
 	fprintf(stdout,
-		"usage: ctracer [options] <file_name> <class_name>\n"
+		"usage: ctracer [options] <filename> <class_name>\n"
 		" where: \n"
-		"   -h, --help	show this help message\n");
+		"   -D, --dir		load files in this directory\n"
+		"   -g, --glob		file mask to load\n"
+		"   -k, --kprobes	kprobes object file\n"
+		"   -r, --recursive	recursively load files\n"
+		"   -h, --help		show this help message\n");
 }
 
 int main(int argc, char *argv[])
 {
-	int option, option_index;
-	const char *file_name;
+	int option, option_index, recursive = 0;
+	const char *filename = NULL, *dirname = NULL, *glob = NULL,
+		   *kprobes_filename;
 	char *class_name = NULL;
 
-	while ((option = getopt_long(argc, argv, "h",
+	while ((option = getopt_long(argc, argv, "D:g:k:rh",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
-		case 'h': usage(); return EXIT_SUCCESS;
-		default:  usage(); return EXIT_FAILURE;
+		case 'D': dirname = optarg;		break;
+		case 'g': glob = optarg;		break;
+		case 'k': kprobes_filename = optarg;	break;
+		case 'r': recursive = 1;		break;
+		case 'h': usage();			return EXIT_SUCCESS;
+		default:  usage();			return EXIT_FAILURE;
 		}
 
 	if (optind < argc) {
 		switch (argc - optind) {
-		case 2:	 file_name  = argv[optind++];
+		case 1:	 if (kprobes_filename == NULL) {
+				usage();
+				return EXIT_FAILURE;
+			 }
+			 class_name = argv[optind++];	break;
+		case 2:	 filename  = argv[optind++];
 			 class_name = argv[optind++];	break;
 		default: usage();			return EXIT_FAILURE;
 		}
@@ -297,15 +321,36 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	cus = cus__new(NULL, NULL);
+	cus = cus__new(&cus__definitions, &cus__fwd_decls);
 	if (cus == NULL) {
+out_enomem:
 		fputs("ctracer: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
+	
+	if (kprobes_filename != NULL) {
+		kprobes_cus = cus__new(&cus__definitions, &cus__fwd_decls);
+		if (kprobes_cus == NULL)
+			goto out_enomem;
+		if (cus__load(kprobes_cus, kprobes_filename) != 0) {
+			filename = kprobes_filename;
+			goto out_dwarf_err;
+		}
+	} else
+		kprobes_cus = cus;
 
-	if (cus__load(cus, file_name) != 0) {
+	if (dirname != NULL && cus__load_dir(cus, dirname, glob,
+					     recursive) != 0) {
+		fprintf(stderr, "ctracer: couldn't load DWARF info "
+				"from %s dir with glob %s\n",
+			dirname, glob);
+		return EXIT_FAILURE;
+	}
+
+	if (filename != NULL && cus__load(cus, filename) != 0) {
+out_dwarf_err:
 		fprintf(stderr, "ctracer: couldn't load DWARF info from %s\n",
-			file_name);
+			filename);
 		return EXIT_FAILURE;
 	}
 
