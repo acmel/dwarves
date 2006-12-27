@@ -2281,9 +2281,9 @@ next_indirection:
 	case DW_TAG_structure_type:
 		if (pointer)
 			return cus__emit_fwd_decl(self, type);
-		else
-			return cus__emit_struct_definitions(self, type,
-							    NULL, NULL);
+		return cus__emit_struct_definitions(self, type, NULL, NULL);
+	case DW_TAG_subroutine_type:
+		return cus__emit_tag_definitions(self, cu, &type->tag);
 	}
 
 	return 0;
