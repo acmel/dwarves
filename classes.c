@@ -84,7 +84,7 @@ static const char *dwarf_tag_names[] = {
 	[DW_TAG_shared_type]		  = "shared_type",
 };
 
-const char *dwarf_tag_name(const unsigned int tag)
+const char *dwarf_tag_name(const uint32_t tag)
 {
 	if (tag >= DW_TAG_array_type && tag <= DW_TAG_shared_type)
 		return dwarf_tag_names[tag];
@@ -328,7 +328,7 @@ static void cu__add_variable(struct cu *self, struct variable *variable)
 	list_add_tail(&variable->cu_node, &self->variables);
 }
 
-static const char *tag_name(const struct cu *cu, const unsigned int tag)
+static const char *tag_name(const struct cu *cu, const uint32_t tag)
 {
 	switch (tag) {
 	case DW_TAG_enumeration_type:	return "enum ";
@@ -945,11 +945,11 @@ static struct label *label__new(Dwarf_Off id, Dwarf_Off type,
 	return self;
 }
 
-static struct class *class__new(const unsigned int tag,
+static struct class *class__new(const uint32_t tag,
 				Dwarf_Off id, Dwarf_Off type,
 				const char *name, size_t size,
-				const char *decl_file, unsigned int decl_line,
-				unsigned char declaration)
+				const char *decl_file, uint32_t decl_line,
+				uint8_t declaration)
 {
 	struct class *self = zalloc(sizeof(*self));
 
@@ -992,9 +992,8 @@ static void lexblock__init(struct lexblock *self)
 
 static struct function *function__new(Dwarf_Off id, Dwarf_Off type,
 				      const char *decl_file,
-				      unsigned int decl_line,
-				      const char *name,
-				      unsigned short inlined, char external,
+				      uint32_t decl_line, const char *name,
+				      uint16_t inlined, char external,
 				      Dwarf_Addr low_pc, Dwarf_Addr high_pc)
 {
 	struct function *self = zalloc(sizeof(*self));
@@ -1083,7 +1082,7 @@ void class__find_holes(struct class *self)
 {
 	struct class_member *pos, *last = NULL;
 	size_t last_size = 0, size;
-	unsigned int bit_sum = 0;
+	uint32_t bit_sum = 0;
 
 	self->nr_holes = 0;
 	self->nr_bit_holes = 0;
@@ -1358,8 +1357,8 @@ static int class__print_cacheline_boundary(uint32_t last_cacheline,
 	const size_t cacheline = real_sum / cacheline_size;
 
 	if (cacheline > last_cacheline) {
-		const unsigned int cacheline_pos = real_sum % cacheline_size;
-		const unsigned cacheline_in_bytes = real_sum - cacheline_pos;
+		const uint32_t cacheline_pos = real_sum % cacheline_size;
+		const uint32_t cacheline_in_bytes = real_sum - cacheline_pos;
 
 		if (*newline) {
 			putchar('\n');
@@ -1384,15 +1383,15 @@ static int class__print_cacheline_boundary(uint32_t last_cacheline,
 static void class__print_struct(const struct class *self,
 				const char *prefix, const char *suffix)
 {
-	unsigned long sum = 0;
-	unsigned long sum_holes = 0;
+	uint32_t sum = 0;
+	uint32_t sum_holes = 0;
 	struct class_member *pos;
 	size_t last_size = 0, size;
-	unsigned int last_cacheline = 0;
+	uint32_t last_cacheline = 0;
 	size_t last_bit_size = 0;
 	int last_offset = -1;
 	uint8_t newline = 0;
-	unsigned int sum_bit_holes = 0;
+	uint32_t sum_bit_holes = 0;
 
 	printf("%s%sstruct%s%s {\n", prefix ?: "", prefix ? " " : "",
 	       self->name ? " " : "", self->name ?: "");
@@ -1591,7 +1590,7 @@ static void oom(const char *msg)
 	exit(EXIT_FAILURE);
 }
 
-static const char *attr_string(Dwarf_Die *die, unsigned int name,
+static const char *attr_string(Dwarf_Die *die, uint32_t name,
 			       Dwarf_Attribute *attr)
 {
 	if (dwarf_attr(die, name, attr) != NULL)
@@ -1618,16 +1617,16 @@ static const char *attr_string(Dwarf_Die *die, unsigned int name,
 	return UINT64_MAX;					\
   } while (0)
 
-static uint64_t __libdw_get_uleb128(uint64_t acc, unsigned int i,
-				    const unsigned char **addrp)
+static uint64_t __libdw_get_uleb128(uint64_t acc, uint32_t i,
+				    const uint8_t **addrp)
 {
-	unsigned char __b;
+	uint8_t __b;
 	get_uleb128_rest_return (acc, i, addrp);
 }
 
 #define get_uleb128(var, addr)					\
 	do {							\
-		unsigned char __b;				\
+		uint8_t __b;				\
 		var = 0;					\
 		get_uleb128_step(var, addr, 0, break);		\
 		var = __libdw_get_uleb128 (var, 1, &(addr));	\
@@ -1643,7 +1642,7 @@ static Dwarf_Off attr_offset(Dwarf_Die *die)
 
 		if (dwarf_formblock(&attr, &block) == 0) {
 			uint64_t uleb;
-			const unsigned char *data = block.data + 1;
+			const uint8_t *data = block.data + 1;
 			get_uleb128(uleb, data);
 			return uleb;
 		}
@@ -1667,10 +1666,10 @@ static uint64_t attr_upper_bound(Dwarf_Die *die)
 	return 0;
 }
 
-static uint64_t attr_numeric(Dwarf_Die *die, unsigned int name)
+static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 {
 	Dwarf_Attribute attr;
-	unsigned int form;
+	uint32_t form;
 
 	if (dwarf_attr(die, name, &attr) == NULL)
 		return 0;
@@ -1719,7 +1718,7 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die,
 			      struct class *class, struct cu *cu);
 
 static void cu__create_new_class(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
-				 unsigned int tag, Dwarf_Off cu_offset,
+				 uint32_t tag, Dwarf_Off cu_offset,
 				 const char *name, Dwarf_Off type,
 				 const char *decl_file, int decl_line)
 {
@@ -1791,7 +1790,7 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
 	const char *decl_file, *name;
 	Dwarf_Off type;
 	int decl_line = 0;
-	unsigned int tag = dwarf_tag(die);
+	uint32_t tag = dwarf_tag(die);
 
 	if (tag == DW_TAG_invalid)
 		return;
@@ -1858,7 +1857,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 	int decl_line = 0;
 	const char *name;
 	Dwarf_Off type;
-	unsigned int tag = dwarf_tag(die);
+	uint32_t tag = dwarf_tag(die);
 
 	if (tag == DW_TAG_invalid)
 		return;
@@ -2033,7 +2032,7 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 	int decl_line = 0;
 	const char *name;
 	Dwarf_Off type;
-	unsigned int tag = dwarf_tag(die);
+	uint32_t tag = dwarf_tag(die);
 
 	if (tag == DW_TAG_invalid)
 		return;
@@ -2056,7 +2055,7 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 		break;
 	case DW_TAG_subprogram: {
 		struct function *function;
-		const unsigned short inlined = attr_numeric(die, DW_AT_inline);
+		const uint16_t inlined = attr_numeric(die, DW_AT_inline);
 		const char external = dwarf_hasattr(die, DW_AT_external);
 		Dwarf_Addr high_pc, low_pc;
 

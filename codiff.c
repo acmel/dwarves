@@ -37,12 +37,12 @@ static int show_terse_type_changes;
 #define TCHANGEF__BIT_OFFSET	(1 << 4)
 #define TCHANGEF__BIT_SIZE	(1 << 5)
 
-static unsigned int terse_type_changes;
+static uint32_t terse_type_changes;
 
-static unsigned int total_cus_changed;
-static unsigned int total_nr_functions_changed;
-static unsigned long total_function_bytes_added;
-static unsigned long total_function_bytes_removed;
+static uint32_t total_cus_changed;
+static uint32_t total_nr_functions_changed;
+static uint32_t total_function_bytes_added;
+static uint32_t total_function_bytes_removed;
 
 static void usage(void)
 {

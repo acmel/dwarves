@@ -23,11 +23,11 @@ static int show_cc_inlined;
 static int show_cc_uninlined;
 
 struct fn_stats {
-	struct list_head node;
-	const struct function *function;
-	unsigned long nr_expansions;
-	unsigned long size_expansions;
-	unsigned int nr_files;
+	struct list_head	node;
+	const struct function	*function;
+	uint32_t		nr_expansions;
+	uint32_t		size_expansions;
+	uint32_t		nr_files;
 };
 
 static struct fn_stats *fn_stats__new(const struct function *function)

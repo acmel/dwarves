@@ -31,12 +31,12 @@ struct cu {
 	struct list_head variables;
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
 	const char	 *name;
-	unsigned short	 language;
+	uint16_t	 language;
 	uint32_t	 id;
 	unsigned long	 nr_inline_expansions;
 	size_t		 size_inline_expansions;
-	unsigned int	 nr_functions_changed;
-	unsigned int	 nr_structures_changed;
+	uint32_t	 nr_functions_changed;
+	uint32_t	 nr_structures_changed;
 	size_t		 max_len_changed_item;
 	size_t		 function_bytes_added;
 	size_t		 function_bytes_removed;
@@ -62,13 +62,13 @@ struct class {
 		uint8_t	 dimensions;
 		uint32_t *nr_entries;
 	}		 array;
-	unsigned short	 nr_members;
-	unsigned short	 nr_holes;
-	unsigned short	 nr_bit_holes;
-	unsigned short	 padding;
-	unsigned short	 bit_padding;
-	unsigned int	 refcnt;
-	signed int	 diff;
+	uint16_t	 nr_members;
+	uint16_t	 nr_holes;
+	uint16_t	 nr_bit_holes;
+	uint16_t	 padding;
+	uint16_t	 bit_padding;
+	uint32_t	 refcnt;
+	int32_t		 diff;
 	struct class	 *class_to_diff;
 	uint8_t		 declaration:1;
 	uint8_t		 visited:1;
@@ -93,9 +93,9 @@ struct lexblock {
 	struct list_head inline_expansions;
 	struct list_head labels;
 	struct list_head variables;
-	unsigned short	 nr_inline_expansions;
-	unsigned short	 nr_labels;
-	unsigned short	 nr_variables;
+	uint16_t	 nr_inline_expansions;
+	uint16_t	 nr_labels;
+	uint16_t	 nr_variables;
 	size_t		 size_inline_expansions;
 };
 
@@ -108,13 +108,13 @@ struct function {
 	const char	 *name;
 	Dwarf_Addr	 low_pc;
 	Dwarf_Addr	 high_pc;
-	unsigned short	 nr_parameters;
-	unsigned short	 inlined;
-	unsigned char	 external:1;
-	unsigned char	 unspecified_parameters;
-	unsigned int	 refcnt;
-	signed int	 diff;
-	unsigned int	 cu_total_nr_inline_expansions;
+	uint16_t	 nr_parameters;
+	uint16_t	 inlined;
+	uint8_t		 external:1;
+	uint8_t		 unspecified_parameters;
+	uint32_t	 refcnt;
+	int32_t		 diff;
+	uint32_t	 cu_total_nr_inline_expansions;
 	size_t		 cu_total_size_inline_expansions;
 	struct class	 *class_to_diff;
 };
@@ -158,7 +158,7 @@ struct enumerator {
 extern void class__find_holes(struct class *self);
 extern void class__print(const struct class *self,
 			 const char *prefix, const char *suffix);
-extern void function__print(const struct function *self, int show_stats,
+extern void function__print(const struct function *self, const int show_stats,
 			    const int show_variables,
 			    const int show_inline_expansions);
 
@@ -249,7 +249,7 @@ extern const char *variable__name(const struct variable *self);
 extern const char *variable__type_name(const struct variable *self,
 				       char *bf, size_t len);
 
-extern const char *dwarf_tag_name(const unsigned int tag);
+extern const char *dwarf_tag_name(const uint32_t tag);
 
 extern int tag__fwd_decl(const struct cu *cu, const struct tag *tag);
 

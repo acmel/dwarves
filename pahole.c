@@ -25,14 +25,14 @@ static size_t cu__exclude_prefix_len;
 static char *decl_exclude_prefix;
 static size_t decl_exclude_prefix_len;
 
-static unsigned short nr_holes;
-static unsigned short nr_bit_holes;
+static uint16_t nr_holes;
+static uint16_t nr_bit_holes;
 static uint8_t show_packable;
 
 struct structure {
 	struct list_head   node;
 	const struct class *class;
-	unsigned int	   nr_files;
+	uint32_t	   nr_files;
 };
 
 static struct structure *structure__new(const struct class *class)
