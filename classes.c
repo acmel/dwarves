@@ -647,6 +647,10 @@ static struct class_member *class_member__new(Dwarf_Off id,
 {
 	struct class_member *self = zalloc(sizeof(*self));
 
+	/* Be paranoid */
+	assert(offset == (typeof(self->offset))offset);
+	assert(bit_size == (typeof(self->bit_size))bit_size);
+
 	if (self != NULL) {
 		tag__init(&self->tag, tag, id, type,
 			  decl_file, decl_line);
