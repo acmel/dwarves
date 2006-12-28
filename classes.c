@@ -1818,6 +1818,9 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
 		class__add_member(class, member);
 	}
 		break;
+	case DW_TAG_formal_parameter:
+		/* Discard for now */
+		goto next_sibling;
 	case DW_TAG_structure_type:
 		/*
 		 * structs within structs: C++
