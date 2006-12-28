@@ -58,21 +58,19 @@ struct class {
 	struct list_head node;
 	const char	 *name;
 	size_t		 size;
-	struct {
-		uint8_t	 dimensions;
-		uint32_t *nr_entries;
-	}		 array;
 	uint16_t	 nr_members;
-	uint16_t	 nr_holes;
-	uint16_t	 nr_bit_holes;
+	uint8_t		 nr_holes;
+	uint8_t		 nr_bit_holes;
 	uint16_t	 padding;
-	uint16_t	 bit_padding;
-	uint32_t	 refcnt;
-	int32_t		 diff;
-	struct class	 *class_to_diff;
+	uint8_t		 bit_padding;
 	uint8_t		 declaration:1;
 	uint8_t		 visited:1;
 	uint8_t		 fwd_decl_emitted:1;
+	uint8_t		 array_dimensions:5;
+	uint32_t	 refcnt;
+	uint32_t	 *array_nr_entries;
+	int32_t		 diff;
+	struct class	 *class_to_diff;
 };
 
 struct class_member {

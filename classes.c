@@ -540,8 +540,8 @@ static size_t class__array_nr_entries(const struct class *self)
 	int i;
 	size_t nr_entries = 1;
 
-	for (i = 0; i < self->array.dimensions; ++i)
-		nr_entries *= self->array.nr_entries[i];
+	for (i = 0; i < self->array_dimensions; ++i)
+		nr_entries *= self->array_nr_entries[i];
 
 	return nr_entries;
 }
@@ -743,10 +743,10 @@ size_t class_member__names(const struct class *type,
 			member_name += n;
 			member_name_size -= n;
 
-			for (i = 0; i < type->array.dimensions; ++i) {
+			for (i = 0; i < type->array_dimensions; ++i) {
 				n = snprintf(member_name, member_name_size,
 					     "[%u]",
-					     type->array.nr_entries[i]);
+					     type->array_nr_entries[i]);
 				member_name += n;
 				member_name_size -= n;
 			}
@@ -816,10 +816,10 @@ size_t parameter__names(const struct parameter *self,
 			parameter_name += n;
 			parameter_name_size -= n;
 
-			for (i = 0; i < class->array.dimensions; ++i) {
+			for (i = 0; i < class->array_dimensions; ++i) {
 				n = snprintf(parameter_name,
 					     parameter_name_size, "[%u]",
-					     class->array.nr_entries[i]);
+					     class->array_nr_entries[i]);
 				parameter_name += n;
 				parameter_name_size -= n;
 			}
@@ -1755,13 +1755,13 @@ static void cu__create_new_array(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 	}
 
 	die = &child;
-	class->array.dimensions = 0;
+	class->array_dimensions = 0;
 	do {
 		const uint16_t tag = dwarf_tag(die);
 
 		if (tag == DW_TAG_subrange_type) {
-			nr_entries[class->array.dimensions++] = attr_upper_bound(die);
-			if (class->array.dimensions == max_dimensions) {
+			nr_entries[class->array_dimensions++] = attr_upper_bound(die);
+			if (class->array_dimensions == max_dimensions) {
 				fprintf(stderr, "%s: only %u dimensions are "
 						"supported!\n",
 					__FUNCTION__, max_dimensions);
@@ -1772,10 +1772,10 @@ static void cu__create_new_array(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 				__FUNCTION__, dwarf_tag_name(tag));
 	} while (dwarf_siblingof(die, die) == 0);
 
-	class->array.nr_entries = memdup(nr_entries,
-					 (class->array.dimensions *
+	class->array_nr_entries = memdup(nr_entries,
+					 (class->array_dimensions *
 					  sizeof(uint32_t)));
-	if (class->array.nr_entries == NULL)
+	if (class->array_nr_entries == NULL)
 		oom("memdup(array.nr_entries)");
 
 	cu__add_class(cu, class);
