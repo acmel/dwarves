@@ -79,7 +79,7 @@ static void nr_members_formatter(const struct structure *self)
 
 static void size_formatter(const struct structure *self)
 {
-	printf("%s: %llu %u\n", self->class->name, self->class->size,
+	printf("%s: %u %u\n", self->class->name, self->class->size,
 	       self->class->nr_holes);
 }
 
@@ -152,7 +152,7 @@ static void class__chkdupdef(const struct class *self, struct class *dup)
 	char hdr = 0;
 
 	if (self->size != dup->size)
-		class__dupmsg(self, dup, &hdr, "size: %llu != %llu\n",
+		class__dupmsg(self, dup, &hdr, "size: %u != %u\n",
 			      self->size, dup->size);
 
 	if (self->nr_members != dup->nr_members)

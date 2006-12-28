@@ -641,9 +641,9 @@ static struct class_member *class_member__new(Dwarf_Off id,
 					      const char *decl_file,
 					      uint32_t decl_line,
 					      const char *name,
-					      uint64_t offset,
+					      Dwarf_Off offset,
 					      size_t bit_size,
-					      unsigned int bit_offset)
+					      uint8_t bit_offset)
 {
 	struct class_member *self = zalloc(sizeof(*self));
 
@@ -848,7 +848,7 @@ static size_t class_member__print(struct class_member *self)
 					      sizeof(class_name),
 					      self->name, 1);
 
-			printf("%s %*.*s/* %5llu %5u */",
+			printf("%s %*.*s/* %5u %5u */",
 			       class_name, spacing, spacing, " ",
 			       self->offset, size);
 			goto out;
@@ -866,7 +866,7 @@ static size_t class_member__print(struct class_member *self)
 						     strlen(self->name) : -1);
 			union__snprintf(type, class_name, sizeof(class_name),
 					self->name, 1);
-			printf("%s %*.*s/* %5llu %5u */",
+			printf("%s %*.*s/* %5u %5u */",
 			       class_name, spacing, spacing, " ",
 			       self->offset, size);
 			goto out;
@@ -882,7 +882,7 @@ static size_t class_member__print(struct class_member *self)
 		strncat(class_name, ";", sizeof(class_name));
 	}
 
-	printf("%-26s %-21s /* %5llu %5u */",
+	printf("%-26s %-21s /* %5u %5u */",
 	       class_name, member_name, self->offset, size);
 out:
 	return size;
@@ -1630,7 +1630,7 @@ static uint64_t __libdw_get_uleb128(uint64_t acc, unsigned int i,
 	} while (0)
 
 
-static uint64_t attr_offset(Dwarf_Die *die)
+static Dwarf_Off attr_offset(Dwarf_Die *die)
 {
 	Dwarf_Attribute attr;
 

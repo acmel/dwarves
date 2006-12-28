@@ -141,11 +141,13 @@ static int check_print_change(const struct class_member *old,
 
 	if (changes && print && !show_terse_type_changes)
 		printf("    %s\n"
-		       "     from: %-21s /* %5llu(%u) %5u(%u) */\n"
-		       "     to:   %-21s /* %5llu(%u) %5u(%u) */\n",
+		       "     from: %-21s /* %5u(%u) %5u(%u) */\n"
+		       "     to:   %-21s /* %5u(%u) %5u(%u) */\n",
 		       old_member_name,
-		       old_class_name, old->offset, old->bit_offset, old_size, old->bit_size,
-		       new_class_name, new->offset, new->bit_offset, new_size, new->bit_size);
+		       old_class_name, old->offset, old->bit_offset,
+		       old_size, old->bit_size,
+		       new_class_name, new->offset, new->bit_offset,
+		       new_size, new->bit_size);
 
 	return changes;
 }
@@ -302,7 +304,7 @@ static void show_changed_member(char change, const struct class_member *member)
 	size_t size = class_member__names(NULL, member,
 					  class_name, sizeof(class_name),
 					  member_name, sizeof(member_name));
-	printf("    %c%-26s %-21s /* %5llu %5u */\n",
+	printf("    %c%-26s %-21s /* %5u %5u */\n",
 	       change, class_name, member_name, member->offset, size);
 }
 

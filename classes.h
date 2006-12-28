@@ -79,13 +79,13 @@ struct class_member {
 	struct tag	 tag;
 	char		 *name;
 	struct class	 *class;
-	uint64_t	 offset;
-	size_t		 bit_size;
-	unsigned int	 bit_offset;
-	unsigned char	 visited:1;
-	unsigned short	 hole;		/* If there is a hole before the next
+	uint16_t	 offset;
+	uint8_t		 bit_offset;
+	uint8_t		 bit_size;
+	uint8_t		 bit_hole;	/* If there is a bit hole before the next
 					   one (or the end of the struct) */
-	unsigned short	 bit_hole;	/* If there is a bit hole before the next
+	uint8_t		 visited:1;
+	uint16_t	 hole;		/* If there is a hole before the next
 					   one (or the end of the struct) */
 };
 
