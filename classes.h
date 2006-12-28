@@ -102,18 +102,19 @@ struct function {
 	struct cu	 *cu;
 	struct lexblock	 lexblock;
 	struct list_head parameters;
-	struct list_head tool_node;	/* Node to be used by tools */
 	const char	 *name;
 	Dwarf_Addr	 low_pc;
 	Dwarf_Addr	 high_pc;
 	uint16_t	 nr_parameters;
-	uint16_t	 inlined;
+	uint16_t	 cu_total_nr_inline_expansions;
+	size_t		 cu_total_size_inline_expansions;
+	uint8_t		 inlined:2;
 	uint8_t		 external:1;
-	uint8_t		 unspecified_parameters;
+	uint8_t		 unspecified_parameters:1;
+	/* fields used by tools */
+	struct list_head tool_node;
 	uint32_t	 refcnt;
 	int32_t		 diff;
-	uint32_t	 cu_total_nr_inline_expansions;
-	size_t		 cu_total_size_inline_expansions;
 	struct class	 *class_to_diff;
 };
 
