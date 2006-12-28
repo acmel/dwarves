@@ -130,7 +130,7 @@ struct variable {
 	struct cu	 *cu;
 	struct list_head cu_node;
 	char		 *name;
-	uint64_t	 abstract_origin;
+	Dwarf_Off	 abstract_origin;
 };
 
 struct inline_expansion {

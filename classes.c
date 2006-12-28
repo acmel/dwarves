@@ -219,7 +219,7 @@ static struct variable *variable__new(const char *name, Dwarf_Off id,
 				      Dwarf_Off type,
 				      const char *decl_file,
 				      uint32_t decl_line,
-				      uint64_t abstract_origin)
+				      Dwarf_Off abstract_origin)
 {
 	struct variable *self = malloc(sizeof(*self));
 
@@ -1879,8 +1879,8 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 	}
 		break;
 	case DW_TAG_variable: {
-		uint64_t abstract_origin = attr_numeric(die,
-							DW_AT_abstract_origin);
+		Dwarf_Off abstract_origin =
+				attr_numeric(die, DW_AT_abstract_origin);
 		struct variable *variable;
 
 		variable = variable__new(name, cu_offset,
