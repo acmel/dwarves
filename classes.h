@@ -106,8 +106,8 @@ struct function {
 	struct list_head parameters;
 	struct list_head tool_node;	/* Node to be used by tools */
 	const char	 *name;
-	uint64_t	 low_pc;
-	uint64_t	 high_pc;
+	Dwarf_Addr	 low_pc;
+	Dwarf_Addr	 high_pc;
 	unsigned short	 nr_parameters;
 	unsigned short	 inlined;
 	unsigned char	 external:1;
@@ -144,7 +144,7 @@ struct inline_expansion {
 struct label {
 	struct tag	 tag;
 	char		 *name;
-	uint64_t	 low_pc;
+	Dwarf_Addr	 low_pc;
 };
 
 struct enumerator {

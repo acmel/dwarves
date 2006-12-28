@@ -927,7 +927,7 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Off id,
 
 static struct label *label__new(Dwarf_Off id, Dwarf_Off type,
 				const char *decl_file, uint32_t decl_line,
-				const char *name, uint64_t low_pc)
+				const char *name, Dwarf_Addr low_pc)
 {
 	struct label *self = malloc(sizeof(*self));
 
@@ -991,7 +991,7 @@ static struct function *function__new(Dwarf_Off id, Dwarf_Off type,
 				      unsigned int decl_line,
 				      const char *name,
 				      unsigned short inlined, char external,
-				      uint64_t low_pc, uint64_t high_pc)
+				      Dwarf_Addr low_pc, Dwarf_Addr high_pc)
 {
 	struct function *self = zalloc(sizeof(*self));
 
