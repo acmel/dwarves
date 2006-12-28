@@ -19,6 +19,10 @@ SET(ctracer_SRCS ctracer.c)
 ADD_EXECUTABLE(ctracer ${ctracer_SRCS})
 TARGET_LINK_LIBRARIES(ctracer classes ${DWARF_LIBRARIES})
 
+SET(dtagnames_SRCS dtagnames.c)
+ADD_EXECUTABLE(dtagnames ${dtagnames_SRCS})
+TARGET_LINK_LIBRARIES(dtagnames classes ${DWARF_LIBRARIES})
+
 SET(pahole_SRCS pahole.c)
 ADD_EXECUTABLE(pahole ${pahole_SRCS})
 TARGET_LINK_LIBRARIES(pahole classes ${DWARF_LIBRARIES})
