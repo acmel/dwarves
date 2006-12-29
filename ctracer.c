@@ -54,15 +54,15 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 }
 
 static int function__emit_kprobes(const struct function *self,
-				  const struct class *target)
+				  const struct tag *target)
 {
 	char bf[128];
 	size_t bodyl = 2048, printed;
 	char body[bodyl], *bodyp = body;
 	char class_name[128], parm_name[256];
 	struct parameter *pos;
-	struct class *type = cu__find_class_by_id(self->cu, self->tag.type);
-	const char *stype = class__name(type, bf, sizeof(bf));
+	struct tag *type = cu__find_tag_by_id(self->cu, self->tag.type);
+	const char *stype = tag__name(type, self->cu, bf, sizeof(bf));
 	int first = 1;
 
 	body[0] = '\0';
@@ -70,7 +70,7 @@ static int function__emit_kprobes(const struct function *self,
 	printf("static %s jprobe_entry__%s(", stype, self->name);
 
 	list_for_each_entry(pos, &self->parameters, tag.node) {
-		type = cu__find_class_by_id(self->cu, pos->tag.type);
+		type = cu__find_tag_by_id(self->cu, pos->tag.type);
 		parameter__names(pos, class_name, sizeof(class_name),
 				 parm_name, sizeof(parm_name));
 
@@ -81,11 +81,11 @@ static int function__emit_kprobes(const struct function *self,
 
 		printf("%s %s", class_name, parm_name);
 
-		if (type->tag.tag != DW_TAG_pointer_type)
+		if (type->tag != DW_TAG_pointer_type)
 			continue;
 
-		type = cu__find_class_by_id(self->cu, type->tag.type);
-		if (type == NULL || type->tag.id != target->tag.id)
+		type = cu__find_tag_by_id(self->cu, type->type);
+		if (type == NULL || type->id != target->id)
 			continue;
 
 		printed = snprintf(bodyp, bodyl,
@@ -110,7 +110,7 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
 		cus__emit_function_definitions(cus, pos);
-		function__emit_kprobes(pos, target);
+		function__emit_kprobes(pos, &target->tag);
 	}
 
 	return 0;

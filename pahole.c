@@ -90,7 +90,7 @@ static void class_name_len_formatter(const struct structure *self)
 
 static void class_formatter(const struct structure *self)
 {
-	class__print(self->class, NULL, NULL);
+	tag__print(&self->class->tag, self->class->cu, NULL, NULL);
 	printf("   /* definitions: %u */\n", self->nr_files);
 	putchar('\n');
 }
@@ -177,22 +177,25 @@ static void class__chkdupdef(const struct class *self, struct class *dup)
 		putchar('\n');
 }
 
-static struct class *class__to_struct(struct class *class)
+static struct tag *tag__to_struct(struct tag *tag, const struct cu *cu)
 {
-	struct class *typedef_alias;
+	struct tag *typedef_alias;
 
-	if (!class__is_struct(class, &typedef_alias))
+	if (!tag__is_struct(tag, &typedef_alias, cu))
 		return NULL;
-	return typedef_alias ?: class;
+	return typedef_alias ?: tag;
 }
 
-static struct class *class__filter(struct class *class)
+static struct tag *tag__filter(struct tag *tag, struct cu *cu)
 {
 	struct structure *str;
+	struct class *class;
 
-	class = class__to_struct(class);
-	if (class == NULL) /* Not a structure */
+	tag = tag__to_struct(tag, cu);
+	if (tag == NULL) /* Not a structure */
 		return NULL;
+
+	class = tag__class(tag);
 
 	if (class->name == NULL)
 		return NULL;
@@ -227,19 +230,18 @@ static struct class *class__filter(struct class *class)
 	if (show_packable && !class__packable(class))
 		return NULL;
 
-	return class;
+	return tag;
 }
 
-static int unique_iterator(struct class *class, void *cookie)
+static int unique_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
-	structures__add(class);
+	structures__add(tag__class(tag));
 	return 0;
 }
 
 static int cu_unique_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, unique_iterator, cookie,
-				  class__filter);
+	return cu__for_each_tag(cu, unique_iterator, cookie, tag__filter);
 }
 
 static struct option long_options[] = {
@@ -343,7 +345,7 @@ int main(int argc, char *argv[])
 			printf("struct %s not found!\n", class_name);
 			return EXIT_FAILURE;
 		}
-		class__print(s->class, NULL, NULL);
+		tag__print(&s->class->tag, s->class->cu, NULL, NULL);
 	} else
 		print_classes(formatter);
 

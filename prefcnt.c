@@ -29,7 +29,7 @@ static void usage(void)
 		"   -h, --help   usage options\n");
 }
 
-static void refcnt_class(struct class *class);
+static void refcnt_tag(struct tag *tag);
 
 static void refcnt_member(struct class_member *member)
 {
@@ -37,52 +37,53 @@ static void refcnt_member(struct class_member *member)
 		return;
 	member->visited = 1;
 	if (member->tag.type != 0) { /* if not void */
-		struct class *type = cu__find_class_by_id(member->class->cu,
-							  member->tag.type);
+		struct tag *type = cu__find_tag_by_id(member->class->cu,
+						      member->tag.type);
 		if (type != NULL)
-			refcnt_class(type);
+			refcnt_tag(type);
 	}
 }
 
 static void refcnt_parameter(const struct parameter *parameter)
 {
 	if (parameter->tag.type != 0) { /* if not void */
-		struct class *type = cu__find_class_by_id(parameter->function->cu,
-							  parameter->tag.type);
-
+		struct tag *type = cu__find_tag_by_id(parameter->function->cu,
+						      parameter->tag.type);
 		if (type != NULL)
-			refcnt_class(type);
+			refcnt_tag(type);
 	}
 }
 
 static void refcnt_variable(const struct variable *variable)
 {
 	if (variable->tag.type != 0) { /* if not void */
-		struct class *type = cu__find_class_by_id(variable->cu,
-							  variable->tag.type);
+		struct tag *type = cu__find_tag_by_id(variable->cu,
+						      variable->tag.type);
 		if (type != NULL)
-			refcnt_class(type);
+			refcnt_tag(type);
 	}
 }
 
 static void refcnt_inline_expansion(const struct inline_expansion *exp)
 {
 	if (exp->tag.type != 0) { /* if not void */
-		struct class *type = cu__find_class_by_id(exp->function->cu,
-							  exp->tag.type);
+		struct tag *type = cu__find_tag_by_id(exp->function->cu,
+						      exp->tag.type);
 		if (type != NULL)
-			refcnt_class(type);
+			refcnt_tag(type);
 	}
 }
 
-static void refcnt_class(struct class *class)
+static void refcnt_tag(struct tag *tag)
 {
 	struct class_member *member;
 
-	class->refcnt++;
+	tag->refcnt++;
 
-	list_for_each_entry(member, &class->members, tag.node)
-		refcnt_member(member);
+	if (tag->tag == DW_TAG_structure_type ||
+	    tag->tag == DW_TAG_union_type)
+		list_for_each_entry(member, &tag__class(tag)->members, tag.node)
+			refcnt_member(member);
 }
 
 static void refcnt_function(struct function *function)
@@ -91,13 +92,13 @@ static void refcnt_function(struct function *function)
 	struct inline_expansion *exp;
 	struct variable *variable;
 
-	function->refcnt++;
+	function->tag.refcnt++;
 
 	if (function->tag.type != 0) /* if not void */ {
-		struct class *type = cu__find_class_by_id(function->cu,
-							  function->tag.type);
+		struct tag *type = cu__find_tag_by_id(function->cu,
+						      function->tag.type);
 		if (type != NULL)
-			refcnt_class(type);
+			refcnt_tag(type);
 	}
 
 	list_for_each_entry(parameter, &function->parameters, tag.node)
@@ -116,31 +117,31 @@ static int refcnt_function_iterator(struct function *function, void *cookie)
 	return 0;
 }
 
-static int refcnt_class_iterator(struct class *class, void *cookie)
+static int refcnt_tag_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
-	if (class->tag.tag == DW_TAG_structure_type)
-		class__find_holes(class);
+	if (tag->tag == DW_TAG_structure_type)
+		class__find_holes(tag__class(tag));
 
 	return 0;
 }
 
 static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 {
-	cu__for_each_class(cu, refcnt_class_iterator, cookie, NULL);
+	cu__for_each_tag(cu, refcnt_tag_iterator, cookie, NULL);
 	cu__for_each_function(cu, refcnt_function_iterator, cookie, NULL);
 	return 0;
 }
 
-static int lost_iterator(struct class *class, void *cookie)
+static int lost_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
-	if (class->refcnt == 0 && class->tag.decl_file != NULL)
-		class__print(class, NULL, NULL);
+	if (tag->refcnt == 0 && tag->decl_file != NULL)
+		tag__print(tag, cu, NULL, NULL);
 	return 0;
 }
 
 static int cu_lost_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_class(cu, lost_iterator, cookie, NULL);
+	return cu__for_each_tag(cu, lost_iterator, cookie, NULL);
 }
 
 int main(int argc, char *argv[])

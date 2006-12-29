@@ -49,6 +49,7 @@ struct tag {
 	uint16_t	 tag;
 	uint16_t	 decl_line;
 	const char	 *decl_file;
+	uint32_t	 refcnt;
 };
 
 struct class {
@@ -66,12 +67,26 @@ struct class {
 	uint8_t		 declaration:1;
 	uint8_t		 visited:1;
 	uint8_t		 fwd_decl_emitted:1;
-	uint8_t		 array_dimensions:5;
-	uint32_t	 refcnt;
-	uint32_t	 *array_nr_entries;
 	int32_t		 diff;
 	struct class	 *class_to_diff;
 };
+
+struct class *tag__class(const struct tag *self)
+{
+	return (struct class *)self;
+}
+
+struct array_type {
+	struct tag	tag;
+	const char	*name;
+	uint32_t	*nr_entries;
+	uint8_t		dimensions;
+};
+
+struct array_type *tag__array_type(const struct tag *self)
+{
+	return (struct array_type *)self;
+}
 
 struct class_member {
 	struct tag	 tag;
@@ -113,7 +128,6 @@ struct function {
 	uint8_t		 unspecified_parameters:1;
 	/* fields used by tools */
 	struct list_head tool_node;
-	uint32_t	 refcnt;
 	int32_t		 diff;
 	struct class	 *class_to_diff;
 };
@@ -155,8 +169,8 @@ struct enumerator {
 #define DEFAULT_CACHELINE_SIZE 32
 
 extern void class__find_holes(struct class *self);
-extern void class__print(const struct class *self,
-			 const char *prefix, const char *suffix);
+extern void tag__print(const struct tag *self, const struct cu *cu,
+		       const char *prefix, const char *suffix);
 extern void function__print(const struct function *self, const int show_stats,
 			    const int show_variables,
 			    const int show_inline_expansions);
@@ -177,20 +191,22 @@ extern int cus__emit_struct_definitions(struct cus *self, struct class *class,
 					const char *suffix);
 extern int cus__emit_fwd_decl(struct cus *self, struct class *class);
 
-extern struct class *cu__find_class_by_id(const struct cu *cu,
-					  const Dwarf_Off type);
+extern struct tag *cu__find_tag_by_id(const struct cu *self,
+				      const Dwarf_Off id);
 extern struct class *cu__find_class_by_name(const struct cu *cu,
 					    const char *name);
-extern int	    class__is_struct(const struct class *self,
-				     struct class **typedef_alias);
+extern int tag__is_struct(const struct tag *self, struct tag **typedef_alias,
+			  const struct cu *cu);
 extern struct class *cus__find_class_by_name(const struct cus *self,
 					     const char *name);
 extern void	    cu__account_inline_expansions(struct cu *self);
-extern int	    cu__for_each_class(struct cu *self,
-				       int (*iterator)(struct class *class,
-						       void *cookie),
-				       void *cookie,
-				 struct class *(*filter)(struct class *class));
+extern int	    cu__for_each_tag(struct cu *self,
+				     int (*iterator)(struct tag *tag,
+					     	     struct cu *cu,
+						     void *cookie),
+				     void *cookie,
+				     struct tag *(*filter)(struct tag *tag,
+							   struct cu *cu));
 extern int	    cu__for_each_function(struct cu *cu,
 					  int (*iterator)(struct function *func,
 							  void *cookie),
@@ -231,14 +247,15 @@ static inline int function__inlined(const struct function *self)
 }
 
 extern int function__has_parameter_of_type(const struct function *self,
-					   const struct class *target);
+					   const struct tag *target);
 
-extern const char *class__name(const struct class *self, char *bf, size_t len);
+extern const char *tag__name(const struct tag *self, const struct cu *cu,
+			     char *bf, size_t len);
 
 extern struct class_member *class__find_member_by_name(const struct class *self,
 						       const char *name);
 
-extern size_t class_member__names(const struct class *type,
+extern size_t class_member__names(const struct tag *type,
 				  const struct class_member *self,
 				  char *class_name, size_t class_name_size,
 				  char *member_name, size_t member_name_size);
@@ -249,8 +266,6 @@ extern const char *variable__type_name(const struct variable *self,
 				       char *bf, size_t len);
 
 extern const char *dwarf_tag_name(const uint32_t tag);
-
-extern int tag__fwd_decl(const struct cu *cu, const struct tag *tag);
 
 extern size_t parameter__names(const struct parameter *self,
 			       char *class_name, size_t class_name_size,

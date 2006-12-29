@@ -20,15 +20,15 @@ static void print_malloc_stats(void)
 	fprintf(stderr, "size: %u\n", m.uordblks);
 }
 
-static int class__tag_name(struct class *self, void *cookie)
+static int class__tag_name(struct tag *self, struct cu *cu, void *cookie)
 {
-	puts(dwarf_tag_name(self->tag.tag));
+	puts(dwarf_tag_name(self->tag));
 	return 0;
 }
 
 static int cu__dump_class_tag_names(struct cu *self, void *cookie)
 {
-	cu__for_each_class(self, class__tag_name, NULL, NULL);
+	cu__for_each_tag(self, class__tag_name, NULL, NULL);
 	return 0;
 }
 

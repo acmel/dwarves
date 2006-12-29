@@ -204,10 +204,10 @@ out:
 	structure->class_to_diff = new_structure;
 }
 
-static int diff_class_iterator(struct class *class, void *new_cu)
+static int diff_class_iterator(struct tag *tag, struct cu *cu, void *new_cu)
 {
-	if (class->tag.tag == DW_TAG_structure_type)
-		diff_struct(new_cu, class);
+	if (tag->tag == DW_TAG_structure_type)
+		diff_struct(new_cu, tag__class(tag));
 
 	return 0;
 }
@@ -240,11 +240,16 @@ static int find_new_functions_iterator(struct function *function, void *old_cu)
 	return 0;
 }
 
-static int find_new_classes_iterator(struct class *class, void *old_cu)
+static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_cu)
 {
+	struct class *class;
 	size_t len;
 
-	if (class->tag.tag != DW_TAG_structure_type || class->name == NULL)
+	if (tag->tag != DW_TAG_structure_type)
+		return 0;
+
+	class = tag__class(tag);
+	if (class->name == NULL)
 		return 0;
 
 	if (class->size == 0)
@@ -268,8 +273,8 @@ static int cu_find_new_classes_iterator(struct cu *new_cu, void *old_cus)
 	struct cu *old_cu = cus__find_cu_by_name(old_cus, new_cu->name);
 
 	if (old_cu != NULL) {
-		cu__for_each_class(new_cu, find_new_classes_iterator,
-				   old_cu, NULL);
+		cu__for_each_tag(new_cu, find_new_classes_iterator,
+				 old_cu, NULL);
 		cu__for_each_function(new_cu, find_new_functions_iterator,
 				      old_cu, NULL);
 	}
@@ -282,7 +287,7 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 	struct cu *new_cu = cus__find_cu_by_name(new_cus, cu->name);
 
 	if (new_cu != NULL) {
-		cu__for_each_class(cu, diff_class_iterator, new_cu, NULL);
+		cu__for_each_tag(cu, diff_class_iterator, new_cu, NULL);
 		cu__for_each_function(cu, diff_function_iterator, new_cu, NULL);
 	}
 
@@ -406,9 +411,16 @@ static int show_function_diffs_iterator(struct function *function, void *new_cu)
 	return 0;
 }
 
-static int show_structure_diffs_iterator(struct class *class, void *new_cu)
+static int show_structure_diffs_iterator(struct tag *tag, struct cu *cu,
+					 void *new_cu)
 {
-	if (class->diff != 0 && class->tag.tag == DW_TAG_structure_type)
+	struct class *class;
+
+	if (tag->tag != DW_TAG_structure_type)
+		return 0;
+
+	class = tag__class(tag);
+	if (class->diff != 0)
 		show_diffs_structure(class);
 	return 0;
 }
@@ -431,14 +443,14 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	printf("%s:\n", cu->name);
 
 	if (show_terse_type_changes) {
-		cu__for_each_class(cu, show_structure_diffs_iterator,
-				   NULL, NULL);
+		cu__for_each_tag(cu, show_structure_diffs_iterator,
+				 NULL, NULL);
 		return 0;
 	}
 
 	if (cu->nr_structures_changed != 0 && show_struct_diffs) {
-		cu__for_each_class(cu, show_structure_diffs_iterator,
-				   NULL, NULL);
+		cu__for_each_tag(cu, show_structure_diffs_iterator,
+				 NULL, NULL);
 		printf(" %u struct%s changed\n", cu->nr_structures_changed,
 		       cu->nr_structures_changed > 1 ? "s" : "");
 	}
