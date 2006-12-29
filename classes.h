@@ -31,6 +31,7 @@ struct cu {
 	struct list_head variables;
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
 	const char	 *name;
+	uint8_t		 addr_size;
 	uint16_t	 language;
 	uint32_t	 id;
 	unsigned long	 nr_inline_expansions;

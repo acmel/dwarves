@@ -153,6 +153,17 @@ static void tag__init(struct tag *self, uint16_t tag,
 	self->decl_line = decl_line;
 }
 
+static struct tag *tag__new(uint16_t tag, Dwarf_Off id, Dwarf_Off type,
+			    const char *decl_file, uint32_t decl_line)
+{
+	struct tag *self = malloc(sizeof(*self));
+
+	if (self != NULL)
+		tag__init(self, tag, id, type, decl_file, decl_line);
+
+	return self;
+}
+
 static size_t enumeration__snprintf(const struct class *self,
 				    char *bf, size_t len,
 				    const char *suffix, uint8_t ntabs)
@@ -287,7 +298,7 @@ static void cus__add(struct cus *self, struct cu *cu)
 	list_add_tail(&cu->node, &self->cus);
 }
 
-static struct cu *cu__new(uint32_t cu, const char *name)
+static struct cu *cu__new(uint32_t cu, const char *name, uint8_t addr_size)
 {
 	struct cu *self = malloc(sizeof(*self));
 
@@ -296,7 +307,10 @@ static struct cu *cu__new(uint32_t cu, const char *name)
 		INIT_LIST_HEAD(&self->functions);
 		INIT_LIST_HEAD(&self->variables);
 		INIT_LIST_HEAD(&self->tool_list);
-		self->name = strings__add(name);
+
+		self->name	= strings__add(name);
+		self->addr_size = addr_size;
+
 		self->nr_inline_expansions   = 0;
 		self->size_inline_expansions = 0;
 		self->nr_structures_changed    = 0;
@@ -521,14 +535,19 @@ static size_t array_type__nr_entries(const struct array_type *self)
 
 static size_t tag__size(const struct tag *self, const struct cu *cu)
 {
-	size_t size = 0;
+	size_t size;
 
-	if (self->tag != DW_TAG_pointer_type && self->type != 0) {
-		struct tag *type = cu__find_tag_by_id(cu, self->type);
-		if (type != NULL)
-			size = tag__size(type, cu);
-	} else
+	if (self->tag == DW_TAG_pointer_type)
+		return cu->addr_size;
+
+	if (self->type == 0) /* DW_TAG_base_type */
 		size = tag__class(self)->size;
+	else {
+		const struct tag *type = cu__find_tag_by_id(cu, self->type);
+
+		assert(type != NULL);
+		size = tag__size(type, cu);
+	}
 
 	if (self->tag == DW_TAG_array_type)
 		return size * array_type__nr_entries(tag__array_type(self));
@@ -1696,6 +1715,22 @@ static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 	return 0;
 }
 
+static void cu__create_new_tag(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
+			       Dwarf_Off cu_offset, Dwarf_Off type, uint32_t tag,
+			       const char *decl_file, int decl_line)
+{
+	struct tag *self = tag__new(tag, cu_offset, type, decl_file, decl_line);
+
+	if (self == NULL)
+		oom("tag__new");
+
+	if (dwarf_haschildren(die))
+		fprintf(stderr, "%s: %s WITH children!\n", __FUNCTION__,
+			dwarf_tag_name(tag));
+
+	cu__add_tag(cu, self);
+}
+
 static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die,
 			      struct class *class, struct cu *cu);
 
@@ -2061,6 +2096,12 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 		cu__add_function(cu, function);
 	}
 		goto next_sibling;
+	case DW_TAG_const_type:
+	case DW_TAG_pointer_type:
+	case DW_TAG_volatile_type:
+		cu__create_new_tag(dwarf, die, cu, cu_offset, type, tag,
+				   decl_file, decl_line);
+		goto next_sibling;
 	case DW_TAG_array_type:
 		cu__create_new_array(dwarf, die, cu, cu_offset, type,
 				     decl_file, decl_line);
@@ -2158,7 +2199,8 @@ int cus__load(struct cus *self, const char *filename)
 			Dwarf_Attribute name;
 			struct cu *cu = cu__new(cu_id,
 						attr_string(&die, DW_AT_name,
-							    &name));
+							    &name),
+						addr_size);
 			if (cu == NULL)
 				oom("cu__new");
 			++cu_id;
