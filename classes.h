@@ -77,6 +77,17 @@ struct class *tag__class(const struct tag *self)
 	return (struct class *)self;
 }
 
+struct base_type {
+	struct tag	tag;
+	const char	*name;
+	size_t		size;
+};
+
+struct base_type *tag__base_type(const struct tag *self)
+{
+	return (struct base_type *)self;
+}
+
 struct array_type {
 	struct tag	tag;
 	const char	*name;

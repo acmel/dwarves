@@ -164,6 +164,23 @@ static struct tag *tag__new(uint16_t tag, Dwarf_Off id, Dwarf_Off type,
 	return self;
 }
 
+static struct base_type *base_type__new(const char *name, size_t size,
+					Dwarf_Off id, Dwarf_Off type,
+					const char *decl_file,
+					uint32_t decl_line)
+{
+	struct base_type *self = zalloc(sizeof(*self));
+
+	if (self != NULL) {
+		tag__init(&self->tag, DW_TAG_base_type, id, type,
+			  decl_file, decl_line);
+		self->name = strings__add(name);
+		self->size = size;
+	}
+
+	return self;
+}
+
 static size_t enumeration__snprintf(const struct class *self,
 				    char *bf, size_t len,
 				    const char *suffix, uint8_t ntabs)
@@ -376,14 +393,14 @@ struct class *cu__find_class_by_name(const struct cu *self, const char *name)
 		return NULL;
 
 	list_for_each_entry(pos, &self->classes, node) {
-		struct class *class = tag__class(pos);
+		struct class *class;
 
-		if (class->name != NULL &&
-		    /* FIXME: here there shouldn't be anything other
-		     * than DW_TAG_structure types anyway...  */
-		    pos->tag == DW_TAG_structure_type &&
-		    strcmp(class->name, name) == 0)
-			return tag__class(pos);
+		if (pos->tag != DW_TAG_structure_type)
+			continue;
+
+		class = tag__class(pos);
+		if (class->name != NULL && strcmp(class->name, name) == 0)
+			return class;
 	}
 
 	return NULL;
@@ -537,10 +554,12 @@ static size_t tag__size(const struct tag *self, const struct cu *cu)
 {
 	size_t size;
 
-	if (self->tag == DW_TAG_pointer_type)
-		return cu->addr_size;
+	switch (self->tag) {
+	case DW_TAG_pointer_type: return cu->addr_size;
+	case DW_TAG_base_type:	  return tag__base_type(self)->size;
+	}
 
-	if (self->type == 0) /* DW_TAG_base_type */
+	if (self->type == 0) /* struct class: enums, unions, structs */
 		size = tag__class(self)->size;
 	else {
 		const struct tag *type = cu__find_tag_by_id(cu, self->type);
@@ -563,6 +582,8 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 
 	if (self == NULL)
 		strncpy(bf, "void", len);
+	else if (self->tag == DW_TAG_base_type)
+		strncpy(bf, tag__base_type(self)->name, len);
 	else if (self->tag == DW_TAG_pointer_type) {
 		if (self->type == 0) /* No type == void */
 			strncpy(bf, "void *", len);
@@ -1752,6 +1773,24 @@ static void cu__create_new_class(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 	cu__add_tag(cu, &class->tag);
 }
 
+static void cu__create_new_base_type(const char *name, Dwarf *dwarf,
+				     Dwarf_Die *die, struct cu *cu,
+				     Dwarf_Off cu_offset, Dwarf_Off type,
+				     const char *decl_file, int decl_line)
+{
+	const size_t size = attr_numeric(die, DW_AT_byte_size);
+	struct base_type *base = base_type__new(name, size, cu_offset, type,
+						decl_file, decl_line);
+	if (base == NULL)
+		oom("base_type__new");
+
+	if (dwarf_haschildren(die))
+		fprintf(stderr, "%s: DW_TAG_base_type WITH children!\n",
+			__FUNCTION__);
+
+	cu__add_tag(cu, &base->tag);
+}
+
 static void cu__create_new_array(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 				 Dwarf_Off cu_offset, Dwarf_Off type,
 				 const char *decl_file, int decl_line)
@@ -2101,6 +2140,10 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 	case DW_TAG_volatile_type:
 		cu__create_new_tag(dwarf, die, cu, cu_offset, type, tag,
 				   decl_file, decl_line);
+		goto next_sibling;
+	case DW_TAG_base_type:
+		cu__create_new_base_type(name, dwarf, die, cu, cu_offset, type,
+					 decl_file, decl_line);
 		goto next_sibling;
 	case DW_TAG_array_type:
 		cu__create_new_array(dwarf, die, cu, cu_offset, type,
