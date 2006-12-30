@@ -124,20 +124,27 @@ struct lexblock {
 	size_t		 size_inline_expansions;
 };
 
-struct function {
+/*
+ * tag.tag can be DW_TAG_subprogram_type or DW_TAG_subroutine_type.
+ */
+struct ftype {
 	struct tag	 tag;
+	struct list_head parms;
+	uint16_t	 nr_parms;
+	uint8_t		 unspec_parms:1;
+};
+
+struct function {
+	struct ftype	 proto;
 	struct cu	 *cu;
 	struct lexblock	 lexblock;
-	struct list_head parameters;
 	const char	 *name;
 	Dwarf_Addr	 low_pc;
 	Dwarf_Addr	 high_pc;
-	uint16_t	 nr_parameters;
-	uint16_t	 cu_total_nr_inline_expansions;
 	size_t		 cu_total_size_inline_expansions;
+	uint16_t	 cu_total_nr_inline_expansions;
 	uint8_t		 inlined:2;
 	uint8_t		 external:1;
-	uint8_t		 unspecified_parameters:1;
 	/* fields used by tools */
 	struct list_head tool_node;
 	int32_t		 diff;
@@ -147,7 +154,6 @@ struct function {
 struct parameter {
 	struct tag	 tag;
 	char		 *name;
-	struct function	 *function;
 };
 
 struct variable {
@@ -196,8 +202,8 @@ extern struct cu *cus__find_cu_by_name(const struct cus *self,
 				       const char *name);
 extern struct function *cus__find_function_by_name(const struct cus *self,
 						   const char *name);
-extern int cus__emit_function_definitions(struct cus *self,
-					  struct function *function);
+extern int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
+				       struct ftype *ftype);
 extern int cus__emit_struct_definitions(struct cus *self, struct class *class,
 					const char *prefix,
 					const char *suffix);
@@ -280,6 +286,7 @@ extern const char *variable__type_name(const struct variable *self,
 extern const char *dwarf_tag_name(const uint32_t tag);
 
 extern size_t parameter__names(const struct parameter *self,
+			       const struct cu *cu,
 			       char *class_name, size_t class_name_size,
 			       char *parameter_name,
 			       size_t parameter_name_size);

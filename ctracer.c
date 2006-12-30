@@ -30,7 +30,7 @@ static struct function *function__filter(struct function *function,
 					 void *cookie)
 {
 	if (function__inlined(function) ||
-	    !function__has_parameter_of_type(function, cookie))
+	    !ftype__has_parm_of_type(&function->proto, cookie))
 		return NULL;
 
 	return function;
@@ -61,7 +61,7 @@ static int function__emit_kprobes(const struct function *self,
 	char body[bodyl], *bodyp = body;
 	char class_name[128], parm_name[256];
 	struct parameter *pos;
-	struct tag *type = cu__find_tag_by_id(self->cu, self->tag.type);
+	struct tag *type = cu__find_tag_by_id(self->cu, self->proto.tag.type);
 	const char *stype = tag__name(type, self->cu, bf, sizeof(bf));
 	int first = 1;
 
@@ -69,9 +69,9 @@ static int function__emit_kprobes(const struct function *self,
 
 	printf("static %s jprobe_entry__%s(", stype, self->name);
 
-	list_for_each_entry(pos, &self->parameters, tag.node) {
+	list_for_each_entry(pos, &self->proto.parms, tag.node) {
 		type = cu__find_tag_by_id(self->cu, pos->tag.type);
-		parameter__names(pos, class_name, sizeof(class_name),
+		parameter__names(pos, self->cu, class_name, sizeof(class_name),
 				 parm_name, sizeof(parm_name));
 
 		if (!first)
@@ -95,7 +95,7 @@ static int function__emit_kprobes(const struct function *self,
 		bodyl -= printed;
 	}
 	printf(")\n{\n%s\n\tjprobe_return();\n\t/* NOTREACHED */%s\n}\n\n",
-	       body, self->tag.type != 0 ? "\n\treturn 0;" : "");
+	       body, self->proto.tag.type != 0 ? "\n\treturn 0;" : "");
 	printf("static struct jprobe jprobe__%s = {\n"
 	       "\t.kp = { .symbol_name = \"%s\", },\n"
 	       "\t.entry = (kprobe_opcode_t *)jprobe_entry__%s,\n"
@@ -109,7 +109,7 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
-		cus__emit_function_definitions(cus, pos);
+		cus__emit_ftype_definitions(cus, pos->cu, &pos->proto);
 		function__emit_kprobes(pos, &target->tag);
 	}
 
@@ -166,7 +166,7 @@ static void emit_function_defs(const char *fn)
 	struct function *f = cus__find_function_by_name(kprobes_cus, fn);
 
 	if (f != NULL) {
-		cus__emit_function_definitions(kprobes_cus, f);
+		cus__emit_ftype_definitions(kprobes_cus, f->cu, &f->proto);
 		function__print(f, 0, 0, 0);
 		putchar('\n');
 	}

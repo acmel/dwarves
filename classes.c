@@ -348,7 +348,7 @@ static void cu__add_tag(struct cu *self, struct tag *tag)
 static void cu__add_function(struct cu *self, struct function *function)
 {
 	function->cu = self;
-	list_add_tail(&function->tag.node, &self->functions);
+	list_add_tail(&function->proto.tag.node, &self->functions);
 }
 
 static void cu__add_variable(struct cu *self, struct variable *variable)
@@ -494,7 +494,7 @@ struct function *cu__find_function_by_name(const struct cu *self,
 	if (name == NULL)
 		return NULL;
 
-	list_for_each_entry(pos, &self->functions, tag.node)
+	list_for_each_entry(pos, &self->functions, proto.tag.node)
 		if (pos->name != NULL && strcmp(pos->name, name) == 0)
 			return pos;
 
@@ -506,8 +506,8 @@ struct function *cu__find_function_by_id(const struct cu *self,
 {
 	struct function *pos;
 
-	list_for_each_entry(pos, &self->functions, tag.node)
-		if (pos->tag.id == id)
+	list_for_each_entry(pos, &self->functions, proto.tag.node)
+		if (pos->proto.tag.id == id)
 			return pos;
 
 	return NULL;
@@ -766,12 +766,11 @@ out:
 	return size;
 }
 
-size_t parameter__names(const struct parameter *self,
+size_t parameter__names(const struct parameter *self, const struct cu *cu,
 			char *class_name, size_t class_name_size,
 			char *parameter_name, size_t parameter_name_size)
 {
-	struct tag *type = cu__find_tag_by_id(self->function->cu,
-					      self->tag.type);
+	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
 	size_t size = -1;
 
 	snprintf(parameter_name, parameter_name_size, "%s", self->name ?: "");
@@ -781,14 +780,12 @@ size_t parameter__names(const struct parameter *self,
 			 self->tag.type);
 	else {
 		if (type->tag == DW_TAG_const_type)
-			type = cu__find_tag_by_id(self->function->cu,
-						  type->type);
-		size = tag__size(type, self->function->cu);
+			type = cu__find_tag_by_id(cu, type->type);
+		size = tag__size(type, cu);
 
 		/* Is it a function pointer? */
 		if (type->tag == DW_TAG_pointer_type) {
-			struct tag *ptype =
-			   cu__find_tag_by_id(self->function->cu, type->type);
+			struct tag *ptype = cu__find_tag_by_id(cu, type->type);
 
 			if (ptype != NULL &&
 			    ptype->tag == DW_TAG_subroutine_type) {
@@ -798,10 +795,9 @@ size_t parameter__names(const struct parameter *self,
 						 class_name_size, "void");
 				else {
 					struct tag *ret_type =
-					cu__find_tag_by_id(self->function->cu,
-						           ptype->type);
+					cu__find_tag_by_id(cu, ptype->type);
 
-					tag__name(ret_type, self->function->cu,
+					tag__name(ret_type, cu,
 						  class_name, class_name_size);
 				}
 				snprintf(parameter_name, parameter_name_size,
@@ -812,8 +808,7 @@ size_t parameter__names(const struct parameter *self,
 			}
 		}
 
-		tag__name(type, self->function->cu,
-			  class_name, class_name_size);
+		tag__name(type, cu, class_name, class_name_size);
 		if (type->tag == DW_TAG_array_type) {
 			struct array_type *array = tag__array_type(type);
 			int i = 0;
@@ -1011,6 +1006,16 @@ static void lexblock__init(struct lexblock *self)
 		self->nr_inline_expansions = 0;
 }
 
+static ftype__init(struct ftype *self, uint16_t tag,
+		   Dwarf_Off id, Dwarf_Off type,
+		   const char *decl_file, uint32_t decl_line)
+{
+	assert(tag == DW_TAG_subprogram || tag == DW_TAG_subroutine_type);
+
+	tag__init(&self->tag, tag, id, type, decl_file, decl_line);
+	INIT_LIST_HEAD(&self->parms);
+}
+
 static struct function *function__new(Dwarf_Off id, Dwarf_Off type,
 				      const char *decl_file,
 				      uint32_t decl_line, const char *name,
@@ -1020,10 +1025,8 @@ static struct function *function__new(Dwarf_Off id, Dwarf_Off type,
 	struct function *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, DW_TAG_subprogram,
-			  id, type, decl_file, decl_line);
-
-		INIT_LIST_HEAD(&self->parameters);
+		ftype__init(&self->proto, DW_TAG_subprogram, id, type,
+				    decl_file, decl_line);
 		lexblock__init(&self->lexblock);
 		self->name     = strings__add(name);
 		self->inlined  = inlined;
@@ -1035,16 +1038,16 @@ static struct function *function__new(Dwarf_Off id, Dwarf_Off type,
 	return self;
 }
 
-int function__has_parameter_of_type(const struct function *self,
-				    const struct tag *target)
+int ftype__has_parm_of_type(const struct ftype *self, const struct tag *target,
+			    const struct cu *cu)
 {
-	struct class_member *pos;
+	struct parameter *pos;
 
-	list_for_each_entry(pos, &self->parameters, tag.node) {
-		struct tag *type = cu__find_tag_by_id(self->cu, pos->tag.type);
+	list_for_each_entry(pos, &self->parms, tag.node) {
+		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
 
 		if (type != NULL && type->tag == DW_TAG_pointer_type) {
-			type = cu__find_tag_by_id(self->cu, type->type);
+			type = cu__find_tag_by_id(cu, type->type);
 			if (type != NULL && type->id == target->id)
 				return 1;
 		}
@@ -1052,12 +1055,10 @@ int function__has_parameter_of_type(const struct function *self,
 	return 0;
 }
 
-static void function__add_parameter(struct function *self,
-				    struct parameter *parameter)
+static void ftype__add_parameter(struct ftype *self, struct parameter *parm)
 {
-	++self->nr_parameters;
-	parameter->function = self;
-	list_add_tail(&parameter->tag.node, &self->parameters);
+	++self->nr_parms;
+	list_add_tail(&parm->tag.node, &self->parms);
 }
 
 static void lexblock__add_inline_expansion(struct lexblock *self,
@@ -1202,7 +1203,7 @@ void cu__account_inline_expansions(struct cu *self)
 {
 	struct function *pos;
 
-	list_for_each_entry(pos, &self->functions, tag.node) {
+	list_for_each_entry(pos, &self->functions, proto.tag.node) {
 		function__account_inline_expansions(pos);
 		self->nr_inline_expansions   += pos->lexblock.nr_inline_expansions;
 		self->size_inline_expansions += pos->lexblock.size_inline_expansions;
@@ -1292,21 +1293,21 @@ static void function__print_body(const struct function *self,
 	if (show_variables)
 		list_for_each_entry(pos, &self->lexblock.variables, node) {
 			/* FIXME! this test shouln't be needed at all */
-			if (pos->decl_line >= self->tag.decl_line)
+			if (pos->decl_line >= self->proto.tag.decl_line)
 				tags__add(&tags, pos);
 		}
 
 	if (show_inline_expansions)
 		list_for_each_entry(pos, &self->lexblock.inline_expansions, node) {
 			/* FIXME! this test shouln't be needed at all */
-			if (pos->decl_line >= self->tag.decl_line)
+			if (pos->decl_line >= self->proto.tag.decl_line)
 				tags__add(&tags, pos);
 		}
 
 	if (show_labels)
 		list_for_each_entry(pos, &self->lexblock.labels, node) {
 			/* FIXME! this test shouln't be needed at all */
-			if (pos->decl_line >= self->tag.decl_line)
+			if (pos->decl_line >= self->proto.tag.decl_line)
 				tags__add(&tags, pos);
 		}
 
@@ -1317,39 +1318,59 @@ static void function__print_body(const struct function *self,
 	tdestroy(tags, tags__free);
 }
 
+static size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
+			      char *bf, const size_t len,
+			      const char *name, const uint8_t inlined)
+{
+	struct parameter *pos;
+	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
+	int first_parm = 1;
+	char *s = bf, sbf[128];
+	size_t l = len;
+	const char *stype = tag__name(type, cu, sbf, sizeof(sbf));
+	size_t n = snprintf(s, l, "%s%s %s(", inlined ? "inline " : "",
+			    stype, name ?: "");
+	s += n; l -= n;
+
+	list_for_each_entry(pos, &self->parms, tag.node) {
+		if (!first_parm) {
+			n = snprintf(s, l, ", ");
+			s += n; l -= n;
+		} else
+			first_parm = 0;
+		type = cu__find_tag_by_id(cu, pos->tag.type);
+		stype = tag__name(type, cu, sbf, sizeof(sbf));
+		n = snprintf(s, l, "%s %s", stype, pos->name);
+		s += n; l -= n;
+	}
+
+	/* No parameters? */
+	if (first_parm) {
+		n = snprintf(s, l, "void");
+		s += n; l -= n;
+	}
+	else if (self->unspec_parms) {
+		n = snprintf(s, l, ", ...");
+		s += n; l -= n;
+	}
+	n = snprintf(s, l, ");\n", stdout);
+	return len - l - n;
+}
+
 void function__print(const struct function *self, int show_stats,
 		     const int show_variables,
 		     const int show_inline_expansions)
 {
-	char bf[256];
+	char bf[2048];
 	struct tag *class_type;
 	const char *type = "<ERROR>";
-	struct parameter *pos;
-	int first_parameter = 1;
 
-	class_type = cu__find_tag_by_id(self->cu, self->tag.type);
-	type = tag__name(class_type, self->cu, bf, sizeof(bf));
+	printf("/* %s:%u */\n", self->proto.tag.decl_file,
+				self->proto.tag.decl_line);
 
-	printf("/* %s:%u */\n", self->tag.decl_file, self->tag.decl_line);
-	printf("%s%s %s(", function__declared_inline(self) ? "inline " : "",
-	       type, self->name ?: "");
-	list_for_each_entry(pos, &self->parameters, tag.node) {
-		if (!first_parameter)
-			fputs(", ", stdout);
-		else
-			first_parameter = 0;
-		type = "<ERROR>";
-		class_type = cu__find_tag_by_id(self->cu, pos->tag.type);
-		type = tag__name(class_type, self->cu, bf, sizeof(bf));
-		printf("%s %s", type, pos->name ?: "");
-	}
-
-	/* No parameters? */
-	if (first_parameter)
-		fputs("void", stdout);
-	else if (self->unspecified_parameters)
-		fputs(", ...", stdout);
-	fputs(");\n", stdout);
+	ftype__snprintf(&self->proto, self->cu, bf, sizeof(bf), self->name,
+			function__declared_inline(self));
+	fputs(bf, stdout);
 
 	if (show_variables || show_inline_expansions)
 		function__print_body(self, show_variables,
@@ -1574,7 +1595,7 @@ int cu__for_each_function(struct cu *cu,
 
 	struct function *pos;
 
-	list_for_each_entry(pos, &cu->functions, tag.node) {
+	list_for_each_entry(pos, &cu->functions, proto.tag.node) {
 		struct function *function = pos;
 		if (filter != NULL) {
 			function = filter(pos, cookie);
@@ -1936,7 +1957,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		if (parameter == NULL)
 			oom("parameter__new");
 
-		function__add_parameter(function, parameter);
+		ftype__add_parameter(&function->proto, parameter);
 	}
 		break;
 	case DW_TAG_variable: {
@@ -1955,7 +1976,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 	}
 		break;
 	case DW_TAG_unspecified_parameters:
-		function->unspecified_parameters = 1;
+		function->proto.unspec_parms = 1;
 		break;
 	case DW_TAG_label: {
 		struct label *label;
@@ -2423,16 +2444,16 @@ next_indirection:
 	return 0;
 }
 
-int cus__emit_function_definitions(struct cus *self,
-				   struct function *function)
+int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
+				struct ftype *ftype)
 {
 	struct parameter *pos;
 	/* First check the function return type */
-	int printed = cus__emit_tag_definitions(self, function->cu, &function->tag);
+	int printed = cus__emit_tag_definitions(self, cu, &ftype->tag);
 
 	/* Then its parameters */
-	list_for_each_entry(pos, &function->parameters, tag.node)
-		if (cus__emit_tag_definitions(self, function->cu, &pos->tag))
+	list_for_each_entry(pos, &ftype->parms, tag.node)
+		if (cus__emit_tag_definitions(self, cu, &pos->tag))
 			printed = 1;
 
 	if (printed)

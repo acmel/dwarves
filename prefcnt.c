@@ -44,11 +44,11 @@ static void refcnt_member(struct class_member *member)
 	}
 }
 
-static void refcnt_parameter(const struct parameter *parameter)
+static void refcnt_parameter(const struct parameter *parameter,
+			     const struct cu *cu)
 {
 	if (parameter->tag.type != 0) { /* if not void */
-		struct tag *type = cu__find_tag_by_id(parameter->function->cu,
-						      parameter->tag.type);
+		struct tag *type = cu__find_tag_by_id(cu, parameter->tag.type);
 		if (type != NULL)
 			refcnt_tag(type);
 	}
@@ -92,17 +92,17 @@ static void refcnt_function(struct function *function)
 	struct inline_expansion *exp;
 	struct variable *variable;
 
-	function->tag.refcnt++;
+	function->proto.tag.refcnt++;
 
-	if (function->tag.type != 0) /* if not void */ {
+	if (function->proto.tag.type != 0) /* if not void */ {
 		struct tag *type = cu__find_tag_by_id(function->cu,
-						      function->tag.type);
+						      function->proto.tag.type);
 		if (type != NULL)
 			refcnt_tag(type);
 	}
 
-	list_for_each_entry(parameter, &function->parameters, tag.node)
-		refcnt_parameter(parameter);
+	list_for_each_entry(parameter, &function->proto.parms, tag.node)
+		refcnt_parameter(parameter, function->cu);
 
 	list_for_each_entry(variable, &function->lexblock.variables, tag.node)
 		refcnt_variable(variable);

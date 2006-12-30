@@ -87,7 +87,8 @@ static void fn_stats_variables_fmtr(const struct fn_stats *self)
 
 static void fn_stats_nr_parms_fmtr(const struct fn_stats *self)
 {
-	printf("%s: %u\n", self->function->name, self->function->nr_parameters);
+	printf("%s: %u\n", self->function->name,
+	       self->function->proto.nr_parms);
 }
 
 static void fn_stats_name_len_fmtr(const struct fn_stats *self)
@@ -163,11 +164,9 @@ static void fn_stats__chkdupdef(const struct function *self,
 		fn_stats__dupmsg(self, dup, &hdr, "size: %zd != %zd\n",
 					self_size, dup_size);
 
-	if (self->nr_parameters != dup->nr_parameters)
-		fn_stats__dupmsg(self, dup, &hdr,
-					"nr_parameters: %u != %u\n",
-					self->nr_parameters,
-					dup->nr_parameters);
+	if (self->proto.nr_parms != dup->proto.nr_parms)
+		fn_stats__dupmsg(self, dup, &hdr, "nr_parms: %u != %u\n",
+				 self->proto.nr_parms, dup->proto.nr_parms);
 
 	/* XXX put more checks here: member types, member ordering, etc */
 
@@ -223,7 +222,7 @@ static int class_iterator(struct function *function, void *cookie)
 	if (function->inlined)
 		return 0;
 
-	if (function__has_parameter_of_type(function, cookie)) {
+	if (ftype__has_parm_of_type(&function->proto, cookie)) {
 		if (verbose)
 			function__print(function, 1, 0, 0);
 		else
@@ -269,7 +268,7 @@ static struct option long_options[] = {
 	{ "inline_expansions_stats",	no_argument,		NULL, 'I' },
 	{ "total_inline_stats",		no_argument,		NULL, 't' },
 	{ "help",			no_argument,		NULL, 'h' },
-	{ "nr_parameters",		no_argument,		NULL, 'p' },
+	{ "nr_parms",			no_argument,		NULL, 'p' },
 	{ "sizes",			no_argument,		NULL, 's' },
 	{ "nr_variables",		no_argument,		NULL, 'S' },
 	{ "variables",			no_argument,		NULL, 'T' },
@@ -301,7 +300,7 @@ static void usage(void)
 						     "stats\n"
 		"   -s, --sizes                       show size of functions\n"
 		"   -N, --function_name_len           show size of functions\n"
-		"   -p, --nr_parameters               show number of "
+		"   -p, --nr_parms 	              show number of "
 						     "parameters\n"
 		"   -S, --nr_variables                show number of "
 						     "variables\n"

@@ -61,7 +61,7 @@ static void diff_function(const struct cu *new_cu, struct function *function)
 {
 	struct function *new_function;
 
-	assert(function->tag.tag == DW_TAG_subprogram);
+	assert(function->proto.tag.tag == DW_TAG_subprogram);
 
 	if (function->inlined)
 		return;
@@ -222,7 +222,7 @@ static int find_new_functions_iterator(struct function *function, void *old_cu)
 {
 	struct function *old_function;
 
-	assert(function->tag.tag == DW_TAG_subprogram);
+	assert(function->proto.tag.tag == DW_TAG_subprogram);
 
 	if (function->inlined)
 		return 0;
