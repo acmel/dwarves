@@ -72,7 +72,7 @@ struct class {
 	struct class	 *class_to_diff;
 };
 
-struct class *tag__class(const struct tag *self)
+static inline struct class *tag__class(const struct tag *self)
 {
 	return (struct class *)self;
 }
@@ -83,7 +83,7 @@ struct base_type {
 	size_t		size;
 };
 
-struct base_type *tag__base_type(const struct tag *self)
+static inline struct base_type *tag__base_type(const struct tag *self)
 {
 	return (struct base_type *)self;
 }
@@ -95,7 +95,7 @@ struct array_type {
 	uint8_t		dimensions;
 };
 
-struct array_type *tag__array_type(const struct tag *self)
+static inline struct array_type *tag__array_type(const struct tag *self)
 {
 	return (struct array_type *)self;
 }
