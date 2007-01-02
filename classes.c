@@ -2004,137 +2004,155 @@ next_sibling:
 }
 
 static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
-				 struct cu *cu, struct function *function,
+				 struct cu *cu, struct ftype *ftype,
 				 struct lexblock *lexblock)
 {
 	Dwarf_Die child;
-	Dwarf_Off cu_offset;
-	Dwarf_Attribute attr_name;
-	const char *decl_file;
-	int decl_line = 0;
-	const char *name;
-	Dwarf_Off type;
-	uint32_t tag = dwarf_tag(die);
 
-	if (tag == DW_TAG_invalid)
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
 		return;
 
-	cu_offset = dwarf_cuoffset(die);
-	name	  = attr_string(die, DW_AT_name, &attr_name);
-	type	  = attr_numeric(die, DW_AT_type);
-	decl_file = dwarf_decl_file(die);
+	die = &child;
+	do {
+		Dwarf_Attribute attr_name;
+		const uint16_t	tag	   = dwarf_tag(die);
+		const Dwarf_Off id	   = dwarf_cuoffset(die);
+		const Dwarf_Off type	   = attr_numeric(die, DW_AT_type);
+		const char	*decl_file = dwarf_decl_file(die);
+		const char	*name      = attr_string(die, DW_AT_name,
+							 &attr_name);
+		uint32_t	decl_line;
 
-	dwarf_decl_line(die, &decl_line);
+		dwarf_decl_line(die, &decl_line);
+		switch (tag) {
+		case DW_TAG_formal_parameter:
+			if (ftype == NULL)
+				break;
+		{
+			struct parameter *parm;
+				
+			parm = parameter__new(id, type, decl_file, decl_line,
+					      name);
+			if (parm == NULL)
+				oom("parameter__new");
 
-	switch (tag) {
-	case DW_TAG_formal_parameter: {
-		struct parameter *parameter;
-		
-		parameter = parameter__new(cu_offset, type,
-					   decl_file, decl_line, name);
-		if (parameter == NULL)
-			oom("parameter__new");
-
-		if (function != NULL)
-			ftype__add_parameter(&function->proto, parameter);
-	}
-		break;
-	case DW_TAG_variable: {
-		Dwarf_Off abstract_origin =
-				attr_numeric(die, DW_AT_abstract_origin);
-		struct variable *variable;
-
-		variable = variable__new(name, cu_offset,
-					 type, decl_file, decl_line,
-					 abstract_origin);
-		if (variable == NULL)
-			oom("variable__new");
-
-		lexblock__add_variable(lexblock, variable);
-		cu__add_variable(cu, variable);
-	}
-		break;
-	case DW_TAG_unspecified_parameters:
-		if (function != NULL)
-			function->proto.unspec_parms = 1;
-		break;
-	case DW_TAG_label: {
-		struct label *label;
-		Dwarf_Addr low_pc;
-
-		if (dwarf_lowpc(die, &low_pc))
-			low_pc = 0;
-
-		label = label__new(cu_offset, type, decl_file, decl_line,
-				   name, low_pc);
-		if (label == NULL)
-			oom("label__new");
-
-		lexblock__add_label(lexblock, label);
-	}
-		break;
-	case DW_TAG_inlined_subroutine: {
-		Dwarf_Addr high_pc, low_pc;
-		Dwarf_Attribute attr_call_file;
-		const Dwarf_Off type = attr_numeric(die,
-						    DW_AT_abstract_origin);
-		struct inline_expansion *exp;
-		size_t size;
-
-		if (dwarf_highpc(die, &high_pc))
-			high_pc = 0;
-		if (dwarf_lowpc(die, &low_pc))
-			low_pc = 0;
-
-		size = high_pc - low_pc;
-		if (size == 0) {
-			Dwarf_Addr base, start;
-			ptrdiff_t offset = 0;
-
-			while (1) {
-				offset = dwarf_ranges(die, offset,
-						      &base, &start, &high_pc);
-				start = (unsigned long)start;
-				high_pc = (unsigned long)high_pc;
-				if (offset <= 0)
-					break;
-				size += high_pc - start;
-				if (low_pc == 0)
-					low_pc = start;
-			}
+			ftype__add_parameter(ftype, parm);
 		}
+			break;
+		case DW_TAG_variable: {
+			struct variable *var;
 
-		decl_file = attr_string(die, DW_AT_call_file, &attr_call_file);
-		decl_line = attr_numeric(die, DW_AT_call_line);
+			var = variable__new(name, id, type,
+					    decl_file, decl_line,
+					    attr_numeric(die,
+						    DW_AT_abstract_origin));
+			if (var == NULL)
+				oom("variable__new");
 
-		exp = inline_expansion__new(cu_offset, type,
-					    decl_file, decl_line, size,
-					    low_pc, high_pc);
-		if (exp == NULL)
-			oom("inline_expansion__new");
+			lexblock__add_variable(lexblock, var);
+			cu__add_variable(cu, var);
+		}
+			break;
+		case DW_TAG_unspecified_parameters:
+			if (ftype != NULL)
+				ftype->unspec_parms = 1;
+			break;
+		case DW_TAG_label: {
+			struct label *label;
+			Dwarf_Addr low_pc;
 
-		lexblock__add_inline_expansion(lexblock, exp);
-		exp->function = function;
-	}
-		goto next_sibling;
-	case DW_TAG_lexical_block:
-		/*
-		 * Not handled right now,
-		 * will be used for stack size calculation
-		 */
-		break;
-	case DW_TAG_structure_type:
-	case DW_TAG_union_type:
-		cu__create_new_class(dwarf, die, cu, tag, cu_offset,
-				     name, type, decl_file, decl_line);
-		goto next_sibling;
-	}
+			if (dwarf_lowpc(die, &low_pc))
+				low_pc = 0;
 
-	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_function(dwarf, &child, cu, NULL, lexblock);
-next_sibling:
-	if (dwarf_siblingof(die, die) == 0)
-		cu__process_function(dwarf, die, cu, function, lexblock);
+			label = label__new(id, type, decl_file, decl_line,
+					   name, low_pc);
+			if (label == NULL)
+				oom("label__new");
+
+			lexblock__add_label(lexblock, label);
+		}
+			break;
+		case DW_TAG_inlined_subroutine: {
+			Dwarf_Addr high_pc, low_pc;
+			Dwarf_Attribute attr_call_file;
+			const Dwarf_Off type = attr_numeric(die,
+							    DW_AT_abstract_origin);
+			struct inline_expansion *exp;
+			size_t size;
+
+			if (dwarf_highpc(die, &high_pc))
+				high_pc = 0;
+			if (dwarf_lowpc(die, &low_pc))
+				low_pc = 0;
+
+			size = high_pc - low_pc;
+			if (size == 0) {
+				Dwarf_Addr base, start;
+				ptrdiff_t offset = 0;
+
+				while (1) {
+					offset = dwarf_ranges(die, offset,
+							      &base, &start, &high_pc);
+					start = (unsigned long)start;
+					high_pc = (unsigned long)high_pc;
+					if (offset <= 0)
+						break;
+					size += high_pc - start;
+					if (low_pc == 0)
+						low_pc = start;
+				}
+			}
+
+			decl_file = attr_string(die, DW_AT_call_file, &attr_call_file);
+			decl_line = attr_numeric(die, DW_AT_call_line);
+
+			exp = inline_expansion__new(id, type,
+						    decl_file, decl_line, size,
+						    low_pc, high_pc);
+			if (exp == NULL)
+				oom("inline_expansion__new");
+
+			lexblock__add_inline_expansion(lexblock, exp);
+			exp->function = (void *)ftype;
+		}
+			break;
+		case DW_TAG_lexical_block:
+			/*
+			 * Not handled right now,
+			 * will be used for stack size calculation
+			 */
+			break;
+		case DW_TAG_structure_type:
+		case DW_TAG_union_type:
+			cu__create_new_class(dwarf, die, cu, tag, id,
+					     name, type, decl_file, decl_line);
+			break;
+		}
+	} while (dwarf_siblingof(die, die) == 0);
+}
+
+static void cu__create_new_function(const char *name, Dwarf *dwarf,
+				    Dwarf_Die *die, struct cu *cu,
+				    Dwarf_Off cu_offset, Dwarf_Off type,
+				    const char *decl_file, int decl_line)
+{
+	struct function *function;
+	Dwarf_Addr high_pc, low_pc;
+
+	if (dwarf_highpc(die, &high_pc))
+		high_pc = 0;
+	if (dwarf_lowpc(die, &low_pc))
+		low_pc = 0;
+
+	function = function__new(cu_offset, type, decl_file, decl_line, name,
+				 attr_numeric(die, DW_AT_inline),
+				 dwarf_hasattr(die, DW_AT_external),
+				 low_pc, high_pc);
+	if (function == NULL)
+		oom("function__new");
+	cu__process_function(dwarf, die, cu, &function->proto,
+			     &function->lexblock);
+	cu__add_function(cu, function);
 }
 
 static void cu__create_new_enumeration(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
@@ -2218,28 +2236,9 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 	case DW_TAG_variable:
 		/* Handle global variables later */
 		break;
-	case DW_TAG_subprogram: {
-		struct function *function;
-		const uint16_t inlined = attr_numeric(die, DW_AT_inline);
-		const char external = dwarf_hasattr(die, DW_AT_external);
-		Dwarf_Addr high_pc, low_pc;
-
-		if (dwarf_highpc(die, &high_pc))
-			high_pc = 0;
-		if (dwarf_lowpc(die, &low_pc))
-			low_pc = 0;
-
-		function = function__new(cu_offset, type,
-					 decl_file, decl_line,
-					 name, inlined, external,
-					 low_pc, high_pc);
-		if (function == NULL)
-			oom("function__new");
-		if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-			cu__process_function(dwarf, &child, cu, function,
-					     &function->lexblock);
-		cu__add_function(cu, function);
-	}
+	case DW_TAG_subprogram:
+		cu__create_new_function(name, dwarf, die, cu, cu_offset, type,
+					decl_file, decl_line);
 		goto next_sibling;
 	case DW_TAG_const_type:
 	case DW_TAG_pointer_type:
