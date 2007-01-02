@@ -1005,6 +1005,9 @@ static void lexblock__init(struct lexblock *self,
 		self->nr_labels =
 		self->nr_lexblocks = 
 		self->nr_variables = 0;
+
+	self->low_pc  = low_pc;
+	self->high_pc = high_pc;
 }
 
 static struct lexblock *lexblock__new(Dwarf_Off id,
@@ -1436,7 +1439,7 @@ void function__print(const struct function *self, int show_stats,
 		puts(";");
 
 	if (show_stats) {
-		printf("/* size: %llu", function__size(self));
+		printf("/* size: %u", function__size(self));
 		if (self->lexblock.nr_variables > 0)
 			printf(", variables: %u", self->lexblock.nr_variables);
 		if (self->lexblock.nr_labels > 0)
