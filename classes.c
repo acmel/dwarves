@@ -678,23 +678,6 @@ static size_t class_member__size(const struct class_member *self)
 	return tag__size(type, self->class->cu);
 }
 
-const char *tag__subroutine_mask(const struct tag *self,
-				 const struct cu *cu,
-				 char *bf, size_t len, int is_pointer)
-{
-	char ret_type_name[128];
-
-	if (self->type == 0)
-		snprintf(ret_type_name, sizeof(ret_type_name), "void");
-	else {
-		struct tag *ret_type = cu__find_tag_by_id(cu, self->type);
-		tag__name(ret_type, cu, ret_type_name, sizeof(ret_type_name));
-	}
-	snprintf(bf, len, "%s (%s%%s)(void /* FIXME: add parm list */)",
-		 ret_type_name, is_pointer ? "*" : "");
-	return bf;
-}
-
 size_t class_member__names(const struct tag *type,
 			   const struct class_member *self,
 			   char *class_name, size_t class_name_size,
@@ -1014,6 +997,19 @@ static ftype__init(struct ftype *self, uint16_t tag,
 
 	tag__init(&self->tag, tag, id, type, decl_file, decl_line);
 	INIT_LIST_HEAD(&self->parms);
+	self->nr_parms	   = 0;
+	self->unspec_parms = 0;
+}
+
+static struct ftype *ftype__new(uint16_t tag, Dwarf_Off id, Dwarf_Off type,
+				const char *decl_file, uint32_t decl_line)
+{
+	struct ftype *self = malloc(sizeof(*self));
+
+	if (self != NULL)
+		ftype__init(self, tag, id, type, decl_file, decl_line);
+
+	return self;
 }
 
 static struct function *function__new(Dwarf_Off id, Dwarf_Off type,
@@ -1026,7 +1022,7 @@ static struct function *function__new(Dwarf_Off id, Dwarf_Off type,
 
 	if (self != NULL) {
 		ftype__init(&self->proto, DW_TAG_subprogram, id, type,
-				    decl_file, decl_line);
+			    decl_file, decl_line);
 		lexblock__init(&self->lexblock);
 		self->name     = strings__add(name);
 		self->inlined  = inlined;
@@ -1320,7 +1316,8 @@ static void function__print_body(const struct function *self,
 
 static size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 			      char *bf, const size_t len,
-			      const char *name, const uint8_t inlined)
+			      const char *name, const int inlined,
+			      const int is_pointer)
 {
 	struct parameter *pos;
 	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
@@ -1328,8 +1325,11 @@ static size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 	char *s = bf, sbf[128];
 	size_t l = len;
 	const char *stype = tag__name(type, cu, sbf, sizeof(sbf));
-	size_t n = snprintf(s, l, "%s%s %s(", inlined ? "inline " : "",
-			    stype, name ?: "");
+	size_t n = snprintf(s, l, "%s%s %s%s%s%s(", inlined ? "inline " : "",
+			    stype,
+			    self->tag.tag == DW_TAG_subroutine_type ? "(" : "",
+			    is_pointer ? "*" : "", name ?: "",
+			    self->tag.tag == DW_TAG_subroutine_type ? ")" : "");
 	s += n; l -= n;
 
 	list_for_each_entry(pos, &self->parms, tag.node) {
@@ -1339,22 +1339,37 @@ static size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 		} else
 			first_parm = 0;
 		type = cu__find_tag_by_id(cu, pos->tag.type);
+		if (type->tag == DW_TAG_pointer_type) {
+			if (type->type != 0) {
+				struct tag *ptype =
+					cu__find_tag_by_id(cu, type->type);
+				if (ptype->tag == DW_TAG_subroutine_type) {
+					n = ftype__snprintf(tag__ftype(ptype),
+							    cu, s, l,
+							    pos->name, 0, 1);
+					goto next;
+				}
+			}
+		} else if (type->tag == DW_TAG_subroutine_type) {
+			n = ftype__snprintf(tag__ftype(type), cu, s, l,
+					    pos->name, 0, 0);
+			goto next;
+		}
 		stype = tag__name(type, cu, sbf, sizeof(sbf));
-		n = snprintf(s, l, "%s %s", stype, pos->name);
+		n = snprintf(s, l, "%s%s%s", stype,
+			     pos->name ? " " : "", pos->name ?: "");
+	next:
 		s += n; l -= n;
 	}
 
 	/* No parameters? */
-	if (first_parm) {
-		n = snprintf(s, l, "void");
-		s += n; l -= n;
-	}
-	else if (self->unspec_parms) {
-		n = snprintf(s, l, ", ...");
-		s += n; l -= n;
-	}
-	n = snprintf(s, l, ");\n", stdout);
-	return len - l - n;
+	if (first_parm)
+		n = snprintf(s, l, "void)");
+	else if (self->unspec_parms)
+		n = snprintf(s, l, ", ...)");
+	else
+		n = snprintf(s, l, ")");
+	return len - (l - n);
 }
 
 void function__print(const struct function *self, int show_stats,
@@ -1368,13 +1383,16 @@ void function__print(const struct function *self, int show_stats,
 	printf("/* %s:%u */\n", self->proto.tag.decl_file,
 				self->proto.tag.decl_line);
 
-	ftype__snprintf(&self->proto, self->cu, bf, sizeof(bf), self->name,
-			function__declared_inline(self));
+	ftype__snprintf(&self->proto, self->cu, bf, sizeof(bf),
+			self->name, function__declared_inline(self), 0);
 	fputs(bf, stdout);
 
-	if (show_variables || show_inline_expansions)
+	if (show_variables || show_inline_expansions) {
+		putchar('\n');
 		function__print_body(self, show_variables,
 				     show_inline_expansions, 1);
+	} else 
+		puts(";");
 
 	if (show_stats) {
 		printf("/* size: %llu", self->high_pc - self->low_pc);
@@ -1857,6 +1875,51 @@ static void cu__create_new_array(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 	cu__add_tag(cu, &array->tag);
 }
 
+static void cu__new_subroutine_type(Dwarf *dwarf, Dwarf_Die *die,
+				    struct cu *cu,
+				    Dwarf_Off cu_offset, Dwarf_Off type,
+				    const char *decl_file, int decl_line)
+{
+	Dwarf_Die child;
+	struct ftype *ftype = ftype__new(DW_TAG_subroutine_type,
+					 cu_offset, type,
+					 decl_file, decl_line);
+	if (ftype == NULL)
+		oom("ftype__new");
+
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
+		goto out;
+
+	die = &child;
+	do {
+		const uint16_t tag = dwarf_tag(die);
+		Dwarf_Attribute attr_name;
+		struct parameter *parm;
+		uint32_t decl_line;
+
+		if (tag != DW_TAG_formal_parameter) {
+			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
+				__FUNCTION__, dwarf_tag_name(tag));
+			continue;
+		}
+
+
+		dwarf_decl_line(die, &decl_line);
+		parm = parameter__new(dwarf_cuoffset(die),
+				      attr_numeric(die, DW_AT_type),
+				      dwarf_decl_file(die),
+				      decl_line,
+				      attr_string(die, DW_AT_name,
+					      	  &attr_name));
+		if (parm == NULL)
+			oom("parameter__new");
+
+		ftype__add_parameter(ftype, parm);
+	} while (dwarf_siblingof(die, die) == 0);
+out:
+	cu__add_tag(cu, &ftype->tag);
+}
+
 static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
 			      struct cu *cu)
 {
@@ -2177,6 +2240,10 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 		cu__create_new_array(dwarf, die, cu, cu_offset, type,
 				     decl_file, decl_line);
 		goto next_sibling;
+	case DW_TAG_subroutine_type:
+		cu__new_subroutine_type(dwarf, die, cu, cu_offset, type,
+					decl_file, decl_line);
+		goto next_sibling;
 	case DW_TAG_enumeration_type:
 		cu__create_new_enumeration(dwarf, die, cu, cu_offset, type,
 					   decl_file, decl_line, name);
@@ -2340,11 +2407,10 @@ static int cus__emit_typedef_definitions(struct cus *self, struct tag *tdef)
 		is_pointer = 1;
 		/* Fall thru */
 	case DW_TAG_subroutine_type:
-		tag__subroutine_mask(type, class->cu, bf, sizeof(bf),
-				     is_pointer);
+		ftype__snprintf(tag__ftype(type), class->cu, bf, sizeof(bf),
+				class->name, 0, is_pointer);
 		fputs("typedef ", stdout);
-		printf(bf, class->name);
-		puts(";");
+		printf("%s;\n", bf);
 		goto out;
 	case DW_TAG_structure_type: {
 		struct class *ctype = tag__class(type);

@@ -131,8 +131,13 @@ struct ftype {
 	struct tag	 tag;
 	struct list_head parms;
 	uint16_t	 nr_parms;
-	uint8_t		 unspec_parms:1;
+	uint8_t		 unspec_parms; /* just one bit is needed */
 };
+
+static inline struct ftype *tag__ftype(const struct tag *self)
+{
+	return (struct ftype *)self;
+}
 
 struct function {
 	struct ftype	 proto;
