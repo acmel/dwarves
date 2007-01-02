@@ -861,10 +861,25 @@ static size_t class_member__print(struct class_member *self)
 			       self->offset, size);
 			goto out;
 		}
-	} else
+	} else if (type->tag == DW_TAG_pointer_type &&
+		   type->type != 0) { /* make sure its not a void pointer */
+		struct tag *ptype = cu__find_tag_by_id(self->class->cu, type->type);
+
+		if (ptype->tag != DW_TAG_subroutine_type)
+			goto class_member_fmt;
+
+		size = self->class->cu->addr_size;
+		ftype__snprintf(tag__ftype(ptype), self->class->cu,
+				class_name, sizeof(class_name),
+				self->name, 0, 1, 26);
+		printf("%s; /* %5u %5u */", class_name, self->offset, size);
+		goto out;
+	} else {
+class_member_fmt:
 		size = class_member__names(type, self, class_name,
 					   sizeof(class_name),
 					   member_name, sizeof(member_name));
+	}
 
 	if (self->tag.tag == DW_TAG_inheritance) {
 		snprintf(member_name, sizeof(member_name),
@@ -1314,10 +1329,10 @@ static void function__print_body(const struct function *self,
 	tdestroy(tags, tags__free);
 }
 
-static size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
-			      char *bf, const size_t len,
-			      const char *name, const int inlined,
-			      const int is_pointer)
+size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
+		       char *bf, const size_t len,
+		       const char *name, const int inlined,
+		       const int is_pointer, size_t type_spacing)
 {
 	struct parameter *pos;
 	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
@@ -1325,8 +1340,8 @@ static size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 	char *s = bf, sbf[128];
 	size_t l = len;
 	const char *stype = tag__name(type, cu, sbf, sizeof(sbf));
-	size_t n = snprintf(s, l, "%s%s %s%s%s%s(", inlined ? "inline " : "",
-			    stype,
+	size_t n = snprintf(s, l, "%s%-*s %s%s%s%s(", inlined ? "inline " : "",
+			    type_spacing, stype,
 			    self->tag.tag == DW_TAG_subroutine_type ? "(" : "",
 			    is_pointer ? "*" : "", name ?: "",
 			    self->tag.tag == DW_TAG_subroutine_type ? ")" : "");
@@ -1346,13 +1361,13 @@ static size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 				if (ptype->tag == DW_TAG_subroutine_type) {
 					n = ftype__snprintf(tag__ftype(ptype),
 							    cu, s, l,
-							    pos->name, 0, 1);
+							    pos->name, 0, 1, 0);
 					goto next;
 				}
 			}
 		} else if (type->tag == DW_TAG_subroutine_type) {
 			n = ftype__snprintf(tag__ftype(type), cu, s, l,
-					    pos->name, 0, 0);
+					    pos->name, 0, 0, 0);
 			goto next;
 		}
 		stype = tag__name(type, cu, sbf, sizeof(sbf));
@@ -1384,7 +1399,7 @@ void function__print(const struct function *self, int show_stats,
 				self->proto.tag.decl_line);
 
 	ftype__snprintf(&self->proto, self->cu, bf, sizeof(bf),
-			self->name, function__declared_inline(self), 0);
+			self->name, function__declared_inline(self), 0, 0);
 	fputs(bf, stdout);
 
 	if (show_variables || show_inline_expansions) {
@@ -2408,7 +2423,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct tag *tdef)
 		/* Fall thru */
 	case DW_TAG_subroutine_type:
 		ftype__snprintf(tag__ftype(type), class->cu, bf, sizeof(bf),
-				class->name, 0, is_pointer);
+				class->name, 0, is_pointer, 0);
 		fputs("typedef ", stdout);
 		printf("%s;\n", bf);
 		goto out;

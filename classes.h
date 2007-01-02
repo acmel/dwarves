@@ -269,6 +269,11 @@ static inline int function__inlined(const struct function *self)
 	        self->inlined == DW_INL_declared_inlined);
 }
 
+extern size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
+			      char *bf, const size_t len,
+			      const char *name, const int inlined,
+			      const int is_pointer,
+			      const size_t type_spacing);
 extern int ftype__has_parm_of_type(const struct ftype *self,
 				   const struct tag *target,
 				   const struct cu *cu);
