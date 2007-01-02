@@ -1916,6 +1916,23 @@ static void cu__create_new_array(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 	cu__add_tag(cu, &array->tag);
 }
 
+static void cu__create_new_parameter(Dwarf_Die *die, struct ftype *ftype)
+{
+	struct parameter *parm;
+	Dwarf_Attribute attr_name;
+	uint32_t decl_line;
+
+	dwarf_decl_line(die, &decl_line);
+	parm = parameter__new(dwarf_cuoffset(die),
+			      attr_numeric(die, DW_AT_type),
+			      dwarf_decl_file(die), decl_line,
+			      attr_string(die, DW_AT_name, &attr_name));
+	if (parm == NULL)
+		oom("parameter__new");
+
+	ftype__add_parameter(ftype, parm);
+}
+
 static void cu__new_subroutine_type(Dwarf *dwarf, Dwarf_Die *die,
 				    struct cu *cu,
 				    Dwarf_Off cu_offset, Dwarf_Off type,
@@ -1934,9 +1951,6 @@ static void cu__new_subroutine_type(Dwarf *dwarf, Dwarf_Die *die,
 	die = &child;
 	do {
 		const uint16_t tag = dwarf_tag(die);
-		Dwarf_Attribute attr_name;
-		struct parameter *parm;
-		uint32_t decl_line;
 
 		if (tag != DW_TAG_formal_parameter) {
 			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
@@ -1944,18 +1958,7 @@ static void cu__new_subroutine_type(Dwarf *dwarf, Dwarf_Die *die,
 			continue;
 		}
 
-
-		dwarf_decl_line(die, &decl_line);
-		parm = parameter__new(dwarf_cuoffset(die),
-				      attr_numeric(die, DW_AT_type),
-				      dwarf_decl_file(die),
-				      decl_line,
-				      attr_string(die, DW_AT_name,
-					      	  &attr_name));
-		if (parm == NULL)
-			oom("parameter__new");
-
-		ftype__add_parameter(ftype, parm);
+		cu__create_new_parameter(die, ftype);
 	} while (dwarf_siblingof(die, die) == 0);
 out:
 	cu__add_tag(cu, &ftype->tag);
@@ -2123,18 +2126,8 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		dwarf_decl_line(die, &decl_line);
 		switch (tag) {
 		case DW_TAG_formal_parameter:
-			if (ftype == NULL)
-				break;
-		{
-			struct parameter *parm;
-				
-			parm = parameter__new(id, type, decl_file, decl_line,
-					      name);
-			if (parm == NULL)
-				oom("parameter__new");
-
-			ftype__add_parameter(ftype, parm);
-		}
+			if (ftype != NULL)
+				cu__create_new_parameter(die, ftype);
 			break;
 		case DW_TAG_variable: {
 			struct variable *var;
