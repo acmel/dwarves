@@ -1688,7 +1688,7 @@ void cus__for_each_cu(struct cus *self,
 
 static void oom(const char *msg)
 {
-	fprintf(stderr, "pahole: out of memory(%s)\n", msg);
+	fprintf(stderr, "libclasses: out of memory(%s)\n", msg);
 	exit(EXIT_FAILURE);
 }
 
