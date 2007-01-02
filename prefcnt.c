@@ -67,8 +67,7 @@ static void refcnt_variable(const struct variable *variable)
 static void refcnt_inline_expansion(const struct inline_expansion *exp)
 {
 	if (exp->tag.type != 0) { /* if not void */
-		struct tag *type = cu__find_tag_by_id(exp->function->cu,
-						      exp->tag.type);
+		struct tag *type = cu__find_tag_by_id(exp->cu, exp->tag.type);
 		if (type != NULL)
 			refcnt_tag(type);
 	}

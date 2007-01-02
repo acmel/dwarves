@@ -993,15 +993,42 @@ static void enumeration__add(struct class *self,
 	list_add_tail(&enumerator->tag.node, &self->members);
 }
 
-static void lexblock__init(struct lexblock *self)
+static void lexblock__init(struct lexblock *self,
+			   Dwarf_Addr low_pc, Dwarf_Addr high_pc)
 {
-	INIT_LIST_HEAD(&self->labels);
-	INIT_LIST_HEAD(&self->variables);
 	INIT_LIST_HEAD(&self->inline_expansions);
+	INIT_LIST_HEAD(&self->labels);
+	INIT_LIST_HEAD(&self->lexblocks);
+	INIT_LIST_HEAD(&self->variables);
 
-	self->nr_labels =
-		self->nr_variables =
-		self->nr_inline_expansions = 0;
+	self->nr_inline_expansions =
+		self->nr_labels =
+		self->nr_lexblocks = 
+		self->nr_variables = 0;
+}
+
+static struct lexblock *lexblock__new(Dwarf_Off id,
+				      const char *decl_file,
+				      uint32_t decl_line,
+				      Dwarf_Addr low_pc,
+				      Dwarf_Addr high_pc)
+{
+	struct lexblock *self = malloc(sizeof(*self));
+
+	if (self != NULL) {
+		tag__init(&self->tag, DW_TAG_lexical_block, id, 0,
+			  decl_file, decl_line);
+		lexblock__init(self, low_pc, high_pc);
+	}
+
+	return self;
+}
+
+static void lexblock__add_lexblock(struct lexblock *self,
+				   struct lexblock *child)
+{
+	++self->nr_lexblocks;
+	list_add_tail(&child->tag.node, &self->lexblocks);
 }
 
 static ftype__init(struct ftype *self, uint16_t tag,
@@ -1038,12 +1065,10 @@ static struct function *function__new(Dwarf_Off id, Dwarf_Off type,
 	if (self != NULL) {
 		ftype__init(&self->proto, DW_TAG_subprogram, id, type,
 			    decl_file, decl_line);
-		lexblock__init(&self->lexblock);
+		lexblock__init(&self->lexblock, low_pc, high_pc);
 		self->name     = strings__add(name);
 		self->inlined  = inlined;
 		self->external = external;
-		self->low_pc   = low_pc;
-		self->high_pc  = high_pc;
 	}
 
 	return self;
@@ -1245,6 +1270,8 @@ static void tags__add(void *tags, const struct tag *tag)
 	tsearch(tag, tags, tags__compare);
 }
 
+static void lexblock__print(const struct lexblock *self);
+
 static void function__tag_print(const struct tag *tag)
 {
 	char bf[512];
@@ -1255,7 +1282,7 @@ static void function__tag_print(const struct tag *tag)
 	case DW_TAG_inlined_subroutine: {
 		const struct inline_expansion *exp = vtag;
 		const struct function *alias =
-				cu__find_function_by_id(exp->function->cu,
+				cu__find_function_by_id(exp->cu,
 							exp->tag.type);
 
 		assert(alias != NULL);
@@ -1275,6 +1302,9 @@ static void function__tag_print(const struct tag *tag)
 		c = printf("%s:", label->name);
 	}
 		break;
+	case DW_TAG_lexical_block:
+		lexblock__print(vtag);
+		return;
 	default:
 		fputs("        ", stdout);
 		c += printf("%s <%llx>", dwarf_tag_name(tag->tag), tag->id);
@@ -1293,34 +1323,31 @@ static void function__tags_action(const void *nodep, const VISIT which,
 	}
 }
 
-static void function__print_body(const struct function *self,
-				 const int show_variables,
-				 const int show_inline_expansions,
-				 const int show_labels)
+static void lexblock__print(const struct lexblock *self)
 {
 	void *tags = NULL;
 	struct tag *pos;
 
-	if (show_variables)
-		list_for_each_entry(pos, &self->lexblock.variables, node) {
-			/* FIXME! this test shouln't be needed at all */
-			if (pos->decl_line >= self->proto.tag.decl_line)
-				tags__add(&tags, pos);
-		}
+	list_for_each_entry(pos, &self->variables, node) {
+		/* FIXME! this test shouln't be needed at all */
+		if (pos->decl_line >= self->tag.decl_line)
+			tags__add(&tags, pos);
+	}
 
-	if (show_inline_expansions)
-		list_for_each_entry(pos, &self->lexblock.inline_expansions, node) {
-			/* FIXME! this test shouln't be needed at all */
-			if (pos->decl_line >= self->proto.tag.decl_line)
-				tags__add(&tags, pos);
-		}
+	list_for_each_entry(pos, &self->inline_expansions, node) {
+		/* FIXME! this test shouln't be needed at all */
+		if (pos->decl_line >= self->tag.decl_line)
+			tags__add(&tags, pos);
+	}
 
-	if (show_labels)
-		list_for_each_entry(pos, &self->lexblock.labels, node) {
-			/* FIXME! this test shouln't be needed at all */
-			if (pos->decl_line >= self->proto.tag.decl_line)
-				tags__add(&tags, pos);
-		}
+	list_for_each_entry(pos, &self->labels, node) {
+		/* FIXME! this test shouln't be needed at all */
+		if (pos->decl_line >= self->tag.decl_line)
+			tags__add(&tags, pos);
+	}
+
+	list_for_each_entry(pos, &self->lexblocks, node)
+		tags__add(&tags, pos);
 
 	puts("{");
 	twalk(tags, function__tags_action);
@@ -1404,13 +1431,12 @@ void function__print(const struct function *self, int show_stats,
 
 	if (show_variables || show_inline_expansions) {
 		putchar('\n');
-		function__print_body(self, show_variables,
-				     show_inline_expansions, 1);
+		lexblock__print(&self->lexblock);
 	} else 
 		puts(";");
 
 	if (show_stats) {
-		printf("/* size: %llu", self->high_pc - self->low_pc);
+		printf("/* size: %llu", function__size(self));
 		if (self->lexblock.nr_variables > 0)
 			printf(", variables: %u", self->lexblock.nr_variables);
 		if (self->lexblock.nr_labels > 0)
@@ -2005,6 +2031,30 @@ next_sibling:
 
 static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 				 struct cu *cu, struct ftype *ftype,
+				 struct lexblock *lexblock);
+
+static void cu__create_new_lexblock(Dwarf *dwarf, Dwarf_Die *die,
+				    struct cu *cu, struct lexblock *father,
+				    Dwarf_Off id, const char *decl_file,
+				    int decl_line)
+{
+	struct lexblock *lexblock;
+	Dwarf_Addr high_pc, low_pc;
+
+	if (dwarf_highpc(die, &high_pc))
+		high_pc = 0;
+	if (dwarf_lowpc(die, &low_pc))
+		low_pc = 0;
+
+	lexblock = lexblock__new(id, decl_file, decl_line, low_pc, high_pc);
+	if (lexblock == NULL)
+		oom("lexblock__new");
+	cu__process_function(dwarf, die, cu, NULL, lexblock);
+	lexblock__add_lexblock(father, lexblock);
+}
+
+static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
+				 struct cu *cu, struct ftype *ftype,
 				 struct lexblock *lexblock)
 {
 	Dwarf_Die child;
@@ -2113,14 +2163,12 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 				oom("inline_expansion__new");
 
 			lexblock__add_inline_expansion(lexblock, exp);
-			exp->function = (void *)ftype;
+			exp->cu = cu;
 		}
 			break;
 		case DW_TAG_lexical_block:
-			/*
-			 * Not handled right now,
-			 * will be used for stack size calculation
-			 */
+			cu__create_new_lexblock(dwarf, die, cu, lexblock,
+					        id, decl_file, decl_line);
 			break;
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:

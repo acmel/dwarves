@@ -115,12 +115,17 @@ struct class_member {
 };
 
 struct lexblock {
+	struct tag	 tag;
 	struct list_head inline_expansions;
 	struct list_head labels;
 	struct list_head variables;
+	struct list_head lexblocks;
+	Dwarf_Addr	 low_pc;
+	Dwarf_Addr	 high_pc;
 	uint16_t	 nr_inline_expansions;
 	uint16_t	 nr_labels;
 	uint16_t	 nr_variables;
+	uint16_t	 nr_lexblocks;
 	size_t		 size_inline_expansions;
 };
 
@@ -144,8 +149,6 @@ struct function {
 	struct cu	 *cu;
 	struct lexblock	 lexblock;
 	const char	 *name;
-	Dwarf_Addr	 low_pc;
-	Dwarf_Addr	 high_pc;
 	size_t		 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;
 	uint8_t		 inlined:2;
@@ -171,7 +174,7 @@ struct variable {
 
 struct inline_expansion {
 	struct tag	 tag;
-	struct function	 *function;
+	struct cu	 *cu;
 	size_t		 size;
 	Dwarf_Addr	 low_pc;
 	Dwarf_Addr	 high_pc;
@@ -254,7 +257,7 @@ extern struct function *cu__find_function_by_name(const struct cu *cu,
 
 static inline size_t function__size(const struct function *self)
 {
-	return self->high_pc - self->low_pc;
+	return self->lexblock.high_pc - self->lexblock.low_pc;
 }
 
 static inline int function__declared_inline(const struct function *self)
