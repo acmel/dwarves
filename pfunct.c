@@ -222,7 +222,7 @@ static int class_iterator(struct function *function, void *cookie)
 	if (function->inlined)
 		return 0;
 
-	if (ftype__has_parm_of_type(&function->proto, cookie)) {
+	if (ftype__has_parm_of_type(&function->proto, cookie, function->cu)) {
 		if (verbose)
 			function__print(function, 1, 0, 0);
 		else

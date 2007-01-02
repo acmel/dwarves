@@ -30,7 +30,7 @@ static struct function *function__filter(struct function *function,
 					 void *cookie)
 {
 	if (function__inlined(function) ||
-	    !ftype__has_parm_of_type(&function->proto, cookie))
+	    !ftype__has_parm_of_type(&function->proto, cookie, function->cu))
 		return NULL;
 
 	return function;
