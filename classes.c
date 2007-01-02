@@ -2043,6 +2043,11 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		 * will be used for stack size calculation
 		 */
 		break;
+	case DW_TAG_structure_type:
+	case DW_TAG_union_type:
+		cu__create_new_class(dwarf, die, cu, tag, cu_offset,
+				     name, type, decl_file, decl_line);
+		goto next_sibling;
 	}
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
