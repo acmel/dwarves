@@ -1957,7 +1957,8 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 		if (parameter == NULL)
 			oom("parameter__new");
 
-		ftype__add_parameter(&function->proto, parameter);
+		if (function != NULL)
+			ftype__add_parameter(&function->proto, parameter);
 	}
 		break;
 	case DW_TAG_variable: {
@@ -1976,7 +1977,8 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 	}
 		break;
 	case DW_TAG_unspecified_parameters:
-		function->proto.unspec_parms = 1;
+		if (function != NULL)
+			function->proto.unspec_parms = 1;
 		break;
 	case DW_TAG_label: {
 		struct label *label;
@@ -2051,7 +2053,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 	}
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_function(dwarf, &child, cu, function, lexblock);
+		cu__process_function(dwarf, &child, cu, NULL, lexblock);
 next_sibling:
 	if (dwarf_siblingof(die, die) == 0)
 		cu__process_function(dwarf, die, cu, function, lexblock);
