@@ -142,40 +142,147 @@ static char *strings__add(const char *str)
 	return *s;
 }
 
-static void tag__init(struct tag *self, uint16_t tag,
-		      Dwarf_Off id, Dwarf_Off type,
-		      const char *decl_file, uint32_t decl_line)
+/* Number decoding macros.  See 7.6 Variable Length Data.  */
+
+#define get_uleb128_step(var, addr, nth, break)			\
+	__b = *(addr)++;					\
+	var |= (uintmax_t) (__b & 0x7f) << (nth * 7);		\
+	if ((__b & 0x80) == 0)					\
+		break
+
+#define get_uleb128_rest_return(var, i, addrp)			\
+	do {							\
+		for (; i < 10; ++i) {				\
+			get_uleb128_step(var, *addrp, i,	\
+					  return var);		\
+	}							\
+	/* Other implementations set VALUE to UINT_MAX in this	\
+	  case. So we better do this as well.  */		\
+	return UINT64_MAX;					\
+  } while (0)
+
+static uint64_t __libdw_get_uleb128(uint64_t acc, uint32_t i,
+				    const uint8_t **addrp)
 {
-	self->tag	= tag;
-	self->id	= id;
-	self->type	= type;
-	self->decl_file = strings__add(decl_file);
+	uint8_t __b;
+	get_uleb128_rest_return (acc, i, addrp);
+}
+
+#define get_uleb128(var, addr)					\
+	do {							\
+		uint8_t __b;				\
+		var = 0;					\
+		get_uleb128_step(var, addr, 0, break);		\
+		var = __libdw_get_uleb128 (var, 1, &(addr));	\
+	} while (0)
+
+static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
+{
+	Dwarf_Attribute attr;
+	uint32_t form;
+
+	if (dwarf_attr(die, name, &attr) == NULL)
+		return 0;
+
+	form = dwarf_whatform(&attr);
+
+	switch (form) {
+	case DW_FORM_addr: {
+		Dwarf_Addr addr;
+		if (dwarf_formaddr(&attr, &addr) == 0)
+			return addr;
+	}
+		break;
+	case DW_FORM_data1:
+	case DW_FORM_data2:
+	case DW_FORM_data4:
+	case DW_FORM_data8:
+	case DW_FORM_sdata:
+	case DW_FORM_udata: {
+		Dwarf_Word value;
+		if (dwarf_formudata(&attr, &value) == 0)
+			return value;
+	}
+		break;
+	case DW_FORM_ref1:
+	case DW_FORM_ref2:
+	case DW_FORM_ref4:
+	case DW_FORM_ref8:
+	case DW_FORM_ref_addr:
+	case DW_FORM_ref_udata: {
+		Dwarf_Off ref;
+		if (dwarf_formref(&attr, &ref) == 0)
+			return (uintmax_t)ref;
+	}
+	case DW_FORM_flag:
+		return 1;
+	default:
+		printf("DW_AT_<0x%x>=0x%x\n", name, form);
+		break;
+	}
+
+	return 0;
+}
+
+static Dwarf_Off attr_offset(Dwarf_Die *die)
+{
+	Dwarf_Attribute attr;
+
+	if (dwarf_attr(die, DW_AT_data_member_location, &attr) != NULL) {
+		Dwarf_Block block;
+
+		if (dwarf_formblock(&attr, &block) == 0) {
+			uint64_t uleb;
+			const uint8_t *data = block.data + 1;
+			get_uleb128(uleb, data);
+			return uleb;
+		}
+	}
+
+	return 0;
+}
+
+static const char *attr_string(Dwarf_Die *die, uint32_t name,
+			       Dwarf_Attribute *attr)
+{
+	if (dwarf_attr(die, name, attr) != NULL)
+		return dwarf_formstring(attr);
+	return NULL;
+}
+
+static void tag__init(struct tag *self, Dwarf_Die *die)
+{
+	uint32_t decl_line;
+
+	self->tag	= dwarf_tag(die);
+	self->id	= dwarf_cuoffset(die);
+	self->type	= attr_numeric(die, DW_AT_type);
+	self->decl_file = strings__add(dwarf_decl_file(die));
+	dwarf_decl_line(die, &decl_line);
 	self->decl_line = decl_line;
 }
 
-static struct tag *tag__new(uint16_t tag, Dwarf_Off id, Dwarf_Off type,
-			    const char *decl_file, uint32_t decl_line)
+static struct tag *tag__new(Dwarf_Die *die)
 {
 	struct tag *self = malloc(sizeof(*self));
 
 	if (self != NULL)
-		tag__init(self, tag, id, type, decl_file, decl_line);
+		tag__init(self, die);
 
 	return self;
 }
 
-static struct base_type *base_type__new(const char *name, size_t size,
-					Dwarf_Off id, Dwarf_Off type,
-					const char *decl_file,
-					uint32_t decl_line)
+static struct base_type *base_type__new(Dwarf_Die *die)
 {
 	struct base_type *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, DW_TAG_base_type, id, type,
-			  decl_file, decl_line);
-		self->name = strings__add(name);
-		self->size = size;
+		Dwarf_Attribute attr_name;
+
+		tag__init(&self->tag, die);
+		self->name = strings__add(attr_string(die, DW_AT_name,
+						      &attr_name));
+		self->size = attr_numeric(die, DW_AT_byte_size);
 	}
 
 	return self;
@@ -224,37 +331,34 @@ static void enumeration__print(const struct class *self, const char *suffix,
 	printf("%s\n", bf);
 }
 
-static struct enumerator *enumerator__new(Dwarf_Off id, Dwarf_Off type,
-					  const char *decl_file,
-					  uint32_t decl_line,
-					  const char *name, uint32_t value)
+static struct enumerator *enumerator__new(Dwarf_Die *die)
 {
 	struct enumerator *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, DW_TAG_enumerator,
-			  id, type, decl_file, decl_line);
+		Dwarf_Attribute attr_name;
 
-		self->name  = strings__add(name);
-		self->value = value;
+		tag__init(&self->tag, die);
+		self->name = strings__add(attr_string(die, DW_AT_name,
+						      &attr_name));
+		self->value = attr_numeric(die, DW_AT_const_value);
 	}
 
 	return self;
 }
 
-static struct variable *variable__new(const char *name, Dwarf_Off id,
-				      Dwarf_Off type,
-				      const char *decl_file,
-				      uint32_t decl_line,
-				      Dwarf_Off abstract_origin)
+static struct variable *variable__new(Dwarf_Die *die)
 {
 	struct variable *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, DW_TAG_variable, id, type,
-			  decl_file, decl_line);
-		self->name	      = strings__add(name);
-		self->abstract_origin = abstract_origin;
+		Dwarf_Attribute attr_name;
+
+		tag__init(&self->tag, die);
+		self->name = strings__add(attr_string(die, DW_AT_name,
+						      &attr_name));
+		self->abstract_origin = attr_numeric(die,
+					 	     DW_AT_abstract_origin);
 	}
 
 	return self;
@@ -642,29 +746,19 @@ const char *variable__name(const struct variable *self, const struct cu *cu)
 	return self->name;
 }
 
-static struct class_member *class_member__new(Dwarf_Off id,
-					      uint16_t tag,
-					      Dwarf_Off type,
-					      const char *decl_file,
-					      uint32_t decl_line,
-					      const char *name,
-					      Dwarf_Off offset,
-					      size_t bit_size,
-					      uint8_t bit_offset)
+static struct class_member *class_member__new(Dwarf_Die *die)
 {
 	struct class_member *self = zalloc(sizeof(*self));
 
-	/* Be paranoid */
-	assert(offset == (typeof(self->offset))offset);
-	assert(bit_size == (typeof(self->bit_size))bit_size);
-
 	if (self != NULL) {
-		tag__init(&self->tag, tag, id, type,
-			  decl_file, decl_line);
-		self->offset	  = offset;
-		self->bit_size	  = bit_size;
-		self->bit_offset  = bit_offset;
-		self->name	  = strings__add(name);
+		Dwarf_Attribute attr_name;
+
+		tag__init(&self->tag, die);
+		self->offset	 = attr_offset(die);
+		self->bit_size	 = attr_numeric(die, DW_AT_bit_size);
+		self->bit_offset = attr_numeric(die, DW_AT_bit_offset);
+		self->name = strings__add(attr_string(die, DW_AT_name,
+						      &attr_name));
 	}
 
 	return self;
@@ -892,87 +986,103 @@ out:
 	return size;
 }
 
-static struct parameter *parameter__new(Dwarf_Off id, Dwarf_Off type,
-					const char *decl_file,
-					uint32_t decl_line,
-					const char *name)
+static struct parameter *parameter__new(Dwarf_Die *die)
 {
 	struct parameter *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, DW_TAG_formal_parameter, id, type,
-			  decl_file, decl_line);
-		self->name	  = strings__add(name);
+		Dwarf_Attribute attr_name;
+
+		tag__init(&self->tag, die);
+		self->name = strings__add(attr_string(die, DW_AT_name,
+						      &attr_name));
 	}
 
 	return self;
 }
 
-static struct inline_expansion *inline_expansion__new(Dwarf_Off id,
-						      Dwarf_Off type,
-						      const char *decl_file,
-						      uint32_t decl_line,
-						      size_t size,
-						      Dwarf_Addr low_pc,
-						      Dwarf_Addr high_pc)
+static struct inline_expansion *inline_expansion__new(Dwarf_Die *die)
 {
 	struct inline_expansion *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, DW_TAG_inlined_subroutine, id, type,
-			  decl_file, decl_line);
-		self->size    = size;
-		self->low_pc  = low_pc;
-		self->high_pc = high_pc;
+		Dwarf_Attribute attr_call_file;
+
+		tag__init(&self->tag, die);
+		self->tag.decl_file =
+			strings__add(attr_string(die, DW_AT_call_file,
+						 &attr_call_file));
+		self->tag.decl_line = attr_numeric(die, DW_AT_call_line);
+		self->tag.type	    = attr_numeric(die, DW_AT_abstract_origin);
+
+		if (dwarf_lowpc(die, &self->low_pc))
+			self->low_pc = 0;
+		if (dwarf_lowpc(die, &self->high_pc))
+			self->high_pc = 0;
+
+		self->size = self->high_pc - self->low_pc;
+		if (self->size == 0) {
+			Dwarf_Addr base, start;
+			ptrdiff_t offset = 0;
+
+			while (1) {
+				offset = dwarf_ranges(die, offset, &base, &start,
+						      &self->high_pc);
+				start = (unsigned long)start;
+				self->high_pc = (unsigned long)self->high_pc;
+				if (offset <= 0)
+					break;
+				self->size += self->high_pc - start;
+				if (self->low_pc == 0)
+					self->low_pc = start;
+			}
+		}
 	}
 
 	return self;
 }
 
-static struct label *label__new(Dwarf_Off id, Dwarf_Off type,
-				const char *decl_file, uint32_t decl_line,
-				const char *name, Dwarf_Addr low_pc)
+static struct label *label__new(Dwarf_Die *die)
 {
 	struct label *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, DW_TAG_label, id, type,
-			  decl_file, decl_line);
-		self->name   = strings__add(name);
-		self->low_pc = low_pc;
+		Dwarf_Attribute attr_name;
+
+		tag__init(&self->tag, die);
+		self->name = strings__add(attr_string(die, DW_AT_name,
+						      &attr_name));
+		if (dwarf_lowpc(die, &self->low_pc))
+			self->low_pc = 0;
 	}
 
 	return self;
 }
 
-static struct array_type *array_type__new(Dwarf_Off id, Dwarf_Off type,
-					  const char *decl_file,
-					  uint32_t decl_line)
+static struct array_type *array_type__new(Dwarf_Die *die)
 {
 	struct array_type *self = zalloc(sizeof(*self));
 
 	if (self != NULL)
-		tag__init(&self->tag, DW_TAG_array_type, id, type,
-			  decl_file, decl_line);
+		tag__init(&self->tag, die);
 
 	return self;
 }
 
-static struct class *class__new(const uint32_t tag,
-				Dwarf_Off id, Dwarf_Off type,
-				const char *name, size_t size,
-				const char *decl_file, uint32_t decl_line,
-				uint8_t declaration)
+static struct class *class__new(Dwarf_Die *die)
 {
 	struct class *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, tag, id, type, decl_file, decl_line);
+		Dwarf_Attribute attr_name;
+
+		tag__init(&self->tag, die);
 		INIT_LIST_HEAD(&self->members);
 		INIT_LIST_HEAD(&self->node);
-		self->size = size;
-		self->name = strings__add(name);
-		self->declaration = declaration;
+		self->size = attr_numeric(die, DW_AT_byte_size);
+		self->name = strings__add(attr_string(die, DW_AT_name,
+						      &attr_name));
+		self->declaration = attr_numeric(die, DW_AT_declaration);
 	}
 
 	return self;
@@ -992,32 +1102,28 @@ static void enumeration__add(struct class *self,
 	list_add_tail(&enumerator->tag.node, &self->members);
 }
 
-static void lexblock__init(struct lexblock *self,
-			   Dwarf_Addr low_pc, Dwarf_Addr high_pc)
+static void lexblock__init(struct lexblock *self, Dwarf_Die *die)
 {
+	if (dwarf_highpc(die, &self->high_pc))
+		self->high_pc = 0;
+	if (dwarf_lowpc(die, &self->low_pc))
+		self->low_pc = 0;
+
 	INIT_LIST_HEAD(&self->tags);
 
 	self->nr_inline_expansions =
 		self->nr_labels =
 		self->nr_lexblocks = 
 		self->nr_variables = 0;
-
-	self->low_pc  = low_pc;
-	self->high_pc = high_pc;
 }
 
-static struct lexblock *lexblock__new(Dwarf_Off id,
-				      const char *decl_file,
-				      uint32_t decl_line,
-				      Dwarf_Addr low_pc,
-				      Dwarf_Addr high_pc)
+static struct lexblock *lexblock__new(Dwarf_Die *die)
 {
 	struct lexblock *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, DW_TAG_lexical_block, id, 0,
-			  decl_file, decl_line);
-		lexblock__init(self, low_pc, high_pc);
+		tag__init(&self->tag, die);
+		lexblock__init(self, die);
 	}
 
 	return self;
@@ -1030,44 +1136,40 @@ static void lexblock__add_lexblock(struct lexblock *self,
 	list_add_tail(&child->tag.node, &self->tags);
 }
 
-static ftype__init(struct ftype *self, uint16_t tag,
-		   Dwarf_Off id, Dwarf_Off type,
-		   const char *decl_file, uint32_t decl_line)
+static ftype__init(struct ftype *self, Dwarf_Die *die)
 {
+	const uint16_t tag = dwarf_tag(die);
 	assert(tag == DW_TAG_subprogram || tag == DW_TAG_subroutine_type);
 
-	tag__init(&self->tag, tag, id, type, decl_file, decl_line);
+	tag__init(&self->tag, die);
 	INIT_LIST_HEAD(&self->parms);
 	self->nr_parms	   = 0;
 	self->unspec_parms = 0;
 }
 
-static struct ftype *ftype__new(uint16_t tag, Dwarf_Off id, Dwarf_Off type,
-				const char *decl_file, uint32_t decl_line)
+static struct ftype *ftype__new(Dwarf_Die *die)
 {
 	struct ftype *self = malloc(sizeof(*self));
 
 	if (self != NULL)
-		ftype__init(self, tag, id, type, decl_file, decl_line);
+		ftype__init(self, die);
 
 	return self;
 }
 
-static struct function *function__new(Dwarf_Off id, Dwarf_Off type,
-				      const char *decl_file,
-				      uint32_t decl_line, const char *name,
-				      uint16_t inlined, char external,
-				      Dwarf_Addr low_pc, Dwarf_Addr high_pc)
+static struct function *function__new(Dwarf_Die *die)
 {
 	struct function *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		ftype__init(&self->proto, DW_TAG_subprogram, id, type,
-			    decl_file, decl_line);
-		lexblock__init(&self->lexblock, low_pc, high_pc);
-		self->name     = strings__add(name);
-		self->inlined  = inlined;
-		self->external = external;
+		Dwarf_Attribute attr_name;
+
+		ftype__init(&self->proto, die);
+		lexblock__init(&self->lexblock, die);
+		self->name = strings__add(attr_string(die,
+						      DW_AT_name, &attr_name));
+		self->inlined  = attr_numeric(die, DW_AT_inline);
+		self->external = dwarf_hasattr(die, DW_AT_external);
 	}
 
 	return self;
@@ -1678,67 +1780,6 @@ static void oom(const char *msg)
 	exit(EXIT_FAILURE);
 }
 
-static const char *attr_string(Dwarf_Die *die, uint32_t name,
-			       Dwarf_Attribute *attr)
-{
-	if (dwarf_attr(die, name, attr) != NULL)
-		return dwarf_formstring(attr);
-	return NULL;
-}
-
-/* Number decoding macros.  See 7.6 Variable Length Data.  */
-
-#define get_uleb128_step(var, addr, nth, break)			\
-	__b = *(addr)++;					\
-	var |= (uintmax_t) (__b & 0x7f) << (nth * 7);		\
-	if ((__b & 0x80) == 0)					\
-		break
-
-#define get_uleb128_rest_return(var, i, addrp)			\
-	do {							\
-		for (; i < 10; ++i) {				\
-			get_uleb128_step(var, *addrp, i,	\
-					  return var);		\
-	}							\
-	/* Other implementations set VALUE to UINT_MAX in this	\
-	  case. So we better do this as well.  */		\
-	return UINT64_MAX;					\
-  } while (0)
-
-static uint64_t __libdw_get_uleb128(uint64_t acc, uint32_t i,
-				    const uint8_t **addrp)
-{
-	uint8_t __b;
-	get_uleb128_rest_return (acc, i, addrp);
-}
-
-#define get_uleb128(var, addr)					\
-	do {							\
-		uint8_t __b;				\
-		var = 0;					\
-		get_uleb128_step(var, addr, 0, break);		\
-		var = __libdw_get_uleb128 (var, 1, &(addr));	\
-	} while (0)
-
-
-static Dwarf_Off attr_offset(Dwarf_Die *die)
-{
-	Dwarf_Attribute attr;
-
-	if (dwarf_attr(die, DW_AT_data_member_location, &attr) != NULL) {
-		Dwarf_Block block;
-
-		if (dwarf_formblock(&attr, &block) == 0) {
-			uint64_t uleb;
-			const uint8_t *data = block.data + 1;
-			get_uleb128(uleb, data);
-			return uleb;
-		}
-	}
-
-	return 0;
-}
-
 static uint64_t attr_upper_bound(Dwarf_Die *die)
 {
 	Dwarf_Attribute attr;
@@ -1754,70 +1795,16 @@ static uint64_t attr_upper_bound(Dwarf_Die *die)
 	return 0;
 }
 
-static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
-{
-	Dwarf_Attribute attr;
-	uint32_t form;
-
-	if (dwarf_attr(die, name, &attr) == NULL)
-		return 0;
-
-	form = dwarf_whatform(&attr);
-
-	switch (form) {
-	case DW_FORM_addr: {
-		Dwarf_Addr addr;
-		if (dwarf_formaddr(&attr, &addr) == 0)
-			return addr;
-	}
-		break;
-	case DW_FORM_data1:
-	case DW_FORM_data2:
-	case DW_FORM_data4:
-	case DW_FORM_data8:
-	case DW_FORM_sdata:
-	case DW_FORM_udata: {
-		Dwarf_Word value;
-		if (dwarf_formudata(&attr, &value) == 0)
-			return value;
-	}
-		break;
-	case DW_FORM_ref1:
-	case DW_FORM_ref2:
-	case DW_FORM_ref4:
-	case DW_FORM_ref8:
-	case DW_FORM_ref_addr:
-	case DW_FORM_ref_udata: {
-		Dwarf_Off ref;
-		if (dwarf_formref(&attr, &ref) == 0)
-			return (uintmax_t)ref;
-	}
-	case DW_FORM_flag:
-		return 1;
-	default:
-		printf("DW_AT_<0x%x>=0x%x\n", name, form);
-		break;
-	}
-
-	return 0;
-}
-
 static void cu__create_new_tag(Dwarf_Die *die, struct cu *cu)
 {
-	struct tag *self;
-	uint32_t decl_line;
-	const uint16_t tag = dwarf_tag(die);
+	struct tag *self = tag__new(die);
 
-	dwarf_decl_line(die, &decl_line);
-	self = tag__new(tag, dwarf_cuoffset(die),
-			attr_numeric(die, DW_AT_type),
-			dwarf_decl_file(die), decl_line);
 	if (self == NULL)
 		oom("tag__new");
 
 	if (dwarf_haschildren(die))
 		fprintf(stderr, "%s: %s WITH children!\n", __FUNCTION__,
-			dwarf_tag_name(tag));
+			dwarf_tag_name(self->tag));
 
 	cu__add_tag(cu, self);
 }
@@ -1828,19 +1815,11 @@ static void cu__process_class(Dwarf_Die *die,
 static void cu__create_new_class(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
-	Dwarf_Attribute attr_name;
-	struct class *class;
-	uint32_t decl_line;
+	struct class *class = class__new(die);
 
-	dwarf_decl_line(die, &decl_line);
-	class = class__new(dwarf_tag(die), dwarf_cuoffset(die),
-			   attr_numeric(die, DW_AT_type),
-			   attr_string(die, DW_AT_name, &attr_name),
-			   attr_numeric(die, DW_AT_byte_size),
-			   dwarf_decl_file(die), decl_line,
-			   attr_numeric(die, DW_AT_declaration));
 	if (class == NULL)
 		oom("class__new");
+
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
 		cu__process_class(&child, class, cu);
 	class->cu = cu;
@@ -1849,16 +1828,8 @@ static void cu__create_new_class(Dwarf_Die *die, struct cu *cu)
 
 static void cu__create_new_base_type(Dwarf_Die *die, struct cu *cu)
 {
-	Dwarf_Attribute attr_name;
-	struct base_type *base;
-	uint32_t decl_line;
+	struct base_type *base = base_type__new(die);
 
-	dwarf_decl_line(die, &decl_line);
-	base = base_type__new(attr_string(die, DW_AT_name, &attr_name),
-			      attr_numeric(die, DW_AT_byte_size),
-			      dwarf_cuoffset(die),
-			      attr_numeric(die, DW_AT_type),
-			      dwarf_decl_file(die), decl_line);
 	if (base == NULL)
 		oom("base_type__new");
 
@@ -1875,12 +1846,8 @@ static void cu__create_new_array(Dwarf_Die *die, struct cu *cu)
 	/* "64 dimensions will be enough for everybody." acme, 2006 */
 	const uint8_t max_dimensions = 64;
 	uint32_t nr_entries[max_dimensions];
-	struct array_type *array;
-	uint32_t decl_line;
+	struct array_type *array = array_type__new(die);
 
-	dwarf_decl_line(die, &decl_line);
-	array = array_type__new(dwarf_cuoffset(die), attr_numeric(die, DW_AT_type),
-				dwarf_decl_file(die), decl_line);
 	if (array == NULL)
 		oom("array_type__new");
 
@@ -1918,15 +1885,8 @@ static void cu__create_new_array(Dwarf_Die *die, struct cu *cu)
 
 static void cu__create_new_parameter(Dwarf_Die *die, struct ftype *ftype)
 {
-	struct parameter *parm;
-	Dwarf_Attribute attr_name;
-	uint32_t decl_line;
+	struct parameter *parm = parameter__new(die);
 
-	dwarf_decl_line(die, &decl_line);
-	parm = parameter__new(dwarf_cuoffset(die),
-			      attr_numeric(die, DW_AT_type),
-			      dwarf_decl_file(die), decl_line,
-			      attr_string(die, DW_AT_name, &attr_name));
 	if (parm == NULL)
 		oom("parameter__new");
 
@@ -1935,18 +1895,8 @@ static void cu__create_new_parameter(Dwarf_Die *die, struct ftype *ftype)
 
 static void cu__create_new_label(Dwarf_Die *die, struct lexblock *lexblock)
 {
-	struct label *label;
-	Dwarf_Attribute attr_name;
-	Dwarf_Addr low_pc;
-	uint32_t decl_line;
+	struct label *label = label__new(die);
 
-	if (dwarf_lowpc(die, &low_pc))
-		low_pc = 0;
-
-	dwarf_decl_line(die, &decl_line);
-	label = label__new(dwarf_cuoffset(die), attr_numeric(die, DW_AT_type),
-			   dwarf_decl_file(die), decl_line,
-			   attr_string(die, DW_AT_name, &attr_name), low_pc);
 	if (label == NULL)
 		oom("label__new");
 
@@ -1956,16 +1906,7 @@ static void cu__create_new_label(Dwarf_Die *die, struct lexblock *lexblock)
 static void cu__create_new_variable(struct cu *cu, Dwarf_Die *die,
 				    struct lexblock *lexblock)
 {
-	struct variable *var;
-	Dwarf_Attribute attr_name;
-	uint32_t decl_line;
-
-	dwarf_decl_line(die, &decl_line);
-	var = variable__new(attr_string(die, DW_AT_name, &attr_name),
-			    dwarf_cuoffset(die),
-			    attr_numeric(die, DW_AT_type),
-			    dwarf_decl_file(die), decl_line,
-			    attr_numeric(die, DW_AT_abstract_origin));
+	struct variable *var = variable__new(die);
 	if (var == NULL)
 		oom("variable__new");
 
@@ -1976,13 +1917,8 @@ static void cu__create_new_variable(struct cu *cu, Dwarf_Die *die,
 static void cu__create_new_subroutine_type(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
-	struct ftype *ftype;
-	uint32_t decl_line;
+	struct ftype *ftype = ftype__new(die);
 
-	dwarf_decl_line(die, &decl_line);
-	ftype = ftype__new(DW_TAG_subroutine_type, dwarf_cuoffset(die),
-			   attr_numeric(die, DW_AT_type),
-			   dwarf_decl_file(die), decl_line);
 	if (ftype == NULL)
 		oom("ftype__new");
 
@@ -2016,19 +1952,8 @@ static void cu__process_class(Dwarf_Die *die, struct class *class,
 		return;
 	case DW_TAG_inheritance:
 	case DW_TAG_member: {
-		Dwarf_Attribute attr_name;
-		struct class_member *member;
-		uint32_t decl_line;
-		
-		dwarf_decl_line(die, &decl_line);
-		member = class_member__new(dwarf_cuoffset(die), tag,
-					   attr_numeric(die, DW_AT_type),
-					   dwarf_decl_file(die), decl_line,
-					   attr_string(die, DW_AT_name,
-						       &attr_name),
-					   attr_offset(die),
-					   attr_numeric(die, DW_AT_bit_size),
-					   attr_numeric(die, DW_AT_bit_offset));
+		struct class_member *member = class_member__new(die);
+
 		if (member == NULL)
 			oom("class_member__new");
 
@@ -2072,18 +1997,8 @@ static void cu__process_function(Dwarf_Die *die,
 static void cu__create_new_lexblock(Dwarf_Die *die,
 				    struct cu *cu, struct lexblock *father)
 {
-	struct lexblock *lexblock;
-	Dwarf_Addr high_pc, low_pc;
-	uint32_t decl_line;
+	struct lexblock *lexblock = lexblock__new(die);
 
-	if (dwarf_highpc(die, &high_pc))
-		high_pc = 0;
-	if (dwarf_lowpc(die, &low_pc))
-		low_pc = 0;
-
-	dwarf_decl_line(die, &decl_line);
-	lexblock = lexblock__new(dwarf_cuoffset(die), dwarf_decl_file(die),
-				 decl_line, low_pc, high_pc);
 	if (lexblock == NULL)
 		oom("lexblock__new");
 	cu__process_function(die, cu, NULL, lexblock);
@@ -2093,40 +2008,8 @@ static void cu__create_new_lexblock(Dwarf_Die *die,
 static void cu__create_new_inline_expansion(struct cu *cu, Dwarf_Die *die,
 					    struct lexblock *lexblock)
 {
-	Dwarf_Addr high_pc, low_pc;
-	Dwarf_Attribute attr_call_file;
-	struct inline_expansion *exp;
-	size_t size;
+	struct inline_expansion *exp = inline_expansion__new(die);
 
-	if (dwarf_highpc(die, &high_pc))
-		high_pc = 0;
-	if (dwarf_lowpc(die, &low_pc))
-		low_pc = 0;
-
-	size = high_pc - low_pc;
-	if (size == 0) {
-		Dwarf_Addr base, start;
-		ptrdiff_t offset = 0;
-
-		while (1) {
-			offset = dwarf_ranges(die, offset, &base, &start,
-					      &high_pc);
-			start = (unsigned long)start;
-			high_pc = (unsigned long)high_pc;
-			if (offset <= 0)
-				break;
-			size += high_pc - start;
-			if (low_pc == 0)
-				low_pc = start;
-		}
-	}
-
-	exp = inline_expansion__new(dwarf_cuoffset(die),
-				    attr_numeric(die, DW_AT_abstract_origin),
-				    attr_string(die, DW_AT_call_file,
-					    	&attr_call_file),
-				    attr_numeric(die, DW_AT_call_line),
-				    size, low_pc, high_pc);
 	if (exp == NULL)
 		oom("inline_expansion__new");
 
@@ -2188,13 +2071,7 @@ static void cu__create_new_function(Dwarf_Die *die, struct cu *cu)
 		low_pc = 0;
 
 	dwarf_decl_line(die, &decl_line);
-	function = function__new(dwarf_cuoffset(die),
-				 attr_numeric(die, DW_AT_type),
-				 dwarf_decl_file(die), decl_line,
-				 attr_string(die, DW_AT_name, &attr_name),
-				 attr_numeric(die, DW_AT_inline),
-				 dwarf_hasattr(die, DW_AT_external),
-				 low_pc, high_pc);
+	function = function__new(die);
 	if (function == NULL)
 		oom("function__new");
 	cu__process_function(die, cu, &function->proto, &function->lexblock);
@@ -2203,18 +2080,9 @@ static void cu__create_new_function(Dwarf_Die *die, struct cu *cu)
 
 static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 {
-	Dwarf_Attribute attr_name;
 	Dwarf_Die child;
-	struct class *enumeration;
-	uint32_t decl_line;
+	struct class *enumeration = class__new(die);
 
-	dwarf_decl_line(die, &decl_line);
-	enumeration = class__new(DW_TAG_enumeration_type, dwarf_cuoffset(die),
-				 attr_numeric(die, DW_AT_type),
-				 attr_string(die, DW_AT_name, &attr_name),
-				 attr_numeric(die, DW_AT_byte_size),
-				 dwarf_decl_file(die), decl_line,
-				 attr_numeric(die, DW_AT_declaration));
 	if (enumeration == NULL)
 		oom("class__new");
 
@@ -2226,9 +2094,7 @@ static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 
 	die = &child;
 	do {
-		Dwarf_Attribute attr_name;
 		struct enumerator *enumerator;
-		uint32_t decl_line;
 		const uint16_t tag = dwarf_tag(die);
 
 		if (tag != DW_TAG_enumerator) {
@@ -2236,14 +2102,7 @@ static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 				__FUNCTION__, dwarf_tag_name(tag));
 			continue;
 		}
-		dwarf_decl_line(die, &decl_line);
-		enumerator = enumerator__new(dwarf_cuoffset(die),
-					     attr_numeric(die, DW_AT_type),
-					     dwarf_decl_file(die), decl_line,
-					     attr_string(die, DW_AT_name,
-						     	 &attr_name),
-					     attr_numeric(die,
-						          DW_AT_const_value));
+		enumerator = enumerator__new(die);
 		if (enumerator == NULL)
 			oom("enumerator__new");
 
