@@ -1919,6 +1919,26 @@ static void cu__create_new_parameter(Dwarf_Die *die, struct ftype *ftype)
 	ftype__add_parameter(ftype, parm);
 }
 
+static void cu__create_new_variable(struct cu *cu, Dwarf_Die *die,
+				    struct lexblock *lexblock)
+{
+	struct variable *var;
+	Dwarf_Attribute attr_name;
+	uint32_t decl_line;
+
+	dwarf_decl_line(die, &decl_line);
+	var = variable__new(attr_string(die, DW_AT_name, &attr_name),
+			    dwarf_cuoffset(die),
+			    attr_numeric(die, DW_AT_type),
+			    dwarf_decl_file(die), decl_line,
+			    attr_numeric(die, DW_AT_abstract_origin));
+	if (var == NULL)
+		oom("variable__new");
+
+	lexblock__add_variable(lexblock, var);
+	cu__add_variable(cu, var);
+}
+
 static void cu__new_subroutine_type(Dwarf *dwarf, Dwarf_Die *die,
 				    struct cu *cu,
 				    Dwarf_Off cu_offset, Dwarf_Off type,
@@ -2114,19 +2134,8 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 			if (ftype != NULL)
 				cu__create_new_parameter(die, ftype);
 			break;
-		case DW_TAG_variable: {
-			struct variable *var;
-
-			var = variable__new(name, id, type,
-					    decl_file, decl_line,
-					    attr_numeric(die,
-						    DW_AT_abstract_origin));
-			if (var == NULL)
-				oom("variable__new");
-
-			lexblock__add_variable(lexblock, var);
-			cu__add_variable(cu, var);
-		}
+		case DW_TAG_variable:
+			cu__create_new_variable(cu, die, lexblock);
 			break;
 		case DW_TAG_unspecified_parameters:
 			if (ftype != NULL)
