@@ -25,17 +25,20 @@ static int show_cc_uninlined;
 struct fn_stats {
 	struct list_head	node;
 	const struct function	*function;
+	const struct cu		*cu;
 	uint32_t		nr_expansions;
 	uint32_t		size_expansions;
 	uint32_t		nr_files;
 };
 
-static struct fn_stats *fn_stats__new(const struct function *function)
+static struct fn_stats *fn_stats__new(const struct function *function,
+				      const struct cu *cu)
 {
 	struct fn_stats *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
 		self->function = function;
+		self->cu = cu;
 		self->nr_files = 1;
 		self->nr_expansions = function->cu_total_nr_inline_expansions;
 		self->size_expansions = function->cu_total_size_inline_expansions;
@@ -56,9 +59,9 @@ static struct fn_stats *fn_stats__find(const char *name)
 	return NULL;
 }
 
-static void fn_stats__add(const struct function *function)
+static void fn_stats__add(const struct function *function, const struct cu *cu)
 {
-	struct fn_stats *inl = fn_stats__new(function);
+	struct fn_stats *inl = fn_stats__new(function, cu);
 	if (inl != NULL)
 		list_add(&inl->node, &fn_stats__list);
 }
@@ -106,7 +109,8 @@ static void fn_stats_size_fmtr(const struct fn_stats *self)
 static void fn_stats_fmtr(const struct fn_stats *self)
 {
 	if (verbose) {
-		function__print(self->function, 1, show_variables, show_inline_expansions);
+		function__print(self->function, self->cu, 1,
+				show_variables, show_inline_expansions);
 		printf("/* definitions: %u */\n", self->nr_files);
 		putchar('\n');
 	} else
@@ -138,14 +142,16 @@ static void print_total_inline_stats(void)
 }
 
 static void fn_stats__dupmsg(const struct function *self,
-			     const struct function *dup, char *hdr,
-			     const char *fmt, ...)
+			     const struct cu *self_cu,
+			     const struct function *dup,
+			     const struct cu *dup_cu,
+			     char *hdr, const char *fmt, ...)
 {
 	va_list args;
 
 	if (!*hdr)
 		printf("function: %s\nfirst: %s\ncurrent: %s\n",
-		       self->name, self->cu->name, dup->cu->name);
+		       self->name, self_cu->name, dup_cu->name);
 	
 	va_start(args, fmt);
 	vprintf(fmt, args);
@@ -154,18 +160,22 @@ static void fn_stats__dupmsg(const struct function *self,
 }
 
 static void fn_stats__chkdupdef(const struct function *self,
-				       const struct function *dup)
+				const struct cu *self_cu,
+				const struct function *dup,
+				const struct cu *dup_cu)
 {
 	char hdr = 0;
 	const size_t self_size = function__size(self);
 	const size_t dup_size = function__size(dup);
 
 	if (self_size != dup_size)
-		fn_stats__dupmsg(self, dup, &hdr, "size: %zd != %zd\n",
-					self_size, dup_size);
+		fn_stats__dupmsg(self, self_cu, dup, dup_cu,
+				 &hdr, "size: %zd != %zd\n",
+				 self_size, dup_size);
 
 	if (self->proto.nr_parms != dup->proto.nr_parms)
-		fn_stats__dupmsg(self, dup, &hdr, "nr_parms: %u != %u\n",
+		fn_stats__dupmsg(self, self_cu, dup, dup_cu,
+				 &hdr, "nr_parms: %u != %u\n",
 				 self->proto.nr_parms, dup->proto.nr_parms);
 
 	/* XXX put more checks here: member types, member ordering, etc */
@@ -199,7 +209,7 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 
 	fstats = fn_stats__find(function->name);
 	if (fstats != NULL && fstats->function->external) {
-		fn_stats__chkdupdef(fstats->function, function);
+		fn_stats__chkdupdef(fstats->function, fstats->cu, function, cu);
 		fstats->nr_expansions   += function->cu_total_nr_inline_expansions;
 		fstats->size_expansions += function->cu_total_size_inline_expansions;
 		fstats->nr_files++;
@@ -212,7 +222,7 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 static int unique_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
 	if (tag->tag == DW_TAG_subprogram)
-		fn_stats__add(tag__function(tag));
+		fn_stats__add(tag__function(tag), cu);
 	return 0;
 }
 
@@ -235,7 +245,7 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	if (ftype__has_parm_of_type(&function->proto, cookie, cu)) {
 		if (verbose)
-			function__print(function, 1, 0, 0);
+			function__print(function, cu, 1, 0, 0);
 		else
 			printf("%s\n", function->name ?: "");
 	}
@@ -262,7 +272,7 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 	function = tag__function(tag);
 	if (function->name != NULL &&
 	    strcmp(function->name, cookie) == 0) {
-		function__print(function, 1, show_variables,
+		function__print(function, cu, 1, show_variables,
 				show_inline_expansions);
 		return 1;
 	}

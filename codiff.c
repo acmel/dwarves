@@ -57,7 +57,8 @@ static void usage(void)
 		" without options all diffs are shown\n");
 }
 
-static void diff_function(const struct cu *new_cu, struct function *function)
+static void diff_function(const struct cu *new_cu, struct function *function,
+			  struct cu *cu)
 {
 	struct function *new_function;
 
@@ -73,22 +74,22 @@ static void diff_function(const struct cu *new_cu, struct function *function)
 		if (function->diff != 0) {
 			const size_t len = strlen(function->name);
 
-			if (len > function->cu->max_len_changed_item)
-				function->cu->max_len_changed_item = len;
+			if (len > cu->max_len_changed_item)
+				cu->max_len_changed_item = len;
 
-			++function->cu->nr_functions_changed;
+			++cu->nr_functions_changed;
 			if (function->diff > 0)
-				function->cu->function_bytes_added += function->diff;
+				cu->function_bytes_added += function->diff;
 			else
-				function->cu->function_bytes_removed += -function->diff;
+				cu->function_bytes_removed += -function->diff;
 		}
 	} else {
 		const size_t len = strlen(function->name);
-		if (len > function->cu->max_len_changed_item)
-			function->cu->max_len_changed_item = len;
+		if (len > cu->max_len_changed_item)
+			cu->max_len_changed_item = len;
 		function->diff = -function__size(function);
-		++function->cu->nr_functions_changed;
-		function->cu->function_bytes_removed += -function->diff;
+		++cu->nr_functions_changed;
+		cu->function_bytes_removed += -function->diff;
 	}
 }
 
@@ -222,7 +223,7 @@ static int diff_tag_iterator(struct tag *tag, struct cu *cu, void *new_cu)
 	if (tag->tag == DW_TAG_structure_type)
 		diff_struct(new_cu, tag__class(tag));
 	else if (tag->tag == DW_TAG_subprogram)
-		diff_function(new_cu, tag__function(tag));
+		diff_function(new_cu, tag__function(tag), cu);
 
 	return 0;
 }
@@ -241,11 +242,11 @@ static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
 	old_function = cu__find_function_by_name(old_cu, function->name);
 	if (old_function == NULL) {
 		const size_t len = strlen(function->name);
-		if (len > function->cu->max_len_changed_item)
-			function->cu->max_len_changed_item = len;
+		if (len > cu->max_len_changed_item)
+			cu->max_len_changed_item = len;
 		function->diff = function__size(function);
-		++function->cu->nr_functions_changed;
-		function->cu->function_bytes_added += function->diff;
+		++cu->nr_functions_changed;
+		cu->function_bytes_added += function->diff;
 	}
 
 	return 0;
@@ -307,11 +308,11 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 	return 0;
 }
 
-static void show_diffs_function(const struct function *function)
+static void show_diffs_function(const struct function *function,
+				const struct cu *cu)
 {
 	printf("  %-*.*s | %+4d\n",
-	       function->cu->max_len_changed_item,
-	       function->cu->max_len_changed_item,
+	       cu->max_len_changed_item, cu->max_len_changed_item,
 	       function->name, function->diff);
 }
 
@@ -423,7 +424,7 @@ static int show_function_diffs_iterator(struct tag *tag, struct cu *cu,
 	struct function *function = tag__function(tag);
 
 	if (tag->tag == DW_TAG_subprogram && function->diff != 0)
-		show_diffs_function(function);
+		show_diffs_function(function, cu);
 	return 0;
 }
 

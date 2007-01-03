@@ -450,7 +450,6 @@ static void cu__add_tag(struct cu *self, struct tag *tag)
 
 static void cu__add_function(struct cu *self, struct function *function)
 {
-	function->cu = self;
 	list_add_tail(&function->proto.tag.node, &self->tags);
 }
 
@@ -508,30 +507,37 @@ struct class *cu__find_class_by_name(const struct cu *self, const char *name)
 	return NULL;
 }
 
-struct class *cus__find_class_by_name(const struct cus *self, const char *name)
+struct class *cus__find_class_by_name(const struct cus *self,
+				      struct cu **cu, const char *name)
 {
 	struct cu *pos;
 
 	list_for_each_entry(pos, &self->cus, node) {
 		struct class *class = cu__find_class_by_name(pos, name);
 
-		if (class != NULL)
+		if (class != NULL) {
+			if (cu != NULL)
+				*cu = pos;
 			return class;
+		}
 	}
 
 	return NULL;
 }
 
 struct function *cus__find_function_by_name(const struct cus *self,
-					    const char *name)
+					    struct cu **cu, const char *name)
 {
 	struct cu *pos;
 
 	list_for_each_entry(pos, &self->cus, node) {
 		struct function *function = cu__find_function_by_name(pos, name);
 
-		if (function != NULL)
+		if (function != NULL) {
+			if (cu != NULL)
+				*cu = pos;
 			return function;
+		}
 	}
 
 	return NULL;
@@ -1500,8 +1506,8 @@ size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 	return len - (l - n);
 }
 
-void function__print(const struct function *self, int show_stats,
-		     const int show_variables,
+void function__print(const struct function *self, const struct cu *cu,
+		     int show_stats, const int show_variables,
 		     const int show_inline_expansions)
 {
 	char bf[2048];
@@ -1511,13 +1517,13 @@ void function__print(const struct function *self, int show_stats,
 	printf("/* %s:%u */\n", self->proto.tag.decl_file,
 				self->proto.tag.decl_line);
 
-	ftype__snprintf(&self->proto, self->cu, bf, sizeof(bf),
+	ftype__snprintf(&self->proto, cu, bf, sizeof(bf),
 			self->name, function__declared_inline(self), 0, 0);
 	fputs(bf, stdout);
 
 	if (show_variables || show_inline_expansions) {
 		putchar('\n');
-		lexblock__print(&self->lexblock, self->cu, 0);
+		lexblock__print(&self->lexblock, cu, 0);
 	} else 
 		puts(";");
 

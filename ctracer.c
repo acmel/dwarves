@@ -61,6 +61,7 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 }
 
 static int function__emit_kprobes(const struct function *self,
+				  const struct cu *cu,
 				  const struct tag *target)
 {
 	char bf[128];
@@ -68,8 +69,8 @@ static int function__emit_kprobes(const struct function *self,
 	char body[bodyl], *bodyp = body;
 	char class_name[128], parm_name[256];
 	struct parameter *pos;
-	struct tag *type = cu__find_tag_by_id(self->cu, self->proto.tag.type);
-	const char *stype = tag__name(type, self->cu, bf, sizeof(bf));
+	struct tag *type = cu__find_tag_by_id(cu, self->proto.tag.type);
+	const char *stype = tag__name(type, cu, bf, sizeof(bf));
 	int first = 1;
 
 	body[0] = '\0';
@@ -77,8 +78,8 @@ static int function__emit_kprobes(const struct function *self,
 	printf("static %s jprobe_entry__%s(", stype, self->name);
 
 	list_for_each_entry(pos, &self->proto.parms, tag.node) {
-		type = cu__find_tag_by_id(self->cu, pos->tag.type);
-		parameter__names(pos, self->cu, class_name, sizeof(class_name),
+		type = cu__find_tag_by_id(cu, pos->tag.type);
+		parameter__names(pos, cu, class_name, sizeof(class_name),
 				 parm_name, sizeof(parm_name));
 
 		if (!first)
@@ -91,7 +92,7 @@ static int function__emit_kprobes(const struct function *self,
 		if (type->tag != DW_TAG_pointer_type)
 			continue;
 
-		type = cu__find_tag_by_id(self->cu, type->type);
+		type = cu__find_tag_by_id(cu, type->type);
 		if (type == NULL || type->id != target->id)
 			continue;
 
@@ -116,8 +117,8 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
-		cus__emit_ftype_definitions(cus, pos->cu, &pos->proto);
-		function__emit_kprobes(pos, &target->tag);
+		cus__emit_ftype_definitions(cus, cu, &pos->proto);
+		function__emit_kprobes(pos, cu, &target->tag);
 	}
 
 	return 0;
@@ -170,25 +171,28 @@ static int cu_emit_kretprobes_table_iterator(struct cu *cu, void *cookie)
 
 static void emit_function_defs(const char *fn)
 {
-	struct function *f = cus__find_function_by_name(kprobes_cus, fn);
+	struct cu *cu;
+	struct function *f = cus__find_function_by_name(kprobes_cus, &cu, fn);
 
 	if (f != NULL) {
-		cus__emit_ftype_definitions(kprobes_cus, f->cu, &f->proto);
-		function__print(f, 0, 0, 0);
+		cus__emit_ftype_definitions(kprobes_cus, cu, &f->proto);
+		function__print(f, cu, 0, 0, 0);
 		putchar('\n');
 	}
 }
 
 static void emit_struct_defs(const char *name)
 {
-	struct class *c = cus__find_class_by_name(kprobes_cus, name);
+	struct cu *cu;
+	struct class *c = cus__find_class_by_name(kprobes_cus, &cu, name);
 	if (c != NULL)
 		cus__emit_struct_definitions(kprobes_cus, c, NULL, NULL);
 }
 
 static void emit_class_fwd_decl(const char *name)
 {
-	struct class *c = cus__find_class_by_name(kprobes_cus, name);
+	struct cu *cu;
+	struct class *c = cus__find_class_by_name(kprobes_cus, &cu, name);
 	if (c != NULL)
 		cus__emit_fwd_decl(kprobes_cus, c);
 }

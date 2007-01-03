@@ -147,7 +147,6 @@ static inline struct ftype *tag__ftype(const struct tag *self)
 
 struct function {
 	struct ftype	 proto;
-	struct cu	 *cu;
 	struct lexblock	 lexblock;
 	const char	 *name;
 	size_t		 cu_total_size_inline_expansions;
@@ -212,7 +211,8 @@ struct enumerator {
 extern void class__find_holes(struct class *self);
 extern void tag__print(const struct tag *self, const struct cu *cu,
 		       const char *prefix, const char *suffix);
-extern void function__print(const struct function *self, const int show_stats,
+extern void function__print(const struct function *self, const struct cu *cu,
+			    const int show_stats,
 			    const int show_variables,
 			    const int show_inline_expansions);
 
@@ -223,7 +223,11 @@ extern int cus__load_dir(struct cus *self, const char *dirname,
 			 const char *filename_mask, const int recursive);
 extern struct cu *cus__find_cu_by_name(const struct cus *self,
 				       const char *name);
+extern struct class *cus__find_class_by_name(const struct cus *self,
+					     struct cu **cu,
+					     const char *name);
 extern struct function *cus__find_function_by_name(const struct cus *self,
+						   struct cu **cu,
 						   const char *name);
 extern int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 				       struct ftype *ftype);
@@ -238,8 +242,6 @@ extern struct class *cu__find_class_by_name(const struct cu *cu,
 					    const char *name);
 extern int tag__is_struct(const struct tag *self, struct tag **typedef_alias,
 			  const struct cu *cu);
-extern struct class *cus__find_class_by_name(const struct cus *self,
-					     const char *name);
 extern void	    cu__account_inline_expansions(struct cu *self);
 extern int	    cu__for_each_tag(struct cu *self,
 				     int (*iterator)(struct tag *tag,
