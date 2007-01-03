@@ -353,7 +353,6 @@ static void cu__add_function(struct cu *self, struct function *function)
 
 static void cu__add_variable(struct cu *self, struct variable *variable)
 {
-	variable->cu = self;
 	list_add_tail(&variable->cu_node, &self->variables);
 }
 
@@ -609,24 +608,24 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 }
 
 const char *variable__type_name(const struct variable *self,
+				const struct cu *cu,
 				char *bf, size_t len)
 {
 	if (self->tag.type != 0) {
-		struct tag *tag = cu__find_tag_by_id(self->cu, self->tag.type);
-		return tag__name(tag, self->cu, bf, len);
+		struct tag *tag = cu__find_tag_by_id(cu, self->tag.type);
+		return tag__name(tag, cu, bf, len);
 	} else if (self->abstract_origin != 0) {
 		struct variable *var;
 
-		var = cu__find_variable_by_id(self->cu,
-					      self->abstract_origin);
+		var = cu__find_variable_by_id(cu, self->abstract_origin);
 		if (var != NULL)
-		       return variable__type_name(var, bf, len);
+		       return variable__type_name(var, cu, bf, len);
 	}
 	
 	return NULL;
 }
 
-const char *variable__name(const struct variable *self)
+const char *variable__name(const struct variable *self, const struct cu *cu)
 {
 	if (self->name == NULL) {
 		if (self->abstract_origin == 0)
@@ -634,7 +633,7 @@ const char *variable__name(const struct variable *self)
 		else {
 			struct variable *var;
 
-			var = cu__find_variable_by_id(self->cu,
+			var = cu__find_variable_by_id(cu,
 						      self->abstract_origin);
 			return var == NULL ? NULL : var->name;
 		}
@@ -996,10 +995,7 @@ static void enumeration__add(struct class *self,
 static void lexblock__init(struct lexblock *self,
 			   Dwarf_Addr low_pc, Dwarf_Addr high_pc)
 {
-	INIT_LIST_HEAD(&self->inline_expansions);
-	INIT_LIST_HEAD(&self->labels);
-	INIT_LIST_HEAD(&self->lexblocks);
-	INIT_LIST_HEAD(&self->variables);
+	INIT_LIST_HEAD(&self->tags);
 
 	self->nr_inline_expansions =
 		self->nr_labels =
@@ -1031,7 +1027,7 @@ static void lexblock__add_lexblock(struct lexblock *self,
 				   struct lexblock *child)
 {
 	++self->nr_lexblocks;
-	list_add_tail(&child->tag.node, &self->lexblocks);
+	list_add_tail(&child->tag.node, &self->tags);
 }
 
 static ftype__init(struct ftype *self, uint16_t tag,
@@ -1105,19 +1101,19 @@ static void lexblock__add_inline_expansion(struct lexblock *self,
 {
 	++self->nr_inline_expansions;
 	self->size_inline_expansions += exp->size;
-	list_add_tail(&exp->tag.node, &self->inline_expansions);
+	list_add_tail(&exp->tag.node, &self->tags);
 }
 
 static void lexblock__add_variable(struct lexblock *self, struct variable *var)
 {
 	++self->nr_variables;
-	list_add_tail(&var->tag.node, &self->variables);
+	list_add_tail(&var->tag.node, &self->tags);
 }
 
 static void lexblock__add_label(struct lexblock *self, struct label *label)
 {
 	++self->nr_labels;
-	list_add_tail(&label->tag.node, &self->labels);
+	list_add_tail(&label->tag.node, &self->tags);
 }
 
 const struct class_member *class__find_bit_hole(const struct class *self,
@@ -1220,19 +1216,28 @@ struct class_member *class__find_member_by_name(const struct class *self,
 	return NULL;
 }
 
-static void function__account_inline_expansions(struct function *self)
+static void lexblock__account_inline_expansions(struct lexblock *self,
+						const struct cu *cu)
 {
 	struct function *type;
-	struct inline_expansion *pos;
+	struct tag *pos;
 
-	if (self->lexblock.nr_inline_expansions == 0)
+	if (self->nr_inline_expansions == 0)
 		return;
 
-	list_for_each_entry(pos, &self->lexblock.inline_expansions, tag.node) {
-		type = cu__find_function_by_id(self->cu, pos->tag.type);
+	list_for_each_entry(pos, &self->tags, node) {
+		if (pos->tag == DW_TAG_lexical_block) {
+			lexblock__account_inline_expansions(tag__lexblock(pos),
+							    cu);
+			continue;
+		} else if (pos->tag != DW_TAG_inlined_subroutine)
+			continue;
+
+		type = cu__find_function_by_id(cu, pos->type);
 		if (type != NULL) {
 			type->cu_total_nr_inline_expansions++;
-			type->cu_total_size_inline_expansions += pos->size;
+			type->cu_total_size_inline_expansions +=
+					tag__inline_expansion(pos)->size;
 		}
 
 	}
@@ -1243,7 +1248,7 @@ void cu__account_inline_expansions(struct cu *self)
 	struct function *pos;
 
 	list_for_each_entry(pos, &self->functions, proto.tag.node) {
-		function__account_inline_expansions(pos);
+		lexblock__account_inline_expansions(&pos->lexblock, self);
 		self->nr_inline_expansions   += pos->lexblock.nr_inline_expansions;
 		self->size_inline_expansions += pos->lexblock.size_inline_expansions;
 	}
@@ -1273,43 +1278,50 @@ static void tags__add(void *tags, const struct tag *tag)
 	tsearch(tag, tags, tags__compare);
 }
 
-static void lexblock__print(const struct lexblock *self);
+static void lexblock__print(const struct lexblock *self, const struct cu *cu,
+			    int indent);
 
-static void function__tag_print(const struct tag *tag)
+static void function__tag_print(const struct tag *tag, const struct cu *cu,
+				int indent)
 {
 	char bf[512];
 	const void *vtag = tag;
-	int c = 8;
+	int c;
+
+	if (indent >= sizeof(tabs))
+		indent = sizeof(tabs) - 1;
+	c = indent * 8;
 
 	switch (tag->tag) {
 	case DW_TAG_inlined_subroutine: {
 		const struct inline_expansion *exp = vtag;
 		const struct function *alias =
-				cu__find_function_by_id(exp->cu,
-							exp->tag.type);
+				cu__find_function_by_id(cu, exp->tag.type);
 
 		assert(alias != NULL);
-		fputs("        ", stdout);
+		printf("%.*s", indent, tabs);
 		c += printf("%s(); /* low_pc=%#llx */",
 			    alias->name, exp->low_pc);
 	}
 		break;
 	case DW_TAG_variable:
-		fputs("        ", stdout);
-		c += printf("%s %s;", variable__type_name(vtag, bf, sizeof(bf)),
-			    variable__name(vtag));
+		printf("%.*s", indent, tabs);
+		c += printf("%s %s;", variable__type_name(vtag, cu,
+							  bf, sizeof(bf)),
+			    variable__name(vtag, cu));
 		break;
 	case DW_TAG_label: {
 		const struct label *label = vtag;
+		printf("%.*s", indent, tabs);
 		putchar('\n');
 		c = printf("%s:", label->name);
 	}
 		break;
 	case DW_TAG_lexical_block:
-		lexblock__print(vtag);
+		lexblock__print(vtag, cu, indent);
 		return;
 	default:
-		fputs("        ", stdout);
+		printf("%.*s", indent, tabs);
 		c += printf("%s <%llx>", dwarf_tag_name(tag->tag), tag->id);
 		break;
 	}
@@ -1317,46 +1329,17 @@ static void function__tag_print(const struct tag *tag)
 	printf("%-*.*s// %5u\n", 70 - c, 70 - c, " ",  tag->decl_line);
 }
 
-static void function__tags_action(const void *nodep, const VISIT which,
-				  const int depth)
+static void lexblock__print(const struct lexblock *self, const struct cu *cu,
+			    int indent)
 {
-	if (which == postorder || which == leaf) {
-		const struct tag *tag = *(struct tag **)nodep;
-		function__tag_print(tag);
-	}
-}
-
-static void lexblock__print(const struct lexblock *self)
-{
-	void *tags = NULL;
 	struct tag *pos;
 
-	list_for_each_entry(pos, &self->variables, node) {
-		/* FIXME! this test shouln't be needed at all */
-		if (pos->decl_line >= self->tag.decl_line)
-			tags__add(&tags, pos);
-	}
-
-	list_for_each_entry(pos, &self->inline_expansions, node) {
-		/* FIXME! this test shouln't be needed at all */
-		if (pos->decl_line >= self->tag.decl_line)
-			tags__add(&tags, pos);
-	}
-
-	list_for_each_entry(pos, &self->labels, node) {
-		/* FIXME! this test shouln't be needed at all */
-		if (pos->decl_line >= self->tag.decl_line)
-			tags__add(&tags, pos);
-	}
-
-	list_for_each_entry(pos, &self->lexblocks, node)
-		tags__add(&tags, pos);
-
-	puts("{");
-	twalk(tags, function__tags_action);
-	puts("}\n");
-
-	tdestroy(tags, tags__free);
+	if (indent >= sizeof(tabs))
+		indent = sizeof(tabs) - 1;
+	printf("%.*s{\n", indent, tabs);
+	list_for_each_entry(pos, &self->tags, node)
+		function__tag_print(pos, cu, indent + 1);
+	printf("%.*s}\n", indent, tabs);
 }
 
 size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
@@ -1434,7 +1417,7 @@ void function__print(const struct function *self, int show_stats,
 
 	if (show_variables || show_inline_expansions) {
 		putchar('\n');
-		lexblock__print(&self->lexblock);
+		lexblock__print(&self->lexblock, self->cu, 0);
 	} else 
 		puts(";");
 
@@ -2102,7 +2085,6 @@ static void cu__create_new_inline_expansion(Dwarf *dwarf, Dwarf_Die *die,
 	if (exp == NULL)
 		oom("inline_expansion__new");
 
-	exp->cu = cu;
 	lexblock__add_inline_expansion(lexblock, exp);
 }
 

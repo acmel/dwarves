@@ -116,10 +116,7 @@ struct class_member {
 
 struct lexblock {
 	struct tag	 tag;
-	struct list_head inline_expansions;
-	struct list_head labels;
-	struct list_head variables;
-	struct list_head lexblocks;
+	struct list_head tags;
 	Dwarf_Addr	 low_pc;
 	Dwarf_Addr	 high_pc;
 	uint16_t	 nr_inline_expansions;
@@ -128,6 +125,11 @@ struct lexblock {
 	uint16_t	 nr_lexblocks;
 	size_t		 size_inline_expansions;
 };
+
+static inline struct lexblock *tag__lexblock(const struct tag *self)
+{
+	return (struct lexblock *)self;
+}
 
 /*
  * tag.tag can be DW_TAG_subprogram_type or DW_TAG_subroutine_type.
@@ -166,19 +168,28 @@ struct parameter {
 
 struct variable {
 	struct tag	 tag;
-	struct cu	 *cu;
 	struct list_head cu_node;
 	char		 *name;
 	Dwarf_Off	 abstract_origin;
 };
 
+static inline struct variable *tag__variable(const struct tag *self)
+{
+	return (struct variable *)self;
+}
+
 struct inline_expansion {
 	struct tag	 tag;
-	struct cu	 *cu;
 	size_t		 size;
 	Dwarf_Addr	 low_pc;
 	Dwarf_Addr	 high_pc;
 };
+
+static inline struct inline_expansion *
+				tag__inline_expansion(const struct tag *self)
+{
+	return (struct inline_expansion *)self;
+}
 
 struct label {
 	struct tag	 tag;
@@ -293,8 +304,10 @@ extern size_t class_member__names(const struct tag *type,
 				  char *member_name, size_t member_name_size);
 extern size_t cacheline_size;
 
-extern const char *variable__name(const struct variable *self);
+extern const char *variable__name(const struct variable *self,
+				  const struct cu *cu);
 extern const char *variable__type_name(const struct variable *self,
+				       const struct cu *cu,
 				       char *bf, size_t len);
 
 extern const char *dwarf_tag_name(const uint32_t tag);

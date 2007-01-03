@@ -54,20 +54,21 @@ static void refcnt_parameter(const struct parameter *parameter,
 	}
 }
 
-static void refcnt_variable(const struct variable *variable)
+static void refcnt_variable(const struct variable *variable,
+			    const struct cu *cu)
 {
 	if (variable->tag.type != 0) { /* if not void */
-		struct tag *type = cu__find_tag_by_id(variable->cu,
-						      variable->tag.type);
+		struct tag *type = cu__find_tag_by_id(cu, variable->tag.type);
 		if (type != NULL)
 			refcnt_tag(type);
 	}
 }
 
-static void refcnt_inline_expansion(const struct inline_expansion *exp)
+static void refcnt_inline_expansion(const struct inline_expansion *exp,
+				    const struct cu *cu)
 {
 	if (exp->tag.type != 0) { /* if not void */
-		struct tag *type = cu__find_tag_by_id(exp->cu, exp->tag.type);
+		struct tag *type = cu__find_tag_by_id(cu, exp->tag.type);
 		if (type != NULL)
 			refcnt_tag(type);
 	}
@@ -88,8 +89,7 @@ static void refcnt_tag(struct tag *tag)
 static void refcnt_function(struct function *function)
 {
 	struct parameter *parameter;
-	struct inline_expansion *exp;
-	struct variable *variable;
+	struct tag *pos;
 
 	function->proto.tag.refcnt++;
 
@@ -103,11 +103,16 @@ static void refcnt_function(struct function *function)
 	list_for_each_entry(parameter, &function->proto.parms, tag.node)
 		refcnt_parameter(parameter, function->cu);
 
-	list_for_each_entry(variable, &function->lexblock.variables, tag.node)
-		refcnt_variable(variable);
-
-	list_for_each_entry(exp, &function->lexblock.inline_expansions, tag.node)
-		refcnt_inline_expansion(exp);
+	list_for_each_entry(pos, &function->lexblock.tags, node)
+		switch (pos->tag) {
+		case DW_TAG_variable:
+			refcnt_variable(tag__variable(pos), function->cu);
+			break;
+		case DW_TAG_inlined_subroutine:
+			refcnt_inline_expansion(tag__inline_expansion(pos),
+						function->cu);
+			break;
+		}
 }
 
 static int refcnt_function_iterator(struct function *function, void *cookie)
