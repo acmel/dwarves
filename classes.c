@@ -1802,12 +1802,16 @@ static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 	return 0;
 }
 
-static void cu__create_new_tag(Dwarf_Die *die, struct cu *cu,
-			       Dwarf_Off cu_offset, Dwarf_Off type, uint32_t tag,
-			       const char *decl_file, int decl_line)
+static void cu__create_new_tag(Dwarf_Die *die, struct cu *cu)
 {
-	struct tag *self = tag__new(tag, cu_offset, type, decl_file, decl_line);
+	struct tag *self;
+	uint32_t decl_line;
+	const uint16_t tag = dwarf_tag(die);
 
+	dwarf_decl_line(die, &decl_line);
+	self = tag__new(tag, dwarf_cuoffset(die),
+			attr_numeric(die, DW_AT_type),
+			dwarf_decl_file(die), decl_line);
 	if (self == NULL)
 		oom("tag__new");
 
@@ -1821,7 +1825,7 @@ static void cu__create_new_tag(Dwarf_Die *die, struct cu *cu,
 static void cu__process_class(Dwarf_Die *die,
 			      struct class *class, struct cu *cu);
 
-static void cu__create_new_class(Dwarf_Die *die, struct cu *cu, uint32_t tag)
+static void cu__create_new_class(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
 	Dwarf_Attribute attr_name;
@@ -1829,7 +1833,7 @@ static void cu__create_new_class(Dwarf_Die *die, struct cu *cu, uint32_t tag)
 	uint32_t decl_line;
 
 	dwarf_decl_line(die, &decl_line);
-	class = class__new(tag, dwarf_cuoffset(die),
+	class = class__new(dwarf_tag(die), dwarf_cuoffset(die),
 			   attr_numeric(die, DW_AT_type),
 			   attr_string(die, DW_AT_name, &attr_name),
 			   attr_numeric(die, DW_AT_byte_size),
@@ -1843,14 +1847,18 @@ static void cu__create_new_class(Dwarf_Die *die, struct cu *cu, uint32_t tag)
 	cu__add_tag(cu, &class->tag);
 }
 
-static void cu__create_new_base_type(const char *name,
-				     Dwarf_Die *die, struct cu *cu,
-				     Dwarf_Off cu_offset, Dwarf_Off type,
-				     const char *decl_file, int decl_line)
+static void cu__create_new_base_type(Dwarf_Die *die, struct cu *cu)
 {
-	const size_t size = attr_numeric(die, DW_AT_byte_size);
-	struct base_type *base = base_type__new(name, size, cu_offset, type,
-						decl_file, decl_line);
+	Dwarf_Attribute attr_name;
+	struct base_type *base;
+	uint32_t decl_line;
+
+	dwarf_decl_line(die, &decl_line);
+	base = base_type__new(attr_string(die, DW_AT_name, &attr_name),
+			      attr_numeric(die, DW_AT_byte_size),
+			      dwarf_cuoffset(die),
+			      attr_numeric(die, DW_AT_type),
+			      dwarf_decl_file(die), decl_line);
 	if (base == NULL)
 		oom("base_type__new");
 
@@ -1861,16 +1869,18 @@ static void cu__create_new_base_type(const char *name,
 	cu__add_tag(cu, &base->tag);
 }
 
-static void cu__create_new_array(Dwarf_Die *die, struct cu *cu,
-				 Dwarf_Off cu_offset, Dwarf_Off type,
-				 const char *decl_file, int decl_line)
+static void cu__create_new_array(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
 	/* "64 dimensions will be enough for everybody." acme, 2006 */
 	const uint8_t max_dimensions = 64;
 	uint32_t nr_entries[max_dimensions];
-	struct array_type *array = array_type__new(cu_offset, type,
-						   decl_file, decl_line);
+	struct array_type *array;
+	uint32_t decl_line;
+
+	dwarf_decl_line(die, &decl_line);
+	array = array_type__new(dwarf_cuoffset(die), attr_numeric(die, DW_AT_type),
+				dwarf_decl_file(die), decl_line);
 	if (array == NULL)
 		oom("array_type__new");
 
@@ -1963,14 +1973,16 @@ static void cu__create_new_variable(struct cu *cu, Dwarf_Die *die,
 	cu__add_variable(cu, var);
 }
 
-static void cu__new_subroutine_type(Dwarf_Die *die, struct cu *cu,
-				    Dwarf_Off cu_offset, Dwarf_Off type,
-				    const char *decl_file, int decl_line)
+static void cu__create_new_subroutine_type(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
-	struct ftype *ftype = ftype__new(DW_TAG_subroutine_type,
-					 cu_offset, type,
-					 decl_file, decl_line);
+	struct ftype *ftype;
+	uint32_t decl_line;
+
+	dwarf_decl_line(die, &decl_line);
+	ftype = ftype__new(DW_TAG_subroutine_type, dwarf_cuoffset(die),
+			   attr_numeric(die, DW_AT_type),
+			   dwarf_decl_file(die), decl_line);
 	if (ftype == NULL)
 		oom("ftype__new");
 
@@ -1997,31 +2009,24 @@ static void cu__process_class(Dwarf_Die *die, struct class *class,
 			      struct cu *cu)
 {
 	Dwarf_Die child;
-	Dwarf_Off cu_offset;
-	Dwarf_Attribute attr_name;
-	const char *decl_file, *name;
-	Dwarf_Off type;
-	int decl_line = 0;
-	uint32_t tag = dwarf_tag(die);
-
-	if (tag == DW_TAG_invalid)
-		return;
-
-	cu_offset = dwarf_cuoffset(die);
-	decl_file = dwarf_decl_file(die);
-	type	  = attr_numeric(die, DW_AT_type);
-	name	  = attr_string(die, DW_AT_name, &attr_name);
-
-	dwarf_decl_line(die, &decl_line);
+	const uint16_t tag = dwarf_tag(die);
 
 	switch (tag) {
+	case DW_TAG_invalid:
+		return;
 	case DW_TAG_inheritance:
 	case DW_TAG_member: {
+		Dwarf_Attribute attr_name;
 		struct class_member *member;
+		uint32_t decl_line;
 		
-		member = class_member__new(cu_offset, tag, type,
-					   decl_file, decl_line,
-					   name, attr_offset(die),
+		dwarf_decl_line(die, &decl_line);
+		member = class_member__new(dwarf_cuoffset(die), tag,
+					   attr_numeric(die, DW_AT_type),
+					   dwarf_decl_file(die), decl_line,
+					   attr_string(die, DW_AT_name,
+						       &attr_name),
+					   attr_offset(die),
 					   attr_numeric(die, DW_AT_bit_size),
 					   attr_numeric(die, DW_AT_bit_offset));
 		if (member == NULL)
@@ -2049,7 +2054,7 @@ static void cu__process_class(Dwarf_Die *die, struct class *class,
 		  * Fall thru, enums, etc can also be defined inside
 		  * C++ classes
 		 */
-		cu__create_new_class(die, cu, tag);
+		cu__create_new_class(die, cu);
 		goto next_sibling;
 	}
 
@@ -2164,7 +2169,7 @@ static void cu__process_function(Dwarf_Die *die,
 			break;
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:
-			cu__create_new_class(die, cu, tag);
+			cu__create_new_class(die, cu);
 			break;
 		}
 	} while (dwarf_siblingof(die, die) == 0);
@@ -2196,17 +2201,20 @@ static void cu__create_new_function(Dwarf_Die *die, struct cu *cu)
 	cu__add_function(cu, function);
 }
 
-static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu,
-				       Dwarf_Off cu_offset, Dwarf_Off type,
-				       const char *decl_file, int decl_line,
-				       const char *name)
+static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 {
+	Dwarf_Attribute attr_name;
 	Dwarf_Die child;
-	const size_t size = attr_numeric(die, DW_AT_byte_size);
-	struct class *enumeration = class__new(DW_TAG_enumeration_type,
-					       cu_offset, type, name, size,
-					       decl_file, decl_line,
-					 attr_numeric(die, DW_AT_declaration));
+	struct class *enumeration;
+	uint32_t decl_line;
+
+	dwarf_decl_line(die, &decl_line);
+	enumeration = class__new(DW_TAG_enumeration_type, dwarf_cuoffset(die),
+				 attr_numeric(die, DW_AT_type),
+				 attr_string(die, DW_AT_name, &attr_name),
+				 attr_numeric(die, DW_AT_byte_size),
+				 dwarf_decl_file(die), decl_line,
+				 attr_numeric(die, DW_AT_declaration));
 	if (enumeration == NULL)
 		oom("class__new");
 
@@ -2221,22 +2229,21 @@ static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu,
 		Dwarf_Attribute attr_name;
 		struct enumerator *enumerator;
 		uint32_t decl_line;
-		const uint16_t tag    = dwarf_tag(die);
-		const Dwarf_Off id    = dwarf_cuoffset(die);
-		const Dwarf_Off type  = attr_numeric(die, DW_AT_type);
-		const uint32_t value  = attr_numeric(die, DW_AT_const_value);
-		const char *decl_file = dwarf_decl_file(die);
-		const char *name      = attr_string(die, DW_AT_name,
-						    &attr_name);
-		dwarf_decl_line(die, &decl_line);
+		const uint16_t tag = dwarf_tag(die);
 
 		if (tag != DW_TAG_enumerator) {
 			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
 				__FUNCTION__, dwarf_tag_name(tag));
 			continue;
 		}
-		enumerator = enumerator__new(id, type, decl_file, decl_line,
-					     name, value);
+		dwarf_decl_line(die, &decl_line);
+		enumerator = enumerator__new(dwarf_cuoffset(die),
+					     attr_numeric(die, DW_AT_type),
+					     dwarf_decl_file(die), decl_line,
+					     attr_string(die, DW_AT_name,
+						     	 &attr_name),
+					     attr_numeric(die,
+						          DW_AT_const_value));
 		if (enumerator == NULL)
 			oom("enumerator__new");
 
@@ -2250,30 +2257,13 @@ static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu,
 static void cu__process_die(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
-	Dwarf_Off cu_offset;
-	Dwarf_Attribute attr_name;
-	const char *decl_file;
-	int decl_line = 0;
-	const char *name;
-	Dwarf_Off type;
-	uint32_t tag = dwarf_tag(die);
 
-	if (tag == DW_TAG_invalid)
+	switch (dwarf_tag(die)) {
+	case DW_TAG_invalid:
 		return;
-
-	if (tag == DW_TAG_compile_unit) {
+	case DW_TAG_compile_unit:
 		cu->language = attr_numeric(die, DW_AT_language);
-		goto children;
-	}
-
-	cu_offset = dwarf_cuoffset(die);
-	name	  = attr_string(die, DW_AT_name, &attr_name);
-	type	  = attr_numeric(die, DW_AT_type);
-	decl_file = dwarf_decl_file(die);
-
-	dwarf_decl_line(die, &decl_line);
-
-	switch (tag) {
+		break;
 	case DW_TAG_variable:
 		/* Handle global variables later */
 		break;
@@ -2283,31 +2273,25 @@ static void cu__process_die(Dwarf_Die *die, struct cu *cu)
 	case DW_TAG_const_type:
 	case DW_TAG_pointer_type:
 	case DW_TAG_volatile_type:
-		cu__create_new_tag(die, cu, cu_offset, type, tag,
-				   decl_file, decl_line);
+		cu__create_new_tag(die, cu);
 		goto next_sibling;
 	case DW_TAG_base_type:
-		cu__create_new_base_type(name, die, cu, cu_offset, type,
-					 decl_file, decl_line);
+		cu__create_new_base_type(die, cu);
 		goto next_sibling;
 	case DW_TAG_array_type:
-		cu__create_new_array(die, cu, cu_offset, type,
-				     decl_file, decl_line);
+		cu__create_new_array(die, cu);
 		goto next_sibling;
 	case DW_TAG_subroutine_type:
-		cu__new_subroutine_type(die, cu, cu_offset, type,
-					decl_file, decl_line);
+		cu__create_new_subroutine_type(die, cu);
 		goto next_sibling;
 	case DW_TAG_enumeration_type:
-		cu__create_new_enumeration(die, cu, cu_offset, type,
-					   decl_file, decl_line, name);
+		cu__create_new_enumeration(die, cu);
 		goto next_sibling;
 	default:
-		cu__create_new_class(die, cu, tag);
+		cu__create_new_class(die, cu);
 		goto next_sibling;
 	}
 
-children:
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
 		cu__process_die(&child, cu);
 next_sibling:
