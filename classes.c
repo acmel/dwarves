@@ -2062,19 +2062,20 @@ static void cu__process_function(Dwarf_Die *die,
 				 struct lexblock *lexblock);
 
 static void cu__create_new_lexblock(Dwarf_Die *die,
-				    struct cu *cu, struct lexblock *father,
-				    Dwarf_Off id, const char *decl_file,
-				    int decl_line)
+				    struct cu *cu, struct lexblock *father)
 {
 	struct lexblock *lexblock;
 	Dwarf_Addr high_pc, low_pc;
+	uint32_t decl_line;
 
 	if (dwarf_highpc(die, &high_pc))
 		high_pc = 0;
 	if (dwarf_lowpc(die, &low_pc))
 		low_pc = 0;
 
-	lexblock = lexblock__new(id, decl_file, decl_line, low_pc, high_pc);
+	dwarf_decl_line(die, &decl_line);
+	lexblock = lexblock__new(dwarf_cuoffset(die), dwarf_decl_file(die),
+				 decl_line, low_pc, high_pc);
 	if (lexblock == NULL)
 		oom("lexblock__new");
 	cu__process_function(die, cu, NULL, lexblock);
@@ -2164,8 +2165,7 @@ static void cu__process_function(Dwarf_Die *die,
 			cu__create_new_inline_expansion(cu, die, lexblock);
 			break;
 		case DW_TAG_lexical_block:
-			cu__create_new_lexblock(die, cu, lexblock,
-					        id, decl_file, decl_line);
+			cu__create_new_lexblock(die, cu, lexblock);
 			break;
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:
