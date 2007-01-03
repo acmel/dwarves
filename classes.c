@@ -2082,15 +2082,11 @@ static void cu__create_new_lexblock(Dwarf *dwarf, Dwarf_Die *die,
 	lexblock__add_lexblock(father, lexblock);
 }
 
-static void cu__create_new_inline_expansion(Dwarf *dwarf, Dwarf_Die *die,
-					    struct cu *cu,
-					    struct lexblock *lexblock,
-					    Dwarf_Off id, const char *decl_file,
-					    int decl_line)
+static void cu__create_new_inline_expansion(struct cu *cu, Dwarf_Die *die,
+					    struct lexblock *lexblock)
 {
 	Dwarf_Addr high_pc, low_pc;
 	Dwarf_Attribute attr_call_file;
-	const Dwarf_Off type = attr_numeric(die, DW_AT_abstract_origin);
 	struct inline_expansion *exp;
 	size_t size;
 
@@ -2117,11 +2113,12 @@ static void cu__create_new_inline_expansion(Dwarf *dwarf, Dwarf_Die *die,
 		}
 	}
 
-	decl_file = attr_string(die, DW_AT_call_file, &attr_call_file);
-	decl_line = attr_numeric(die, DW_AT_call_line);
-
-	exp = inline_expansion__new(id, type, decl_file, decl_line, size,
-				    low_pc, high_pc);
+	exp = inline_expansion__new(dwarf_cuoffset(die),
+				    attr_numeric(die, DW_AT_abstract_origin),
+				    attr_string(die, DW_AT_call_file,
+					    	&attr_call_file),
+				    attr_numeric(die, DW_AT_call_line),
+				    size, low_pc, high_pc);
 	if (exp == NULL)
 		oom("inline_expansion__new");
 
@@ -2165,9 +2162,7 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 			cu__create_new_label(die, lexblock);
 			break;
 		case DW_TAG_inlined_subroutine:
-			cu__create_new_inline_expansion(dwarf, die, cu,
-							lexblock, id,
-							decl_file, decl_line);
+			cu__create_new_inline_expansion(cu, die, lexblock);
 			break;
 		case DW_TAG_lexical_block:
 			cu__create_new_lexblock(dwarf, die, cu, lexblock,
