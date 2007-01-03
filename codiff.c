@@ -214,12 +214,23 @@ static int diff_class_iterator(struct tag *tag, struct cu *cu, void *new_cu)
 
 static int diff_function_iterator(struct function *function, void *new_cu)
 {
-	diff_function(new_cu, function);
 	return 0;
 }
 
-static int find_new_functions_iterator(struct function *function, void *old_cu)
+static int diff_tag_iterator(struct tag *tag, struct cu *cu, void *new_cu)
 {
+	if (tag->tag == DW_TAG_structure_type)
+		diff_struct(new_cu, tag__class(tag));
+	else if (tag->tag == DW_TAG_subprogram)
+		diff_function(new_cu, tag__function(tag));
+
+	return 0;
+}
+
+static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
+				       void *old_cu)
+{
+	struct function *function = tag__function(tfunction);
 	struct function *old_function;
 
 	assert(function->proto.tag.tag == DW_TAG_subprogram);
@@ -268,16 +279,20 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 	return 0;
 }
 
-static int cu_find_new_classes_iterator(struct cu *new_cu, void *old_cus)
+static int find_new_tags_iterator(struct tag *tag, struct cu *cu, void *old_cu)
+{
+	if (tag->tag == DW_TAG_subprogram)
+		return find_new_functions_iterator(tag, cu, old_cu);
+	return find_new_classes_iterator(tag, cu, old_cu);
+}
+
+static int cu_find_new_tags_iterator(struct cu *new_cu, void *old_cus)
 {
 	struct cu *old_cu = cus__find_cu_by_name(old_cus, new_cu->name);
 
-	if (old_cu != NULL) {
-		cu__for_each_tag(new_cu, find_new_classes_iterator,
+	if (old_cu != NULL)
+		cu__for_each_tag(new_cu, find_new_tags_iterator,
 				 old_cu, NULL);
-		cu__for_each_function(new_cu, find_new_functions_iterator,
-				      old_cu, NULL);
-	}
 
 	return 0;
 }
@@ -286,10 +301,8 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 {
 	struct cu *new_cu = cus__find_cu_by_name(new_cus, cu->name);
 
-	if (new_cu != NULL) {
-		cu__for_each_tag(cu, diff_class_iterator, new_cu, NULL);
-		cu__for_each_function(cu, diff_function_iterator, new_cu, NULL);
-	}
+	if (new_cu != NULL)
+		cu__for_each_tag(cu, diff_tag_iterator, new_cu, NULL);
 
 	return 0;
 }
@@ -404,9 +417,12 @@ static void show_diffs_structure(const struct class *structure)
 		print_terse_type_changes(structure);
 }
 
-static int show_function_diffs_iterator(struct function *function, void *new_cu)
+static int show_function_diffs_iterator(struct tag *tag, struct cu *cu,
+					void *new_cu)
 {
-	if (function->diff != 0)
+	struct function *function = tag__function(tag);
+
+	if (tag->tag == DW_TAG_subprogram && function->diff != 0)
 		show_diffs_function(function);
 	return 0;
 }
@@ -458,8 +474,7 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	if (cu->nr_functions_changed != 0 && show_function_diffs) {
 		total_nr_functions_changed += cu->nr_functions_changed;
 
-		cu__for_each_function(cu, show_function_diffs_iterator,
-				      NULL, NULL);
+		cu__for_each_tag(cu, show_function_diffs_iterator, NULL, NULL);
 		printf(" %u function%s changed", cu->nr_functions_changed,
 		       cu->nr_functions_changed > 1 ? "s" : "");
 		if (cu->function_bytes_added != 0) {
@@ -548,7 +563,7 @@ int main(int argc, char *argv[])
 	}
 
 	cus__for_each_cu(old_cus, cu_diff_iterator, new_cus, NULL);
-	cus__for_each_cu(new_cus, cu_find_new_classes_iterator, old_cus, NULL);
+	cus__for_each_cu(new_cus, cu_find_new_tags_iterator, old_cus, NULL);
 	cus__for_each_cu(old_cus, cu_show_diffs_iterator, NULL, NULL);
 	cus__for_each_cu(new_cus, cu_show_diffs_iterator, NULL, NULL);
 

@@ -26,8 +26,7 @@ struct cus {
 
 struct cu {
 	struct list_head node;
-	struct list_head classes;
-	struct list_head functions;
+	struct list_head tags;
 	struct list_head variables;
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
 	const char	 *name;
@@ -161,6 +160,11 @@ struct function {
 	struct class	 *class_to_diff;
 };
 
+static inline struct function *tag__function(const struct tag *self)
+{
+	return (struct function *)self;
+}
+
 struct parameter {
 	struct tag	 tag;
 	char		 *name;
@@ -243,13 +247,8 @@ extern int	    cu__for_each_tag(struct cu *self,
 						     void *cookie),
 				     void *cookie,
 				     struct tag *(*filter)(struct tag *tag,
-							   struct cu *cu));
-extern int	    cu__for_each_function(struct cu *cu,
-					  int (*iterator)(struct function *func,
-							  void *cookie),
-					  void *cookie,
-			struct function *(*filter)(struct function *function,
-						   void *cookie));
+							   struct cu *cu,
+							   void *cookie));
 extern void	    cus__for_each_cu(struct cus *self,
 				     int (*iterator)(struct cu *cu,
 						     void *cookie),
@@ -261,8 +260,6 @@ extern const struct class_member *
 				     const struct class_member *trailer,
 				     const size_t bit_hole_size);
 
-extern struct function *cu__find_function_by_id(const struct cu *self,
-						const Dwarf_Off id);
 extern struct function *cu__find_function_by_name(const struct cu *cu,
 						  const char *name);
 

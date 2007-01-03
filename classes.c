@@ -424,8 +424,7 @@ static struct cu *cu__new(uint32_t cu, const char *name, uint8_t addr_size)
 	struct cu *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		INIT_LIST_HEAD(&self->classes);
-		INIT_LIST_HEAD(&self->functions);
+		INIT_LIST_HEAD(&self->tags);
 		INIT_LIST_HEAD(&self->variables);
 		INIT_LIST_HEAD(&self->tool_list);
 
@@ -446,13 +445,13 @@ static struct cu *cu__new(uint32_t cu, const char *name, uint8_t addr_size)
 
 static void cu__add_tag(struct cu *self, struct tag *tag)
 {
-	list_add_tail(&tag->node, &self->classes);
+	list_add_tail(&tag->node, &self->tags);
 }
 
 static void cu__add_function(struct cu *self, struct function *function)
 {
 	function->cu = self;
-	list_add_tail(&function->proto.tag.node, &self->functions);
+	list_add_tail(&function->proto.tag.node, &self->tags);
 }
 
 static void cu__add_variable(struct cu *self, struct variable *variable)
@@ -481,7 +480,7 @@ struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 	if (id == 0)
 		return NULL;
 
-	list_for_each_entry(pos, &self->classes, node)
+	list_for_each_entry(pos, &self->tags, node)
 		if (pos->id == id)
 			return pos;
 
@@ -495,7 +494,7 @@ struct class *cu__find_class_by_name(const struct cu *self, const char *name)
 	if (name == NULL)
 		return NULL;
 
-	list_for_each_entry(pos, &self->classes, node) {
+	list_for_each_entry(pos, &self->tags, node) {
 		struct class *class;
 
 		if (pos->tag != DW_TAG_structure_type)
@@ -592,26 +591,19 @@ static void cus__add_fwd_decl(struct cus *self, struct class *class)
 struct function *cu__find_function_by_name(const struct cu *self,
 					   const char *name)
 {
-	struct function *pos;
+	struct tag *pos;
+	struct function *fpos;
 
 	if (name == NULL)
 		return NULL;
 
-	list_for_each_entry(pos, &self->functions, proto.tag.node)
-		if (pos->name != NULL && strcmp(pos->name, name) == 0)
-			return pos;
-
-	return NULL;
-}
-
-struct function *cu__find_function_by_id(const struct cu *self,
-					 const Dwarf_Off id)
-{
-	struct function *pos;
-
-	list_for_each_entry(pos, &self->functions, proto.tag.node)
-		if (pos->proto.tag.id == id)
-			return pos;
+	list_for_each_entry(pos, &self->tags, node) {
+		if (pos->tag != DW_TAG_subprogram)
+			continue;
+		fpos = tag__function(pos);
+		if (fpos->name != NULL && strcmp(fpos->name, name) == 0)
+			return fpos;
+	}
 
 	return NULL;
 }
@@ -1321,8 +1313,7 @@ struct class_member *class__find_member_by_name(const struct class *self,
 static void lexblock__account_inline_expansions(struct lexblock *self,
 						const struct cu *cu)
 {
-	struct function *type;
-	struct tag *pos;
+	struct tag *pos, *type;
 
 	if (self->nr_inline_expansions == 0)
 		return;
@@ -1335,10 +1326,12 @@ static void lexblock__account_inline_expansions(struct lexblock *self,
 		} else if (pos->tag != DW_TAG_inlined_subroutine)
 			continue;
 
-		type = cu__find_function_by_id(cu, pos->type);
+		type = cu__find_tag_by_id(cu, pos->type);
 		if (type != NULL) {
-			type->cu_total_nr_inline_expansions++;
-			type->cu_total_size_inline_expansions +=
+			struct function *ftype = tag__function(type);
+
+			ftype->cu_total_nr_inline_expansions++;
+			ftype->cu_total_size_inline_expansions +=
 					tag__inline_expansion(pos)->size;
 		}
 
@@ -1347,12 +1340,16 @@ static void lexblock__account_inline_expansions(struct lexblock *self,
 
 void cu__account_inline_expansions(struct cu *self)
 {
-	struct function *pos;
+	struct tag *pos;
+	struct function *fpos;
 
-	list_for_each_entry(pos, &self->functions, proto.tag.node) {
-		lexblock__account_inline_expansions(&pos->lexblock, self);
-		self->nr_inline_expansions   += pos->lexblock.nr_inline_expansions;
-		self->size_inline_expansions += pos->lexblock.size_inline_expansions;
+	list_for_each_entry(pos, &self->tags, node) {
+		if (pos->tag != DW_TAG_subprogram)
+			continue;
+		fpos = tag__function(pos);
+		lexblock__account_inline_expansions(&fpos->lexblock, self);
+		self->nr_inline_expansions   += fpos->lexblock.nr_inline_expansions;
+		self->size_inline_expansions += fpos->lexblock.size_inline_expansions;
 	}
 }
 
@@ -1397,8 +1394,9 @@ static void function__tag_print(const struct tag *tag, const struct cu *cu,
 	switch (tag->tag) {
 	case DW_TAG_inlined_subroutine: {
 		const struct inline_expansion *exp = vtag;
-		const struct function *alias =
-				cu__find_function_by_id(cu, exp->tag.type);
+		const struct tag *talias =
+				cu__find_tag_by_id(cu, exp->tag.type);
+		const struct function *alias = tag__function(talias);
 
 		assert(alias != NULL);
 		printf("%.*s", indent, tabs);
@@ -1716,40 +1714,19 @@ int cu__for_each_tag(struct cu *self,
 		     int (*iterator)(struct tag *tag, struct cu *cu,
 			     	     void *cookie),
 		     void *cookie,
-		     struct tag *(*filter)(struct tag *tag, struct cu *cu))
+		     struct tag *(*filter)(struct tag *tag, struct cu *cu,
+			     		   void *cookie))
 {
 	struct tag *pos;
 
-	list_for_each_entry(pos, &self->classes, node) {
+	list_for_each_entry(pos, &self->tags, node) {
 		struct tag *tag = pos;
 		if (filter != NULL) {
-			tag = filter(pos, self);
+			tag = filter(pos, self, cookie);
 			if (tag == NULL)
 				continue;
 		}
 		if (iterator(tag, self, cookie))
-			return 1;
-	}
-	return 0;
-}
-
-int cu__for_each_function(struct cu *cu,
-			  int (*iterator)(struct function *func, void *cookie),
-			  void *cookie,
-			  struct function *(*filter)(struct function *function,
-				  		     void *cookie))
-{
-
-	struct function *pos;
-
-	list_for_each_entry(pos, &cu->functions, proto.tag.node) {
-		struct function *function = pos;
-		if (filter != NULL) {
-			function = filter(pos, cookie);
-			if (function == NULL)
-				continue;
-		}
-		if (iterator(function, cookie))
 			return 1;
 	}
 	return 0;

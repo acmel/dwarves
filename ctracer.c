@@ -26,19 +26,27 @@ static void method__add(struct cu *cu, struct function *function)
 	list_add(&function->tool_node, &cu->tool_list);
 }
 
-static struct function *function__filter(struct function *function,
-					 void *cookie)
+static struct tag *function__filter(struct tag *tag, struct cu *cu, void *cookie)
 {
-	if (function__inlined(function) ||
-	    !ftype__has_parm_of_type(&function->proto, cookie, function->cu))
+	struct function *function;
+
+	if (tag->tag != DW_TAG_subprogram)
 		return NULL;
 
-	return function;
+	function = tag__function(tag);
+	if (function__inlined(function) ||
+	    !ftype__has_parm_of_type(&function->proto, cookie, cu))
+		return NULL;
+
+	return tag;
 }
 
-static int find_methods_iterator(struct function *function, void *cookie)
+static int find_methods_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
-	method__add(function->cu, function);
+	if (tag->tag == DW_TAG_subprogram) {
+		struct function *function = tag__function(tag);
+		method__add(cu, function);
+	}
 	return 0;
 }
 
@@ -49,8 +57,7 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 	if (target == NULL)
 		return 0;
 
-	return cu__for_each_function(cu, find_methods_iterator, target,
-				     function__filter);
+	return cu__for_each_tag(cu, find_methods_iterator, target, function__filter);
 }
 
 static int function__emit_kprobes(const struct function *self,

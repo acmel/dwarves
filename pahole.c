@@ -186,7 +186,7 @@ static struct tag *tag__to_struct(struct tag *tag, const struct cu *cu)
 	return typedef_alias ?: tag;
 }
 
-static struct tag *tag__filter(struct tag *tag, struct cu *cu)
+static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
 {
 	struct structure *str;
 	struct class *class;

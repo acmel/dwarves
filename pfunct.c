@@ -174,11 +174,16 @@ static void fn_stats__chkdupdef(const struct function *self,
 		putchar('\n');
 }
 
-static struct function *function__filter(struct function *function,
-					 void *cookie)
+static struct tag *function__filter(struct tag *tag, struct cu *cu,
+				    void *cookie)
 {
+	struct function *function;
 	struct fn_stats *fstats;
 
+	if (tag->tag != DW_TAG_subprogram)
+		return NULL;
+
+	function = tag__function(tag);
 	if (function->name == NULL)
 		return NULL;
 
@@ -201,28 +206,34 @@ static struct function *function__filter(struct function *function,
 		return NULL;
 	}
 
-	return function;
+	return tag;
 }
 
-static int unique_iterator(struct function *function, void *cookie)
+static int unique_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
-	fn_stats__add(function);
+	if (tag->tag == DW_TAG_subprogram)
+		fn_stats__add(tag__function(tag));
 	return 0;
 }
 
 static int cu_unique_iterator(struct cu *cu, void *cookie)
 {
 	cu__account_inline_expansions(cu);
-	return cu__for_each_function(cu, unique_iterator, cookie,
-				     function__filter);
+	return cu__for_each_tag(cu, unique_iterator, cookie, function__filter);
 }
 
-static int class_iterator(struct function *function, void *cookie)
+static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
+	struct function *function;
+
+	if (tag->tag != DW_TAG_subprogram)
+		return 0;
+
+	function = tag__function(tag);
 	if (function->inlined)
 		return 0;
 
-	if (ftype__has_parm_of_type(&function->proto, cookie, function->cu)) {
+	if (ftype__has_parm_of_type(&function->proto, cookie, cu)) {
 		if (verbose)
 			function__print(function, 1, 0, 0);
 		else
@@ -238,11 +249,17 @@ static int cu_class_iterator(struct cu *cu, void *cookie)
 	if (target == NULL)
 		return 0;
 
-	return cu__for_each_function(cu, class_iterator, target, NULL);
+	return cu__for_each_tag(cu, class_iterator, target, NULL);
 }
 
-static int function_iterator(struct function *function, void *cookie)
+static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
+	struct function *function;
+
+	if (tag->tag != DW_TAG_subprogram)
+		return 0;
+
+	function = tag__function(tag);
 	if (function->name != NULL &&
 	    strcmp(function->name, cookie) == 0) {
 		function__print(function, 1, show_variables,
@@ -254,7 +271,7 @@ static int function_iterator(struct function *function, void *cookie)
 
 static int cu_function_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_function(cu, function_iterator, cookie, NULL);
+	return cu__for_each_tag(cu, function_iterator, cookie, NULL);
 }
 
 static struct option long_options[] = {

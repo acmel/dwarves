@@ -125,6 +125,8 @@ static int refcnt_tag_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
 	if (tag->tag == DW_TAG_structure_type)
 		class__find_holes(tag__class(tag));
+	else if (tag->tag == DW_TAG_structure_type)
+		refcnt_function_iterator(tag__function(tag), cookie);
 
 	return 0;
 }
@@ -132,7 +134,6 @@ static int refcnt_tag_iterator(struct tag *tag, struct cu *cu, void *cookie)
 static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 {
 	cu__for_each_tag(cu, refcnt_tag_iterator, cookie, NULL);
-	cu__for_each_function(cu, refcnt_function_iterator, cookie, NULL);
 	return 0;
 }
 
