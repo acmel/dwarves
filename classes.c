@@ -1919,6 +1919,26 @@ static void cu__create_new_parameter(Dwarf_Die *die, struct ftype *ftype)
 	ftype__add_parameter(ftype, parm);
 }
 
+static void cu__create_new_label(Dwarf_Die *die, struct lexblock *lexblock)
+{
+	struct label *label;
+	Dwarf_Attribute attr_name;
+	Dwarf_Addr low_pc;
+	uint32_t decl_line;
+
+	if (dwarf_lowpc(die, &low_pc))
+		low_pc = 0;
+
+	dwarf_decl_line(die, &decl_line);
+	label = label__new(dwarf_cuoffset(die), attr_numeric(die, DW_AT_type),
+			   dwarf_decl_file(die), decl_line,
+			   attr_string(die, DW_AT_name, &attr_name), low_pc);
+	if (label == NULL)
+		oom("label__new");
+
+	lexblock__add_label(lexblock, label);
+}
+
 static void cu__create_new_variable(struct cu *cu, Dwarf_Die *die,
 				    struct lexblock *lexblock)
 {
@@ -2141,20 +2161,8 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 			if (ftype != NULL)
 				ftype->unspec_parms = 1;
 			break;
-		case DW_TAG_label: {
-			struct label *label;
-			Dwarf_Addr low_pc;
-
-			if (dwarf_lowpc(die, &low_pc))
-				low_pc = 0;
-
-			label = label__new(id, type, decl_file, decl_line,
-					   name, low_pc);
-			if (label == NULL)
-				oom("label__new");
-
-			lexblock__add_label(lexblock, label);
-		}
+		case DW_TAG_label:
+			cu__create_new_label(die, lexblock);
 			break;
 		case DW_TAG_inlined_subroutine:
 			cu__create_new_inline_expansion(dwarf, die, cu,
