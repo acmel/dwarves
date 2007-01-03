@@ -1802,7 +1802,7 @@ static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 	return 0;
 }
 
-static void cu__create_new_tag(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
+static void cu__create_new_tag(Dwarf_Die *die, struct cu *cu,
 			       Dwarf_Off cu_offset, Dwarf_Off type, uint32_t tag,
 			       const char *decl_file, int decl_line)
 {
@@ -1818,10 +1818,10 @@ static void cu__create_new_tag(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 	cu__add_tag(cu, self);
 }
 
-static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die,
+static void cu__process_class(Dwarf_Die *die,
 			      struct class *class, struct cu *cu);
 
-static void cu__create_new_class(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
+static void cu__create_new_class(Dwarf_Die *die, struct cu *cu,
 				 uint32_t tag, Dwarf_Off cu_offset,
 				 const char *name, Dwarf_Off type,
 				 const char *decl_file, int decl_line)
@@ -1834,12 +1834,12 @@ static void cu__create_new_class(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
 	if (class == NULL)
 		oom("class__new");
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_class(dwarf, &child, class, cu);
+		cu__process_class(&child, class, cu);
 	class->cu = cu;
 	cu__add_tag(cu, &class->tag);
 }
 
-static void cu__create_new_base_type(const char *name, Dwarf *dwarf,
+static void cu__create_new_base_type(const char *name,
 				     Dwarf_Die *die, struct cu *cu,
 				     Dwarf_Off cu_offset, Dwarf_Off type,
 				     const char *decl_file, int decl_line)
@@ -1857,7 +1857,7 @@ static void cu__create_new_base_type(const char *name, Dwarf *dwarf,
 	cu__add_tag(cu, &base->tag);
 }
 
-static void cu__create_new_array(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
+static void cu__create_new_array(Dwarf_Die *die, struct cu *cu,
 				 Dwarf_Off cu_offset, Dwarf_Off type,
 				 const char *decl_file, int decl_line)
 {
@@ -1959,8 +1959,7 @@ static void cu__create_new_variable(struct cu *cu, Dwarf_Die *die,
 	cu__add_variable(cu, var);
 }
 
-static void cu__new_subroutine_type(Dwarf *dwarf, Dwarf_Die *die,
-				    struct cu *cu,
+static void cu__new_subroutine_type(Dwarf_Die *die, struct cu *cu,
 				    Dwarf_Off cu_offset, Dwarf_Off type,
 				    const char *decl_file, int decl_line)
 {
@@ -1990,7 +1989,7 @@ out:
 	cu__add_tag(cu, &ftype->tag);
 }
 
-static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
+static void cu__process_class(Dwarf_Die *die, struct class *class,
 			      struct cu *cu)
 {
 	Dwarf_Die child;
@@ -2046,23 +2045,23 @@ static void cu__process_class(Dwarf *dwarf, Dwarf_Die *die, struct class *class,
 		  * Fall thru, enums, etc can also be defined inside
 		  * C++ classes
 		 */
-		cu__create_new_class(dwarf, die, cu, tag, cu_offset,
+		cu__create_new_class(die, cu, tag, cu_offset,
 				     name, type, decl_file, decl_line);
 		goto next_sibling;
 	}
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_class(dwarf, &child, class, cu);
+		cu__process_class(&child, class, cu);
 next_sibling:
 	if (dwarf_siblingof(die, die) == 0)
-		cu__process_class(dwarf, die, class, cu);
+		cu__process_class(die, class, cu);
 }
 
-static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
+static void cu__process_function(Dwarf_Die *die,
 				 struct cu *cu, struct ftype *ftype,
 				 struct lexblock *lexblock);
 
-static void cu__create_new_lexblock(Dwarf *dwarf, Dwarf_Die *die,
+static void cu__create_new_lexblock(Dwarf_Die *die,
 				    struct cu *cu, struct lexblock *father,
 				    Dwarf_Off id, const char *decl_file,
 				    int decl_line)
@@ -2078,7 +2077,7 @@ static void cu__create_new_lexblock(Dwarf *dwarf, Dwarf_Die *die,
 	lexblock = lexblock__new(id, decl_file, decl_line, low_pc, high_pc);
 	if (lexblock == NULL)
 		oom("lexblock__new");
-	cu__process_function(dwarf, die, cu, NULL, lexblock);
+	cu__process_function(die, cu, NULL, lexblock);
 	lexblock__add_lexblock(father, lexblock);
 }
 
@@ -2125,7 +2124,7 @@ static void cu__create_new_inline_expansion(struct cu *cu, Dwarf_Die *die,
 	lexblock__add_inline_expansion(lexblock, exp);
 }
 
-static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
+static void cu__process_function(Dwarf_Die *die,
 				 struct cu *cu, struct ftype *ftype,
 				 struct lexblock *lexblock)
 {
@@ -2165,19 +2164,19 @@ static void cu__process_function(Dwarf *dwarf, Dwarf_Die *die,
 			cu__create_new_inline_expansion(cu, die, lexblock);
 			break;
 		case DW_TAG_lexical_block:
-			cu__create_new_lexblock(dwarf, die, cu, lexblock,
+			cu__create_new_lexblock(die, cu, lexblock,
 					        id, decl_file, decl_line);
 			break;
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:
-			cu__create_new_class(dwarf, die, cu, tag, id,
+			cu__create_new_class(die, cu, tag, id,
 					     name, type, decl_file, decl_line);
 			break;
 		}
 	} while (dwarf_siblingof(die, die) == 0);
 }
 
-static void cu__create_new_function(const char *name, Dwarf *dwarf,
+static void cu__create_new_function(const char *name,
 				    Dwarf_Die *die, struct cu *cu,
 				    Dwarf_Off cu_offset, Dwarf_Off type,
 				    const char *decl_file, int decl_line)
@@ -2196,12 +2195,12 @@ static void cu__create_new_function(const char *name, Dwarf *dwarf,
 				 low_pc, high_pc);
 	if (function == NULL)
 		oom("function__new");
-	cu__process_function(dwarf, die, cu, &function->proto,
+	cu__process_function(die, cu, &function->proto,
 			     &function->lexblock);
 	cu__add_function(cu, function);
 }
 
-static void cu__create_new_enumeration(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu,
+static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu,
 				       Dwarf_Off cu_offset, Dwarf_Off type,
 				       const char *decl_file, int decl_line,
 				       const char *name)
@@ -2252,7 +2251,7 @@ static void cu__create_new_enumeration(Dwarf *dwarf, Dwarf_Die *die, struct cu *
 	cu__add_tag(cu, &enumeration->tag);
 }
 
-static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
+static void cu__process_die(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
 	Dwarf_Off cu_offset;
@@ -2283,43 +2282,43 @@ static void cu__process_die(Dwarf *dwarf, Dwarf_Die *die, struct cu *cu)
 		/* Handle global variables later */
 		break;
 	case DW_TAG_subprogram:
-		cu__create_new_function(name, dwarf, die, cu, cu_offset, type,
+		cu__create_new_function(name, die, cu, cu_offset, type,
 					decl_file, decl_line);
 		goto next_sibling;
 	case DW_TAG_const_type:
 	case DW_TAG_pointer_type:
 	case DW_TAG_volatile_type:
-		cu__create_new_tag(dwarf, die, cu, cu_offset, type, tag,
+		cu__create_new_tag(die, cu, cu_offset, type, tag,
 				   decl_file, decl_line);
 		goto next_sibling;
 	case DW_TAG_base_type:
-		cu__create_new_base_type(name, dwarf, die, cu, cu_offset, type,
+		cu__create_new_base_type(name, die, cu, cu_offset, type,
 					 decl_file, decl_line);
 		goto next_sibling;
 	case DW_TAG_array_type:
-		cu__create_new_array(dwarf, die, cu, cu_offset, type,
+		cu__create_new_array(die, cu, cu_offset, type,
 				     decl_file, decl_line);
 		goto next_sibling;
 	case DW_TAG_subroutine_type:
-		cu__new_subroutine_type(dwarf, die, cu, cu_offset, type,
+		cu__new_subroutine_type(die, cu, cu_offset, type,
 					decl_file, decl_line);
 		goto next_sibling;
 	case DW_TAG_enumeration_type:
-		cu__create_new_enumeration(dwarf, die, cu, cu_offset, type,
+		cu__create_new_enumeration(die, cu, cu_offset, type,
 					   decl_file, decl_line, name);
 		goto next_sibling;
 	default:
-		cu__create_new_class(dwarf, die, cu, tag, cu_offset,
+		cu__create_new_class(die, cu, tag, cu_offset,
 				     name, type, decl_file, decl_line);
 		goto next_sibling;
 	}
 
 children:
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_die(dwarf, &child, cu);
+		cu__process_die(&child, cu);
 next_sibling:
 	if (dwarf_siblingof(die, die) == 0)
-		cu__process_die(dwarf, die, cu);
+		cu__process_die(die, cu);
 }
 
 int cus__load_dir(struct cus *self, const char *dirname,
@@ -2402,7 +2401,7 @@ int cus__load(struct cus *self, const char *filename)
 			if (cu == NULL)
 				oom("cu__new");
 			++cu_id;
-			cu__process_die(dwarf, &die, cu);
+			cu__process_die(&die, cu);
 			cus__add(self, cu);
 		}
 
