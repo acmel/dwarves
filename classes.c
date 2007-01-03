@@ -2170,20 +2170,23 @@ static void cu__process_function(Dwarf_Die *die,
 	} while (dwarf_siblingof(die, die) == 0);
 }
 
-static void cu__create_new_function(const char *name,
-				    Dwarf_Die *die, struct cu *cu,
-				    Dwarf_Off cu_offset, Dwarf_Off type,
-				    const char *decl_file, int decl_line)
+static void cu__create_new_function(Dwarf_Die *die, struct cu *cu)
 {
+	Dwarf_Attribute attr_name;
 	struct function *function;
 	Dwarf_Addr high_pc, low_pc;
+	uint32_t decl_line;
 
 	if (dwarf_highpc(die, &high_pc))
 		high_pc = 0;
 	if (dwarf_lowpc(die, &low_pc))
 		low_pc = 0;
 
-	function = function__new(cu_offset, type, decl_file, decl_line, name,
+	dwarf_decl_line(die, &decl_line);
+	function = function__new(dwarf_cuoffset(die),
+				 attr_numeric(die, DW_AT_type),
+				 dwarf_decl_file(die), decl_line,
+				 attr_string(die, DW_AT_name, &attr_name),
 				 attr_numeric(die, DW_AT_inline),
 				 dwarf_hasattr(die, DW_AT_external),
 				 low_pc, high_pc);
@@ -2275,8 +2278,7 @@ static void cu__process_die(Dwarf_Die *die, struct cu *cu)
 		/* Handle global variables later */
 		break;
 	case DW_TAG_subprogram:
-		cu__create_new_function(name, die, cu, cu_offset, type,
-					decl_file, decl_line);
+		cu__create_new_function(die, cu);
 		goto next_sibling;
 	case DW_TAG_const_type:
 	case DW_TAG_pointer_type:
