@@ -1821,16 +1821,20 @@ static void cu__create_new_tag(Dwarf_Die *die, struct cu *cu,
 static void cu__process_class(Dwarf_Die *die,
 			      struct class *class, struct cu *cu);
 
-static void cu__create_new_class(Dwarf_Die *die, struct cu *cu,
-				 uint32_t tag, Dwarf_Off cu_offset,
-				 const char *name, Dwarf_Off type,
-				 const char *decl_file, int decl_line)
+static void cu__create_new_class(Dwarf_Die *die, struct cu *cu, uint32_t tag)
 {
 	Dwarf_Die child;
-	size_t size = attr_numeric(die, DW_AT_byte_size);
-	struct class *class = class__new(tag, cu_offset, type, name, size,
-					 decl_file, decl_line,
-					 attr_numeric(die, DW_AT_declaration));
+	Dwarf_Attribute attr_name;
+	struct class *class;
+	uint32_t decl_line;
+
+	dwarf_decl_line(die, &decl_line);
+	class = class__new(tag, dwarf_cuoffset(die),
+			   attr_numeric(die, DW_AT_type),
+			   attr_string(die, DW_AT_name, &attr_name),
+			   attr_numeric(die, DW_AT_byte_size),
+			   dwarf_decl_file(die), decl_line,
+			   attr_numeric(die, DW_AT_declaration));
 	if (class == NULL)
 		oom("class__new");
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
@@ -2045,8 +2049,7 @@ static void cu__process_class(Dwarf_Die *die, struct class *class,
 		  * Fall thru, enums, etc can also be defined inside
 		  * C++ classes
 		 */
-		cu__create_new_class(die, cu, tag, cu_offset,
-				     name, type, decl_file, decl_line);
+		cu__create_new_class(die, cu, tag);
 		goto next_sibling;
 	}
 
@@ -2136,16 +2139,8 @@ static void cu__process_function(Dwarf_Die *die,
 
 	die = &child;
 	do {
-		Dwarf_Attribute attr_name;
-		const uint16_t	tag	   = dwarf_tag(die);
-		const Dwarf_Off id	   = dwarf_cuoffset(die);
-		const Dwarf_Off type	   = attr_numeric(die, DW_AT_type);
-		const char	*decl_file = dwarf_decl_file(die);
-		const char	*name      = attr_string(die, DW_AT_name,
-							 &attr_name);
-		uint32_t	decl_line;
+		const uint16_t tag = dwarf_tag(die);
 
-		dwarf_decl_line(die, &decl_line);
 		switch (tag) {
 		case DW_TAG_formal_parameter:
 			if (ftype != NULL)
@@ -2169,8 +2164,7 @@ static void cu__process_function(Dwarf_Die *die,
 			break;
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:
-			cu__create_new_class(die, cu, tag, id,
-					     name, type, decl_file, decl_line);
+			cu__create_new_class(die, cu, tag);
 			break;
 		}
 	} while (dwarf_siblingof(die, die) == 0);
@@ -2195,8 +2189,7 @@ static void cu__create_new_function(const char *name,
 				 low_pc, high_pc);
 	if (function == NULL)
 		oom("function__new");
-	cu__process_function(die, cu, &function->proto,
-			     &function->lexblock);
+	cu__process_function(die, cu, &function->proto, &function->lexblock);
 	cu__add_function(cu, function);
 }
 
@@ -2308,8 +2301,7 @@ static void cu__process_die(Dwarf_Die *die, struct cu *cu)
 					   decl_file, decl_line, name);
 		goto next_sibling;
 	default:
-		cu__create_new_class(die, cu, tag, cu_offset,
-				     name, type, decl_file, decl_line);
+		cu__create_new_class(die, cu, tag);
 		goto next_sibling;
 	}
 
