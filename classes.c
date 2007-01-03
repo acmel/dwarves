@@ -2455,6 +2455,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct tag *tdef)
 		is_pointer = 1;
 		/* Fall thru */
 	case DW_TAG_subroutine_type:
+		cus__emit_ftype_definitions(self, class->cu, tag__ftype(type));
 		ftype__snprintf(tag__ftype(type), class->cu, bf, sizeof(bf),
 				class->name, 0, is_pointer, 0);
 		fputs("typedef ", stdout);
