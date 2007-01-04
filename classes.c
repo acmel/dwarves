@@ -1943,13 +1943,18 @@ static void cu__create_new_subroutine_type(Dwarf_Die *die, struct cu *cu)
 	do {
 		const uint16_t tag = dwarf_tag(die);
 
-		if (tag != DW_TAG_formal_parameter) {
+		switch (tag) {
+		case DW_TAG_formal_parameter:
+			cu__create_new_parameter(die, ftype);
+			break;
+		case DW_TAG_unspecified_parameters:
+			ftype->unspec_parms = 1;
+			break;
+		default:
 			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
 				__FUNCTION__, dwarf_tag_name(tag));
-			continue;
+			break;
 		}
-
-		cu__create_new_parameter(die, ftype);
 	} while (dwarf_siblingof(die, die) == 0);
 out:
 	cu__add_tag(cu, &ftype->tag);
