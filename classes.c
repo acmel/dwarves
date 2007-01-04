@@ -242,11 +242,11 @@ static Dwarf_Off attr_offset(Dwarf_Die *die)
 	return 0;
 }
 
-static const char *attr_string(Dwarf_Die *die, uint32_t name,
-			       Dwarf_Attribute *attr)
+static const char *attr_string(Dwarf_Die *die, uint32_t name)
 {
-	if (dwarf_attr(die, name, attr) != NULL)
-		return dwarf_formstring(attr);
+	Dwarf_Attribute attr;
+	if (dwarf_attr(die, name, &attr) != NULL)
+		return dwarf_formstring(&attr);
 	return NULL;
 }
 
@@ -277,11 +277,8 @@ static struct base_type *base_type__new(Dwarf_Die *die)
 	struct base_type *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		Dwarf_Attribute attr_name;
-
 		tag__init(&self->tag, die);
-		self->name = strings__add(attr_string(die, DW_AT_name,
-						      &attr_name));
+		self->name = strings__add(attr_string(die, DW_AT_name));
 		self->size = attr_numeric(die, DW_AT_byte_size);
 	}
 
@@ -336,11 +333,8 @@ static struct enumerator *enumerator__new(Dwarf_Die *die)
 	struct enumerator *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		Dwarf_Attribute attr_name;
-
 		tag__init(&self->tag, die);
-		self->name = strings__add(attr_string(die, DW_AT_name,
-						      &attr_name));
+		self->name = strings__add(attr_string(die, DW_AT_name));
 		self->value = attr_numeric(die, DW_AT_const_value);
 	}
 
@@ -352,11 +346,8 @@ static struct variable *variable__new(Dwarf_Die *die)
 	struct variable *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		Dwarf_Attribute attr_name;
-
 		tag__init(&self->tag, die);
-		self->name = strings__add(attr_string(die, DW_AT_name,
-						      &attr_name));
+		self->name = strings__add(attr_string(die, DW_AT_name));
 		self->abstract_origin = attr_numeric(die,
 					 	     DW_AT_abstract_origin);
 	}
@@ -781,14 +772,11 @@ static struct class_member *class_member__new(Dwarf_Die *die)
 	struct class_member *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		Dwarf_Attribute attr_name;
-
 		tag__init(&self->tag, die);
 		self->offset	 = attr_offset(die);
 		self->bit_size	 = attr_numeric(die, DW_AT_bit_size);
 		self->bit_offset = attr_numeric(die, DW_AT_bit_offset);
-		self->name = strings__add(attr_string(die, DW_AT_name,
-						      &attr_name));
+		self->name = strings__add(attr_string(die, DW_AT_name));
 	}
 
 	return self;
@@ -1022,11 +1010,8 @@ static struct parameter *parameter__new(Dwarf_Die *die)
 	struct parameter *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		Dwarf_Attribute attr_name;
-
 		tag__init(&self->tag, die);
-		self->name = strings__add(attr_string(die, DW_AT_name,
-						      &attr_name));
+		self->name = strings__add(attr_string(die, DW_AT_name));
 	}
 
 	return self;
@@ -1037,12 +1022,9 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die)
 	struct inline_expansion *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		Dwarf_Attribute attr_call_file;
-
 		tag__init(&self->tag, die);
 		self->tag.decl_file =
-			strings__add(attr_string(die, DW_AT_call_file,
-						 &attr_call_file));
+			strings__add(attr_string(die, DW_AT_call_file));
 		self->tag.decl_line = attr_numeric(die, DW_AT_call_line);
 		self->tag.type	    = attr_numeric(die, DW_AT_abstract_origin);
 
@@ -1078,11 +1060,8 @@ static struct label *label__new(Dwarf_Die *die)
 	struct label *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		Dwarf_Attribute attr_name;
-
 		tag__init(&self->tag, die);
-		self->name = strings__add(attr_string(die, DW_AT_name,
-						      &attr_name));
+		self->name = strings__add(attr_string(die, DW_AT_name));
 		if (dwarf_lowpc(die, &self->low_pc))
 			self->low_pc = 0;
 	}
@@ -1105,14 +1084,11 @@ static struct class *class__new(Dwarf_Die *die)
 	struct class *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		Dwarf_Attribute attr_name;
-
 		tag__init(&self->tag, die);
 		INIT_LIST_HEAD(&self->members);
 		INIT_LIST_HEAD(&self->node);
 		self->size = attr_numeric(die, DW_AT_byte_size);
-		self->name = strings__add(attr_string(die, DW_AT_name,
-						      &attr_name));
+		self->name = strings__add(attr_string(die, DW_AT_name));
 		self->declaration = attr_numeric(die, DW_AT_declaration);
 	}
 
@@ -1193,12 +1169,9 @@ static struct function *function__new(Dwarf_Die *die)
 	struct function *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		Dwarf_Attribute attr_name;
-
 		ftype__init(&self->proto, die);
 		lexblock__init(&self->lexblock, die);
-		self->name = strings__add(attr_string(die,
-						      DW_AT_name, &attr_name));
+		self->name     = strings__add(attr_string(die, DW_AT_name));
 		self->inlined  = attr_numeric(die, DW_AT_inline);
 		self->external = dwarf_hasattr(die, DW_AT_external);
 	}
@@ -2248,10 +2221,8 @@ int cus__load(struct cus *self, const char *filename)
 		Dwarf_Die die;
 
 		if (dwarf_offdie(dwarf, last_offset + hdr_size, &die) != NULL) {
-			Dwarf_Attribute name;
 			struct cu *cu = cu__new(cu_id,
-						attr_string(&die, DW_AT_name,
-							    &name),
+						attr_string(&die, DW_AT_name),
 						addr_size);
 			if (cu == NULL)
 				oom("cu__new");
