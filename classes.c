@@ -704,7 +704,9 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	} else if (self->tag == DW_TAG_array_type) {
 		type = cu__find_tag_by_id(cu, self->type);
 		return tag__name(type, cu, bf, len);
-	} else
+	} else if (self->tag == DW_TAG_subroutine_type)
+		ftype__snprintf(tag__ftype(self), cu, bf, len, NULL, 0, 0, 0);
+	else
 		snprintf(bf, len, "%s%s", tag__prefix(cu, self->tag),
 			 tag__class(self)->name ?: "");
 	return bf;
