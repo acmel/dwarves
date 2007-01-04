@@ -364,7 +364,7 @@ static struct variable *variable__new(Dwarf_Die *die)
 	return self;
 }
 
-static size_t union__snprintf(const struct class *self,
+static size_t union__snprintf(const struct class *self, const struct cu *cu,
 			      char *bf, size_t len,
 			      const char *suffix, uint8_t ntabs)
 {
@@ -383,7 +383,8 @@ static size_t union__snprintf(const struct class *self,
 	len -= n;
 	printed += n;
 	list_for_each_entry(pos, &self->members, tag.node) {
-		const size_t size = class_member__names(NULL, pos, class_name,
+		const size_t size = class_member__names(NULL, cu, pos,
+							class_name,
 							sizeof(class_name),
 							member_name,
 							sizeof(member_name));
@@ -399,8 +400,8 @@ static size_t union__snprintf(const struct class *self,
 	return printed + n;
 }
 
-static void union__print(const struct class *self, const char *suffix,
-			 uint8_t ntabs)
+static void union__print(const struct class *self, const struct cu *cu,
+			 const char *suffix, uint8_t ntabs)
 {
 	struct enumerator *pos;
 	char bf[4096];
@@ -410,7 +411,7 @@ static void union__print(const struct class *self, const char *suffix,
 
 	printf("%.*s/* %s:%u */\n", ntabs, tabs,
 	       self->tag.decl_file, self->tag.decl_line);
-	union__snprintf(self, bf, sizeof(bf), suffix, ntabs);
+	union__snprintf(self, cu, bf, sizeof(bf), suffix, ntabs);
 	printf("%s\n", bf);
 }
 
@@ -762,14 +763,16 @@ static struct class_member *class_member__new(Dwarf_Die *die)
 	return self;
 }
 
-static size_t class_member__size(const struct class_member *self)
+static size_t class_member__size(const struct class_member *self,
+				 const struct cu *cu)
 {
-	struct tag *type = cu__find_tag_by_id(self->class->cu, self->tag.type);
+	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
 	assert(type != NULL);
-	return tag__size(type, self->class->cu);
+	return tag__size(type, cu);
 }
 
 size_t class_member__names(const struct tag *type,
+			   const struct cu *cu,
 			   const struct class_member *self,
 			   char *class_name, size_t class_name_size,
 			   char *member_name, size_t member_name_size)
@@ -777,7 +780,7 @@ size_t class_member__names(const struct tag *type,
 	size_t size = -1;
 
 	if (type == NULL)
-		type = cu__find_tag_by_id(self->class->cu, self->tag.type);
+		type = cu__find_tag_by_id(cu, self->tag.type);
 	snprintf(member_name, member_name_size, "%s;", self->name ?: "");
 
 	if (type == NULL)
@@ -785,13 +788,12 @@ size_t class_member__names(const struct tag *type,
 			 self->tag.type);
 	else {
 		if (type->tag == DW_TAG_const_type)
-			type = cu__find_tag_by_id(self->class->cu, type->type);
-		size = tag__size(type, self->class->cu);
+			type = cu__find_tag_by_id(cu, type->type);
+		size = tag__size(type, cu);
 
 		/* Is it a function pointer? */
 		if (type->tag == DW_TAG_pointer_type) {
-			struct tag *ptype =
-			      cu__find_tag_by_id(self->class->cu, type->type);
+			struct tag *ptype = cu__find_tag_by_id(cu, type->type);
 
 			if (ptype != NULL &&
 			    ptype->tag == DW_TAG_subroutine_type) {
@@ -801,11 +803,9 @@ size_t class_member__names(const struct tag *type,
 						 class_name_size, "void");
 				else {
 					struct tag *ret_type =
-					   cu__find_tag_by_id(self->class->cu,
-							      ptype->type);
+					   cu__find_tag_by_id(cu, ptype->type);
 
-					tag__name(ret_type, self->class->cu,
-						  class_name,
+					tag__name(ret_type, cu, class_name,
 						  class_name_size);
 				}
 				snprintf(member_name, member_name_size,
@@ -815,7 +815,7 @@ size_t class_member__names(const struct tag *type,
 			}
 		}
 
-		tag__name(type, self->class->cu, class_name, class_name_size);
+		tag__name(type, cu, class_name, class_name_size);
 		if (type->tag == DW_TAG_array_type) {
 			struct array_type *array = tag__array_type(type);
 			int i = 0;
@@ -905,12 +905,13 @@ out:
 	return size;
 }
 
-static size_t class_member__print(struct class_member *self)
+static size_t class_member__print(struct class_member *self,
+				  const struct cu *cu)
 {
 	size_t size;
 	char class_name[4096];
 	char member_name[128];
-	struct tag *type = cu__find_tag_by_id(self->class->cu, self->tag.type);
+	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
 
 	assert(type != NULL);
 	if (type->tag == DW_TAG_enumeration_type) {
@@ -945,7 +946,8 @@ static size_t class_member__print(struct class_member *self)
 		} else {
 			const size_t spacing = 45 - (self->name ?
 						     strlen(self->name) : -1);
-			union__snprintf(ctype, class_name, sizeof(class_name),
+			union__snprintf(ctype, cu,
+					class_name, sizeof(class_name),
 					self->name, 1);
 			printf("%s %*.*s/* %5u %5u */",
 			       class_name, spacing, spacing, " ",
@@ -954,20 +956,20 @@ static size_t class_member__print(struct class_member *self)
 		}
 	} else if (type->tag == DW_TAG_pointer_type &&
 		   type->type != 0) { /* make sure its not a void pointer */
-		struct tag *ptype = cu__find_tag_by_id(self->class->cu, type->type);
+		struct tag *ptype = cu__find_tag_by_id(cu, type->type);
 
 		if (ptype->tag != DW_TAG_subroutine_type)
 			goto class_member_fmt;
 
-		size = self->class->cu->addr_size;
-		ftype__snprintf(tag__ftype(ptype), self->class->cu,
+		size = cu->addr_size;
+		ftype__snprintf(tag__ftype(ptype), cu,
 				class_name, sizeof(class_name),
 				self->name, 0, 1, 26);
 		printf("%s; /* %5u %5u */", class_name, self->offset, size);
 		goto out;
 	} else {
 class_member_fmt:
-		size = class_member__names(type, self, class_name,
+		size = class_member__names(type, cu, self, class_name,
 					   sizeof(class_name),
 					   member_name, sizeof(member_name));
 	}
@@ -1233,7 +1235,7 @@ const struct class_member *class__find_bit_hole(const struct class *self,
 	return NULL;
 }
 
-void class__find_holes(struct class *self)
+void class__find_holes(struct class *self, const struct cu *cu)
 {
 	struct class_member *pos, *last = NULL;
 	size_t last_size = 0, size;
@@ -1277,7 +1279,7 @@ void class__find_holes(struct class *self)
 		}
 
 		bit_sum += pos->bit_size;
-		size = class_member__size(pos);
+		size = class_member__size(pos, cu);
 
 		/*
 		 * check for bitfields, accounting for only the biggest of the
@@ -1572,7 +1574,7 @@ static int class__print_cacheline_boundary(uint32_t last_cacheline,
 	return cacheline;
 }
 
-static void class__print_struct(const struct tag *tag,
+static void class__print_struct(const struct tag *tag, const struct cu *cu,
 				const char *prefix, const char *suffix)
 {
 	struct class *self = tag__class(tag);
@@ -1634,7 +1636,7 @@ static void class__print_struct(const struct tag *tag,
 		}
 
 		fputs("        ", stdout);
-		size = class_member__print(pos);
+		size = class_member__print(pos, cu);
 
 		if (pos->bit_hole != 0) {
 			if (!newline++)
@@ -1707,7 +1709,7 @@ void tag__print(const struct tag *self, const struct cu *cu,
 
 	switch (self->tag) {
 	case DW_TAG_structure_type:
-		class__print_struct(self, prefix, suffix);
+		class__print_struct(self, cu, prefix, suffix);
 		break;
 	default:
 		printf("%s: %s tag not supported!\n", __FUNCTION__,
@@ -1805,7 +1807,6 @@ static void cu__create_new_class(Dwarf_Die *die, struct cu *cu)
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
 		cu__process_class(&child, class, cu);
-	class->cu = cu;
 	cu__add_tag(cu, &class->tag);
 }
 
@@ -2092,7 +2093,6 @@ static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 		enumeration__add(enumeration, enumerator);
 	} while (dwarf_siblingof(die, die) == 0);
 
-	enumeration->cu = cu;
 	cu__add_tag(cu, &enumeration->tag);
 }
 
@@ -2252,7 +2252,8 @@ struct cus *cus__new(struct list_head *definitions,
 	return self;
 }
 
-static int cus__emit_typedef_definitions(struct cus *self, struct tag *tdef)
+static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
+					 struct tag *tdef)
 {
 	struct class *class = tag__class(tdef);
 	struct tag *type, *ptr_type;
@@ -2272,22 +2273,22 @@ static int cus__emit_typedef_definitions(struct cus *self, struct tag *tdef)
 		class->visited = 1;
 		return 0;
 	}
-	type = cu__find_tag_by_id(class->cu, class->tag.type);
+	type = cu__find_tag_by_id(cu, class->tag.type);
 
 	if (type->tag == DW_TAG_typedef)
-		cus__emit_typedef_definitions(self, type);
+		cus__emit_typedef_definitions(self, cu, type);
 
 	switch (type->tag) {
 	case DW_TAG_pointer_type:
-		ptr_type = cu__find_tag_by_id(class->cu, type->type);
+		ptr_type = cu__find_tag_by_id(cu, type->type);
 		if (ptr_type->tag != DW_TAG_subroutine_type)
 			break;
 		type = ptr_type;
 		is_pointer = 1;
 		/* Fall thru */
 	case DW_TAG_subroutine_type:
-		cus__emit_ftype_definitions(self, class->cu, tag__ftype(type));
-		ftype__snprintf(tag__ftype(type), class->cu, bf, sizeof(bf),
+		cus__emit_ftype_definitions(self, cu, tag__ftype(type));
+		ftype__snprintf(tag__ftype(type), cu, bf, sizeof(bf),
 				class->name, 0, is_pointer, 0);
 		fputs("typedef ", stdout);
 		printf("%s;\n", bf);
@@ -2296,7 +2297,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct tag *tdef)
 		struct class *ctype = tag__class(type);
 
 		if (ctype->name == NULL)
-			cus__emit_struct_definitions(self, ctype,
+			cus__emit_struct_definitions(self, cu, ctype,
 						     "typedef", class->name);
 		else
 			printf("typedef struct %s %s;\n",
@@ -2304,7 +2305,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct tag *tdef)
 	}
 		goto out;
 	}
-	printf("typedef %s %s;\n", tag__name(type, class->cu, bf, sizeof(bf)),
+	printf("typedef %s %s;\n", tag__name(type, cu, bf, sizeof(bf)),
 	       class->name);
 out:
 	cus__add_definition(self, class);
@@ -2381,7 +2382,7 @@ next_indirection:
 
 	switch (type->tag) {
 	case DW_TAG_typedef:
-		return cus__emit_typedef_definitions(self, type);
+		return cus__emit_typedef_definitions(self, cu, type);
 	case DW_TAG_enumeration_type:
 		if (tag__class(type)->name != NULL)
 			return cus__emit_enumeration_definitions(self, ctype);
@@ -2389,7 +2390,7 @@ next_indirection:
 	case DW_TAG_structure_type:
 		if (pointer)
 			return cus__emit_fwd_decl(self, ctype);
-		return cus__emit_struct_definitions(self, ctype, NULL, NULL);
+		return cus__emit_struct_definitions(self, cu, ctype, NULL, NULL);
 	case DW_TAG_subroutine_type:
 		return cus__emit_tag_definitions(self, cu, type);
 	}
@@ -2414,7 +2415,8 @@ int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 	return printed;
 }
 
-int cus__emit_struct_definitions(struct cus *self, struct class *class,
+int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
+				 struct class *class,
 				 const char *prefix, const char *suffix)
 {
 	struct class_member *pos;
@@ -2432,14 +2434,14 @@ int cus__emit_struct_definitions(struct cus *self, struct class *class,
 	cus__add_definition(self, class);
 
 	list_for_each_entry(pos, &class->members, tag.node)
-		if (cus__emit_tag_definitions(self, class->cu, &pos->tag))
+		if (cus__emit_tag_definitions(self, cu, &pos->tag))
 			printed = 1;
 
 	if (printed)
 		putchar('\n');
 
-	class__find_holes(class);
-	tag__print(&class->tag, class->cu, prefix, suffix);
+	class__find_holes(class, cu);
+	tag__print(&class->tag, cu, prefix, suffix);
 	class->visited = 1;
 	putchar('\n');
 	return 1;

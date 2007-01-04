@@ -29,18 +29,17 @@ static void usage(void)
 		"   -h, --help   usage options\n");
 }
 
-static void refcnt_tag(struct tag *tag);
+static void refcnt_tag(struct tag *tag, const struct cu *cu);
 
-static void refcnt_member(struct class_member *member)
+static void refcnt_member(struct class_member *member, const struct cu *cu)
 {
 	if (member->visited)
 		return;
 	member->visited = 1;
 	if (member->tag.type != 0) { /* if not void */
-		struct tag *type = cu__find_tag_by_id(member->class->cu,
-						      member->tag.type);
+		struct tag *type = cu__find_tag_by_id(cu, member->tag.type);
 		if (type != NULL)
-			refcnt_tag(type);
+			refcnt_tag(type, cu);
 	}
 }
 
@@ -50,7 +49,7 @@ static void refcnt_parameter(const struct parameter *parameter,
 	if (parameter->tag.type != 0) { /* if not void */
 		struct tag *type = cu__find_tag_by_id(cu, parameter->tag.type);
 		if (type != NULL)
-			refcnt_tag(type);
+			refcnt_tag(type, cu);
 	}
 }
 
@@ -60,7 +59,7 @@ static void refcnt_variable(const struct variable *variable,
 	if (variable->tag.type != 0) { /* if not void */
 		struct tag *type = cu__find_tag_by_id(cu, variable->tag.type);
 		if (type != NULL)
-			refcnt_tag(type);
+			refcnt_tag(type, cu);
 	}
 }
 
@@ -70,11 +69,11 @@ static void refcnt_inline_expansion(const struct inline_expansion *exp,
 	if (exp->tag.type != 0) { /* if not void */
 		struct tag *type = cu__find_tag_by_id(cu, exp->tag.type);
 		if (type != NULL)
-			refcnt_tag(type);
+			refcnt_tag(type, cu);
 	}
 }
 
-static void refcnt_tag(struct tag *tag)
+static void refcnt_tag(struct tag *tag, const struct cu *cu)
 {
 	struct class_member *member;
 
@@ -83,7 +82,7 @@ static void refcnt_tag(struct tag *tag)
 	if (tag->tag == DW_TAG_structure_type ||
 	    tag->tag == DW_TAG_union_type)
 		list_for_each_entry(member, &tag__class(tag)->members, tag.node)
-			refcnt_member(member);
+			refcnt_member(member, cu);
 }
 
 static void refcnt_function(struct function *function, const struct cu *cu)
@@ -97,7 +96,7 @@ static void refcnt_function(struct function *function, const struct cu *cu)
 		struct tag *type =
 			cu__find_tag_by_id(cu, function->proto.tag.type);
 		if (type != NULL)
-			refcnt_tag(type);
+			refcnt_tag(type, cu);
 	}
 
 	list_for_each_entry(parameter, &function->proto.parms, tag.node)
@@ -124,7 +123,7 @@ static int refcnt_function_iterator(struct function *function,
 static int refcnt_tag_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
 	if (tag->tag == DW_TAG_structure_type)
-		class__find_holes(tag__class(tag));
+		class__find_holes(tag__class(tag), cu);
 	else if (tag->tag == DW_TAG_structure_type)
 		refcnt_function_iterator(tag__function(tag), cu, cookie);
 

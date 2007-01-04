@@ -32,15 +32,18 @@ static uint8_t show_packable;
 struct structure {
 	struct list_head   node;
 	const struct class *class;
+	const struct cu	   *cu;
 	uint32_t	   nr_files;
 };
 
-static struct structure *structure__new(const struct class *class)
+static struct structure *structure__new(const struct class *class,
+					const struct cu *cu)
 {
 	struct structure *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->class = class;
+		self->class    = class;
+		self->cu       = cu;
 		self->nr_files = 1;
 	}
 
@@ -59,9 +62,9 @@ static struct structure *structures__find(const char *name)
 	return NULL;
 }
 
-static void structures__add(const struct class *class)
+static void structures__add(const struct class *class, const struct cu *cu)
 {
-	struct structure *str = structure__new(class);
+	struct structure *str = structure__new(class, cu);
 
 	if (str != NULL)
 		list_add(&str->node, &structures__list);
@@ -90,7 +93,7 @@ static void class_name_len_formatter(const struct structure *self)
 
 static void class_formatter(const struct structure *self)
 {
-	tag__print(&self->class->tag, self->class->cu, NULL, NULL);
+	tag__print(&self->class->tag, self->cu, NULL, NULL);
 	printf("   /* definitions: %u */\n", self->nr_files);
 	putchar('\n');
 }
@@ -132,14 +135,15 @@ static int class__packable(const struct class *self)
 	return 0;
 }
 
-static void class__dupmsg(const struct class *self, const struct class *dup,
+static void class__dupmsg(const struct class *self, const struct cu *cu,
+			  const struct class *dup, const struct cu *dup_cu,
 			  char *hdr, const char *fmt, ...)
 {
 	va_list args;
 
 	if (!*hdr)
 		printf("class: %s\nfirst: %s\ncurrent: %s\n",
-		       self->name, self->cu->name, dup->cu->name);
+		       self->name, cu->name, dup_cu->name);
 	
 	va_start(args, fmt);
 	vprintf(fmt, args);
@@ -147,28 +151,34 @@ static void class__dupmsg(const struct class *self, const struct class *dup,
 	*hdr = 1;
 }
 
-static void class__chkdupdef(const struct class *self, struct class *dup)
+static void class__chkdupdef(const struct class *self, const struct cu *cu,
+			     struct class *dup, const struct cu *dup_cu)
 {
 	char hdr = 0;
 
 	if (self->size != dup->size)
-		class__dupmsg(self, dup, &hdr, "size: %u != %u\n",
+		class__dupmsg(self, cu, dup, dup_cu,
+			      &hdr, "size: %u != %u\n",
 			      self->size, dup->size);
 
 	if (self->nr_members != dup->nr_members)
-		class__dupmsg(self, dup, &hdr, "nr_members: %u != %u\n",
+		class__dupmsg(self, cu, dup, dup_cu,
+			      &hdr, "nr_members: %u != %u\n",
 			      self->nr_members, dup->nr_members);
 
 	if (self->nr_holes != dup->nr_holes)
-		class__dupmsg(self, dup, &hdr, "nr_holes: %u != %u\n",
+		class__dupmsg(self, cu, dup, dup_cu,
+			      &hdr, "nr_holes: %u != %u\n",
 			      self->nr_holes, dup->nr_holes);
 
 	if (self->nr_bit_holes != dup->nr_bit_holes)
-		class__dupmsg(self, dup, &hdr, "nr_bit_holes: %u != %u\n",
+		class__dupmsg(self, cu, dup, dup_cu,
+			      &hdr, "nr_bit_holes: %u != %u\n",
 			      self->nr_bit_holes, dup->nr_bit_holes);
 
 	if (self->padding != dup->padding)
-		class__dupmsg(self, dup, &hdr, "padding: %u != %u\n",
+		class__dupmsg(self, cu, dup, dup_cu,
+			      &hdr, "padding: %u != %u\n",
 			      self->padding, dup->padding);
 
 	/* XXX put more checks here: member types, member ordering, etc */
@@ -214,7 +224,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
 		     decl_exclude_prefix_len) == 0))
 		return NULL;
 
-	class__find_holes(class);
+	class__find_holes(class, cu);
 
 	if (class->nr_holes < nr_holes ||
 	    class->nr_bit_holes < nr_bit_holes)
@@ -222,7 +232,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
 
 	str = structures__find(class->name);
 	if (str != NULL) {
-		class__chkdupdef(str->class, class);
+		class__chkdupdef(str->class, str->cu, class, cu);
 		str->nr_files++;
 		return NULL;
 	}
@@ -235,7 +245,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
 
 static int unique_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
-	structures__add(tag__class(tag));
+	structures__add(tag__class(tag), cu);
 	return 0;
 }
 
@@ -345,7 +355,7 @@ int main(int argc, char *argv[])
 			printf("struct %s not found!\n", class_name);
 			return EXIT_FAILURE;
 		}
-		tag__print(&s->class->tag, s->class->cu, NULL, NULL);
+		tag__print(&s->class->tag, s->cu, NULL, NULL);
 	} else
 		print_classes(formatter);
 

@@ -54,7 +54,6 @@ struct tag {
 
 struct class {
 	struct tag	 tag;
-	struct cu	 *cu;
 	struct list_head members;
 	struct list_head node;
 	const char	 *name;
@@ -67,8 +66,7 @@ struct class {
 	uint8_t		 declaration:1;
 	uint8_t		 visited:1;
 	uint8_t		 fwd_decl_emitted:1;
-	int32_t		 diff;
-	struct class	 *class_to_diff;
+	void		 *priv;
 };
 
 static inline struct class *tag__class(const struct tag *self)
@@ -155,8 +153,7 @@ struct function {
 	uint8_t		 external:1;
 	/* fields used by tools */
 	struct list_head tool_node;
-	int32_t		 diff;
-	struct class	 *class_to_diff;
+	void		 *priv;
 };
 
 static inline struct function *tag__function(const struct tag *self)
@@ -208,7 +205,7 @@ struct enumerator {
 
 #define DEFAULT_CACHELINE_SIZE 32
 
-extern void class__find_holes(struct class *self);
+extern void class__find_holes(struct class *self, const struct cu *cu);
 extern void tag__print(const struct tag *self, const struct cu *cu,
 		       const char *prefix, const char *suffix);
 extern void function__print(const struct function *self, const struct cu *cu,
@@ -231,7 +228,8 @@ extern struct function *cus__find_function_by_name(const struct cus *self,
 						   const char *name);
 extern int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 				       struct ftype *ftype);
-extern int cus__emit_struct_definitions(struct cus *self, struct class *class,
+extern int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
+					struct class *class,
 					const char *prefix,
 					const char *suffix);
 extern int cus__emit_fwd_decl(struct cus *self, struct class *class);
@@ -298,6 +296,7 @@ extern struct class_member *class__find_member_by_name(const struct class *self,
 						       const char *name);
 
 extern size_t class_member__names(const struct tag *type,
+				  const struct cu *cu,
 				  const struct class_member *self,
 				  char *class_name, size_t class_name_size,
 				  char *member_name, size_t member_name_size);

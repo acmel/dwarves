@@ -57,6 +57,28 @@ static void usage(void)
 		" without options all diffs are shown\n");
 }
 
+struct diff_info {
+	const struct tag *tag;
+	const struct cu	 *cu;
+	int32_t		 diff;
+};
+
+static struct diff_info *diff_info__new(const struct tag *twin,
+					const struct cu *cu,
+					int32_t diff)
+{
+	struct diff_info *self = malloc(sizeof(*self));
+
+	if (self == NULL) {
+		puts("out of memory!");
+		exit(1);
+	}
+	self->tag  = twin;
+	self->cu   = cu;
+	self->diff = diff;
+	return self;
+}
+
 static void diff_function(const struct cu *new_cu, struct function *function,
 			  struct cu *cu)
 {
@@ -69,32 +91,39 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 
 	new_function = cu__find_function_by_name(new_cu, function->name);
 	if (new_function != NULL) {
-		function->diff = (function__size(new_function) -
-				  function__size(function));
-		if (function->diff != 0) {
+		int32_t diff = (function__size(new_function) -
+				function__size(function));
+		if (diff != 0) {
 			const size_t len = strlen(function->name);
 
+			function->priv = diff_info__new(&new_function->proto.tag, new_cu,
+							diff);
 			if (len > cu->max_len_changed_item)
 				cu->max_len_changed_item = len;
 
 			++cu->nr_functions_changed;
-			if (function->diff > 0)
-				cu->function_bytes_added += function->diff;
+			if (diff > 0)
+				cu->function_bytes_added += diff;
 			else
-				cu->function_bytes_removed += -function->diff;
+				cu->function_bytes_removed += -diff;
 		}
 	} else {
 		const size_t len = strlen(function->name);
+		const uint32_t diff = -function__size(function);
+
 		if (len > cu->max_len_changed_item)
 			cu->max_len_changed_item = len;
-		function->diff = -function__size(function);
+		function->priv = diff_info__new(NULL, NULL, diff);
 		++cu->nr_functions_changed;
-		cu->function_bytes_removed += -function->diff;
+		cu->function_bytes_removed += -diff;
 	}
 }
 
 static int check_print_change(const struct class_member *old,
-			      const struct class_member *new, int print)
+			      const struct cu *old_cu,
+			      const struct class_member *new,
+			      const struct cu *new_cu,
+			      int print)
 {
 	char old_class_name[128];
 	char new_class_name[128];
@@ -104,13 +133,13 @@ static int check_print_change(const struct class_member *old,
 	size_t new_size;
 	int changes = 0;
 
-	old_size = class_member__names(NULL, old, old_class_name,
+	old_size = class_member__names(NULL, old_cu, old, old_class_name,
 				       sizeof(old_class_name),
 				       old_member_name,
 				       sizeof(old_member_name));
 	if (old_size == (size_t)-1)
 		return 0;
-	new_size = class_member__names(NULL, new, new_class_name,
+	new_size = class_member__names(NULL, new_cu, new, new_class_name,
 				       sizeof(new_class_name),
 				       new_member_name,
 				       sizeof(new_member_name));
@@ -154,7 +183,9 @@ static int check_print_change(const struct class_member *old,
 }
 
 static int check_print_members_changes(const struct class *structure,
+				       const struct cu *cu,
 				       const struct class *new_structure,
+				       const struct cu *new_cu,
 				       int print)
 {
 	int changes = 0;
@@ -164,16 +195,18 @@ static int check_print_members_changes(const struct class *structure,
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member->name);
 		if (twin != NULL)
-			if (check_print_change(member, twin, print))
+			if (check_print_change(member, cu, twin, new_cu, print))
 				changes = 1;
 	}
 	return changes;
 }
 
-static void diff_struct(const struct cu *new_cu, struct class *structure)
+static void diff_struct(const struct cu *new_cu, struct class *structure,
+			struct cu *cu)
 {
 	struct class *new_structure;
 	size_t len;
+	int32_t diff;
 
 	assert(structure->tag.tag == DW_TAG_structure_type);
 
@@ -182,7 +215,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure)
 
 	new_structure = cu__find_class_by_name(new_cu, structure->name);
 	if (new_structure == NULL) {
-		structure->diff = 1;
+		diff = 1;
 		goto out;
 	}
 
@@ -191,24 +224,24 @@ static void diff_struct(const struct cu *new_cu, struct class *structure)
 
 	assert(new_structure->tag.tag == DW_TAG_structure_type);
 
-	structure->diff = structure->size != new_structure->size ||
-			  structure->nr_members != new_structure->nr_members ||
-			  check_print_members_changes(structure,
-					  	      new_structure, 0);
-	if (!structure->diff)
+	diff = structure->size != new_structure->size ||
+	       structure->nr_members != new_structure->nr_members ||
+	       check_print_members_changes(structure, cu,
+			       		   new_structure, new_cu, 0);
+	if (diff == 0)
 		return;
 out:
-	++structure->cu->nr_structures_changed;
+	++cu->nr_structures_changed;
 	len = strlen(structure->name) + sizeof("struct");
-	if (len > structure->cu->max_len_changed_item)
-		structure->cu->max_len_changed_item = len;
-	structure->class_to_diff = new_structure;
+	if (len > cu->max_len_changed_item)
+		cu->max_len_changed_item = len;
+	structure->priv = diff_info__new(&new_structure->tag, new_cu, diff);
 }
 
 static int diff_class_iterator(struct tag *tag, struct cu *cu, void *new_cu)
 {
 	if (tag->tag == DW_TAG_structure_type)
-		diff_struct(new_cu, tag__class(tag));
+		diff_struct(new_cu, tag__class(tag), cu);
 
 	return 0;
 }
@@ -221,7 +254,7 @@ static int diff_function_iterator(struct function *function, void *new_cu)
 static int diff_tag_iterator(struct tag *tag, struct cu *cu, void *new_cu)
 {
 	if (tag->tag == DW_TAG_structure_type)
-		diff_struct(new_cu, tag__class(tag));
+		diff_struct(new_cu, tag__class(tag), cu);
 	else if (tag->tag == DW_TAG_subprogram)
 		diff_function(new_cu, tag__function(tag), cu);
 
@@ -242,11 +275,13 @@ static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
 	old_function = cu__find_function_by_name(old_cu, function->name);
 	if (old_function == NULL) {
 		const size_t len = strlen(function->name);
+		const int32_t diff = function__size(function);
+
 		if (len > cu->max_len_changed_item)
 			cu->max_len_changed_item = len;
-		function->diff = function__size(function);
 		++cu->nr_functions_changed;
-		cu->function_bytes_added += function->diff;
+		cu->function_bytes_added += diff;
+		function->priv = diff_info__new(NULL, NULL, diff);
 	}
 
 	return 0;
@@ -270,13 +305,12 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 	if (cu__find_class_by_name(old_cu, class->name) != NULL)
 		return 0;
 
-	class->diff = 1;
-	++class->cu->nr_structures_changed;
+	class->priv = diff_info__new(NULL, NULL, 1);
+	++cu->nr_structures_changed;
 
 	len = strlen(class->name) + sizeof("struct");
-	if (len > class->cu->max_len_changed_item)
-		class->cu->max_len_changed_item = len;
-	class->class_to_diff = NULL;
+	if (len > cu->max_len_changed_item)
+		cu->max_len_changed_item = len;
 	return 0;
 }
 
@@ -311,16 +345,19 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 static void show_diffs_function(const struct function *function,
 				const struct cu *cu)
 {
+	const struct diff_info *di = function->priv;
+
 	printf("  %-*.*s | %+4d\n",
 	       cu->max_len_changed_item, cu->max_len_changed_item,
-	       function->name, function->diff);
+	       function->name, di->diff);
 }
 
-static void show_changed_member(char change, const struct class_member *member)
+static void show_changed_member(char change, const struct class_member *member,
+				const struct cu *cu)
 {
 	char class_name[128];
 	char member_name[128];
-	size_t size = class_member__names(NULL, member,
+	size_t size = class_member__names(NULL, cu, member,
 					  class_name, sizeof(class_name),
 					  member_name, sizeof(member_name));
 	printf("    %c%-26s %-21s /* %5u %5u */\n",
@@ -328,7 +365,9 @@ static void show_changed_member(char change, const struct class_member *member)
 }
 
 static void show_nr_members_changes(const struct class *structure,
-				    const struct class *new_structure)
+				    const struct cu *cu,
+				    const struct class *new_structure,
+				    const struct cu *new_cu)
 {
 	struct class_member *member;
 
@@ -337,7 +376,7 @@ static void show_nr_members_changes(const struct class *structure,
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member->name);
 		if (twin == NULL)
-			show_changed_member('-', member);
+			show_changed_member('-', member, cu);
 	}
 
 	/* Find the new ones */
@@ -345,7 +384,7 @@ static void show_nr_members_changes(const struct class *structure,
 		struct class_member *twin =
 			class__find_member_by_name(structure, member->name);
 		if (twin == NULL)
-			show_changed_member('+', member);
+			show_changed_member('+', member, new_cu);
 	}
 }
 
@@ -381,17 +420,19 @@ static void print_terse_type_changes(const struct class *structure)
 	putchar('\n');
 }
 
-static void show_diffs_structure(const struct class *structure)
+static void show_diffs_structure(const struct class *structure,
+				 const struct cu *cu)
 {
-	const struct class *new_structure = structure->class_to_diff;
+	const struct diff_info *di = structure->priv;
+	const struct class *new_structure = tag__class(di->tag);
 	int diff = (new_structure != NULL ? new_structure->size : 0) - structure->size;
 
 	terse_type_changes = 0;
 
 	if (!show_terse_type_changes)
 		printf("  struct %-*.*s | %+4d\n",
-		       structure->cu->max_len_changed_item - sizeof("struct"),
-		       structure->cu->max_len_changed_item - sizeof("struct"),
+		       cu->max_len_changed_item - sizeof("struct"),
+		       cu->max_len_changed_item - sizeof("struct"),
 		       structure->name, diff);
 
 	if (diff != 0)
@@ -409,11 +450,13 @@ static void show_diffs_structure(const struct class *structure)
 		if (!show_terse_type_changes) {
 			printf("   nr_members: %+d\n", diff);
 			if (new_structure != NULL)
-				show_nr_members_changes(structure, new_structure);
+				show_nr_members_changes(structure, cu,
+							new_structure, di->cu);
 		}
 	}
 	if (new_structure != NULL)
-		check_print_members_changes(structure, new_structure, 1);
+		check_print_members_changes(structure, cu,
+					    new_structure, di->cu, 1);
 	if (show_terse_type_changes)
 		print_terse_type_changes(structure);
 }
@@ -423,7 +466,7 @@ static int show_function_diffs_iterator(struct tag *tag, struct cu *cu,
 {
 	struct function *function = tag__function(tag);
 
-	if (tag->tag == DW_TAG_subprogram && function->diff != 0)
+	if (tag->tag == DW_TAG_subprogram && function->priv != NULL)
 		show_diffs_function(function, cu);
 	return 0;
 }
@@ -437,8 +480,8 @@ static int show_structure_diffs_iterator(struct tag *tag, struct cu *cu,
 		return 0;
 
 	class = tag__class(tag);
-	if (class->diff != 0)
-		show_diffs_structure(class);
+	if (class->priv != NULL)
+		show_diffs_structure(class, cu);
 	return 0;
 }
 
