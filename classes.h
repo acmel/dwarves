@@ -27,7 +27,6 @@ struct cus {
 struct cu {
 	struct list_head node;
 	struct list_head tags;
-	struct list_head variables;
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
 	const char	 *name;
 	uint8_t		 addr_size;
@@ -168,7 +167,6 @@ struct parameter {
 
 struct variable {
 	struct tag	 tag;
-	struct list_head cu_node;
 	char		 *name;
 	Dwarf_Off	 abstract_origin;
 };

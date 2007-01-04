@@ -426,7 +426,6 @@ static struct cu *cu__new(uint32_t cu, const char *name, uint8_t addr_size)
 
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->tags);
-		INIT_LIST_HEAD(&self->variables);
 		INIT_LIST_HEAD(&self->tool_list);
 
 		self->name	= strings__add(name);
@@ -452,11 +451,6 @@ static void cu__add_tag(struct cu *self, struct tag *tag)
 static void cu__add_function(struct cu *self, struct function *function)
 {
 	list_add_tail(&function->proto.tag.node, &self->tags);
-}
-
-static void cu__add_variable(struct cu *self, struct variable *variable)
-{
-	list_add_tail(&variable->cu_node, &self->variables);
 }
 
 static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
@@ -615,13 +609,51 @@ struct function *cu__find_function_by_name(const struct cu *self,
 	return NULL;
 }
 
-struct variable *cu__find_variable_by_id(const struct cu *self, const Dwarf_Off id)
+static struct tag *lexblock__find_tag_by_id(const struct lexblock *self,
+					    const Dwarf_Off id)
 {
-	struct variable *pos;
+	struct tag *pos;
 
-	list_for_each_entry(pos, &self->variables, cu_node)
-		if (pos->tag.id == id)
+	list_for_each_entry(pos, &self->tags, node) {
+		/* Allow find DW_TAG_lexical_block tags */
+		if (pos->id == id)
 			return pos;
+		/*
+		 * Oh, not looking for DW_TAG_lexical_block tags? So lets look
+		 * inside this lexblock:
+		 */
+		if (pos->tag == DW_TAG_lexical_block) {
+			const struct lexblock *child = tag__lexblock(pos);
+			struct tag *tag = lexblock__find_tag_by_id(child, id);
+
+			if (tag != NULL)
+				return tag;
+		}
+	}
+
+	return NULL;
+}
+
+static struct variable *cu__find_variable_by_id(const struct cu *self,
+						const Dwarf_Off id)
+{
+	struct tag *pos;
+
+	list_for_each_entry(pos, &self->tags, node) {
+		/* Look at global variables first */
+		if (pos->id == id)
+			return (struct variable *)(pos);
+
+		/* Now look inside function lexical blocks */
+		if (pos->tag == DW_TAG_subprogram) {
+			struct function *fn = tag__function(pos);
+			struct tag *tag =
+				lexblock__find_tag_by_id(&fn->lexblock, id);
+
+			if (tag != NULL)
+				return (struct variable *)(tag);
+		}
+	}
 
 	return NULL;
 }
@@ -720,9 +752,9 @@ const char *variable__type_name(const struct variable *self,
 		struct tag *tag = cu__find_tag_by_id(cu, self->tag.type);
 		return tag__name(tag, cu, bf, len);
 	} else if (self->abstract_origin != 0) {
-		struct variable *var;
+		struct variable *var =
+			cu__find_variable_by_id(cu, self->abstract_origin);
 
-		var = cu__find_variable_by_id(cu, self->abstract_origin);
 		if (var != NULL)
 		       return variable__type_name(var, cu, bf, len);
 	}
@@ -732,19 +764,16 @@ const char *variable__type_name(const struct variable *self,
 
 const char *variable__name(const struct variable *self, const struct cu *cu)
 {
-	if (self->name == NULL) {
-		if (self->abstract_origin == 0)
-			return NULL;
-		else {
-			struct variable *var;
+	if (self->name != NULL)
+		return self->name;
 
-			var = cu__find_variable_by_id(cu,
-						      self->abstract_origin);
-			return var == NULL ? NULL : var->name;
-		}
+	if (self->abstract_origin != 0) {
+		struct variable *var =
+			cu__find_variable_by_id(cu, self->abstract_origin);
+		if (var != NULL)
+			return var->name;
 	}
-	
-	return self->name;
+	return NULL;
 }
 
 static struct class_member *class_member__new(Dwarf_Die *die)
@@ -1897,7 +1926,6 @@ static void cu__create_new_variable(struct cu *cu, Dwarf_Die *die,
 		oom("variable__new");
 
 	lexblock__add_variable(lexblock, var);
-	cu__add_variable(cu, var);
 }
 
 static void cu__create_new_subroutine_type(Dwarf_Die *die, struct cu *cu)
