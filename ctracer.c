@@ -302,7 +302,7 @@ int main(int argc, char *argv[])
 {
 	int option, option_index, recursive = 0;
 	const char *filename = NULL, *dirname = NULL, *glob = NULL,
-		   *kprobes_filename;
+		   *kprobes_filename = NULL;
 	char *class_name = NULL;
 
 	while ((option = getopt_long(argc, argv, "D:g:k:rh",
