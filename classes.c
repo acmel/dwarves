@@ -2008,6 +2008,40 @@ static void cu__create_new_inline_expansion(struct cu *cu, Dwarf_Die *die,
 	lexblock__add_inline_expansion(lexblock, exp);
 }
 
+static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
+{
+	Dwarf_Die child;
+	struct class *enumeration = class__new(die);
+
+	if (enumeration == NULL)
+		oom("class__new");
+
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
+		fprintf(stderr, "%s: DW_TAG_enumeration_type with no "
+				"children!\n", __FUNCTION__);
+		return;
+	}
+
+	die = &child;
+	do {
+		struct enumerator *enumerator;
+		const uint16_t tag = dwarf_tag(die);
+
+		if (tag != DW_TAG_enumerator) {
+			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
+				__FUNCTION__, dwarf_tag_name(tag));
+			continue;
+		}
+		enumerator = enumerator__new(die);
+		if (enumerator == NULL)
+			oom("enumerator__new");
+
+		enumeration__add(enumeration, enumerator);
+	} while (dwarf_siblingof(die, die) == 0);
+
+	cu__add_tag(cu, &enumeration->tag);
+}
+
 static void cu__process_function(Dwarf_Die *die,
 				 struct cu *cu, struct ftype *ftype,
 				 struct lexblock *lexblock)
@@ -2068,40 +2102,6 @@ static void cu__create_new_function(Dwarf_Die *die, struct cu *cu)
 		oom("function__new");
 	cu__process_function(die, cu, &function->proto, &function->lexblock);
 	cu__add_function(cu, function);
-}
-
-static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
-{
-	Dwarf_Die child;
-	struct class *enumeration = class__new(die);
-
-	if (enumeration == NULL)
-		oom("class__new");
-
-	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
-		fprintf(stderr, "%s: DW_TAG_enumeration_type with no "
-				"children!\n", __FUNCTION__);
-		return;
-	}
-
-	die = &child;
-	do {
-		struct enumerator *enumerator;
-		const uint16_t tag = dwarf_tag(die);
-
-		if (tag != DW_TAG_enumerator) {
-			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
-				__FUNCTION__, dwarf_tag_name(tag));
-			continue;
-		}
-		enumerator = enumerator__new(die);
-		if (enumerator == NULL)
-			oom("enumerator__new");
-
-		enumeration__add(enumeration, enumerator);
-	} while (dwarf_siblingof(die, die) == 0);
-
-	cu__add_tag(cu, &enumeration->tag);
 }
 
 static void cu__process_die(Dwarf_Die *die, struct cu *cu)
