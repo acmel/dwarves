@@ -19,8 +19,10 @@
 struct cus {
 	struct list_head cus;
 	struct list_head priv_definitions;
+	struct list_head priv_typedef_definitions;
 	struct list_head priv_fwd_decls;
 	struct list_head *definitions;
+	struct list_head *typedef_definitions;
 	struct list_head *fwd_decls;
 };
 
@@ -82,6 +84,18 @@ struct base_type {
 static inline struct base_type *tag__base_type(const struct tag *self)
 {
 	return (struct base_type *)self;
+}
+
+struct typedef_tag {
+	struct tag	 tag;
+	struct list_head node;	  /* In cus->definitions */
+	const char	 *name;
+	uint8_t		 visited; /* Just one bit is needed */
+};
+
+static inline struct typedef_tag *tag__typedef_tag(const struct tag *self)
+{
+	return (struct typedef_tag *)self;
 }
 
 struct array_type {
@@ -212,6 +226,7 @@ extern void function__print(const struct function *self, const struct cu *cu,
 			    const int show_inline_expansions);
 
 extern struct cus *cus__new(struct list_head *definitions,
+			    struct list_head *typedef_definitions,
 			    struct list_head *fwd_decls);
 extern int cus__load(struct cus *self, const char *filename);
 extern int cus__load_dir(struct cus *self, const char *dirname,

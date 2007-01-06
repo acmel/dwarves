@@ -472,7 +472,7 @@ static int show_function_diffs_iterator(struct tag *tag, struct cu *cu,
 }
 
 static int show_structure_diffs_iterator(struct tag *tag, struct cu *cu,
-					 void *new_cu)
+					 void *cookie)
 {
 	struct class *class;
 
@@ -587,8 +587,8 @@ int main(int argc, char *argv[])
 	    show_terse_type_changes == 0)
 		show_function_diffs = show_struct_diffs = 1;
 
-	old_cus = cus__new(NULL, NULL);
-	new_cus = cus__new(NULL, NULL);
+	old_cus = cus__new(NULL, NULL, NULL);
+	new_cus = cus__new(NULL, NULL, NULL);
 	if (old_cus == NULL || new_cus == NULL) {
 		fputs("codiff: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
@@ -609,7 +609,7 @@ int main(int argc, char *argv[])
 	cus__for_each_cu(old_cus, cu_diff_iterator, new_cus, NULL);
 	cus__for_each_cu(new_cus, cu_find_new_tags_iterator, old_cus, NULL);
 	cus__for_each_cu(old_cus, cu_show_diffs_iterator, NULL, NULL);
-	cus__for_each_cu(new_cus, cu_show_diffs_iterator, NULL, NULL);
+	cus__for_each_cu(new_cus, cu_show_diffs_iterator, (void *)1, NULL);
 
 	if (total_cus_changed > 1) {
 		if (show_function_diffs)

@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	cus = cus__new(NULL, NULL);
+	cus = cus__new(NULL, NULL, NULL);
 	if (cus == NULL) {
 		fputs("dtagnames: insufficient memory\n", stderr);
 		return EXIT_FAILURE;

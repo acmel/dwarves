@@ -285,6 +285,20 @@ static struct base_type *base_type__new(Dwarf_Die *die)
 	return self;
 }
 
+static struct typedef_tag *typedef_tag__new(Dwarf_Die *die)
+{
+	struct typedef_tag *self = malloc(sizeof(*self));
+
+	if (self != NULL) {
+		tag__init(&self->tag, die);
+		INIT_LIST_HEAD(&self->node);
+		self->name = strings__add(attr_string(die, DW_AT_name));
+		self->visited = 0;
+	}
+
+	return self;
+}
+
 static size_t enumeration__snprintf(const struct class *self,
 				    char *bf, size_t len,
 				    const char *suffix, uint8_t ntabs)
@@ -573,6 +587,30 @@ static void cus__add_definition(struct cus *self, struct class *class)
 	list_add_tail(&class->node, self->definitions);
 }
 
+struct typedef_tag *cus__find_typedef_definition(const struct cus *self,
+						 const char *name)
+{
+	struct typedef_tag *pos;
+
+	if (name == NULL)
+		return NULL;
+
+	list_for_each_entry(pos, self->typedef_definitions, node)
+		if (pos->name != NULL && strcmp(pos->name, name) == 0)
+			return pos;
+
+	return NULL;
+}
+
+static void cus__add_typedef_definition(struct cus *self,
+					struct typedef_tag *def)
+{
+	def->visited = 1;
+	if (!list_empty(&def->node))
+		list_del(&def->node);
+	list_add_tail(&def->node, self->definitions);
+}
+
 static void cus__add_fwd_decl(struct cus *self, struct class *class)
 {
 	class->fwd_decl_emitted = 1;
@@ -709,6 +747,8 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		strncpy(bf, "void", len);
 	else if (self->tag == DW_TAG_base_type)
 		strncpy(bf, tag__base_type(self)->name, len);
+	else if (self->tag == DW_TAG_typedef)
+		strncpy(bf, tag__typedef_tag(self)->name, len);
 	else if (self->tag == DW_TAG_pointer_type) {
 		if (self->type == 0) /* No type == void */
 			strncpy(bf, "void *", len);
@@ -1828,6 +1868,20 @@ static void cu__create_new_base_type(Dwarf_Die *die, struct cu *cu)
 	cu__add_tag(cu, &base->tag);
 }
 
+static void cu__create_new_typedef(Dwarf_Die *die, struct cu *cu)
+{
+	struct typedef_tag *tdef = typedef_tag__new(die);
+
+	if (tdef == NULL)
+		oom("typedef_tag__new");
+
+	if (dwarf_haschildren(die))
+		fprintf(stderr, "%s: DW_TAG_typedef WITH children!\n",
+			__FUNCTION__);
+
+	cu__add_tag(cu, &tdef->tag);
+}
+
 static void cu__create_new_array(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
@@ -2132,9 +2186,11 @@ static void cu__process_unit(Dwarf_Die *die, struct cu *cu)
 		case DW_TAG_enumeration_type:
 			cu__create_new_enumeration(die, cu);
 			break;
+		case DW_TAG_typedef:
+			cu__create_new_typedef(die, cu);
+			break;
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:
-		case DW_TAG_typedef:
 			cu__create_new_class(die, cu);
 			break;
 		default:
@@ -2261,6 +2317,7 @@ out:
 }
 
 struct cus *cus__new(struct list_head *definitions,
+		     struct list_head *typedef_definitions,
 		     struct list_head *fwd_decls)
 {
 	struct cus *self = malloc(sizeof(*self));
@@ -2268,8 +2325,11 @@ struct cus *cus__new(struct list_head *definitions,
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->cus);
 		INIT_LIST_HEAD(&self->priv_definitions);
+		INIT_LIST_HEAD(&self->priv_typedef_definitions);
 		INIT_LIST_HEAD(&self->priv_fwd_decls);
 		self->definitions = definitions ?: &self->priv_definitions;
+		self->typedef_definitions = typedef_definitions ?:
+					    &self->priv_typedef_definitions;
 		self->fwd_decls = fwd_decls ?: &self->priv_fwd_decls;
 	}
 
@@ -2279,25 +2339,25 @@ struct cus *cus__new(struct list_head *definitions,
 static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 					 struct tag *tdef)
 {
-	struct class *class = tag__class(tdef);
+	struct typedef_tag *def = tag__typedef_tag(tdef);
 	struct tag *type, *ptr_type;
 	int is_pointer = 0;
 	char bf[512];
 
 	/* Have we already emitted this in this CU? */
-	if (class->visited)
+	if (def->visited)
 		return 0;
 
 	/* Ok, lets look at the previous CUs: */
-	if (cus__find_definition(self, class->name) != NULL) {
+	if (cus__find_typedef_definition(self, def->name) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
 		 */
-		class->visited = 1;
+		def->visited = 1;
 		return 0;
 	}
-	type = cu__find_tag_by_id(cu, class->tag.type);
+	type = cu__find_tag_by_id(cu, tdef->type);
 
 	if (type->tag == DW_TAG_typedef)
 		cus__emit_typedef_definitions(self, cu, type);
@@ -2313,7 +2373,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	case DW_TAG_subroutine_type:
 		cus__emit_ftype_definitions(self, cu, tag__ftype(type));
 		ftype__snprintf(tag__ftype(type), cu, bf, sizeof(bf),
-				class->name, 0, is_pointer, 0);
+				def->name, 0, is_pointer, 0);
 		fputs("typedef ", stdout);
 		printf("%s;\n", bf);
 		goto out;
@@ -2322,17 +2382,17 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 
 		if (ctype->name == NULL)
 			cus__emit_struct_definitions(self, cu, ctype,
-						     "typedef", class->name);
+						     "typedef", def->name);
 		else
 			printf("typedef struct %s %s;\n",
-			       ctype->name, class->name);
+			       ctype->name, def->name);
 	}
 		goto out;
 	}
 	printf("typedef %s %s;\n", tag__name(type, cu, bf, sizeof(bf)),
-	       class->name);
+	       def->name);
 out:
-	cus__add_definition(self, class);
+	cus__add_typedef_definition(self, def);
 	return 1;
 }
 

@@ -19,6 +19,7 @@ static struct cus *cus;
 static struct cus *kprobes_cus;
 
 static LIST_HEAD(cus__definitions);
+static LIST_HEAD(cus__typedef_definitions);
 static LIST_HEAD(cus__fwd_decls);
 
 static void method__add(struct cu *cu, struct function *function)
@@ -332,7 +333,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	cus = cus__new(&cus__definitions, &cus__fwd_decls);
+	cus = cus__new(&cus__definitions, &cus__typedef_definitions,
+		       &cus__fwd_decls);
 	if (cus == NULL) {
 out_enomem:
 		fputs("ctracer: insufficient memory\n", stderr);
@@ -340,7 +342,9 @@ out_enomem:
 	}
 	
 	if (kprobes_filename != NULL) {
-		kprobes_cus = cus__new(&cus__definitions, &cus__fwd_decls);
+		kprobes_cus = cus__new(&cus__definitions,
+				       &cus__typedef_definitions,
+				       &cus__fwd_decls);
 		if (kprobes_cus == NULL)
 			goto out_enomem;
 		if (cus__load(kprobes_cus, kprobes_filename) != 0) {
