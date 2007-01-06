@@ -1936,50 +1936,42 @@ out:
 static void cu__process_class(Dwarf_Die *die, struct class *class,
 			      struct cu *cu)
 {
-	Dwarf_Die child;
-	const uint16_t tag = dwarf_tag(die);
+	do {
+		const uint16_t tag = dwarf_tag(die);
 
-	switch (tag) {
-	case DW_TAG_invalid:
-		return;
-	case DW_TAG_inheritance:
-	case DW_TAG_member: {
-		struct class_member *member = class_member__new(die);
+		switch (tag) {
+		case DW_TAG_inheritance:
+		case DW_TAG_member: {
+			struct class_member *member = class_member__new(die);
 
-		if (member == NULL)
-			oom("class_member__new");
+			if (member == NULL)
+				oom("class_member__new");
 
-		class__add_member(class, member);
-	}
-		break;
-	case DW_TAG_formal_parameter:
-		/* Discard for now */
-		goto next_sibling;
-	case DW_TAG_structure_type:
-		/*
-		 * structs within structs: C++
-		 *
-		 * FIXME: For now classes defined within classes are being
-		 * visible externally, in a flat namespace. This ins not so
-		 * much of a problem as every class has a different id, the
-		 * cu_offset, but we need to have namespaces, so that we
-		 * can properly print it in class__print_struct and so that
-		 * we can specify 'pahole QDebug::Stream' as in the example
-		 * that led to supporting classes within classes.
-		 */
-	default: /*
-		  * Fall thru, enums, etc can also be defined inside
-		  * C++ classes
-		 */
-		cu__create_new_class(die, cu);
-		goto next_sibling;
-	}
-
-	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_class(&child, class, cu);
-next_sibling:
-	if (dwarf_siblingof(die, die) == 0)
-		cu__process_class(die, class, cu);
+			class__add_member(class, member);
+		}
+			break;
+		case DW_TAG_enumeration_type:
+		case DW_TAG_structure_type:
+		case DW_TAG_union_type:
+			/*
+			 * structs within structs: C++
+			 *
+			 * FIXME: For now classes defined within classes are being
+			 * visible externally, in a flat namespace. This ins not so
+			 * much of a problem as every class has a different id, the
+			 * cu_offset, but we need to have namespaces, so that we
+			 * can properly print it in class__print_struct and so that
+			 * we can specify 'pahole QDebug::Stream' as in the example
+			 * that led to supporting classes within classes.
+			 */
+			cu__create_new_class(die, cu);
+			break;
+		default:
+			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
+				__FUNCTION__, dwarf_tag_name(tag));
+			break;
+		}
+	} while (dwarf_siblingof(die, die) == 0);
 }
 
 static void cu__process_function(Dwarf_Die *die,
@@ -2076,9 +2068,16 @@ static void cu__process_function(Dwarf_Die *die,
 		case DW_TAG_lexical_block:
 			cu__create_new_lexblock(die, cu, lexblock);
 			break;
+		case DW_TAG_enumeration_type:
+			cu__create_new_enumeration(die, cu);
+			break;
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:
 			cu__create_new_class(die, cu);
+			break;
+		default:
+			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
+				__FUNCTION__, dwarf_tag_name(tag));
 			break;
 		}
 	} while (dwarf_siblingof(die, die) == 0);
@@ -2104,49 +2103,68 @@ static void cu__create_new_function(Dwarf_Die *die, struct cu *cu)
 	cu__add_function(cu, function);
 }
 
-static void cu__process_die(Dwarf_Die *die, struct cu *cu)
+static void cu__process_unit(Dwarf_Die *die, struct cu *cu)
+{
+	do {
+		const uint16_t tag = dwarf_tag(die);
+
+		switch (tag) {
+		case DW_TAG_variable:
+			/* Handle global variables later */
+			break;
+		case DW_TAG_subprogram:
+			cu__create_new_function(die, cu);
+			break;
+		case DW_TAG_const_type:
+		case DW_TAG_pointer_type:
+		case DW_TAG_volatile_type:
+			cu__create_new_tag(die, cu);
+			break;
+		case DW_TAG_base_type:
+			cu__create_new_base_type(die, cu);
+			break;
+		case DW_TAG_array_type:
+			cu__create_new_array(die, cu);
+			break;
+		case DW_TAG_subroutine_type:
+			cu__create_new_subroutine_type(die, cu);
+			break;
+		case DW_TAG_enumeration_type:
+			cu__create_new_enumeration(die, cu);
+			break;
+		case DW_TAG_structure_type:
+		case DW_TAG_union_type:
+		case DW_TAG_typedef:
+			cu__create_new_class(die, cu);
+			break;
+		default:
+			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
+				__FUNCTION__, dwarf_tag_name(tag));
+			break;
+		}
+	} while (dwarf_siblingof(die, die) == 0);
+}
+
+static void cu__process(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
+	const uint16_t tag = dwarf_tag(die);
 
-	switch (dwarf_tag(die)) {
-	case DW_TAG_invalid:
+	if (tag != DW_TAG_compile_unit) {
+		fprintf(stderr, "%s: DW_TAG_compile_unit expected got %s!\n",
+			__FUNCTION__, dwarf_tag_name(tag));
 		return;
-	case DW_TAG_compile_unit:
-		cu->language = attr_numeric(die, DW_AT_language);
-		break;
-	case DW_TAG_variable:
-		/* Handle global variables later */
-		break;
-	case DW_TAG_subprogram:
-		cu__create_new_function(die, cu);
-		goto next_sibling;
-	case DW_TAG_const_type:
-	case DW_TAG_pointer_type:
-	case DW_TAG_volatile_type:
-		cu__create_new_tag(die, cu);
-		goto next_sibling;
-	case DW_TAG_base_type:
-		cu__create_new_base_type(die, cu);
-		goto next_sibling;
-	case DW_TAG_array_type:
-		cu__create_new_array(die, cu);
-		goto next_sibling;
-	case DW_TAG_subroutine_type:
-		cu__create_new_subroutine_type(die, cu);
-		goto next_sibling;
-	case DW_TAG_enumeration_type:
-		cu__create_new_enumeration(die, cu);
-		goto next_sibling;
-	default:
-		cu__create_new_class(die, cu);
-		goto next_sibling;
 	}
 
-	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_die(&child, cu);
-next_sibling:
+	cu->language = attr_numeric(die, DW_AT_language);
+
+	if (dwarf_child(die, &child) == 0)
+		cu__process_unit(&child, cu);
+
 	if (dwarf_siblingof(die, die) == 0)
-		cu__process_die(die, cu);
+		fprintf(stderr, "%s: got %s unexpected tag after "
+				"DW_TAG_compile_unit!\n",
+			__FUNCTION__, dwarf_tag_name(tag));
 }
 
 int cus__load_dir(struct cus *self, const char *dirname,
@@ -2227,7 +2245,7 @@ int cus__load(struct cus *self, const char *filename)
 			if (cu == NULL)
 				oom("cu__new");
 			++cu_id;
-			cu__process_die(&die, cu);
+			cu__process(&die, cu);
 			cus__add(self, cu);
 		}
 
