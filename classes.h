@@ -242,24 +242,23 @@ extern int cus__load_dir(struct cus *self, const char *dirname,
 			 const char *filename_mask, const int recursive);
 extern struct cu *cus__find_cu_by_name(const struct cus *self,
 				       const char *name);
-extern struct class *cus__find_class_by_name(const struct cus *self,
-					     struct cu **cu,
-					     const char *name);
+extern struct tag *cus__find_struct_by_name(const struct cus *self,
+					    struct cu **cu,
+					    const char *name);
 extern struct function *cus__find_function_by_name(const struct cus *self,
 						   struct cu **cu,
 						   const char *name);
 extern int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 				       struct ftype *ftype);
 extern int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
-					struct class *class,
-					const char *prefix,
+					struct tag *tag, const char *prefix,
 					const char *suffix);
 extern int cus__emit_fwd_decl(struct cus *self, struct type *ctype);
 
 extern struct tag *cu__find_tag_by_id(const struct cu *self,
 				      const Dwarf_Off id);
-extern struct class *cu__find_class_by_name(const struct cu *cu,
-					    const char *name);
+extern struct tag *cu__find_struct_by_name(const struct cu *cu,
+					   const char *name);
 extern int tag__is_struct(const struct tag *self, struct tag **typedef_alias,
 			  const struct cu *cu);
 extern void	    cu__account_inline_expansions(struct cu *self);

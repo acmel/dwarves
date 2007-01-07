@@ -52,7 +52,7 @@ static int find_methods_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 {
-	struct class *target = cu__find_class_by_name(cu, cookie);
+	struct tag *target = cu__find_struct_by_name(cu, cookie);
 
 	if (target == NULL)
 		return 0;
@@ -113,12 +113,12 @@ static int function__emit_kprobes(const struct function *self,
 
 static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 {
-	struct class *target = cu__find_class_by_name(cu, cookie);
+	struct tag *target = cu__find_struct_by_name(cu, cookie);
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
 		cus__emit_ftype_definitions(cus, cu, &pos->proto);
-		function__emit_kprobes(pos, cu, class__tag(target));
+		function__emit_kprobes(pos, cu, target);
 	}
 
 	return 0;
@@ -184,7 +184,7 @@ static void emit_function_defs(const char *fn)
 static void emit_struct_defs(const char *name)
 {
 	struct cu *cu;
-	struct class *c = cus__find_class_by_name(kprobes_cus, &cu, name);
+	struct tag *c = cus__find_struct_by_name(kprobes_cus, &cu, name);
 	if (c != NULL)
 		cus__emit_struct_definitions(kprobes_cus, cu, c, NULL, NULL);
 }
@@ -192,9 +192,9 @@ static void emit_struct_defs(const char *name)
 static void emit_class_fwd_decl(const char *name)
 {
 	struct cu *cu;
-	struct class *c = cus__find_class_by_name(kprobes_cus, &cu, name);
+	struct tag *c = cus__find_struct_by_name(kprobes_cus, &cu, name);
 	if (c != NULL)
-		cus__emit_fwd_decl(kprobes_cus, &c->type);
+		cus__emit_fwd_decl(kprobes_cus, tag__type(c));
 }
 
 static void emit_module_preamble(void)

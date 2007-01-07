@@ -254,7 +254,7 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 static int cu_class_iterator(struct cu *cu, void *cookie)
 {
-	struct class *target = cu__find_class_by_name(cu, cookie);
+	struct tag *target = cu__find_struct_by_name(cu, cookie);
 
 	if (target == NULL)
 		return 0;

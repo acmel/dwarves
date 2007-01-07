@@ -204,6 +204,7 @@ static int check_print_members_changes(const struct class *structure,
 static void diff_struct(const struct cu *new_cu, struct class *structure,
 			struct cu *cu)
 {
+	struct tag *new_tag;
 	struct class *new_structure;
 	size_t len;
 	int32_t diff;
@@ -213,12 +214,13 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 	if (structure->size == 0 || class__name(structure) == NULL)
 		return;
 
-	new_structure = cu__find_class_by_name(new_cu, class__name(structure));
-	if (new_structure == NULL) {
+	new_tag = cu__find_struct_by_name(new_cu, class__name(structure));
+	if (new_tag == NULL) {
 		diff = 1;
 		goto out;
 	}
 
+	new_structure = tag__class(new_tag);
 	if (new_structure->size == 0)
 		return;
 
@@ -303,7 +305,7 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 	if (class->size == 0)
 		return 0;
 
-	if (cu__find_class_by_name(old_cu, class__name(class)) != NULL)
+	if (cu__find_struct_by_name(old_cu, class__name(class)) != NULL)
 		return 0;
 
 	class->priv = diff_info__new(NULL, NULL, 1);

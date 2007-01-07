@@ -491,7 +491,7 @@ struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 	return NULL;
 }
 
-struct class *cu__find_class_by_name(const struct cu *self, const char *name)
+struct tag *cu__find_struct_by_name(const struct cu *self, const char *name)
 {
 	struct tag *pos;
 
@@ -499,32 +499,31 @@ struct class *cu__find_class_by_name(const struct cu *self, const char *name)
 		return NULL;
 
 	list_for_each_entry(pos, &self->tags, node) {
-		struct class *class;
+		struct type *type;
 
 		if (pos->tag != DW_TAG_structure_type)
 			continue;
 
-		class = tag__class(pos);
-		if (class->type.name != NULL &&
-		    strcmp(class->type.name, name) == 0)
-			return class;
+		type = tag__type(pos);
+		if (type->name != NULL && strcmp(type->name, name) == 0)
+			return pos;
 	}
 
 	return NULL;
 }
 
-struct class *cus__find_class_by_name(const struct cus *self,
-				      struct cu **cu, const char *name)
+struct tag *cus__find_struct_by_name(const struct cus *self,
+				     struct cu **cu, const char *name)
 {
 	struct cu *pos;
 
 	list_for_each_entry(pos, &self->cus, node) {
-		struct class *class = cu__find_class_by_name(pos, name);
+		struct tag *tag = cu__find_struct_by_name(pos, name);
 
-		if (class != NULL) {
+		if (tag != NULL) {
 			if (cu != NULL)
 				*cu = pos;
-			return class;
+			return tag;
 		}
 	}
 
@@ -2359,8 +2358,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 		const struct type *ctype = tag__type(type);
 
 		if (ctype->name == NULL)
-			cus__emit_struct_definitions(self, cu,
-						     tag__class(type),
+			cus__emit_struct_definitions(self, cu, type,
 						     "typedef", def->name);
 		else
 			printf("typedef struct %s %s;\n",
@@ -2453,7 +2451,7 @@ next_indirection:
 	case DW_TAG_structure_type:
 		if (pointer)
 			return cus__emit_fwd_decl(self, tag__type(type));
-		return cus__emit_struct_definitions(self, cu, ctype, NULL, NULL);
+		return cus__emit_struct_definitions(self, cu, type, NULL, NULL);
 	case DW_TAG_subroutine_type:
 		return cus__emit_tag_definitions(self, cu, type);
 	}
@@ -2479,10 +2477,11 @@ int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 }
 
 int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
-				 struct class *class,
+				 struct tag *tag,
 				 const char *prefix, const char *suffix)
 {
-	struct type *ctype = &class->type;
+	struct class *class;
+	struct type *ctype = tag__type(tag);
 	struct class_member *pos;
 	int printed = 0;
 
@@ -2497,6 +2496,7 @@ int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
 
 	cus__add_definition(self, ctype);
 
+	class = tag__class(tag);
 	list_for_each_entry(pos, &class->members, tag.node)
 		if (cus__emit_tag_definitions(self, cu, &pos->tag))
 			printed = 1;
@@ -2505,7 +2505,7 @@ int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
 		putchar('\n');
 
 	class__find_holes(class, cu);
-	tag__print(&ctype->tag, cu, prefix, suffix);
+	tag__print(tag, cu, prefix, suffix);
 	ctype->definition_emitted = 1;
 	putchar('\n');
 	return 1;
