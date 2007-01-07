@@ -2136,18 +2136,8 @@ static void cu__process_function(Dwarf_Die *die,
 
 static void cu__create_new_function(Dwarf_Die *die, struct cu *cu)
 {
-	Dwarf_Attribute attr_name;
-	struct function *function;
-	Dwarf_Addr high_pc, low_pc;
-	uint32_t decl_line;
+	struct function *function = function__new(die);
 
-	if (dwarf_highpc(die, &high_pc))
-		high_pc = 0;
-	if (dwarf_lowpc(die, &low_pc))
-		low_pc = 0;
-
-	dwarf_decl_line(die, &decl_line);
-	function = function__new(die);
 	if (function == NULL)
 		oom("function__new");
 	cu__process_function(die, cu, &function->proto, &function->lexblock);
