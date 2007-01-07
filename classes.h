@@ -169,6 +169,7 @@ struct function {
 	struct ftype	 proto;
 	struct lexblock	 lexblock;
 	const char	 *name;
+	Dwarf_Off	 abstract_origin;
 	size_t		 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;
 	uint8_t		 inlined;	/* two bits used */
@@ -241,7 +242,9 @@ struct enumerator {
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern void tag__print(const struct tag *self, const struct cu *cu,
 		       const char *prefix, const char *suffix);
-extern void function__print(const struct function *self, const struct cu *cu,
+
+extern const char *function__name(struct function *self, const struct cu *cu);
+extern void function__print(struct function *self, const struct cu *cu,
 			    const int show_stats,
 			    const int show_variables,
 			    const int show_inline_expansions);

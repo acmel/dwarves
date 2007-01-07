@@ -60,8 +60,7 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, find_methods_iterator, target, function__filter);
 }
 
-static int function__emit_kprobes(const struct function *self,
-				  const struct cu *cu,
+static int function__emit_kprobes(struct function *self, const struct cu *cu,
 				  const struct tag *target)
 {
 	char bf[128];
@@ -71,11 +70,12 @@ static int function__emit_kprobes(const struct function *self,
 	struct parameter *pos;
 	struct tag *type = cu__find_tag_by_id(cu, self->proto.tag.type);
 	const char *stype = tag__name(type, cu, bf, sizeof(bf));
+	const char *name = function__name(self, cu);
 	int first = 1;
 
 	body[0] = '\0';
 
-	printf("static %s jprobe_entry__%s(", stype, self->name);
+	printf("static %s jprobe_entry__%s(", stype, name);
 
 	list_for_each_entry(pos, &self->proto.parms, tag.node) {
 		type = cu__find_tag_by_id(cu, pos->tag.type);
@@ -98,7 +98,7 @@ static int function__emit_kprobes(const struct function *self,
 
 		printed = snprintf(bodyp, bodyl,
 				   "\tprintk(\"-> %s: %s=%%p\\n\", %s);\n",
-				   self->name, pos->name, pos->name);
+				   name, pos->name, pos->name);
 		bodyp += printed;
 		bodyl -= printed;
 	}
@@ -107,7 +107,7 @@ static int function__emit_kprobes(const struct function *self,
 	printf("static struct jprobe jprobe__%s = {\n"
 	       "\t.kp = { .symbol_name = \"%s\", },\n"
 	       "\t.entry = (kprobe_opcode_t *)jprobe_entry__%s,\n"
-	       "};\n\n", self->name, self->name, self->name);
+	       "};\n\n", name, name, name);
 	return 0;
 }
 
@@ -129,24 +129,27 @@ static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node)
-		printf("\t&jprobe__%s,\n", pos->name);
+		printf("\t&jprobe__%s,\n", function__name(pos, cu));
 
 	return 0;
 }
 
-static int function__emit_kretprobes(const struct function *self)
+static int function__emit_kretprobes(struct function *self,
+				     const struct cu *cu)
 {
+	const char *name = function__name(self, cu);
+
 	printf("static int kretprobe_handler__%s(struct kretprobe_instance *ri, "
 	       "struct pt_regs *regs)\n"
 	       "{\n"
 	       "\tprintk(\"<- %s\\n\");\n"
 	       "\treturn 0;\n"
-	       "}\n\n", self->name, self->name);
+	       "}\n\n", name, name);
 	printf("static struct kretprobe kretprobe__%s = {\n"
 	       "\t.kp = { .symbol_name = \"%s\", },\n"
 	       "\t.handler = (kretprobe_handler_t)kretprobe_handler__%s,\n"
 	       "\t.maxactive = -1,\n\n"
-	       "};\n\n", self->name, self->name, self->name);
+	       "};\n\n", name, name, name);
 }
 
 static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie)
@@ -154,7 +157,7 @@ static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie)
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node)
-		function__emit_kretprobes(pos);
+		function__emit_kretprobes(pos, cu);
 
 	return 0;
 }
@@ -164,7 +167,7 @@ static int cu_emit_kretprobes_table_iterator(struct cu *cu, void *cookie)
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node)
-		printf("\t&kretprobe__%s,\n", pos->name);
+		printf("\t&kretprobe__%s,\n", function__name(pos, cu));
 
 	return 0;
 }

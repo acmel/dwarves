@@ -83,18 +83,20 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 			  struct cu *cu)
 {
 	struct function *new_function;
+	const char *name;
 
 	assert(function->proto.tag.tag == DW_TAG_subprogram);
 
 	if (function->inlined)
 		return;
 
-	new_function = cu__find_function_by_name(new_cu, function->name);
+	name = function__name(function, cu);
+	new_function = cu__find_function_by_name(new_cu, name);
 	if (new_function != NULL) {
 		int32_t diff = (function__size(new_function) -
 				function__size(function));
 		if (diff != 0) {
-			const size_t len = strlen(function->name);
+			const size_t len = strlen(name);
 
 			function->priv = diff_info__new(&new_function->proto.tag, new_cu,
 							diff);
@@ -108,7 +110,7 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 				cu->function_bytes_removed += -diff;
 		}
 	} else {
-		const size_t len = strlen(function->name);
+		const size_t len = strlen(name);
 		const uint32_t diff = -function__size(function);
 
 		if (len > cu->max_len_changed_item)
@@ -269,15 +271,17 @@ static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
 {
 	struct function *function = tag__function(tfunction);
 	struct function *old_function;
+	const char *name;
 
 	assert(function->proto.tag.tag == DW_TAG_subprogram);
 
 	if (function->inlined)
 		return 0;
 
-	old_function = cu__find_function_by_name(old_cu, function->name);
+	name = function__name(function, cu);
+	old_function = cu__find_function_by_name(old_cu, name);
 	if (old_function == NULL) {
-		const size_t len = strlen(function->name);
+		const size_t len = strlen(name);
 		const int32_t diff = function__size(function);
 
 		if (len > cu->max_len_changed_item)
@@ -345,14 +349,13 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 	return 0;
 }
 
-static void show_diffs_function(const struct function *function,
-				const struct cu *cu)
+static void show_diffs_function(struct function *function, const struct cu *cu)
 {
 	const struct diff_info *di = function->priv;
 
 	printf("  %-*.*s | %+4d\n",
 	       cu->max_len_changed_item, cu->max_len_changed_item,
-	       function->name, di->diff);
+	       function__name(function, cu), di->diff);
 }
 
 static void show_changed_member(char change, const struct class_member *member,

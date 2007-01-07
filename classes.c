@@ -745,6 +745,8 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		strncpy(bf, "void", len);
 	else if (self->tag == DW_TAG_base_type)
 		strncpy(bf, tag__base_type(self)->name, len);
+	else if (self->tag == DW_TAG_subprogram)
+		strncpy(bf, function__name(tag__function(self), cu), len);
 	else if (self->tag == DW_TAG_pointer_type) {
 		if (self->type == 0) /* No type == void */
 			strncpy(bf, "void *", len);
@@ -1210,9 +1212,26 @@ static struct function *function__new(Dwarf_Die *die)
 		self->name     = strings__add(attr_string(die, DW_AT_name));
 		self->inlined  = attr_numeric(die, DW_AT_inline);
 		self->external = dwarf_hasattr(die, DW_AT_external);
+		self->abstract_origin = attr_numeric(die,
+						     DW_AT_abstract_origin);
 	}
 
 	return self;
+}
+
+const char *function__name(struct function *self, const struct cu *cu)
+{
+	/* Check if the tag doesn't comes with a DW_AT_name attribute... */
+	if (self->name == NULL) {
+		/* No? So it must have a DW_AT_abstract_origin... */
+		struct tag *tag = cu__find_tag_by_id(cu,
+						     self->abstract_origin);
+		assert(tag != NULL);
+		/* ... and now we cache the result in this tag ->name field */
+		self->name = tag__function(tag)->name;
+	}
+
+	return self->name;
 }
 
 int ftype__has_parm_of_type(const struct ftype *self, const struct tag *target,
@@ -1444,12 +1463,12 @@ static void function__tag_print(const struct tag *tag, const struct cu *cu,
 		const struct inline_expansion *exp = vtag;
 		const struct tag *talias =
 				cu__find_tag_by_id(cu, exp->tag.type);
-		const struct function *alias = tag__function(talias);
+		struct function *alias = tag__function(talias);
 
 		assert(alias != NULL);
 		printf("%.*s", indent, tabs);
 		c += printf("%s(); /* low_pc=%#llx */",
-			    alias->name, exp->low_pc);
+			    function__name(alias, cu), exp->low_pc);
 	}
 		break;
 	case DW_TAG_variable:
@@ -1548,7 +1567,7 @@ size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 	return len - (l - n);
 }
 
-void function__print(const struct function *self, const struct cu *cu,
+void function__print(struct function *self, const struct cu *cu,
 		     int show_stats, const int show_variables,
 		     const int show_inline_expansions)
 {
@@ -1560,7 +1579,8 @@ void function__print(const struct function *self, const struct cu *cu,
 				self->proto.tag.decl_line);
 
 	ftype__snprintf(&self->proto, cu, bf, sizeof(bf),
-			self->name, function__declared_inline(self), 0, 0);
+			function__name(self, cu),
+			function__declared_inline(self), 0, 0);
 	fputs(bf, stdout);
 
 	if (show_variables || show_inline_expansions) {
