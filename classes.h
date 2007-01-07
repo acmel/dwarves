@@ -171,8 +171,8 @@ struct function {
 	const char	 *name;
 	size_t		 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;
-	uint8_t		 inlined:2;
-	uint8_t		 external:1;
+	uint8_t		 inlined;	/* two bits used */
+	uint8_t		 external;	/* one bit used */
 	/* fields used by tools */
 	struct list_head tool_node;
 	void		 *priv;
