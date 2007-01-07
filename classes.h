@@ -55,8 +55,8 @@ struct type {
 	struct tag	 tag;
 	struct list_head node;
 	const char	 *name;
-	uint8_t		 definition_emitted:1;
-	uint8_t		 fwd_decl_emitted:1;
+	uint8_t		 definition_emitted;
+	uint8_t		 fwd_decl_emitted;
 };
 
 static inline struct type *tag__type(const struct tag *self)
