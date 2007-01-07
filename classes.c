@@ -304,10 +304,26 @@ static struct type *type__new(Dwarf_Die *die)
 	return self;
 }
 
-static size_t enumeration__snprintf(const struct class *self,
+static struct enumeration *enumeration__new(Dwarf_Die *die)
+{
+	struct enumeration *self = malloc(sizeof(*self));
+
+	if (self != NULL) {
+		type__init(&self->type, die);
+		INIT_LIST_HEAD(&self->members);
+		self->nr_members = 0;
+		self->size = attr_numeric(die, DW_AT_byte_size);
+	}
+
+	return self;
+}
+
+static size_t enumeration__snprintf(const struct tag *tag_self,
 				    char *bf, size_t len,
 				    const char *suffix, uint8_t ntabs)
 {
+	const struct type *type_self = tag__type(tag_self);
+	const struct enumeration *self = tag__enumeration(tag_self);
 	struct enumerator *pos;
 	char *s = bf;
 	size_t printed = 0, n;
@@ -316,7 +332,7 @@ static size_t enumeration__snprintf(const struct class *self,
 		ntabs = sizeof(tabs) - 1;
 
 	n = snprintf(s, len, "enum%s%s {\n",
-		     self->type.name ? " " : "", self->type.name ?: "");
+		     type_self->name ? " " : "", type_self->name ?: "");
 	s += n;
 	len -= n;
 	printed += n;
@@ -333,8 +349,8 @@ static size_t enumeration__snprintf(const struct class *self,
 	return printed + n;
 }
 
-static void enumeration__print(const struct class *self, const char *suffix,
-			       uint8_t ntabs)
+static void enumeration__print(const struct tag *tag_self,
+			       const char *suffix, uint8_t ntabs)
 {
 	char bf[4096];
 
@@ -342,8 +358,8 @@ static void enumeration__print(const struct class *self, const char *suffix,
 		ntabs = sizeof(tabs) - 1;
 
 	printf("%.*s/* %s:%u */\n", ntabs, tabs,
-	       self->type.tag.decl_file, self->type.tag.decl_line);
-	enumeration__snprintf(self, bf, sizeof(bf), suffix, ntabs);
+	       tag_self->decl_file, tag_self->decl_line);
+	enumeration__snprintf(tag_self, bf, sizeof(bf), suffix, ntabs);
 	printf("%s\n", bf);
 }
 
@@ -699,11 +715,12 @@ static size_t tag__size(const struct tag *self, const struct cu *cu)
 	size_t size;
 
 	switch (self->tag) {
-	case DW_TAG_pointer_type: return cu->addr_size;
-	case DW_TAG_base_type:	  return tag__base_type(self)->size;
+	case DW_TAG_pointer_type:	return cu->addr_size;
+	case DW_TAG_base_type:		return tag__base_type(self)->size;
+	case DW_TAG_enumeration_type:	return tag__enumeration(self)->size;
 	}
 
-	if (self->type == 0) /* struct class: enums, unions, structs */
+	if (self->type == 0) /* struct class: unions, structs */
 		size = tag__class(self)->size;
 	else {
 		const struct tag *type = cu__find_tag_by_id(cu, self->type);
@@ -954,9 +971,9 @@ static size_t class_member__print(struct class_member *self,
 	assert(type != NULL);
 	if (type->tag == DW_TAG_enumeration_type) {
 		const struct type *ctype = tag__type(type);
-		const struct class *class = tag__class(type);
+		const struct enumeration *enumeration = tag__enumeration(type);
 
-		size = class->size; 
+		size = enumeration->size; 
 		if (ctype->name != NULL) {
 			snprintf(class_name, sizeof(class_name), "enum %s",
 				 ctype->name);
@@ -964,7 +981,7 @@ static size_t class_member__print(struct class_member *self,
 				 self->name);
 		} else {
 			const size_t spacing = 45 - strlen(self->name);
-			enumeration__snprintf(class, class_name,
+			enumeration__snprintf(type, class_name,
 					      sizeof(class_name),
 					      self->name, 1);
 
@@ -1122,7 +1139,7 @@ static void class__add_member(struct class *self, struct class_member *member)
 	list_add_tail(&member->tag.node, &self->members);
 }
 
-static void enumeration__add(struct class *self,
+static void enumeration__add(struct enumeration *self,
 			     struct enumerator *enumerator)
 {
 	++self->nr_members;
@@ -2038,7 +2055,7 @@ static void cu__create_new_inline_expansion(struct cu *cu, Dwarf_Die *die,
 static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
-	struct class *enumeration = class__new(die);
+	struct enumeration *enumeration = enumeration__new(die);
 
 	if (enumeration == NULL)
 		oom("class__new");
@@ -2373,10 +2390,9 @@ out:
 	return 1;
 }
 
-static int cus__emit_enumeration_definitions(struct cus *self,
-					     struct class *enumeration)
+static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag)
 {
-	struct type *etype = &enumeration->type;
+	struct type *etype = tag__type(tag);
 
 	/* Have we already emitted this in this CU? */
 	if (etype->definition_emitted)
@@ -2392,7 +2408,7 @@ static int cus__emit_enumeration_definitions(struct cus *self,
 		return 0;
 	}
 
-	enumeration__print(enumeration, NULL, 0);
+	enumeration__print(tag, NULL, 0);
 	cus__add_definition(self, etype);
 	return 1;
 }
@@ -2422,7 +2438,6 @@ static int cus__emit_tag_definitions(struct cus *self, struct cu *cu,
 				     struct tag *tag)
 {
 	struct tag *type = cu__find_tag_by_id(cu, tag->type);
-	struct class *ctype;
 	int pointer = 0;
 
 	if (type == NULL)
@@ -2439,14 +2454,12 @@ next_indirection:
 		goto next_indirection;
 	}
 
-	ctype = tag__class(type);
-
 	switch (type->tag) {
 	case DW_TAG_typedef:
 		return cus__emit_typedef_definitions(self, cu, type);
 	case DW_TAG_enumeration_type:
 		if (tag__type(type)->name != NULL)
-			return cus__emit_enumeration_definitions(self, ctype);
+			return cus__emit_enumeration_definitions(self, type);
 		break;
 	case DW_TAG_structure_type:
 		if (pointer)

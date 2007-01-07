@@ -219,6 +219,18 @@ struct label {
 	Dwarf_Addr	 low_pc;
 };
 
+struct enumeration {
+	struct type	 type;
+	struct list_head members;	/* struct enumerator */
+	uint16_t	 size;
+	uint16_t	 nr_members;
+};
+
+static inline struct enumeration *tag__enumeration(const struct tag *self)
+{
+	return (struct enumeration *)self;
+}
+
 struct enumerator {
 	struct tag	 tag;
 	const char	 *name;
