@@ -684,6 +684,27 @@ static struct variable *cu__find_variable_by_id(const struct cu *self,
 	return NULL;
 }
 
+static struct parameter *cu__find_parameter_by_id(const struct cu *self,
+						  const Dwarf_Off id)
+{
+	struct tag *pos;
+
+	list_for_each_entry(pos, &self->tags, node)
+		if (pos->id == id)
+			return tag__parameter(pos);
+
+		if (pos->tag == DW_TAG_subprogram) {
+			struct function *fn = tag__function(pos);
+			struct tag *tag =
+				lexblock__find_tag_by_id(&fn->lexblock, id);
+
+			if (tag != NULL)
+				return tag__parameter(tag);
+		}
+
+	return NULL;
+}
+
 int tag__is_struct(const struct tag *self, struct tag **typedef_alias,
 		   const struct cu *cu)
 {
@@ -1052,10 +1073,44 @@ static struct parameter *parameter__new(Dwarf_Die *die)
 
 	if (self != NULL) {
 		tag__init(&self->tag, die);
-		self->name = strings__add(attr_string(die, DW_AT_name));
+		self->name	      = strings__add(attr_string(die,
+								 DW_AT_name));
+		self->abstract_origin = attr_numeric(die,
+						     DW_AT_abstract_origin);
 	}
 
 	return self;
+}
+
+const char *parameter__name(struct parameter *self, const struct cu *cu)
+{
+	/* Check if the tag doesn't comes with a DW_AT_name attribute... */
+	if (self->name == NULL && self->abstract_origin != 0) {
+		/* No? Does it have a DW_AT_abstract_origin? */
+		struct parameter *alias =
+			cu__find_parameter_by_id(cu, self->abstract_origin);
+		assert(alias != NULL);
+		/* Now cache the result in this tag ->name field */
+		self->name = alias->name;
+	}
+
+	return self->name;
+}
+
+Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu)
+{
+	/* Check if the tag doesn't comes with a DW_AT_type attribute... */
+	if (self->tag.type == 0 && self->abstract_origin != 0) {
+		/* No? Does it have a DW_AT_abstract_origin? */
+		struct parameter *alias =
+			cu__find_parameter_by_id(cu, self->abstract_origin);
+		assert(alias != NULL);
+		/* Now cache the result in this tag ->name and type fields */
+		self->name = alias->name;
+		self->tag.type = alias->tag.type;
+	}
+
+	return self->tag.type;
 }
 
 static struct inline_expansion *inline_expansion__new(Dwarf_Die *die)
@@ -1240,7 +1295,8 @@ int ftype__has_parm_of_type(const struct ftype *self, const struct tag *target,
 	struct parameter *pos;
 
 	list_for_each_entry(pos, &self->parms, tag.node) {
-		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
+		struct tag *type =
+			cu__find_tag_by_id(cu, parameter__type(pos, cu));
 
 		if (type != NULL && type->tag == DW_TAG_pointer_type) {
 			type = cu__find_tag_by_id(cu, type->type);
@@ -1528,12 +1584,15 @@ size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 	s += n; l -= n;
 
 	list_for_each_entry(pos, &self->parms, tag.node) {
+		const char *name;
+
 		if (!first_parm) {
 			n = snprintf(s, l, ", ");
 			s += n; l -= n;
 		} else
 			first_parm = 0;
-		type = cu__find_tag_by_id(cu, pos->tag.type);
+		type = cu__find_tag_by_id(cu, parameter__type(pos, cu));
+		name = parameter__name(pos, cu);
 		if (type->tag == DW_TAG_pointer_type) {
 			if (type->type != 0) {
 				struct tag *ptype =
@@ -1541,18 +1600,18 @@ size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 				if (ptype->tag == DW_TAG_subroutine_type) {
 					n = ftype__snprintf(tag__ftype(ptype),
 							    cu, s, l,
-							    pos->name, 0, 1, 0);
+							    name, 0, 1, 0);
 					goto next;
 				}
 			}
 		} else if (type->tag == DW_TAG_subroutine_type) {
 			n = ftype__snprintf(tag__ftype(type), cu, s, l,
-					    pos->name, 0, 0, 0);
+					    name, 0, 0, 0);
 			goto next;
 		}
 		stype = tag__name(type, cu, sbf, sizeof(sbf));
 		n = snprintf(s, l, "%s%s%s", stype,
-			     pos->name ? " " : "", pos->name ?: "");
+			     name ? " " : "", name ?: "");
 	next:
 		s += n; l -= n;
 	}
@@ -1942,14 +2001,18 @@ static void cu__create_new_array(Dwarf_Die *die, struct cu *cu)
 	cu__add_tag(cu, &array->tag);
 }
 
-static void cu__create_new_parameter(Dwarf_Die *die, struct ftype *ftype)
+static void cu__create_new_parameter(Dwarf_Die *die, struct ftype *ftype,
+				     struct cu *cu)
 {
 	struct parameter *parm = parameter__new(die);
 
 	if (parm == NULL)
 		oom("parameter__new");
 
-	ftype__add_parameter(ftype, parm);
+	if (ftype != NULL)
+		ftype__add_parameter(ftype, parm);
+	else
+		cu__add_tag(cu, &parm->tag);
 }
 
 static void cu__create_new_label(Dwarf_Die *die, struct lexblock *lexblock)
@@ -1989,7 +2052,7 @@ static void cu__create_new_subroutine_type(Dwarf_Die *die, struct cu *cu)
 
 		switch (tag) {
 		case DW_TAG_formal_parameter:
-			cu__create_new_parameter(die, ftype);
+			cu__create_new_parameter(die, ftype, cu);
 			break;
 		case DW_TAG_unspecified_parameters:
 			ftype->unspec_parms = 1;
@@ -2120,8 +2183,7 @@ static void cu__process_function(Dwarf_Die *die,
 
 		switch (tag) {
 		case DW_TAG_formal_parameter:
-			if (ftype != NULL)
-				cu__create_new_parameter(die, ftype);
+			cu__create_new_parameter(die, ftype, cu);
 			break;
 		case DW_TAG_variable:
 			cu__create_new_variable(cu, die, lexblock);

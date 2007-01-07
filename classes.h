@@ -187,7 +187,13 @@ static inline struct function *tag__function(const struct tag *self)
 struct parameter {
 	struct tag	 tag;
 	char		 *name;
+	Dwarf_Off	 abstract_origin;
 };
+
+static inline struct parameter *tag__parameter(const struct tag *self)
+{
+	return (struct parameter *)self;
+}
 
 struct variable {
 	struct tag	 tag;

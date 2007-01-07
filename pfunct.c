@@ -156,7 +156,7 @@ static void fn_stats__dupmsg(struct function *self,
 		printf("function: %s\nfirst: %s\ncurrent: %s\n",
 		       function__name(self, self_cu),
 		       self_cu->name,
-		       function__name(dup, dup_cu));
+		       dup_cu->name);
 	
 	va_start(args, fmt);
 	vprintf(fmt, args);
@@ -200,10 +200,14 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 		return NULL;
 
 	function = tag__function(tag);
-	name = function__name(function, cu);
-	if (name == NULL)
+	/*
+	 * FIXME: remove this check and try to fix the parameter abstract
+	 * origin code someday...
+	 */
+	if (function->name == NULL)
 		return NULL;
 
+	name = function__name(function, cu);
 	if (show_externals && !function->external)
 		return NULL;
 
