@@ -123,7 +123,6 @@ static inline struct array_type *tag__array_type(const struct tag *self)
 struct class_member {
 	struct tag	 tag;
 	char		 *name;
-	struct class	 *class;
 	uint16_t	 offset;
 	uint8_t		 bit_offset;
 	uint8_t		 bit_size;

@@ -1135,7 +1135,6 @@ static struct class *class__new(Dwarf_Die *die)
 static void class__add_member(struct class *self, struct class_member *member)
 {
 	++self->nr_members;
-	member->class = self;
 	list_add_tail(&member->tag.node, &self->members);
 }
 
