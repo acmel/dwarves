@@ -2413,7 +2413,7 @@ static int cus__emit_enumeration_definitions(struct cus *self,
 		return 0;
 	}
 	enumeration__print(enumeration, NULL, 0);
-	enumeration->visited = 1;
+	cus__add_definition(self, enumeration);
 	return 1;
 }
 
