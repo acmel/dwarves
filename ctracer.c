@@ -19,7 +19,6 @@ static struct cus *cus;
 static struct cus *kprobes_cus;
 
 static LIST_HEAD(cus__definitions);
-static LIST_HEAD(cus__typedef_definitions);
 static LIST_HEAD(cus__fwd_decls);
 
 static void method__add(struct cu *cu, struct function *function)
@@ -119,7 +118,7 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
 		cus__emit_ftype_definitions(cus, cu, &pos->proto);
-		function__emit_kprobes(pos, cu, &target->tag);
+		function__emit_kprobes(pos, cu, class__tag(target));
 	}
 
 	return 0;
@@ -195,7 +194,7 @@ static void emit_class_fwd_decl(const char *name)
 	struct cu *cu;
 	struct class *c = cus__find_class_by_name(kprobes_cus, &cu, name);
 	if (c != NULL)
-		cus__emit_fwd_decl(kprobes_cus, c);
+		cus__emit_fwd_decl(kprobes_cus, &c->type);
 }
 
 static void emit_module_preamble(void)
@@ -333,8 +332,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	cus = cus__new(&cus__definitions, &cus__typedef_definitions,
-		       &cus__fwd_decls);
+	cus = cus__new(&cus__definitions, &cus__fwd_decls);
 	if (cus == NULL) {
 out_enomem:
 		fputs("ctracer: insufficient memory\n", stderr);
@@ -342,9 +340,7 @@ out_enomem:
 	}
 	
 	if (kprobes_filename != NULL) {
-		kprobes_cus = cus__new(&cus__definitions,
-				       &cus__typedef_definitions,
-				       &cus__fwd_decls);
+		kprobes_cus = cus__new(&cus__definitions, &cus__fwd_decls);
 		if (kprobes_cus == NULL)
 			goto out_enomem;
 		if (cus__load(kprobes_cus, kprobes_filename) != 0) {

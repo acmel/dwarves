@@ -208,12 +208,12 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 	size_t len;
 	int32_t diff;
 
-	assert(structure->tag.tag == DW_TAG_structure_type);
+	assert(class__tag_type(structure) == DW_TAG_structure_type);
 
-	if (structure->size == 0 || structure->name == NULL)
+	if (structure->size == 0 || class__name(structure) == NULL)
 		return;
 
-	new_structure = cu__find_class_by_name(new_cu, structure->name);
+	new_structure = cu__find_class_by_name(new_cu, class__name(structure));
 	if (new_structure == NULL) {
 		diff = 1;
 		goto out;
@@ -222,7 +222,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 	if (new_structure->size == 0)
 		return;
 
-	assert(new_structure->tag.tag == DW_TAG_structure_type);
+	assert(class__tag_type(new_structure) == DW_TAG_structure_type);
 
 	diff = structure->size != new_structure->size ||
 	       structure->nr_members != new_structure->nr_members ||
@@ -232,10 +232,11 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 		return;
 out:
 	++cu->nr_structures_changed;
-	len = strlen(structure->name) + sizeof("struct");
+	len = strlen(class__name(structure)) + sizeof("struct");
 	if (len > cu->max_len_changed_item)
 		cu->max_len_changed_item = len;
-	structure->priv = diff_info__new(&new_structure->tag, new_cu, diff);
+	structure->priv = diff_info__new(class__tag(new_structure),
+					 new_cu, diff);
 }
 
 static int diff_class_iterator(struct tag *tag, struct cu *cu, void *new_cu)
@@ -296,19 +297,19 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 		return 0;
 
 	class = tag__class(tag);
-	if (class->name == NULL)
+	if (class__name(class) == NULL)
 		return 0;
 
 	if (class->size == 0)
 		return 0;
 
-	if (cu__find_class_by_name(old_cu, class->name) != NULL)
+	if (cu__find_class_by_name(old_cu, class__name(class)) != NULL)
 		return 0;
 
 	class->priv = diff_info__new(NULL, NULL, 1);
 	++cu->nr_structures_changed;
 
-	len = strlen(class->name) + sizeof("struct");
+	len = strlen(class__name(class)) + sizeof("struct");
 	if (len > cu->max_len_changed_item)
 		cu->max_len_changed_item = len;
 	return 0;
@@ -392,7 +393,7 @@ static void print_terse_type_changes(const struct class *structure)
 {
 	const char *sep = "";
 
-	printf("struct %s: ", structure->name);
+	printf("struct %s: ", class__name(structure));
 
 	if (terse_type_changes & TCHANGEF__SIZE) {
 		fputs("size", stdout);
@@ -433,7 +434,7 @@ static void show_diffs_structure(const struct class *structure,
 		printf("  struct %-*.*s | %+4d\n",
 		       cu->max_len_changed_item - sizeof("struct"),
 		       cu->max_len_changed_item - sizeof("struct"),
-		       structure->name, diff);
+		       class__name(structure), diff);
 
 	if (diff != 0)
 		terse_type_changes |= TCHANGEF__SIZE;
@@ -587,8 +588,8 @@ int main(int argc, char *argv[])
 	    show_terse_type_changes == 0)
 		show_function_diffs = show_struct_diffs = 1;
 
-	old_cus = cus__new(NULL, NULL, NULL);
-	new_cus = cus__new(NULL, NULL, NULL);
+	old_cus = cus__new(NULL, NULL);
+	new_cus = cus__new(NULL, NULL);
 	if (old_cus == NULL || new_cus == NULL) {
 		fputs("codiff: insufficient memory\n", stderr);
 		return EXIT_FAILURE;

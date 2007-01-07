@@ -18,11 +18,9 @@
 
 struct cus {
 	struct list_head cus;
-	struct list_head priv_definitions;
-	struct list_head priv_typedef_definitions;
-	struct list_head priv_fwd_decls;
+	struct list_head priv_definitions; /* struct type entries */
+	struct list_head priv_fwd_decls;   /* struct class entries */
 	struct list_head *definitions;
-	struct list_head *typedef_definitions;
 	struct list_head *fwd_decls;
 };
 
@@ -53,11 +51,22 @@ struct tag {
 	uint32_t	 refcnt;
 };
 
-struct class {
+struct type {
 	struct tag	 tag;
-	struct list_head members;
 	struct list_head node;
 	const char	 *name;
+	uint8_t		 definition_emitted:1;
+	uint8_t		 fwd_decl_emitted:1;
+};
+
+static inline struct type *tag__type(const struct tag *self)
+{
+	return (struct type *)self;
+}
+
+struct class {
+	struct type	 type;
+	struct list_head members;
 	size_t		 size;
 	uint16_t	 nr_members;
 	uint8_t		 nr_holes;
@@ -65,14 +74,27 @@ struct class {
 	uint16_t	 padding;
 	uint8_t		 bit_padding;
 	uint8_t		 declaration:1;
-	uint8_t		 visited:1;
-	uint8_t		 fwd_decl_emitted:1;
 	void		 *priv;
 };
 
 static inline struct class *tag__class(const struct tag *self)
 {
 	return (struct class *)self;
+}
+
+static inline struct tag *class__tag(const struct class *self)
+{
+	return (struct tag *)self;
+}
+
+static inline const char *class__name(const struct class *self)
+{
+	return self->type.name;
+}
+
+static inline uint16_t class__tag_type(const struct class *self)
+{
+	return self->type.tag.tag;
 }
 
 struct base_type {
@@ -84,18 +106,6 @@ struct base_type {
 static inline struct base_type *tag__base_type(const struct tag *self)
 {
 	return (struct base_type *)self;
-}
-
-struct typedef_tag {
-	struct tag	 tag;
-	struct list_head node;	  /* In cus->definitions */
-	const char	 *name;
-	uint8_t		 visited; /* Just one bit is needed */
-};
-
-static inline struct typedef_tag *tag__typedef_tag(const struct tag *self)
-{
-	return (struct typedef_tag *)self;
 }
 
 struct array_type {
@@ -226,7 +236,6 @@ extern void function__print(const struct function *self, const struct cu *cu,
 			    const int show_inline_expansions);
 
 extern struct cus *cus__new(struct list_head *definitions,
-			    struct list_head *typedef_definitions,
 			    struct list_head *fwd_decls);
 extern int cus__load(struct cus *self, const char *filename);
 extern int cus__load_dir(struct cus *self, const char *dirname,
@@ -245,7 +254,7 @@ extern int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
 					struct class *class,
 					const char *prefix,
 					const char *suffix);
-extern int cus__emit_fwd_decl(struct cus *self, struct class *class);
+extern int cus__emit_fwd_decl(struct cus *self, struct type *ctype);
 
 extern struct tag *cu__find_tag_by_id(const struct cu *self,
 				      const Dwarf_Off id);

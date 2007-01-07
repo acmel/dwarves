@@ -57,7 +57,7 @@ static struct structure *structures__find(const char *name)
 	struct structure *pos;
 
 	list_for_each_entry(pos, &structures__list, node)
-		if (strcmp(pos->class->name, name) == 0)
+		if (strcmp(class__name(pos->class), name) == 0)
 			return pos;
 	return NULL;
 }
@@ -72,28 +72,29 @@ static void structures__add(const struct class *class, const struct cu *cu)
 
 static void nr_definitions_formatter(const struct structure *self)
 {
-	printf("%s: %u\n", self->class->name, self->nr_files);
+	printf("%s: %u\n", class__name(self->class), self->nr_files);
 }
 
 static void nr_members_formatter(const struct structure *self)
 {
-	printf("%s: %u\n", self->class->name, self->class->nr_members);
+	printf("%s: %u\n", class__name(self->class), self->class->nr_members);
 }
 
 static void size_formatter(const struct structure *self)
 {
-	printf("%s: %u %u\n", self->class->name, self->class->size,
+	printf("%s: %u %u\n", class__name(self->class), self->class->size,
 	       self->class->nr_holes);
 }
 
 static void class_name_len_formatter(const struct structure *self)
 {
-	printf("%s: %u\n", self->class->name, strlen(self->class->name));
+	const char *name = class__name(self->class);
+	printf("%s: %u\n", name, strlen(name));
 }
 
 static void class_formatter(const struct structure *self)
 {
-	tag__print(&self->class->tag, self->cu, NULL, NULL);
+	tag__print(class__tag(self->class), self->cu, NULL, NULL);
 	printf("   /* definitions: %u */\n", self->nr_files);
 	putchar('\n');
 }
@@ -143,7 +144,7 @@ static void class__dupmsg(const struct class *self, const struct cu *cu,
 
 	if (!*hdr)
 		printf("class: %s\nfirst: %s\ncurrent: %s\n",
-		       self->name, cu->name, dup_cu->name);
+		       class__name(self), cu->name, dup_cu->name);
 	
 	va_start(args, fmt);
 	vprintf(fmt, args);
@@ -200,27 +201,28 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
 {
 	struct structure *str;
 	struct class *class;
+	const char *name;
 
 	tag = tag__to_struct(tag, cu);
 	if (tag == NULL) /* Not a structure */
 		return NULL;
 
 	class = tag__class(tag);
-
-	if (class->name == NULL)
+	name = class__name(class);
+	if (name == NULL)
 		return NULL;
 
 	if (class->declaration)
 		return NULL;
 
 	if (class__exclude_prefix != NULL &&
-	    strncmp(class__exclude_prefix, class->name,
+	    strncmp(class__exclude_prefix, name,
 		    class__exclude_prefix_len) == 0)
 		return NULL;
 
 	if (decl_exclude_prefix != NULL &&
-	    (class->tag.decl_file == NULL ||
-	     strncmp(decl_exclude_prefix, class->tag.decl_file,
+	    (tag->decl_file == NULL ||
+	     strncmp(decl_exclude_prefix, tag->decl_file,
 		     decl_exclude_prefix_len) == 0))
 		return NULL;
 
@@ -230,7 +232,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
 	    class->nr_bit_holes < nr_bit_holes)
 		return NULL;
 
-	str = structures__find(class->name);
+	str = structures__find(name);
 	if (str != NULL) {
 		class__chkdupdef(str->class, str->cu, class, cu);
 		str->nr_files++;
@@ -334,7 +336,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	cus = cus__new(NULL, NULL, NULL);
+	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
 		fputs("pahole: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
@@ -355,7 +357,7 @@ int main(int argc, char *argv[])
 			printf("struct %s not found!\n", class_name);
 			return EXIT_FAILURE;
 		}
-		tag__print(&s->class->tag, s->cu, NULL, NULL);
+		tag__print(class__tag(s->class), s->cu, NULL, NULL);
 	} else
 		print_classes(formatter);
 

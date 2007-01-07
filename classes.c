@@ -285,16 +285,21 @@ static struct base_type *base_type__new(Dwarf_Die *die)
 	return self;
 }
 
-static struct typedef_tag *typedef_tag__new(Dwarf_Die *die)
+static void type__init(struct type *self, Dwarf_Die *die)
 {
-	struct typedef_tag *self = malloc(sizeof(*self));
+	tag__init(&self->tag, die);
+	INIT_LIST_HEAD(&self->node);
+	self->name		 = strings__add(attr_string(die, DW_AT_name));
+	self->definition_emitted = 0;
+	self->fwd_decl_emitted	 = 0;
+}
 
-	if (self != NULL) {
-		tag__init(&self->tag, die);
-		INIT_LIST_HEAD(&self->node);
-		self->name = strings__add(attr_string(die, DW_AT_name));
-		self->visited = 0;
-	}
+static struct type *type__new(Dwarf_Die *die)
+{
+	struct type *self = malloc(sizeof(*self));
+
+	if (self != NULL)
+		type__init(self, die);
 
 	return self;
 }
@@ -311,7 +316,7 @@ static size_t enumeration__snprintf(const struct class *self,
 		ntabs = sizeof(tabs) - 1;
 
 	n = snprintf(s, len, "enum%s%s {\n",
-		     self->name ? " " : "", self->name ?: "");
+		     self->type.name ? " " : "", self->type.name ?: "");
 	s += n;
 	len -= n;
 	printed += n;
@@ -337,7 +342,7 @@ static void enumeration__print(const struct class *self, const char *suffix,
 		ntabs = sizeof(tabs) - 1;
 
 	printf("%.*s/* %s:%u */\n", ntabs, tabs,
-	       self->tag.decl_file, self->tag.decl_line);
+	       self->type.tag.decl_file, self->type.tag.decl_line);
 	enumeration__snprintf(self, bf, sizeof(bf), suffix, ntabs);
 	printf("%s\n", bf);
 }
@@ -383,7 +388,7 @@ static size_t union__snprintf(const struct class *self, const struct cu *cu,
 		ntabs = sizeof(tabs) - 1;
 
 	n = snprintf(s, len, "union%s%s {\n",
-		     self->name ? " " : "", self->name ?: "");
+		     self->type.name ? " " : "", self->type.name ?: "");
 	s += n;
 	len -= n;
 	printed += n;
@@ -415,7 +420,7 @@ static void union__print(const struct class *self, const struct cu *cu,
 		ntabs = sizeof(tabs) - 1;
 
 	printf("%.*s/* %s:%u */\n", ntabs, tabs,
-	       self->tag.decl_file, self->tag.decl_line);
+	       self->type.tag.decl_file, self->type.tag.decl_line);
 	union__snprintf(self, cu, bf, sizeof(bf), suffix, ntabs);
 	printf("%s\n", bf);
 }
@@ -500,7 +505,8 @@ struct class *cu__find_class_by_name(const struct cu *self, const char *name)
 			continue;
 
 		class = tag__class(pos);
-		if (class->name != NULL && strcmp(class->name, name) == 0)
+		if (class->type.name != NULL &&
+		    strcmp(class->type.name, name) == 0)
 			return class;
 	}
 
@@ -554,9 +560,9 @@ struct cu *cus__find_cu_by_name(const struct cus *self, const char *name)
 	return NULL;
 }
 
-struct class *cus__find_definition(const struct cus *self, const char *name)
+struct type *cus__find_definition(const struct cus *self, const char *name)
 {
-	struct class *pos;
+	struct type *pos;
 
 	if (name == NULL)
 		return NULL;
@@ -568,9 +574,9 @@ struct class *cus__find_definition(const struct cus *self, const char *name)
 	return NULL;
 }
 
-struct class *cus__find_fwd_decl(const struct cus *self, const char *name)
+struct type *cus__find_fwd_decl(const struct cus *self, const char *name)
 {
-	struct class *pos;
+	struct type *pos;
 
 	list_for_each_entry(pos, self->fwd_decls, node)
 		if (strcmp(pos->name, name) == 0)
@@ -579,43 +585,19 @@ struct class *cus__find_fwd_decl(const struct cus *self, const char *name)
 	return NULL;
 }
 
-static void cus__add_definition(struct cus *self, struct class *class)
+static void cus__add_definition(struct cus *self, struct type *type)
 {
-	class->visited = 1;
-	if (!list_empty(&class->node))
-		list_del(&class->node);
-	list_add_tail(&class->node, self->definitions);
+	type->definition_emitted = 1;
+	if (!list_empty(&type->node))
+		list_del(&type->node);
+	list_add_tail(&type->node, self->definitions);
 }
 
-struct typedef_tag *cus__find_typedef_definition(const struct cus *self,
-						 const char *name)
+static void cus__add_fwd_decl(struct cus *self, struct type *type)
 {
-	struct typedef_tag *pos;
-
-	if (name == NULL)
-		return NULL;
-
-	list_for_each_entry(pos, self->typedef_definitions, node)
-		if (pos->name != NULL && strcmp(pos->name, name) == 0)
-			return pos;
-
-	return NULL;
-}
-
-static void cus__add_typedef_definition(struct cus *self,
-					struct typedef_tag *def)
-{
-	def->visited = 1;
-	if (!list_empty(&def->node))
-		list_del(&def->node);
-	list_add_tail(&def->node, self->definitions);
-}
-
-static void cus__add_fwd_decl(struct cus *self, struct class *class)
-{
-	class->fwd_decl_emitted = 1;
-	if (list_empty(&class->node))
-		list_add_tail(&class->node, self->fwd_decls);
+	type->fwd_decl_emitted = 1;
+	if (list_empty(&type->node))
+		list_add_tail(&type->node, self->fwd_decls);
 }
 
 struct function *cu__find_function_by_name(const struct cu *self,
@@ -747,8 +729,6 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		strncpy(bf, "void", len);
 	else if (self->tag == DW_TAG_base_type)
 		strncpy(bf, tag__base_type(self)->name, len);
-	else if (self->tag == DW_TAG_typedef)
-		strncpy(bf, tag__typedef_tag(self)->name, len);
 	else if (self->tag == DW_TAG_pointer_type) {
 		if (self->type == 0) /* No type == void */
 			strncpy(bf, "void *", len);
@@ -771,7 +751,7 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		ftype__snprintf(tag__ftype(self), cu, bf, len, NULL, 0, 0, 0);
 	else
 		snprintf(bf, len, "%s%s", tag__prefix(cu, self->tag),
-			 tag__class(self)->name ?: "");
+			 tag__type(self)->name ?: "");
 	return bf;
 }
 
@@ -974,9 +954,10 @@ static size_t class_member__print(struct class_member *self,
 
 	assert(type != NULL);
 	if (type->tag == DW_TAG_enumeration_type) {
-		const struct class *ctype = tag__class(type);
-		size = ctype->size;
+		const struct type *ctype = tag__type(type);
+		const struct class *class = tag__class(type);
 
+		size = class->size; 
 		if (ctype->name != NULL) {
 			snprintf(class_name, sizeof(class_name), "enum %s",
 				 ctype->name);
@@ -984,7 +965,7 @@ static size_t class_member__print(struct class_member *self,
 				 self->name);
 		} else {
 			const size_t spacing = 45 - strlen(self->name);
-			enumeration__snprintf(ctype, class_name,
+			enumeration__snprintf(class, class_name,
 					      sizeof(class_name),
 					      self->name, 1);
 
@@ -994,8 +975,10 @@ static size_t class_member__print(struct class_member *self,
 			goto out;
 		}
 	} else if (type->tag == DW_TAG_union_type) {
-		const struct class *ctype = tag__class(type);
-		size = ctype->size;
+		const struct type *ctype = tag__type(type);
+		const struct class *class = tag__class(type);
+
+		size = class->size;
 
 		if (ctype->name != NULL) {
 			snprintf(class_name, sizeof(class_name), "union %s",
@@ -1005,7 +988,7 @@ static size_t class_member__print(struct class_member *self,
 		} else {
 			const size_t spacing = 45 - (self->name ?
 						     strlen(self->name) : -1);
-			union__snprintf(ctype, cu,
+			union__snprintf(class, cu,
 					class_name, sizeof(class_name),
 					self->name, 1);
 			printf("%s %*.*s/* %5u %5u */",
@@ -1124,11 +1107,9 @@ static struct class *class__new(Dwarf_Die *die)
 	struct class *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, die);
+		type__init(&self->type, die);
 		INIT_LIST_HEAD(&self->members);
-		INIT_LIST_HEAD(&self->node);
 		self->size = attr_numeric(die, DW_AT_byte_size);
-		self->name = strings__add(attr_string(die, DW_AT_name));
 		self->declaration = attr_numeric(die, DW_AT_declaration);
 	}
 
@@ -1622,6 +1603,7 @@ static void class__print_struct(const struct tag *tag, const struct cu *cu,
 				const char *prefix, const char *suffix)
 {
 	struct class *self = tag__class(tag);
+	const struct type *tself = tag__type(tag);
 	uint32_t sum = 0;
 	uint32_t sum_holes = 0;
 	struct class_member *pos;
@@ -1633,7 +1615,7 @@ static void class__print_struct(const struct tag *tag, const struct cu *cu,
 	uint32_t sum_bit_holes = 0;
 
 	printf("%s%sstruct%s%s {\n", prefix ?: "", prefix ? " " : "",
-	       self->name ? " " : "", self->name ?: "");
+	       tself->name ? " " : "", tself->name ?: "");
 	list_for_each_entry(pos, &self->members, tag.node) {
 		const ssize_t cc_last_size = pos->offset - last_offset;
 
@@ -1851,7 +1833,7 @@ static void cu__create_new_class(Dwarf_Die *die, struct cu *cu)
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
 		cu__process_class(&child, class, cu);
-	cu__add_tag(cu, &class->tag);
+	cu__add_tag(cu, &class->type.tag);
 }
 
 static void cu__create_new_base_type(Dwarf_Die *die, struct cu *cu)
@@ -1870,10 +1852,10 @@ static void cu__create_new_base_type(Dwarf_Die *die, struct cu *cu)
 
 static void cu__create_new_typedef(Dwarf_Die *die, struct cu *cu)
 {
-	struct typedef_tag *tdef = typedef_tag__new(die);
+	struct type *tdef = type__new(die);
 
 	if (tdef == NULL)
-		oom("typedef_tag__new");
+		oom("type__new");
 
 	if (dwarf_haschildren(die))
 		fprintf(stderr, "%s: DW_TAG_typedef WITH children!\n",
@@ -2085,7 +2067,7 @@ static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 		enumeration__add(enumeration, enumerator);
 	} while (dwarf_siblingof(die, die) == 0);
 
-	cu__add_tag(cu, &enumeration->tag);
+	cu__add_tag(cu, &enumeration->type.tag);
 }
 
 static void cu__process_function(Dwarf_Die *die,
@@ -2317,7 +2299,6 @@ out:
 }
 
 struct cus *cus__new(struct list_head *definitions,
-		     struct list_head *typedef_definitions,
 		     struct list_head *fwd_decls)
 {
 	struct cus *self = malloc(sizeof(*self));
@@ -2325,11 +2306,8 @@ struct cus *cus__new(struct list_head *definitions,
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->cus);
 		INIT_LIST_HEAD(&self->priv_definitions);
-		INIT_LIST_HEAD(&self->priv_typedef_definitions);
 		INIT_LIST_HEAD(&self->priv_fwd_decls);
 		self->definitions = definitions ?: &self->priv_definitions;
-		self->typedef_definitions = typedef_definitions ?:
-					    &self->priv_typedef_definitions;
 		self->fwd_decls = fwd_decls ?: &self->priv_fwd_decls;
 	}
 
@@ -2339,22 +2317,22 @@ struct cus *cus__new(struct list_head *definitions,
 static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 					 struct tag *tdef)
 {
-	struct typedef_tag *def = tag__typedef_tag(tdef);
+	struct type *def = tag__type(tdef);
 	struct tag *type, *ptr_type;
 	int is_pointer = 0;
 	char bf[512];
 
 	/* Have we already emitted this in this CU? */
-	if (def->visited)
+	if (def->definition_emitted)
 		return 0;
 
 	/* Ok, lets look at the previous CUs: */
-	if (cus__find_typedef_definition(self, def->name) != NULL) {
+	if (cus__find_definition(self, def->name) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
 		 */
-		def->visited = 1;
+		def->definition_emitted = 1;
 		return 0;
 	}
 	type = cu__find_tag_by_id(cu, tdef->type);
@@ -2378,10 +2356,11 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 		printf("%s;\n", bf);
 		goto out;
 	case DW_TAG_structure_type: {
-		struct class *ctype = tag__class(type);
+		const struct type *ctype = tag__type(type);
 
 		if (ctype->name == NULL)
-			cus__emit_struct_definitions(self, cu, ctype,
+			cus__emit_struct_definitions(self, cu,
+						     tag__class(type),
 						     "typedef", def->name);
 		else
 			printf("typedef struct %s %s;\n",
@@ -2392,52 +2371,52 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	printf("typedef %s %s;\n", tag__name(type, cu, bf, sizeof(bf)),
 	       def->name);
 out:
-	cus__add_typedef_definition(self, def);
+	cus__add_definition(self, def);
 	return 1;
 }
 
 static int cus__emit_enumeration_definitions(struct cus *self,
 					     struct class *enumeration)
 {
+	struct type *etype = &enumeration->type;
+
 	/* Have we already emitted this in this CU? */
-	if (enumeration->visited)
+	if (etype->definition_emitted)
 		return 0;
 
 	/* Ok, lets look at the previous CUs: */
-	if (cus__find_definition(self, enumeration->name) != NULL) {
+	if (cus__find_definition(self, etype->name) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
 		 */
-		enumeration->visited = 1;
+		etype->definition_emitted = 1;
 		return 0;
 	}
+
 	enumeration__print(enumeration, NULL, 0);
-	cus__add_definition(self, enumeration);
+	cus__add_definition(self, etype);
 	return 1;
 }
 
-int cus__emit_fwd_decl(struct cus *self, struct class *class)
+int cus__emit_fwd_decl(struct cus *self, struct type *ctype)
 {
-	struct class *type;
-	char bf[256];
-
 	/* Have we already emitted this in this CU? */
-	if (class->fwd_decl_emitted)
+	if (ctype->fwd_decl_emitted)
 		return 0;
 
 	/* Ok, lets look at the previous CUs: */
-	if (cus__find_fwd_decl(self, class->name) != NULL) {
+	if (cus__find_fwd_decl(self, ctype->name) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
 		 */
-		class->fwd_decl_emitted = 1;
+		ctype->fwd_decl_emitted = 1;
 		return 0;
 	}
 
-	printf("struct %s;\n", class->name);
-	cus__add_fwd_decl(self, class);
+	printf("struct %s;\n", ctype->name);
+	cus__add_fwd_decl(self, ctype);
 	return 1;
 }
 
@@ -2468,12 +2447,12 @@ next_indirection:
 	case DW_TAG_typedef:
 		return cus__emit_typedef_definitions(self, cu, type);
 	case DW_TAG_enumeration_type:
-		if (tag__class(type)->name != NULL)
+		if (tag__type(type)->name != NULL)
 			return cus__emit_enumeration_definitions(self, ctype);
 		break;
 	case DW_TAG_structure_type:
 		if (pointer)
-			return cus__emit_fwd_decl(self, ctype);
+			return cus__emit_fwd_decl(self, tag__type(type));
 		return cus__emit_struct_definitions(self, cu, ctype, NULL, NULL);
 	case DW_TAG_subroutine_type:
 		return cus__emit_tag_definitions(self, cu, type);
@@ -2503,19 +2482,20 @@ int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
 				 struct class *class,
 				 const char *prefix, const char *suffix)
 {
+	struct type *ctype = &class->type;
 	struct class_member *pos;
 	int printed = 0;
 
-	if (class->visited)
+	if (ctype->definition_emitted)
 		return 0;
 
 	/* Ok, lets look at the previous CUs: */
-	if (cus__find_definition(self, class->name) != NULL) {
-		class->visited = 1;
+	if (cus__find_definition(self, ctype->name) != NULL) {
+		ctype->definition_emitted = 1;
 		return 0;
 	}
 
-	cus__add_definition(self, class);
+	cus__add_definition(self, ctype);
 
 	list_for_each_entry(pos, &class->members, tag.node)
 		if (cus__emit_tag_definitions(self, cu, &pos->tag))
@@ -2525,8 +2505,8 @@ int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
 		putchar('\n');
 
 	class__find_holes(class, cu);
-	tag__print(&class->tag, cu, prefix, suffix);
-	class->visited = 1;
+	tag__print(&ctype->tag, cu, prefix, suffix);
+	ctype->definition_emitted = 1;
 	putchar('\n');
 	return 1;
 }
