@@ -13,6 +13,7 @@ ENDIF (DWARF_INCLUDE_DIR)
 
 FIND_PATH(DWARF_INCLUDE_DIR dwarf.h
   /usr/local/include
+  /usr/include/libdwarf
   /usr/include
 )
 
@@ -23,7 +24,7 @@ FIND_PATH(LIBDW_INCLUDE_DIR libdw.h
    /usr/local/include/elfutils) 
 
 FIND_LIBRARY(DWARF_LIBRARY
-  NAMES dw
+  NAMES dw dwarf
   PATHS /usr/lib /usr/local/lib /usr/lib64 /usr/local/lib64
 )
 
