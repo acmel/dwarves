@@ -353,9 +353,28 @@ static void show_diffs_function(struct function *function, const struct cu *cu)
 {
 	const struct diff_info *di = function->priv;
 
-	printf("  %-*.*s | %+4d\n",
+	printf("  %-*.*s | %+4d",
 	       cu->max_len_changed_item, cu->max_len_changed_item,
 	       function__name(function, cu), di->diff);
+
+	if (!verbose) {
+		putchar('\n');
+		return;
+	}
+
+	if (di->tag == NULL)
+		puts("(null)");
+	else {
+		const struct function *twin = tag__function(di->tag);
+
+		if (strcmp(function->name, twin->name) != 0)
+			printf("%s: BRAIN FART ALERT: comparing %s to %s, "
+			       "should be the same name\n", __FUNCTION__,
+			       function->name, twin->name);
+		else
+			printf(" # %d -> %d\n", function__size(function),
+			       function__size(twin));
+	}
 }
 
 static void show_changed_member(char change, const struct class_member *member,
