@@ -87,7 +87,7 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 
 	assert(function->proto.tag.tag == DW_TAG_subprogram);
 
-	if (function->inlined)
+	if (function->inlined || function->abstract_origin != 0)
 		return;
 
 	name = function__name(function, cu);
