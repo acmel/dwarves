@@ -1900,6 +1900,14 @@ static uint64_t attr_upper_bound(Dwarf_Die *die)
 	return 0;
 }
 
+static void __cu__tag_not_handled(const char *fn, Dwarf_Die *die)
+{
+	fprintf(stderr, "%s: DW_TAG_%s @ <%#llx> not handled!\n",
+		fn, dwarf_tag_name(dwarf_tag(die)), dwarf_cuoffset(die));
+}
+
+#define cu__tag_not_handled(die) __cu__tag_not_handled(__FUNCTION__, die)
+
 static void cu__create_new_tag(Dwarf_Die *die, struct cu *cu)
 {
 	struct tag *self = tag__new(die);
@@ -1978,9 +1986,7 @@ static void cu__create_new_array(Dwarf_Die *die, struct cu *cu)
 	die = &child;
 	array->dimensions = 0;
 	do {
-		const uint16_t tag = dwarf_tag(die);
-
-		if (tag == DW_TAG_subrange_type) {
+		if (dwarf_tag(die) == DW_TAG_subrange_type) {
 			nr_entries[array->dimensions++] = attr_upper_bound(die);
 			if (array->dimensions == max_dimensions) {
 				fprintf(stderr, "%s: only %u dimensions are "
@@ -1989,8 +1995,7 @@ static void cu__create_new_array(Dwarf_Die *die, struct cu *cu)
 				break;
 			}
 		} else
-			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
-				__FUNCTION__, dwarf_tag_name(tag));
+			cu__tag_not_handled(die);
 	} while (dwarf_siblingof(die, die) == 0);
 
 	array->nr_entries = memdup(nr_entries,
@@ -2048,9 +2053,7 @@ static void cu__create_new_subroutine_type(Dwarf_Die *die, struct cu *cu)
 
 	die = &child;
 	do {
-		const uint16_t tag = dwarf_tag(die);
-
-		switch (tag) {
+		switch (dwarf_tag(die)) {
 		case DW_TAG_formal_parameter:
 			cu__create_new_parameter(die, ftype, cu);
 			break;
@@ -2058,8 +2061,7 @@ static void cu__create_new_subroutine_type(Dwarf_Die *die, struct cu *cu)
 			ftype->unspec_parms = 1;
 			break;
 		default:
-			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
-				__FUNCTION__, dwarf_tag_name(tag));
+			cu__tag_not_handled(die);
 			break;
 		}
 	} while (dwarf_siblingof(die, die) == 0);
@@ -2071,9 +2073,7 @@ static void cu__process_class(Dwarf_Die *die, struct class *class,
 			      struct cu *cu)
 {
 	do {
-		const uint16_t tag = dwarf_tag(die);
-
-		switch (tag) {
+		switch (dwarf_tag(die)) {
 		case DW_TAG_inheritance:
 		case DW_TAG_member: {
 			struct class_member *member = class_member__new(die);
@@ -2101,8 +2101,7 @@ static void cu__process_class(Dwarf_Die *die, struct class *class,
 			cu__create_new_class(die, cu);
 			break;
 		default:
-			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
-				__FUNCTION__, dwarf_tag_name(tag));
+			cu__tag_not_handled(die);
 			break;
 		}
 	} while (dwarf_siblingof(die, die) == 0);
@@ -2151,11 +2150,9 @@ static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 	die = &child;
 	do {
 		struct enumerator *enumerator;
-		const uint16_t tag = dwarf_tag(die);
 
-		if (tag != DW_TAG_enumerator) {
-			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
-				__FUNCTION__, dwarf_tag_name(tag));
+		if (dwarf_tag(die) != DW_TAG_enumerator) {
+			cu__tag_not_handled(die);
 			continue;
 		}
 		enumerator = enumerator__new(die);
@@ -2179,9 +2176,7 @@ static void cu__process_function(Dwarf_Die *die,
 
 	die = &child;
 	do {
-		const uint16_t tag = dwarf_tag(die);
-
-		switch (tag) {
+		switch (dwarf_tag(die)) {
 		case DW_TAG_formal_parameter:
 			cu__create_new_parameter(die, ftype, cu);
 			break;
@@ -2209,8 +2204,7 @@ static void cu__process_function(Dwarf_Die *die,
 			cu__create_new_class(die, cu);
 			break;
 		default:
-			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
-				__FUNCTION__, dwarf_tag_name(tag));
+			cu__tag_not_handled(die);
 			break;
 		}
 	} while (dwarf_siblingof(die, die) == 0);
@@ -2229,9 +2223,7 @@ static void cu__create_new_function(Dwarf_Die *die, struct cu *cu)
 static void cu__process_unit(Dwarf_Die *die, struct cu *cu)
 {
 	do {
-		const uint16_t tag = dwarf_tag(die);
-
-		switch (tag) {
+		switch (dwarf_tag(die)) {
 		case DW_TAG_variable:
 			/* Handle global variables later */
 			break;
@@ -2263,8 +2255,7 @@ static void cu__process_unit(Dwarf_Die *die, struct cu *cu)
 			cu__create_new_class(die, cu);
 			break;
 		default:
-			fprintf(stderr, "%s: DW_TAG_%s not handled!\n",
-				__FUNCTION__, dwarf_tag_name(tag));
+			cu__tag_not_handled(die);
 			break;
 		}
 	} while (dwarf_siblingof(die, die) == 0);
