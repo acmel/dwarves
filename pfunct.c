@@ -220,7 +220,9 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 
 	fstats = fn_stats__find(name);
 	if (fstats != NULL && fstats->function->external) {
-		fn_stats__chkdupdef(fstats->function, fstats->cu, function, cu);
+		if (verbose)
+			fn_stats__chkdupdef(fstats->function, fstats->cu,
+					    function, cu);
 		fstats->nr_expansions   += function->cu_total_nr_inline_expansions;
 		fstats->size_expansions += function->cu_total_size_inline_expansions;
 		fstats->nr_files++;
