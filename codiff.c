@@ -349,7 +349,8 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 	return 0;
 }
 
-static void show_diffs_function(struct function *function, const struct cu *cu)
+static void show_diffs_function(struct function *function, const struct cu *cu,
+				const void *cookie)
 {
 	const struct diff_info *di = function->priv;
 
@@ -363,7 +364,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu)
 	}
 
 	if (di->tag == NULL)
-		puts("(null)");
+		puts(cookie ? " (added)" : " (removed)");
 	else {
 		const struct function *twin = tag__function(di->tag);
 
@@ -489,12 +490,12 @@ static void show_diffs_structure(const struct class *structure,
 }
 
 static int show_function_diffs_iterator(struct tag *tag, struct cu *cu,
-					void *new_cu)
+					void *cookie)
 {
 	struct function *function = tag__function(tag);
 
 	if (tag->tag == DW_TAG_subprogram && function->priv != NULL)
-		show_diffs_function(function, cu);
+		show_diffs_function(function, cu, cookie);
 	return 0;
 }
 
@@ -545,7 +546,7 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	if (cu->nr_functions_changed != 0 && show_function_diffs) {
 		total_nr_functions_changed += cu->nr_functions_changed;
 
-		cu__for_each_tag(cu, show_function_diffs_iterator, NULL, NULL);
+		cu__for_each_tag(cu, show_function_diffs_iterator, cookie, NULL);
 		printf(" %u function%s changed", cu->nr_functions_changed,
 		       cu->nr_functions_changed > 1 ? "s" : "");
 		if (cu->function_bytes_added != 0) {
