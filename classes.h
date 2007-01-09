@@ -55,8 +55,12 @@ struct type {
 	struct tag	 tag;
 	struct list_head node;
 	const char	 *name;
-	uint8_t		 definition_emitted;
-	uint8_t		 fwd_decl_emitted;
+	size_t		 size;
+	struct list_head members;
+	uint16_t	 nr_members;
+	uint8_t		 declaration; /* only one bit used */
+	uint8_t		 definition_emitted:1;
+	uint8_t		 fwd_decl_emitted:1;
 };
 
 static inline struct type *tag__type(const struct tag *self)
@@ -66,14 +70,10 @@ static inline struct type *tag__type(const struct tag *self)
 
 struct class {
 	struct type	 type;
-	struct list_head members;
-	size_t		 size;
-	uint16_t	 nr_members;
 	uint8_t		 nr_holes;
 	uint8_t		 nr_bit_holes;
 	uint16_t	 padding;
 	uint8_t		 bit_padding;
-	uint8_t		 declaration; /* Just one bit used */
 	void		 *priv;
 };
 
@@ -225,18 +225,6 @@ struct label {
 	Dwarf_Addr	 low_pc;
 };
 
-struct enumeration {
-	struct type	 type;
-	struct list_head members;	/* struct enumerator */
-	uint16_t	 size;
-	uint16_t	 nr_members;
-};
-
-static inline struct enumeration *tag__enumeration(const struct tag *self)
-{
-	return (struct enumeration *)self;
-}
-
 struct enumerator {
 	struct tag	 tag;
 	const char	 *name;
@@ -333,8 +321,29 @@ extern int ftype__has_parm_of_type(const struct ftype *self,
 extern const char *tag__name(const struct tag *self, const struct cu *cu,
 			     char *bf, size_t len);
 
-extern struct class_member *class__find_member_by_name(const struct class *self,
-						       const char *name);
+extern struct class_member *type__find_member_by_name(const struct type *self,
+						      const char *name);
+
+static inline struct class_member *
+	class__find_member_by_name(const struct class *self, const char *name)
+{
+	return type__find_member_by_name(&self->type, name);
+}
+
+static inline uint16_t class__nr_members(const struct class *self)
+{
+	return self->type.nr_members;
+}
+
+static inline size_t class__size(const struct class *self)
+{
+	return self->type.size;
+}
+
+static inline int class__is_declaration(const struct class *self)
+{
+	return self->type.declaration;
+}
 
 extern size_t class_member__names(const struct tag *type,
 				  const struct cu *cu,

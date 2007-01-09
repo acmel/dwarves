@@ -77,13 +77,14 @@ static void nr_definitions_formatter(const struct structure *self)
 
 static void nr_members_formatter(const struct structure *self)
 {
-	printf("%s: %u\n", class__name(self->class), self->class->nr_members);
+	printf("%s: %u\n", class__name(self->class),
+	       class__nr_members(self->class));
 }
 
 static void size_formatter(const struct structure *self)
 {
-	printf("%s: %u %u\n", class__name(self->class), self->class->size,
-	       self->class->nr_holes);
+	printf("%s: %u %u\n", class__name(self->class),
+	       class__size(self->class), self->class->nr_holes);
 }
 
 static void class_name_len_formatter(const struct structure *self)
@@ -125,7 +126,7 @@ static int class__packable(const struct class *self)
 	if (self->nr_holes == 0 && self->nr_bit_holes == 0)
 		return 0;
 
-	list_for_each_entry(pos, &self->members, tag.node)
+	list_for_each_entry(pos, &self->type.members, tag.node)
 		if (pos->hole != 0 &&
 		    class__find_bit_hole(self, pos, pos->hole * 8) != NULL)
 			return 1;
@@ -157,15 +158,15 @@ static void class__chkdupdef(const struct class *self, const struct cu *cu,
 {
 	char hdr = 0;
 
-	if (self->size != dup->size)
+	if (class__size(self) != class__size(dup))
 		class__dupmsg(self, cu, dup, dup_cu,
 			      &hdr, "size: %u != %u\n",
-			      self->size, dup->size);
+			      class__size(self), class__size(dup));
 
-	if (self->nr_members != dup->nr_members)
+	if (class__nr_members(self) != class__nr_members(dup))
 		class__dupmsg(self, cu, dup, dup_cu,
 			      &hdr, "nr_members: %u != %u\n",
-			      self->nr_members, dup->nr_members);
+			      class__nr_members(self), class__nr_members(dup));
 
 	if (self->nr_holes != dup->nr_holes)
 		class__dupmsg(self, cu, dup, dup_cu,
@@ -212,7 +213,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
 	if (name == NULL)
 		return NULL;
 
-	if (class->declaration)
+	if (class__is_declaration(class))
 		return NULL;
 
 	if (class__exclude_prefix != NULL &&

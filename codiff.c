@@ -193,7 +193,7 @@ static int check_print_members_changes(const struct class *structure,
 	int changes = 0;
 	struct class_member *member;
 
-	list_for_each_entry(member, &structure->members, tag.node) {
+	list_for_each_entry(member, &structure->type.members, tag.node) {
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member->name);
 		if (twin != NULL)
@@ -213,7 +213,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 
 	assert(class__tag_type(structure) == DW_TAG_structure_type);
 
-	if (structure->size == 0 || class__name(structure) == NULL)
+	if (class__size(structure) == 0 || class__name(structure) == NULL)
 		return;
 
 	new_tag = cu__find_struct_by_name(new_cu, class__name(structure));
@@ -223,13 +223,13 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 	}
 
 	new_structure = tag__class(new_tag);
-	if (new_structure->size == 0)
+	if (class__size(new_structure) == 0)
 		return;
 
 	assert(class__tag_type(new_structure) == DW_TAG_structure_type);
 
-	diff = structure->size != new_structure->size ||
-	       structure->nr_members != new_structure->nr_members ||
+	diff = class__size(structure) != class__size(new_structure) ||
+	       class__nr_members(structure) != class__nr_members(new_structure) ||
 	       check_print_members_changes(structure, cu,
 			       		   new_structure, new_cu, 0);
 	if (diff == 0)
@@ -306,7 +306,7 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 	if (class__name(class) == NULL)
 		return 0;
 
-	if (class->size == 0)
+	if (class__size(class) == 0)
 		return 0;
 
 	if (cu__find_struct_by_name(old_cu, class__name(class)) != NULL)
@@ -397,7 +397,7 @@ static void show_nr_members_changes(const struct class *structure,
 	struct class_member *member;
 
 	/* Find the removed ones */
-	list_for_each_entry(member, &structure->members, tag.node) {
+	list_for_each_entry(member, &structure->type.members, tag.node) {
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member->name);
 		if (twin == NULL)
@@ -405,7 +405,7 @@ static void show_nr_members_changes(const struct class *structure,
 	}
 
 	/* Find the new ones */
-	list_for_each_entry(member, &new_structure->members, tag.node) {
+	list_for_each_entry(member, &new_structure->type.members, tag.node) {
 		struct class_member *twin =
 			class__find_member_by_name(structure, member->name);
 		if (twin == NULL)
@@ -450,7 +450,8 @@ static void show_diffs_structure(const struct class *structure,
 {
 	const struct diff_info *di = structure->priv;
 	const struct class *new_structure = tag__class(di->tag);
-	int diff = (new_structure != NULL ? new_structure->size : 0) - structure->size;
+	int diff = (new_structure != NULL ? class__size(new_structure) : 0) -
+		   class__size(structure);
 
 	terse_type_changes = 0;
 
@@ -467,9 +468,10 @@ static void show_diffs_structure(const struct class *structure,
 		return;
 
 	if (new_structure == NULL)
-		diff = -structure->nr_members;
+		diff = -class__nr_members(structure);
 	else
-		diff = new_structure->nr_members - structure->nr_members;
+		diff = (class__nr_members(new_structure) -
+		        class__nr_members(structure));
 	if (diff != 0) {
 		terse_type_changes |= TCHANGEF__NR_MEMBERS;
 		if (!show_terse_type_changes) {
