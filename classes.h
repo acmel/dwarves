@@ -359,11 +359,4 @@ extern const char *variable__type_name(const struct variable *self,
 				       char *bf, size_t len);
 
 extern const char *dwarf_tag_name(const uint32_t tag);
-
-extern size_t parameter__names(const struct parameter *self,
-			       const struct cu *cu,
-			       char *class_name, size_t class_name_size,
-			       char *parameter_name,
-			       size_t parameter_name_size);
-
 #endif /* _PAHOLE_CLASSES_H_ */

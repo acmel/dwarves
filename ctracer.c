@@ -63,31 +63,18 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 static int function__emit_kprobes(struct function *self, const struct cu *cu,
 				  const struct tag *target)
 {
-	char bf[128];
-	size_t bodyl = 2048, printed;
-	char body[bodyl], *bodyp = body;
-	char class_name[128], parm_name[256];
+	char bf[2048];
+	char jprobe_name[256];
 	struct parameter *pos;
-	struct tag *type = cu__find_tag_by_id(cu, self->proto.tag.type);
-	const char *stype = tag__name(type, cu, bf, sizeof(bf));
 	const char *name = function__name(self, cu);
-	int first = 1;
 
-	body[0] = '\0';
-
-	printf("static %s jprobe_entry__%s(", stype, name);
+	snprintf(jprobe_name, sizeof(jprobe_name), "jprobe_entry__%s", name);
+	ftype__snprintf(&self->proto, cu, bf, sizeof(bf), jprobe_name, 0, 0, 0);
+	printf("static %s\n"
+	       "{\n", bf);
 
 	list_for_each_entry(pos, &self->proto.parms, tag.node) {
-		type = cu__find_tag_by_id(cu, pos->tag.type);
-		parameter__names(pos, cu, class_name, sizeof(class_name),
-				 parm_name, sizeof(parm_name));
-
-		if (!first)
-			fputs(", ", stdout);
-		else
-			first = 0;
-
-		printf("%s %s", class_name, parm_name);
+		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
 
 		if (type->tag != DW_TAG_pointer_type)
 			continue;
@@ -96,14 +83,14 @@ static int function__emit_kprobes(struct function *self, const struct cu *cu,
 		if (type == NULL || type->id != target->id)
 			continue;
 
-		printed = snprintf(bodyp, bodyl,
-				   "\tprintk(\"-> %s: %s=%%p\\n\", %s);\n",
-				   name, pos->name, pos->name);
-		bodyp += printed;
-		bodyl -= printed;
+		printf("\tprintk(\"-> %s: %s=%%p\\n\", %s);\n",
+		       name, pos->name, pos->name);
 	}
-	printf(")\n{\n%s\n\tjprobe_return();\n\t/* NOTREACHED */%s\n}\n\n",
-	       body, self->proto.tag.type != 0 ? "\n\treturn 0;" : "");
+
+	printf("\n\tjprobe_return();\n"
+	       "\t/* NOTREACHED */%s\n}\n\n",
+	       self->proto.tag.type != 0 ? "\n\treturn 0;" : "");
+
 	printf("static struct jprobe jprobe__%s = {\n"
 	       "\t.kp = { .symbol_name = \"%s\", },\n"
 	       "\t.entry = (kprobe_opcode_t *)jprobe_entry__%s,\n"
