@@ -35,6 +35,7 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu, void *cookie
 
 	function = tag__function(tag);
 	if (function__inlined(function) ||
+	    function->abstract_origin != 0 ||
 	    !ftype__has_parm_of_type(&function->proto, cookie, cu))
 		return NULL;
 
