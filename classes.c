@@ -2561,7 +2561,6 @@ int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
 
 	class__find_holes(class, cu);
 	tag__print(tag, cu, prefix, suffix);
-	ctype->definition_emitted = 1;
 	putchar('\n');
 	return 1;
 }
