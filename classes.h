@@ -346,11 +346,6 @@ static inline int class__is_declaration(const struct class *self)
 	return self->type.declaration;
 }
 
-extern size_t class_member__names(const struct tag *type,
-				  const struct cu *cu,
-				  const struct class_member *self,
-				  char *class_name, size_t class_name_size,
-				  char *member_name, size_t member_name_size);
 extern size_t cacheline_size;
 
 extern const char *variable__name(const struct variable *self,

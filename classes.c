@@ -23,6 +23,12 @@
 #include "list.h"
 #include "classes.h"
 
+static size_t class_member__names(const struct tag *type,
+				  const struct cu *cu,
+				  const struct class_member *self,
+				  char *class_name, size_t class_name_size,
+				  char *member_name, size_t member_name_size);
+
 static const char *dwarf_tag_names[] = {
 	[DW_TAG_array_type]		  = "array_type",
 	[DW_TAG_class_type]		  = "class_type",
@@ -838,11 +844,11 @@ static size_t class_member__size(const struct class_member *self,
 	return tag__size(type, cu);
 }
 
-size_t class_member__names(const struct tag *type,
-			   const struct cu *cu,
-			   const struct class_member *self,
-			   char *class_name, size_t class_name_size,
-			   char *member_name, size_t member_name_size)
+static size_t class_member__names(const struct tag *type,
+				  const struct cu *cu,
+				  const struct class_member *self,
+				  char *class_name, size_t class_name_size,
+				  char *member_name, size_t member_name_size)
 {
 	size_t size = -1;
 
