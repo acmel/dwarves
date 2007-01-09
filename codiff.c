@@ -544,19 +544,26 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	}
 
 	if (cu->nr_functions_changed != 0 && show_function_diffs) {
+		int kind = 0;
 		total_nr_functions_changed += cu->nr_functions_changed;
 
 		cu__for_each_tag(cu, show_function_diffs_iterator, cookie, NULL);
 		printf(" %u function%s changed", cu->nr_functions_changed,
 		       cu->nr_functions_changed > 1 ? "s" : "");
 		if (cu->function_bytes_added != 0) {
+			++kind;
 			total_function_bytes_added += cu->function_bytes_added;
 			printf(", %u bytes added", cu->function_bytes_added);
 		}
 		if (cu->function_bytes_removed != 0) {
+			++kind;
 			total_function_bytes_removed += cu->function_bytes_removed;
 			printf(", %u bytes removed", cu->function_bytes_removed);
 		}
+		if (kind == 2)
+			printf(", diff: %+d",
+			       (cu->function_bytes_added -
+			        cu->function_bytes_removed));
 		putchar('\n');
 	}
 	return 0;
@@ -568,17 +575,27 @@ static int cu_show_new_classes_iterator(struct cu *cu, void *cookie)
 
 static void print_total_function_diff(const char *filename)
 {
+	int kind = 0;
+
 	printf("\n%s:\n", filename);
 
 	printf(" %u function%s changed", total_nr_functions_changed,
 	       total_nr_functions_changed > 1 ? "s" : "");
 
-	if (total_function_bytes_added != 0)
+	if (total_function_bytes_added != 0) {
+		++kind;
 		printf(", %lu bytes added", total_function_bytes_added);
+	}
 
-	if (total_function_bytes_removed != 0)
+	if (total_function_bytes_removed != 0) {
+		++kind;
 		printf(", %lu bytes removed", total_function_bytes_removed);
-
+	}
+  
+	if (kind == 2)
+		printf(", diff: %+ld",
+		       (total_function_bytes_added -
+		        total_function_bytes_removed));
 	putchar('\n');
 }
 
