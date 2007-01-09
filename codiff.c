@@ -127,27 +127,17 @@ static int check_print_change(const struct class_member *old,
 			      const struct cu *new_cu,
 			      int print)
 {
-	char old_class_name[128];
-	char new_class_name[128];
-	char old_member_name[128];
-	char new_member_name[128];
-	size_t old_size;
-	size_t new_size;
+	size_t old_size, new_size;
+	char old_type_name[128], new_type_name[128];
+	const struct tag *old_type = cu__find_tag_by_id(old_cu, old->tag.type);
+	const struct tag *new_type = cu__find_tag_by_id(new_cu, new->tag.type);
 	int changes = 0;
 
-	old_size = class_member__names(NULL, old_cu, old, old_class_name,
-				       sizeof(old_class_name),
-				       old_member_name,
-				       sizeof(old_member_name));
-	if (old_size == (size_t)-1)
-		return 0;
-	new_size = class_member__names(NULL, new_cu, new, new_class_name,
-				       sizeof(new_class_name),
-				       new_member_name,
-				       sizeof(new_member_name));
-	if (new_size == (size_t)-1)
+	if (old_type == NULL || new_type == NULL)
 		return 0;
 
+	old_size = tag__size(old_type, old_cu);
+	new_size = tag__size(new_type, new_cu);
 	if (old_size != new_size)
 		changes = 1;
 
@@ -166,7 +156,10 @@ static int check_print_change(const struct class_member *old,
 		terse_type_changes |= TCHANGEF__BIT_SIZE;
 	}
 
-	if (strcmp(old_class_name, new_class_name) != 0) {
+	if (strcmp(tag__name(old_type, old_cu, old_type_name,
+			     sizeof(old_type_name)),
+		   tag__name(new_type, new_cu, new_type_name,
+			     sizeof(new_type_name))) != 0) {
 		changes = 1;
 		terse_type_changes |= TCHANGEF__TYPE;
 	}
@@ -175,10 +168,10 @@ static int check_print_change(const struct class_member *old,
 		printf("    %s\n"
 		       "     from: %-21s /* %5u(%u) %5u(%u) */\n"
 		       "     to:   %-21s /* %5u(%u) %5u(%u) */\n",
-		       old_member_name,
-		       old_class_name, old->offset, old->bit_offset,
+		       old->name,
+		       old_type_name, old->offset, old->bit_offset,
 		       old_size, old->bit_size,
-		       new_class_name, new->offset, new->bit_offset,
+		       new_type_name, new->offset, new->bit_offset,
 		       new_size, new->bit_size);
 
 	return changes;
@@ -381,13 +374,12 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 static void show_changed_member(char change, const struct class_member *member,
 				const struct cu *cu)
 {
-	char class_name[128];
-	char member_name[128];
-	size_t size = class_member__names(NULL, cu, member,
-					  class_name, sizeof(class_name),
-					  member_name, sizeof(member_name));
+	const struct tag *type = cu__find_tag_by_id(cu, member->tag.type);
+	char bf[128];
+
 	printf("    %c%-26s %-21s /* %5u %5u */\n",
-	       change, class_name, member_name, member->offset, size);
+	       change, tag__name(type, cu, bf, sizeof(bf)), member->name,
+	       member->offset, tag__size(type, cu));
 }
 
 static void show_nr_members_changes(const struct class *structure,
