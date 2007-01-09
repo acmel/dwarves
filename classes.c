@@ -1881,13 +1881,17 @@ static uint64_t attr_upper_bound(Dwarf_Die *die)
 	return 0;
 }
 
-static void __cu__tag_not_handled(const char *fn, Dwarf_Die *die)
+static void __cu__tag_not_handled(Dwarf_Die *die, const char *fn)
 {
 	fprintf(stderr, "%s: DW_TAG_%s @ <%#llx> not handled!\n",
 		fn, dwarf_tag_name(dwarf_tag(die)), dwarf_cuoffset(die));
 }
 
-#define cu__tag_not_handled(die) __cu__tag_not_handled(__FUNCTION__, die)
+#define cu__tag_not_handled(die) __cu__tag_not_handled(die, __FUNCTION__)
+
+static void __die__process_tag(Dwarf_Die *die, struct cu *cu, const char *fn);
+
+#define die__process_tag(die, cu) __die__process_tag(die, cu, __FUNCTION__)
 
 static struct tag *die__create_new_tag(Dwarf_Die *die)
 {
@@ -2101,8 +2105,6 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 			       struct cu *cu)
 {
 	do {
-		struct tag *new_tag = NULL;
-
 		switch (dwarf_tag(die)) {
 		case DW_TAG_inheritance:
 		case DW_TAG_member: {
@@ -2114,33 +2116,10 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 			type__add_member(class, member);
 		}
 			continue;
-		case DW_TAG_enumeration_type:
-			new_tag = die__create_new_enumeration(die);
-			break;
-		case DW_TAG_union_type:
-			new_tag = die__create_new_union(die, cu);
-			break;
-		case DW_TAG_structure_type:
-			/*
-			 * structs within structs: C++
-			 *
-			 * FIXME: For now classes defined within classes are being
-			 * visible externally, in a flat namespace. This ins not so
-			 * much of a problem as every class has a different id, the
-			 * cu_offset, but we need to have namespaces, so that we
-			 * can properly print it in class__print_struct and so that
-			 * we can specify 'pahole QDebug::Stream' as in the example
-			 * that led to supporting classes within classes.
-			 */
-			new_tag = die__create_new_class(die, cu);
-			break;
 		default:
-			cu__tag_not_handled(die);
+			die__process_tag(die, cu);
 			continue;
 		}
-
-		if (new_tag != NULL)
-			cu__add_tag(cu, new_tag);
 	} while (dwarf_siblingof(die, die) == 0);
 }
 
@@ -2179,8 +2158,6 @@ static void die__process_function(Dwarf_Die *die, struct ftype *ftype,
 
 	die = &child;
 	do {
-		struct tag *new_tag = NULL;
-
 		switch (dwarf_tag(die)) {
 		case DW_TAG_formal_parameter:
 			die__create_new_parameter(die, ftype, cu);
@@ -2201,22 +2178,9 @@ static void die__process_function(Dwarf_Die *die, struct ftype *ftype,
 		case DW_TAG_lexical_block:
 			die__create_new_lexblock(die, cu, lexblock);
 			continue;
-		case DW_TAG_enumeration_type:
-			new_tag = die__create_new_enumeration(die);
-			break;
-		case DW_TAG_union_type:
-			new_tag = die__create_new_union(die, cu);
-			break;
-		case DW_TAG_structure_type:
-			new_tag = die__create_new_class(die, cu);
-			break;
 		default:
-			cu__tag_not_handled(die);
-			continue;
+			die__process_tag(die, cu);
 		}
-
-		if (new_tag != NULL)
-			cu__add_tag(cu, new_tag);
 	} while (dwarf_siblingof(die, die) == 0);
 }
 
@@ -2230,51 +2194,50 @@ static struct tag *die__create_new_function(Dwarf_Die *die, struct cu *cu)
 	return &function->proto.tag;
 }
 
+static void __die__process_tag(Dwarf_Die *die, struct cu *cu, const char *fn)
+{
+	struct tag *new_tag = NULL;
+
+	switch (dwarf_tag(die)) {
+	case DW_TAG_array_type:
+		new_tag = die__create_new_array(die);		break;
+	case DW_TAG_base_type:
+		new_tag = die__create_new_base_type(die);	break;
+	case DW_TAG_const_type:
+	case DW_TAG_pointer_type:
+	case DW_TAG_volatile_type:
+		new_tag = die__create_new_tag(die);		break;
+	case DW_TAG_enumeration_type:
+		new_tag = die__create_new_enumeration(die);	break;
+	case DW_TAG_structure_type:
+		new_tag = die__create_new_class(die, cu);	break;
+	case DW_TAG_subprogram:
+		new_tag = die__create_new_function(die, cu);	break;
+	case DW_TAG_subroutine_type:
+		new_tag = die__create_new_subroutine_type(die);	break;
+	case DW_TAG_typedef:
+		new_tag = die__create_new_typedef(die);		break;
+	case DW_TAG_union_type:
+		new_tag = die__create_new_union(die, cu);	break;
+	default:
+		__cu__tag_not_handled(die, fn);			return;
+	}
+
+	if (new_tag != NULL)
+		cu__add_tag(cu, new_tag);
+}
+
 static void die__process_unit(Dwarf_Die *die, struct cu *cu)
 {
 	do {
-		struct tag *new_tag = NULL;
-
 		switch (dwarf_tag(die)) {
 		case DW_TAG_variable:
 			/* Handle global variables later */
 			continue;
-		case DW_TAG_subprogram:
-			new_tag = die__create_new_function(die, cu);
-			break;
-		case DW_TAG_const_type:
-		case DW_TAG_pointer_type:
-		case DW_TAG_volatile_type:
-			new_tag = die__create_new_tag(die);
-			break;
-		case DW_TAG_base_type:
-			new_tag = die__create_new_base_type(die);
-			break;
-		case DW_TAG_array_type:
-			new_tag = die__create_new_array(die);
-			break;
-		case DW_TAG_subroutine_type:
-			new_tag = die__create_new_subroutine_type(die);
-			break;
-		case DW_TAG_enumeration_type:
-			new_tag = die__create_new_enumeration(die);
-			break;
-		case DW_TAG_typedef:
-			new_tag = die__create_new_typedef(die);
-			break;
-		case DW_TAG_union_type:
-			new_tag = die__create_new_union(die, cu);
-			break;
-		case DW_TAG_structure_type:
-			new_tag = die__create_new_class(die, cu);
-			break;
 		default:
-			cu__tag_not_handled(die);
+			die__process_tag(die, cu);
 			continue;
 		}
-
-		if (new_tag != NULL)
-			cu__add_tag(cu, new_tag);
 	} while (dwarf_siblingof(die, die) == 0);
 }
 
