@@ -320,6 +320,7 @@ extern int ftype__has_parm_of_type(const struct ftype *self,
 
 extern const char *tag__name(const struct tag *self, const struct cu *cu,
 			     char *bf, size_t len);
+extern size_t tag__size(const struct tag *self, const struct cu *cu);
 
 extern struct class_member *type__find_member_by_name(const struct type *self,
 						      const char *name);

@@ -720,7 +720,7 @@ static size_t array_type__nr_entries(const struct array_type *self)
 	return nr_entries;
 }
 
-static size_t tag__size(const struct tag *self, const struct cu *cu)
+size_t tag__size(const struct tag *self, const struct cu *cu)
 {
 	size_t size;
 
