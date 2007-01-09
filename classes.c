@@ -1904,7 +1904,7 @@ static void cu__create_new_tag(Dwarf_Die *die, struct cu *cu)
 }
 
 static void cu__process_class(Dwarf_Die *die,
-			      struct class *class, struct cu *cu);
+			      struct type *class, struct cu *cu);
 
 static void cu__create_new_class(Dwarf_Die *die, struct cu *cu)
 {
@@ -1915,8 +1915,21 @@ static void cu__create_new_class(Dwarf_Die *die, struct cu *cu)
 		oom("class__new");
 
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		cu__process_class(&child, class, cu);
+		cu__process_class(&child, &class->type, cu);
 	cu__add_tag(cu, &class->type.tag);
+}
+
+static void cu__create_new_union(Dwarf_Die *die, struct cu *cu)
+{
+	Dwarf_Die child;
+	struct type *utype = type__new(die);
+
+	if (utype == NULL)
+		oom("type__new");
+
+	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
+		cu__process_class(&child, utype, cu);
+	cu__add_tag(cu, &utype->tag);
 }
 
 static void cu__create_new_base_type(Dwarf_Die *die, struct cu *cu)
@@ -2082,7 +2095,7 @@ static void cu__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 	cu__add_tag(cu, &enumeration->tag);
 }
 
-static void cu__process_class(Dwarf_Die *die, struct class *class,
+static void cu__process_class(Dwarf_Die *die, struct type *class,
 			      struct cu *cu)
 {
 	do {
@@ -2094,13 +2107,15 @@ static void cu__process_class(Dwarf_Die *die, struct class *class,
 			if (member == NULL)
 				oom("class_member__new");
 
-			type__add_member(&class->type, member);
+			type__add_member(class, member);
 		}
 			break;
 		case DW_TAG_enumeration_type:
 			cu__create_new_enumeration(die, cu);
 			break;
 		case DW_TAG_union_type:
+			cu__create_new_union(die, cu);
+			break;
 		case DW_TAG_structure_type:
 			/*
 			 * structs within structs: C++
@@ -2183,6 +2198,8 @@ static void cu__process_function(Dwarf_Die *die,
 			cu__create_new_enumeration(die, cu);
 			break;
 		case DW_TAG_union_type:
+			cu__create_new_union(die, cu);
+			break;
 		case DW_TAG_structure_type:
 			cu__create_new_class(die, cu);
 			break;
@@ -2234,6 +2251,8 @@ static void cu__process_unit(Dwarf_Die *die, struct cu *cu)
 			cu__create_new_typedef(die, cu);
 			break;
 		case DW_TAG_union_type:
+			cu__create_new_union(die, cu);
+			break;
 		case DW_TAG_structure_type:
 			cu__create_new_class(die, cu);
 			break;
