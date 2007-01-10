@@ -1091,21 +1091,6 @@ static size_t union__snprintf(const struct type *self, const struct cu *cu,
 	return len - l;
 }
 
-static void union__print(const struct type *self, const struct cu *cu,
-			 const char *suffix, uint8_t ntabs)
-{
-	struct enumerator *pos;
-	char bf[4096];
-
-	if (ntabs >= sizeof(tabs))
-		ntabs = sizeof(tabs) - 1;
-
-	printf("%.*s/* %s:%u */\n", ntabs, tabs,
-	       self->tag.decl_file, self->tag.decl_line);
-	union__snprintf(self, cu, bf, sizeof(bf), suffix, ntabs, 0, 0);
-	printf("%s\n", bf);
-}
-
 static struct class *class__new(Dwarf_Die *die)
 {
 	struct class *self = zalloc(sizeof(*self));
