@@ -1570,8 +1570,8 @@ static int class__print_cacheline_boundary(uint32_t last_cacheline,
 	return cacheline;
 }
 
-static void class__print_struct(const struct tag *tag, const struct cu *cu,
-				const char *prefix, const char *suffix)
+static void class__print(const struct tag *tag, const struct cu *cu,
+			 const char *prefix, const char *suffix)
 {
 	struct class *self = tag__class(tag);
 	const struct type *tself = tag__type(tag);
@@ -1708,7 +1708,7 @@ void tag__print(const struct tag *self, const struct cu *cu,
 
 	switch (self->tag) {
 	case DW_TAG_structure_type:
-		class__print_struct(self, cu, prefix, suffix);
+		class__print(self, cu, prefix, suffix);
 		break;
 	default:
 		printf("%s: %s tag not supported!\n", __FUNCTION__,
