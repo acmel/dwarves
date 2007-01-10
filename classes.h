@@ -110,7 +110,6 @@ static inline struct base_type *tag__base_type(const struct tag *self)
 
 struct array_type {
 	struct tag	tag;
-	const char	*name;
 	uint32_t	*nr_entries;
 	uint8_t		dimensions;
 };

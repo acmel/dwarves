@@ -23,12 +23,6 @@
 #include "list.h"
 #include "classes.h"
 
-static size_t class_member__names(const struct tag *type,
-				  const struct cu *cu,
-				  const struct class_member *self,
-				  char *class_name, size_t class_name_size,
-				  char *member_name, size_t member_name_size);
-
 static const char *dwarf_tag_names[] = {
 	[DW_TAG_array_type]		  = "array_type",
 	[DW_TAG_class_type]		  = "class_type",
@@ -339,7 +333,7 @@ static size_t enumeration__snprintf(const struct tag *tag_self,
 		printed += n;
 	}
 
-	n = snprintf(s, len, "%.*s}%s%s;", ntabs, tabs,
+	n = snprintf(s, len, "%.*s}%s%s", ntabs, tabs,
 		     suffix ? " " : "", suffix ?: "");
 	return printed + n;
 }
@@ -355,7 +349,7 @@ static void enumeration__print(const struct tag *tag_self,
 	printf("%.*s/* %s:%u */\n", ntabs, tabs,
 	       tag_self->decl_file, tag_self->decl_line);
 	enumeration__snprintf(tag_self, bf, sizeof(bf), suffix, ntabs);
-	printf("%s\n", bf);
+	printf("%s;\n", bf);
 }
 
 static struct enumerator *enumerator__new(Dwarf_Die *die)
@@ -383,57 +377,6 @@ static struct variable *variable__new(Dwarf_Die *die)
 	}
 
 	return self;
-}
-
-static size_t union__snprintf(const struct type *self, const struct cu *cu,
-			      char *bf, size_t len,
-			      const char *suffix, uint8_t ntabs)
-{
-	char class_name[4096];
-	char member_name[128];
-	struct class_member *pos;
-	char *s = bf;
-	size_t printed = 0, n;
-
-	if (ntabs >= sizeof(tabs))
-		ntabs = sizeof(tabs) - 1;
-
-	n = snprintf(s, len, "union%s%s {\n",
-		     self->name ? " " : "", self->name ?: "");
-	s += n;
-	len -= n;
-	printed += n;
-	list_for_each_entry(pos, &self->members, tag.node) {
-		const size_t size = class_member__names(NULL, cu, pos,
-							class_name,
-							sizeof(class_name),
-							member_name,
-							sizeof(member_name));
-		n = snprintf(s, len, "%.*s\t%-18s %-21s /* %11u */\n",
-			     ntabs, tabs, class_name, member_name, size);
-		s += n;
-		len -= n;
-		printed += n;
-	}
-
-	n = snprintf(s, len, "%.*s}%s%s;", ntabs, tabs,
-		     suffix ? " " : "", suffix ?: "");
-	return printed + n;
-}
-
-static void union__print(const struct type *self, const struct cu *cu,
-			 const char *suffix, uint8_t ntabs)
-{
-	struct enumerator *pos;
-	char bf[4096];
-
-	if (ntabs >= sizeof(tabs))
-		ntabs = sizeof(tabs) - 1;
-
-	printf("%.*s/* %s:%u */\n", ntabs, tabs,
-	       self->tag.decl_file, self->tag.decl_line);
-	union__snprintf(self, cu, bf, sizeof(bf), suffix, ntabs);
-	printf("%s\n", bf);
 }
 
 static void cus__add(struct cus *self, struct cu *cu)
@@ -844,156 +787,6 @@ static size_t class_member__size(const struct class_member *self,
 	return tag__size(type, cu);
 }
 
-static size_t class_member__names(const struct tag *type,
-				  const struct cu *cu,
-				  const struct class_member *self,
-				  char *class_name, size_t class_name_size,
-				  char *member_name, size_t member_name_size)
-{
-	size_t size = -1;
-
-	if (type == NULL)
-		type = cu__find_tag_by_id(cu, self->tag.type);
-	snprintf(member_name, member_name_size, "%s;", self->name ?: "");
-
-	if (type == NULL)
-		snprintf(class_name, class_name_size, "<%llx>",
-			 self->tag.type);
-	else {
-		if (type->tag == DW_TAG_const_type)
-			type = cu__find_tag_by_id(cu, type->type);
-		size = tag__size(type, cu);
-
-		/* Is it a function pointer? */
-		if (type->tag == DW_TAG_pointer_type) {
-			struct tag *ptype = cu__find_tag_by_id(cu, type->type);
-
-			if (ptype != NULL &&
-			    ptype->tag == DW_TAG_subroutine_type) {
-				/* function has no return value (void) */
-				if (ptype->type == 0)
-					snprintf(class_name,
-						 class_name_size, "void");
-				else {
-					struct tag *ret_type =
-					   cu__find_tag_by_id(cu, ptype->type);
-
-					tag__name(ret_type, cu, class_name,
-						  class_name_size);
-				}
-				snprintf(member_name, member_name_size,
-					 "(*%s)(void /* FIXME: add parm list */);",
-					 self->name ?: "");
-				goto out;
-			}
-		}
-
-		tag__name(type, cu, class_name, class_name_size);
-		if (type->tag == DW_TAG_array_type) {
-			struct array_type *array = tag__array_type(type);
-			int i = 0;
-			size_t n = snprintf(member_name, member_name_size,
-					    "%s", self->name);
-			member_name += n;
-			member_name_size -= n;
-
-			for (i = 0; i < array->dimensions; ++i) {
-				n = snprintf(member_name, member_name_size,
-					     "[%u]", array->nr_entries[i]);
-				member_name += n;
-				member_name_size -= n;
-			}
-			strncat(member_name, ";", member_name_size);
-		} else if (self->bit_size != 0)
-			snprintf(member_name, member_name_size,
-				 "%s:%d;", self->name ?: "",
-				 self->bit_size);
-	}
-out:
-	return size;
-}
-
-static size_t class_member__print(struct class_member *self,
-				  const struct cu *cu)
-{
-	size_t size;
-	char class_name[4096];
-	char member_name[128];
-	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
-
-	assert(type != NULL);
-	if (type->tag == DW_TAG_enumeration_type) {
-		const struct type *ctype = tag__type(type);
-
-		size = ctype->size; 
-		if (ctype->name != NULL) {
-			snprintf(class_name, sizeof(class_name), "enum %s",
-				 ctype->name);
-			snprintf(member_name, sizeof(member_name), "%s;",
-				 self->name);
-		} else {
-			const size_t spacing = 45 - strlen(self->name);
-			enumeration__snprintf(type, class_name,
-					      sizeof(class_name),
-					      self->name, 1);
-
-			printf("%s %*.*s/* %5u %5u */",
-			       class_name, spacing, spacing, " ",
-			       self->offset, size);
-			goto out;
-		}
-	} else if (type->tag == DW_TAG_union_type) {
-		const struct type *ctype = tag__type(type);
-
-		size = ctype->size;
-		if (ctype->name != NULL) {
-			snprintf(class_name, sizeof(class_name), "union %s",
-				 ctype->name);
-			snprintf(member_name, sizeof(member_name), "%s;",
-				 self->name);
-		} else {
-			const size_t spacing = 45 - (self->name ?
-						     strlen(self->name) : -1);
-			union__snprintf(ctype, cu,
-					class_name, sizeof(class_name),
-					self->name, 1);
-			printf("%s %*.*s/* %5u %5u */",
-			       class_name, spacing, spacing, " ",
-			       self->offset, size);
-			goto out;
-		}
-	} else if (type->tag == DW_TAG_pointer_type &&
-		   type->type != 0) { /* make sure its not a void pointer */
-		struct tag *ptype = cu__find_tag_by_id(cu, type->type);
-
-		if (ptype->tag != DW_TAG_subroutine_type)
-			goto class_member_fmt;
-
-		size = cu->addr_size;
-		ftype__snprintf(tag__ftype(ptype), cu,
-				class_name, sizeof(class_name),
-				self->name, 0, 1, 26);
-		printf("%s; /* %5u %5u */", class_name, self->offset, size);
-		goto out;
-	} else {
-class_member_fmt:
-		size = class_member__names(type, cu, self, class_name,
-					   sizeof(class_name),
-					   member_name, sizeof(member_name));
-	}
-
-	if (self->tag.tag == DW_TAG_inheritance) {
-		snprintf(member_name, sizeof(member_name),
-			 "/* ancestor class */");
-		strncat(class_name, ";", sizeof(class_name));
-	}
-
-	printf("%-26s %-21s /* %5u %5u */",
-	       class_name, member_name, self->offset, size);
-out:
-	return size;
-}
-
 static struct parameter *parameter__new(Dwarf_Die *die)
 {
 	struct parameter *self = zalloc(sizeof(*self));
@@ -1100,6 +893,168 @@ static struct array_type *array_type__new(Dwarf_Die *die)
 		tag__init(&self->tag, die);
 
 	return self;
+}
+
+static size_t array_type__snprintf(const struct tag *tag_self,
+				   const struct cu *cu,
+				   char *bf, const size_t len,
+				   const char *name,
+				   size_t type_spacing)
+{
+	struct array_type *self = tag__array_type(tag_self);
+	char tbf[128];
+	size_t l = len;
+	size_t n = snprintf(bf, l, "%-*s %s", type_spacing,
+			    tag__name(tag_self, cu, tbf, sizeof(tbf)),
+			    name);
+	int i;
+
+	bf += n; l -= n;
+
+	for (i = 0; i < self->dimensions; ++i) {
+		n = snprintf(bf, l, "[%u]", self->nr_entries[i]);
+		bf += n; l -= n;
+	}
+
+	return len - l;
+}
+
+static size_t union__snprintf(const struct type *self, const struct cu *cu,
+			      char *bf, size_t len, const char *suffix,
+			      uint8_t ntabs, size_t type_spacing,
+			      size_t name_spacing);
+
+static size_t class_member__snprintf(struct class_member *self,
+				     struct tag *type,
+				     const struct cu *cu,
+				     char *bf, size_t len,
+				     size_t type_spacing,
+				     size_t name_spacing)
+{
+	char tbf[128];
+
+	if (type == NULL)
+		return snprintf(bf, len, "%-*s %s",
+				type_spacing, "<ERROR>", self->name);
+
+	if (type->tag == DW_TAG_pointer_type) {
+		if (type->type != 0) {
+			struct tag *ptype = cu__find_tag_by_id(cu, type->type);
+			if (ptype->tag == DW_TAG_subroutine_type) {
+				return ftype__snprintf(tag__ftype(ptype), cu,
+						       bf, len, self->name,
+						       0, 1, type_spacing);
+			}
+		}
+	} else if (type->tag == DW_TAG_subroutine_type)
+		return ftype__snprintf(tag__ftype(type), cu, bf, len,
+				       self->name, 0, 0, type_spacing);
+	else if (type->tag == DW_TAG_array_type)
+		return array_type__snprintf(type, cu, bf, len, self->name,
+					    type_spacing);
+	else if (type->tag == DW_TAG_union_type) {
+		struct type *ctype = tag__type(type);
+
+		if (ctype->name != NULL)
+			return snprintf(bf, len, "union %-*s %s",
+					type_spacing - 6, ctype->name,
+					self->name);
+
+		return union__snprintf(ctype, cu, bf, len, self->name, 1,
+				       type_spacing - 8, name_spacing);
+	} else if (type->tag == DW_TAG_enumeration_type) {
+		struct type *ctype = tag__type(type);
+
+		if (ctype->name != NULL)
+			return snprintf(bf, len, "enum %-*s %s",
+					type_spacing - 5, ctype->name,
+					self->name);
+
+		return enumeration__snprintf(type, bf, len, self->name, 1);
+	}
+	return snprintf(bf, len, "%-*s %s", type_spacing,
+			tag__name(type, cu, tbf, sizeof(tbf)),
+			self->name);
+}
+
+static size_t class_member__print(struct class_member *self,
+				  struct tag *type, const struct cu *cu,
+				  size_t type_spacing, size_t name_spacing)
+{
+	char bf[4096];
+	size_t size = tag__size(type, cu);
+	size_t n = class_member__snprintf(self, type, cu, bf, sizeof(bf),
+					  type_spacing, name_spacing);
+	
+	if (self->bit_size != 0)
+		snprintf(bf + n, sizeof(bf) - n, ":%u;", self->bit_size);
+	else
+		strncat(bf, ";", sizeof(bf));
+	if ((type->tag == DW_TAG_union_type ||
+	     type->tag == DW_TAG_enumeration_type) &&
+	    /* Look if is a type defined inline */
+	    tag__type(type)->name == NULL) {
+		/* Check if this is a anonymous union */
+		const size_t slen = self->name != NULL ?
+						strlen(self->name) : 0;
+		printf("%s%*s/* %5u %5u */", bf,
+		       type_spacing + name_spacing - slen - 2, " ",
+		       self->offset, size);
+	} else
+		printf("%-*s /* %5u %5u */", type_spacing + name_spacing,
+		       bf, self->offset, size);
+	return size;
+}
+
+static size_t union__snprintf(const struct type *self, const struct cu *cu,
+			      char *bf, size_t len,
+			      const char *suffix, uint8_t ntabs,
+			      size_t type_spacing, size_t name_spacing)
+{
+	struct class_member *pos;
+	char *s = bf;
+	size_t l = len, n;
+
+	if (ntabs >= sizeof(tabs))
+		ntabs = sizeof(tabs) - 1;
+
+	n = snprintf(s, l, "union%s%s {\n",
+		     self->name ? " " : "", self->name ?: "");
+	s += n;
+	l -= n;
+	list_for_each_entry(pos, &self->members, tag.node) {
+		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
+
+		n = snprintf(s, l, "%.*s", ntabs + 1, tabs);
+		s += n; l -= n;
+		n = class_member__snprintf(pos, type, cu, s, l, type_spacing,
+					   name_spacing);
+		s += n; l -= n;
+		n = snprintf(s, l, ";%*s /* %11u */\n",
+			     type_spacing + name_spacing - (n + 1), " ",
+			     tag__size(type, cu));
+		s += n; l -= n;
+	}
+
+	n = snprintf(s, len, "%.*s}%s%s", ntabs, tabs,
+		     suffix ? " " : "", suffix ?: "");
+	l -= n;
+	return len - l;
+}
+
+static void union__print(const struct type *self, const struct cu *cu,
+			 const char *suffix, uint8_t ntabs)
+{
+	struct enumerator *pos;
+	char bf[4096];
+
+	if (ntabs >= sizeof(tabs))
+		ntabs = sizeof(tabs) - 1;
+
+	printf("%.*s/* %s:%u */\n", ntabs, tabs,
+	       self->tag.decl_file, self->tag.decl_line);
+	union__snprintf(self, cu, bf, sizeof(bf), suffix, ntabs, 0, 0);
+	printf("%s\n", bf);
 }
 
 static struct class *class__new(Dwarf_Die *die)
@@ -1633,6 +1588,7 @@ static void class__print_struct(const struct tag *tag, const struct cu *cu,
 	printf("%s%sstruct%s%s {\n", prefix ?: "", prefix ? " " : "",
 	       tself->name ? " " : "", tself->name ?: "");
 	list_for_each_entry(pos, &self->type.members, tag.node) {
+		struct tag *type;
 		const ssize_t cc_last_size = pos->offset - last_offset;
 
 		last_cacheline = class__print_cacheline_boundary(last_cacheline,
@@ -1678,7 +1634,8 @@ static void class__print_struct(const struct tag *tag, const struct cu *cu,
 		}
 
 		fputs("        ", stdout);
-		size = class_member__print(pos, cu);
+		type = cu__find_tag_by_id(cu, pos->tag.type);
+		size = class_member__print(pos, type, cu, 26, 22);
 
 		if (pos->bit_hole != 0) {
 			if (!newline++)
