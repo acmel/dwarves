@@ -977,19 +977,23 @@ static size_t class_member__snprintf(struct class_member *self,
 			self->name);
 }
 
-static size_t class_member__print(struct class_member *self,
-				  struct tag *type, const struct cu *cu,
-				  size_t type_spacing, size_t name_spacing)
+static size_t struct_member__snprintf(struct class_member *self,
+				      struct tag *type, const struct cu *cu,
+				      char *bf, size_t len,
+				      size_t type_spacing, size_t name_spacing)
 {
-	char bf[4096];
-	size_t size = tag__size(type, cu);
-	size_t n = class_member__snprintf(self, type, cu, bf, sizeof(bf),
+	size_t l = len;
+	const size_t size = tag__size(type, cu);
+	size_t n = class_member__snprintf(self, type, cu, bf, l,
 					  type_spacing, name_spacing);
 	
+	bf += n; l -= n;
 	if (self->bit_size != 0)
-		snprintf(bf + n, sizeof(bf) - n, ":%u;", self->bit_size);
+		n = snprintf(bf, l, ":%u;", self->bit_size);
 	else
-		strncat(bf, ";", sizeof(bf));
+		n = snprintf(bf, l, ";");
+	bf += n; l -= n;
+
 	if ((type->tag == DW_TAG_union_type ||
 	     type->tag == DW_TAG_enumeration_type) &&
 	    /* Look if is a type defined inline */
@@ -997,13 +1001,16 @@ static size_t class_member__print(struct class_member *self,
 		/* Check if this is a anonymous union */
 		const size_t slen = self->name != NULL ?
 						strlen(self->name) : 0;
-		printf("%s%*s/* %5u %5u */", bf,
-		       type_spacing + name_spacing - slen - 2, " ",
-		       self->offset, size);
-	} else
-		printf("%-*s /* %5u %5u */", type_spacing + name_spacing,
-		       bf, self->offset, size);
-	return size;
+		n = snprintf(bf, l, "%*s/* %5u %5u */",
+			     type_spacing + name_spacing - slen - 3, " ",
+			     self->offset, size);
+	} else {
+		int spacing = type_spacing + name_spacing - (len - l);
+		n = snprintf(bf, l, "%*s/* %5u %5u */",
+			     spacing > 0 ? spacing : 0, " ",
+			     self->offset, size);
+	}
+	return len - (l - n);
 }
 
 static size_t union__snprintf(const struct type *self, const struct cu *cu,
@@ -1028,10 +1035,10 @@ static size_t union__snprintf(const struct type *self, const struct cu *cu,
 		n = snprintf(s, l, "%.*s", ntabs + 1, tabs);
 		s += n; l -= n;
 		n = class_member__snprintf(pos, type, cu, s, l, type_spacing,
-					   name_spacing);
+					   name_spacing + 1);
 		s += n; l -= n;
 		n = snprintf(s, l, ";%*s /* %11u */\n",
-			     type_spacing + name_spacing - (n + 1), " ",
+			     type_spacing + name_spacing - (n + 2), " ",
 			     tag__size(type, cu));
 		s += n; l -= n;
 	}
@@ -1539,70 +1546,86 @@ void function__print(struct function *self, const struct cu *cu,
 	}
 }
 
-static int class__print_cacheline_boundary(uint32_t last_cacheline,
-					   size_t sum, size_t sum_holes,
-					   uint8_t *newline)
+static size_t class__snprintf_cacheline_boundary(char *bf, size_t len,
+						 uint32_t last_cacheline,
+						 size_t sum, size_t sum_holes,
+						 uint8_t *newline,
+						 uint32_t *cacheline)
 {
+	size_t l = len;
 	const size_t real_sum = sum + sum_holes;
-	const size_t cacheline = real_sum / cacheline_size;
 
-	if (cacheline > last_cacheline) {
+	*cacheline = real_sum / cacheline_size;
+
+	if (*cacheline > last_cacheline) {
 		const uint32_t cacheline_pos = real_sum % cacheline_size;
 		const uint32_t cacheline_in_bytes = real_sum - cacheline_pos;
+		size_t n;
 
 		if (*newline) {
-			putchar('\n');
+			n = snprintf(bf, l, "\n");
+			bf += n; l -= n;
 			*newline = 0;
 		}
 
 		if (cacheline_pos == 0)
-			printf("        /* --- cacheline "
-				"%u boundary (%u bytes) --- */\n",
-				cacheline, cacheline_in_bytes);
+			n = snprintf(bf, len, "        /* --- cacheline "
+					"%u boundary (%u bytes) --- */\n",
+					*cacheline, cacheline_in_bytes);
 		else
-			printf("        /* --- cacheline "
-				"%u boundary (%u bytes) was %u "
-				"bytes ago --- */\n",
-				cacheline, cacheline_in_bytes,
-				cacheline_pos);
+			n = snprintf(bf, len, "        /* --- cacheline "
+					"%u boundary (%u bytes) was %u "
+					"bytes ago --- */\n",
+					*cacheline, cacheline_in_bytes,
+					cacheline_pos);
+		bf += n; l -= n;
 	}
 
-	return cacheline;
+	return len - l;
 }
 
-static void class__print(const struct tag *tag, const struct cu *cu,
-			 const char *prefix, const char *suffix)
+static size_t class__snprintf(const struct class *self, const struct cu *cu,
+			      char *bf, size_t len,
+			      const char *prefix, const char *suffix,
+			      uint8_t ntabs, size_t type_spacing,
+			      size_t name_spacing)
 {
-	struct class *self = tag__class(tag);
-	const struct type *tself = tag__type(tag);
+	const struct type *tself = &self->type;
+	size_t last_size = 0, size;
+	size_t last_bit_size = 0;
+	uint8_t newline = 0;
 	uint32_t sum = 0;
 	uint32_t sum_holes = 0;
-	struct class_member *pos;
-	size_t last_size = 0, size;
-	uint32_t last_cacheline = 0;
-	size_t last_bit_size = 0;
-	int last_offset = -1;
-	uint8_t newline = 0;
 	uint32_t sum_bit_holes = 0;
+	uint32_t last_cacheline = 0;
+	int last_offset = -1;
+	struct class_member *pos;
+	size_t l = len;
+	size_t n = snprintf(bf, l, "%s%sstruct%s%s {\n",
+			    prefix ?: "", prefix ? " " : "",
+			    tself->name ? " " : "", tself->name ?: "");
 
-	printf("%s%sstruct%s%s {\n", prefix ?: "", prefix ? " " : "",
-	       tself->name ? " " : "", tself->name ?: "");
-	list_for_each_entry(pos, &self->type.members, tag.node) {
+	bf += n; l -= n;
+
+	list_for_each_entry(pos, &tself->members, tag.node) {
 		struct tag *type;
 		const ssize_t cc_last_size = pos->offset - last_offset;
 
-		last_cacheline = class__print_cacheline_boundary(last_cacheline,
-								 sum,
-								 sum_holes,
-								 &newline);
+		n = class__snprintf_cacheline_boundary(bf, l, last_cacheline,
+						       sum, sum_holes,
+						       &newline,
+						       &last_cacheline);
+		bf += n; l -= n;
 
 		if (last_offset != -1) {
 			if (cc_last_size < last_size && cc_last_size > 0) {
 				if (!newline++)
 					putchar('\n');
-				printf("        /* Bitfield WARNING: DWARF "
-				       "size=%u, real size=%u */\n",
-				       last_size, cc_last_size);
+				n = snprintf(bf, l, "        /* Bitfield "
+					     "WARNING: DWARF "
+					     "size=%u, real size=%u */\n",
+					     last_size, cc_last_size);
+				bf += n; l -= n;
 				sum -= last_size - cc_last_size;
 				/*
 				 * Confusing huh? think about this case then,
@@ -1629,34 +1652,46 @@ static void class__print(const struct tag *tag, const struct cu *cu,
 		}
 
 		if (newline) {
-			putchar('\n');
+			n = snprintf(bf, l, "\n");
+			bf += n; l -= n;
 			newline = 0;
 		}
 
-		fputs("        ", stdout);
+		n = snprintf(bf, l, "        ");
+		bf += n; l -= n;
+
 		type = cu__find_tag_by_id(cu, pos->tag.type);
-		size = class_member__print(pos, type, cu, 26, 22);
+		size = tag__size(type, cu);
+		n = struct_member__snprintf(pos, type, cu, bf, l,
+					    type_spacing, name_spacing);
+		bf += n; l -= n;
 
 		if (pos->bit_hole != 0) {
-			if (!newline++)
-				putchar('\n');
-			printf("\n        /* XXX %d bit%s hole, "
-			       "try to pack */",
-			       pos->bit_hole,
-			       pos->bit_hole != 1 ? "s" : "");
+			if (!newline++) {
+				n = snprintf(bf, l, "\n");
+				bf += n; l -= n;
+			}
+			n = snprintf(bf, l, "\n        /* XXX %d bit%s hole, "
+				     "try to pack */", pos->bit_hole,
+				     pos->bit_hole != 1 ? "s" : "");
+			bf += n; l -= n;
 			sum_bit_holes += pos->bit_hole;
 		}
 
 		if (pos->hole > 0) {
-			if (!newline++)
-				putchar('\n');
-			printf("\n        /* XXX %d byte%s hole, "
-			       "try to pack */",
-			       pos->hole, pos->hole != 1 ? "s" : "");
+			if (!newline++) {
+				n = snprintf(bf, l, "\n");
+				bf += n; l -= n;
+			}
+			n = snprintf(bf, l, "\n        /* XXX %d byte%s "
+				     "hole, try to pack */",
+				     pos->hole, pos->hole != 1 ? "s" : "");
+			bf += n; l -= n;
 			sum_holes += pos->hole;
 		}
 
-		putchar('\n');
+		n = snprintf(bf, l, "\n");
+		bf += n; l -= n;
 		/*
 		 * check for bitfields, accounting for only the biggest
 		 * of the byte_size in the fields in each bitfield set.
@@ -1674,31 +1709,58 @@ static void class__print(const struct tag *tag, const struct cu *cu,
 		last_bit_size = pos->bit_size;
 	}
 
-	class__print_cacheline_boundary(last_cacheline, sum, sum_holes,
-					&newline);
-
-	printf("}%s%s; /* size: %u, cachelines: %u */\n",
-	       suffix ? " ": "", suffix ?: "", tself->size,
-	       (tself->size + cacheline_size - 1) / cacheline_size);
-	if (sum_holes > 0)
-		printf("   /* sum members: %lu, holes: %d, sum holes: %lu */\n",
-		       sum, self->nr_holes, sum_holes);
-	if (sum_bit_holes > 0)
-		printf("   /* bit holes: %d, sum bit holes: %u bits */\n",
+	n = class__snprintf_cacheline_boundary(bf, l, last_cacheline, sum,
+					       sum_holes, &newline,
+					       &last_cacheline);
+	bf += n; l -= n;
+	n = snprintf(bf, l, "}%s%s; /* size: %u, cachelines: %u */\n",
+		     suffix ? " ": "", suffix ?: "", tself->size,
+		     (tself->size + cacheline_size - 1) / cacheline_size);
+	bf += n; l -= n;
+	if (sum_holes > 0) {
+		n = snprintf(bf, l, "   /* sum members: %lu, "
+			    "holes: %d, sum holes: %lu */\n",
+			     sum, self->nr_holes, sum_holes);
+		bf += n; l -= n;
+	}
+	if (sum_bit_holes > 0) {
+		n = snprintf(bf, l, "   /* bit holes: %d, sum bit holes: %u bits */\n",
 		       self->nr_bit_holes, sum_bit_holes);
-	if (self->padding > 0)
-		printf("   /* padding: %u */\n", self->padding);
-	if (self->bit_padding > 0)
-		printf("   /* bit_padding: %u bits */\n", self->bit_padding);
+		bf += n; l -= n;
+	}
+	if (self->padding > 0) {
+		n = snprintf(bf, l, "   /* padding: %u */\n", self->padding);
+		bf += n; l -= n;
+	}
+	if (self->bit_padding > 0) {
+		n = snprintf(bf, l, "   /* bit_padding: %u bits */\n", self->bit_padding);
+		bf += n; l -= n;
+	}
 	last_cacheline = tself->size % cacheline_size;
-	if (last_cacheline != 0)
-		printf("   /* last cacheline: %u bytes */\n", last_cacheline);
+	if (last_cacheline != 0) {
+		n = snprintf(bf, l, "   /* last cacheline: %u bytes */\n", last_cacheline);
+		bf += n; l -= n;
+	}
 
-	if (sum + sum_holes != tself->size - self->padding)
-		printf("\n/* BRAIN FART ALERT! %u != "
-		       "%u + %u(holes), diff = %u */\n\n",
-		       tself->size, sum, sum_holes,
-		       tself->size - (sum + sum_holes));
+	if (sum + sum_holes != tself->size - self->padding) {
+		n = snprintf(bf, l, "\n/* BRAIN FART ALERT! %u != "
+			     "%u + %u(holes), diff = %u */\n\n",
+			     tself->size, sum, sum_holes,
+			     tself->size - (sum + sum_holes));
+		bf += n; l -= n;
+	}
+
+	return len - l;
+}
+
+static void class__print(const struct tag *tag, const struct cu *cu,
+			 const char *prefix, const char *suffix)
+{
+	char bf[32768];
+
+	class__snprintf(tag__class(tag), cu, bf, sizeof(bf),
+			NULL, NULL, 1, 26, 23);
+	fputs(bf, stdout);
 }
 
 void tag__print(const struct tag *self, const struct cu *cu,
