@@ -10,6 +10,7 @@ find_package(DWARF REQUIRED)
 
 SET(dwarves_LIB_SRCS classes.c)
 ADD_LIBRARY(dwarves SHARED ${dwarves_LIB_SRCS})
+SET_TARGET_PROPERTIES(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 
 SET(codiff_SRCS codiff.c)
 ADD_EXECUTABLE(codiff ${codiff_SRCS})
