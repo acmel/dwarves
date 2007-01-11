@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "classes.h"
+#include "dwarves.h"
 
 static int verbose;
 static int show_inline_expansions;

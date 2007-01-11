@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
-#include "classes.h"
+#include "dwarves.h"
 
 static struct cus *cus;
 static struct cus *kprobes_cus;

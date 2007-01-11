@@ -8,7 +8,7 @@ SET(CMAKE_BUILD_TYPE debug)
 
 find_package(DWARF REQUIRED)
 
-SET(dwarves_LIB_SRCS classes.c)
+SET(dwarves_LIB_SRCS dwarves.c)
 ADD_LIBRARY(dwarves SHARED ${dwarves_LIB_SRCS})
 SET_TARGET_PROPERTIES(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 

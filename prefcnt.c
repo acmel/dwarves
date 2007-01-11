@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "classes.h"
+#include "dwarves.h"
 
 static struct option long_options[] = {
 	{ "help",			no_argument,		NULL, 'h' },

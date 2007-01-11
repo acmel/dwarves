@@ -21,7 +21,7 @@
 #include <unistd.h>
 
 #include "list.h"
-#include "classes.h"
+#include "dwarves.h"
 
 static const char *dwarf_tag_names[] = {
 	[DW_TAG_array_type]		  = "array_type",

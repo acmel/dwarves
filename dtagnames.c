@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 
-#include "classes.h"
+#include "dwarves.h"
 
 static void print_malloc_stats(void)
 {

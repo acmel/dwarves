@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "classes.h"
+#include "dwarves.h"
 
 static char *class__exclude_prefix;
 static size_t class__exclude_prefix_len;
