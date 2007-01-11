@@ -35,3 +35,7 @@ TARGET_LINK_LIBRARIES(pfunct dwarves ${DWARF_LIBRARIES})
 SET(prefcnt_SRCS prefcnt.c)
 ADD_EXECUTABLE(prefcnt ${prefcnt_SRCS})
 TARGET_LINK_LIBRARIES(prefcnt dwarves ${DWARF_LIBRARIES})
+
+INSTALL(TARGETS codiff ctracer dtagnames pahole pfunct prefcnt RUNTIME DESTINATION /usr/bin)
+INSTALL(TARGETS dwarves LIBRARY DESTINATION /usr/lib)
+INSTALL(FILES dwarves.h DESTINATION /usr/include)
