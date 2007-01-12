@@ -1643,7 +1643,7 @@ print_it:
 	return len - (l - n);
 }
 
-void function__print(const struct tag *tag_self, const struct cu *cu)
+static void function__print(const struct tag *tag_self, const struct cu *cu)
 {
 	struct function *self = tag__function(tag_self);
 	char bf[2048];
