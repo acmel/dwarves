@@ -2625,7 +2625,7 @@ next_indirection:
 			return cus__emit_fwd_decl(self, tag__type(type));
 		return cus__emit_struct_definitions(self, cu, type, NULL, NULL);
 	case DW_TAG_subroutine_type:
-		return cus__emit_tag_definitions(self, cu, type);
+		return cus__emit_ftype_definitions(self, cu, tag__ftype(type));
 	}
 
 	return 0;
