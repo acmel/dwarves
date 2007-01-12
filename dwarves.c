@@ -1618,6 +1618,12 @@ size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 			if (type->type != 0) {
 				struct tag *ptype =
 					cu__find_tag_by_id(cu, type->type);
+				if (ptype == NULL) {
+					n = snprintf(s, l, ">>>ERROR: "
+						     "type for %s not found!",
+						     name);
+					goto next;
+				}
 				if (ptype->tag == DW_TAG_subroutine_type) {
 					n = ftype__snprintf(tag__ftype(ptype),
 							    cu, s, l,
