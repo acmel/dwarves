@@ -235,6 +235,7 @@ struct enumerator {
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern void tag__print(const struct tag *self, const struct cu *cu,
 		       const char *prefix, const char *suffix);
+extern void tag__print_decl_info(const struct tag *self);
 
 extern const char *function__name(struct function *self, const struct cu *cu);
 extern void function__print(const struct tag *tag_self, const struct cu *cu);

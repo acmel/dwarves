@@ -272,6 +272,11 @@ static struct tag *tag__new(Dwarf_Die *die)
 	return self;
 }
 
+void tag__print_decl_info(const struct tag *self)
+{
+	printf("/* %s:%u */\n", self->decl_file, self->decl_line);
+}
+
 static struct base_type *base_type__new(Dwarf_Die *die)
 {
 	struct base_type *self = zalloc(sizeof(*self));
@@ -1643,8 +1648,7 @@ void function__print(const struct tag *tag_self, const struct cu *cu)
 	struct function *self = tag__function(tag_self);
 	char bf[2048];
 
-	printf("/* %s:%u */\n", tag_self->decl_file, tag_self->decl_line);
-
+	tag__print_decl_info(tag_self);
 	ftype__snprintf(&self->proto, cu, bf, sizeof(bf),
 			function__name(self, cu),
 			function__declared_inline(self), 0, 0);
@@ -1923,7 +1927,7 @@ static void class__print(const struct tag *tag, const struct cu *cu,
 void tag__print(const struct tag *self, const struct cu *cu,
 		const char *prefix, const char *suffix)
 {
-	printf("/* %s:%u */\n", self->decl_file, self->decl_line);
+	tag__print_decl_info(self);
 
 	switch (self->tag) {
 	case DW_TAG_enumeration_type:
@@ -2567,7 +2571,7 @@ static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag)
 		return 0;
 	}
 
-	printf("/* %s:%u */\n", tag->decl_file, tag->decl_line);
+	tag__print_decl_info(tag);
 	enumeration__print(tag, NULL, 0);
 	cus__add_definition(self, etype);
 	return 1;
