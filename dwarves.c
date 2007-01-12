@@ -351,19 +351,19 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 		ftype__snprintf(tag__ftype(type), cu, bf, sizeof(bf),
 				self->name, 0, is_pointer, 0);
 		fputs("typedef ", stdout);
-		printf("%s;\n", bf);
+		fputs(bf, stdout);
 		return;
 	case DW_TAG_structure_type: {
 		const struct type *ctype = tag__type(type);
 
 		if (ctype->name != NULL)
-			printf("typedef struct %s %s;\n",
+			printf("typedef struct %s %s",
 			       ctype->name, self->name);
 			return;
 		}
 	}
 
-	printf("typedef %s %s;\n", tag__name(type, cu, bf, sizeof(bf)),
+	printf("typedef %s %s", tag__name(type, cu, bf, sizeof(bf)),
 	       self->name);
 }
 
@@ -2561,6 +2561,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	}
 
 	typedef__print(tdef, cu);
+	puts(";");
 out:
 	cus__add_definition(self, def);
 	return 1;
