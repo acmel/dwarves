@@ -382,8 +382,6 @@ static void enumeration__print(const struct tag *tag_self,
 	if (ntabs >= sizeof(tabs))
 		ntabs = sizeof(tabs) - 1;
 
-	printf("%.*s/* %s:%u */\n", ntabs, tabs,
-	       tag_self->decl_file, tag_self->decl_line);
 	enumeration__snprintf(tag_self, bf, sizeof(bf), suffix, ntabs);
 	printf("%s;\n", bf);
 }
@@ -1931,6 +1929,9 @@ void tag__print(const struct tag *self, const struct cu *cu,
 	printf("/* %s:%u */\n", self->decl_file, self->decl_line);
 
 	switch (self->tag) {
+	case DW_TAG_enumeration_type:
+		enumeration__print(self, NULL, 0);
+		break;
 	case DW_TAG_typedef:
 		typedef__print(self, cu);
 		break;
@@ -2569,6 +2570,7 @@ static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag)
 		return 0;
 	}
 
+	printf("/* %s:%u */\n", tag->decl_file, tag->decl_line);
 	enumeration__print(tag, NULL, 0);
 	cus__add_definition(self, etype);
 	return 1;
