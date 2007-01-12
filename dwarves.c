@@ -308,6 +308,42 @@ static struct type *type__new(Dwarf_Die *die)
 	return self;
 }
 
+static void typedef__print(const struct tag *tag_self, const struct cu *cu)
+{
+	const struct type *self = tag__type(tag_self);
+	const struct tag *type = cu__find_tag_by_id(cu, tag_self->type);
+	const struct tag *ptr_type;
+	int is_pointer = 0;
+	char bf[512];
+
+	switch (type->tag) {
+	case DW_TAG_pointer_type:
+		ptr_type = cu__find_tag_by_id(cu, type->type);
+		if (ptr_type->tag != DW_TAG_subroutine_type)
+			break;
+		type = ptr_type;
+		is_pointer = 1;
+		/* Fall thru */
+	case DW_TAG_subroutine_type:
+		ftype__snprintf(tag__ftype(type), cu, bf, sizeof(bf),
+				self->name, 0, is_pointer, 0);
+		fputs("typedef ", stdout);
+		printf("%s;\n", bf);
+		return;
+	case DW_TAG_structure_type: {
+		const struct type *ctype = tag__type(type);
+
+		if (ctype->name != NULL)
+			printf("typedef struct %s %s;\n",
+			       ctype->name, self->name);
+			return;
+		}
+	}
+
+	printf("typedef %s %s;\n", tag__name(type, cu, bf, sizeof(bf)),
+	       self->name);
+}
+
 static size_t enumeration__snprintf(const struct tag *tag_self,
 				    char *bf, size_t len,
 				    const char *suffix, uint8_t ntabs)
@@ -2465,7 +2501,6 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	struct type *def = tag__type(tdef);
 	struct tag *type, *ptr_type;
 	int is_pointer = 0;
-	char bf[512];
 
 	/* Have we already emitted this in this CU? */
 	if (def->definition_emitted)
@@ -2495,25 +2530,19 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 		/* Fall thru */
 	case DW_TAG_subroutine_type:
 		cus__emit_ftype_definitions(self, cu, tag__ftype(type));
-		ftype__snprintf(tag__ftype(type), cu, bf, sizeof(bf),
-				def->name, 0, is_pointer, 0);
-		fputs("typedef ", stdout);
-		printf("%s;\n", bf);
-		goto out;
+		break;
 	case DW_TAG_structure_type: {
 		const struct type *ctype = tag__type(type);
 
-		if (ctype->name == NULL)
+		if (ctype->name == NULL) {
 			cus__emit_struct_definitions(self, cu, type,
 						     "typedef", def->name);
-		else
-			printf("typedef struct %s %s;\n",
-			       ctype->name, def->name);
+			goto out;
+		}
 	}
-		goto out;
 	}
-	printf("typedef %s %s;\n", tag__name(type, cu, bf, sizeof(bf)),
-	       def->name);
+
+	typedef__print(tdef, cu);
 out:
 	cus__add_definition(self, def);
 	return 1;
