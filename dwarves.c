@@ -406,7 +406,7 @@ static void enumeration__print(const struct tag *tag_self,
 		ntabs = sizeof(tabs) - 1;
 
 	enumeration__snprintf(tag_self, bf, sizeof(bf), suffix, ntabs);
-	printf("%s;\n", bf);
+	fputs(bf, stdout);
 }
 
 static struct enumerator *enumerator__new(Dwarf_Die *die)
@@ -2587,6 +2587,7 @@ static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag)
 
 	tag__print_decl_info(tag);
 	enumeration__print(tag, NULL, 0);
+	puts(";");
 	cus__add_definition(self, etype);
 	return 1;
 }
