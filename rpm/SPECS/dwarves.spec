@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 1
+Release: 3
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -18,7 +18,17 @@ BuildRequires: make
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 
 %description
-Set of dwarf tools
+dwarves is a set of tools that use the DWARF debugging information inserted in
+ELF binaries by compilers such as GCC , used by well known debuggers such as
+GDB, and more recent ones such as systemtap.
+
+Utilities in the dwarves suite include pahole, that can be used to find
+alignment holes in structs and classes in languages such as C, C++, but not
+limited to these, and other information such as CPU cacheline alignment,
+helping pack those structures to achieve more cache hits, codiff, a diff like
+tool to compare the effects changes in source code generate on the resulting
+binaries, pfunct, that can be used to find all sorts of information about
+functions, inlines, decisions made by the compiler about inlining, etc.
 
 %package -n %{libname}%{libver}
 Summary: DWARF processing library
@@ -71,5 +81,12 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
-* Wed Jan 11 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+* Fri Jan 12 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+- 0ad467a32187e1929c14054a0fc7326bc4d235c8 
+- Added a description
+
+* Thu Jan 11 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+- new release with type not found asserts replaced by error messages
+
+* Thu Jan 11 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 - package created
