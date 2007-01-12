@@ -1938,6 +1938,9 @@ void tag__print(const struct tag *self, const struct cu *cu,
 	case DW_TAG_structure_type:
 		class__print(self, cu, prefix, suffix);
 		break;
+	case DW_TAG_subprogram:
+		function__print(self, cu);
+		break;
 	default:
 		printf("%s: %s tag not supported!\n", __FUNCTION__,
 		       dwarf_tag_name(self->tag));
