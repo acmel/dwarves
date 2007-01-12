@@ -1931,6 +1931,9 @@ void tag__print(const struct tag *self, const struct cu *cu,
 	printf("/* %s:%u */\n", self->decl_file, self->decl_line);
 
 	switch (self->tag) {
+	case DW_TAG_typedef:
+		typedef__print(self, cu);
+		break;
 	case DW_TAG_structure_type:
 		class__print(self, cu, prefix, suffix);
 		break;
