@@ -237,10 +237,9 @@ extern void tag__print(const struct tag *self, const struct cu *cu,
 		       const char *prefix, const char *suffix);
 
 extern const char *function__name(struct function *self, const struct cu *cu);
-extern void function__print(const struct tag *tag_self, const struct cu *cu,
-			    const int show_stats,
-			    const int show_variables,
-			    const int show_inline_expansions);
+extern void function__print(const struct tag *tag_self, const struct cu *cu);
+extern void function__print_stats(const struct tag *tag_self,
+				  const struct cu *cu);
 
 extern struct cus *cus__new(struct list_head *definitions,
 			    struct list_head *fwd_decls);

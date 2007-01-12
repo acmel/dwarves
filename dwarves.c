@@ -1638,9 +1638,7 @@ print_it:
 	return len - (l - n);
 }
 
-void function__print(const struct tag *tag_self, const struct cu *cu,
-		     int show_stats, const int show_variables,
-		     const int show_inline_expansions)
+void function__print(const struct tag *tag_self, const struct cu *cu)
 {
 	struct function *self = tag__function(tag_self);
 	char bf[2048];
@@ -1653,25 +1651,27 @@ void function__print(const struct tag *tag_self, const struct cu *cu,
 			function__name(self, cu),
 			function__declared_inline(self), 0, 0);
 	fputs(bf, stdout);
+}
 
-	if (show_variables || show_inline_expansions) {
-		putchar('\n');
-		lexblock__print(&self->lexblock, cu, 0);
-	} else 
-		puts(";");
+void function__print_stats(const struct tag *tag_self, const struct cu *cu)
+{
+	struct function *self = tag__function(tag_self);
+	char bf[2048];
+	struct tag *class_type;
+	const char *type = "<ERROR>";
 
-	if (show_stats) {
-		printf("/* size: %u", function__size(self));
-		if (self->lexblock.nr_variables > 0)
-			printf(", variables: %u", self->lexblock.nr_variables);
-		if (self->lexblock.nr_labels > 0)
-			printf(", goto labels: %u", self->lexblock.nr_labels);
-		if (self->lexblock.nr_inline_expansions > 0)
-			printf(", inline expansions: %u (%u bytes)",
-			       self->lexblock.nr_inline_expansions,
-			       self->lexblock.size_inline_expansions);
-		fputs(" */\n", stdout);
-	}
+	lexblock__print(&self->lexblock, cu, 0);
+
+	printf("/* size: %u", function__size(self));
+	if (self->lexblock.nr_variables > 0)
+		printf(", variables: %u", self->lexblock.nr_variables);
+	if (self->lexblock.nr_labels > 0)
+		printf(", goto labels: %u", self->lexblock.nr_labels);
+	if (self->lexblock.nr_inline_expansions > 0)
+		printf(", inline expansions: %u (%u bytes)",
+		       self->lexblock.nr_inline_expansions,
+		       self->lexblock.size_inline_expansions);
+	fputs(" */\n", stdout);
 }
 
 static size_t class__snprintf_cacheline_boundary(char *bf, size_t len,

@@ -119,8 +119,10 @@ static void fn_stats_size_fmtr(const struct fn_stats *self)
 static void fn_stats_fmtr(const struct fn_stats *self)
 {
 	if (verbose) {
-		function__print(self->tag, self->cu, 1, show_variables,
-				show_inline_expansions);
+		function__print(self->tag, self->cu);
+		putchar('\n');
+		if (show_variables || show_inline_expansions)
+			function__print_stats(self->tag, self->cu);
 		printf("/* definitions: %u */\n", self->nr_files);
 		putchar('\n');
 	} else {
@@ -271,9 +273,10 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 		return 0;
 
 	if (ftype__has_parm_of_type(&function->proto, cookie, cu)) {
-		if (verbose)
-			function__print(tag, cu, 1, 0, 0);
-		else
+		if (verbose) {
+			function__print(tag, cu);
+			putchar('\n');
+		} else
 			printf("%s\n", function__name(function, cu));
 	}
 	return 0;
@@ -298,8 +301,10 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	function = tag__function(tag);
 	if (strcmp(function__name(function, cu), cookie) == 0) {
-		function__print(tag, cu, 1, show_variables,
-				show_inline_expansions);
+		function__print(tag, cu);
+		putchar('\n');
+		if (show_variables || show_inline_expansions)
+			function__print_stats(tag, cu);
 		return 1;
 	}
 	return 0;
