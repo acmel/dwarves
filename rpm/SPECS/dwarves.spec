@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 3
+Release: 4
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -81,6 +81,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Fri Jan 12 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+- a1f5422656a91568a8b4edbcebaae9c1837b5cbd
+- Support a DW_TAG_reference_type
+
 * Fri Jan 12 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 - 0ad467a32187e1929c14054a0fc7326bc4d235c8 
 - Added a description
