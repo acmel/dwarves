@@ -1921,7 +1921,7 @@ static void class__print(const struct tag *tag, const struct cu *cu,
 	char bf[32768];
 
 	class__snprintf(tag__class(tag), cu, bf, sizeof(bf),
-			NULL, NULL, 0, 26, 23, 1);
+			prefix, suffix, 0, 26, 23, 1);
 	fputs(bf, stdout);
 }
 
