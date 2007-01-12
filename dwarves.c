@@ -1648,7 +1648,6 @@ void function__print(const struct tag *tag_self, const struct cu *cu)
 	struct function *self = tag__function(tag_self);
 	char bf[2048];
 
-	tag__print_decl_info(tag_self);
 	ftype__snprintf(&self->proto, cu, bf, sizeof(bf),
 			function__name(self, cu),
 			function__declared_inline(self), 0, 0);

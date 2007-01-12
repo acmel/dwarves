@@ -119,6 +119,7 @@ static void fn_stats_size_fmtr(const struct fn_stats *self)
 static void fn_stats_fmtr(const struct fn_stats *self)
 {
 	if (verbose) {
+		tag__print_decl_info(self->tag);
 		function__print(self->tag, self->cu);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
@@ -274,6 +275,7 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	if (ftype__has_parm_of_type(&function->proto, cookie, cu)) {
 		if (verbose) {
+			tag__print_decl_info(tag);
 			function__print(tag, cu);
 			putchar('\n');
 		} else
@@ -301,6 +303,7 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	function = tag__function(tag);
 	if (strcmp(function__name(function, cu), cookie) == 0) {
+		tag__print_decl_info(tag);
 		function__print(tag, cu);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
