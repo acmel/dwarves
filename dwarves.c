@@ -445,6 +445,19 @@ struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 	return NULL;
 }
 
+static void __tag__type_not_found(const struct tag *self, const struct cu *cu,
+				  const char *fn)
+{
+	char bf[64];
+
+	fprintf(stderr, "%s: %#llx type not found for %s (id=%#llx)\n",
+		fn, self->type, dwarf_tag_name(self->tag), self->id);
+	fflush(stdout);
+}
+
+#define tag__type_not_found(self, cu) \
+	__tag__type_not_found(self, cu, __FUNCTION__)
+
 struct tag *cu__find_struct_by_name(const struct cu *self, const char *name)
 {
 	struct tag *pos;
@@ -649,8 +662,10 @@ int tag__is_struct(const struct tag *self, struct tag **typedef_alias,
 	*typedef_alias = NULL;
 	if (self->tag == DW_TAG_typedef) {
 		*typedef_alias = cu__find_tag_by_id(cu, self->type);
-		if (*typedef_alias == NULL)
+		if (*typedef_alias == NULL) {
+			tag__type_not_found(self, cu);
 			return 0;
+		}
 		
 		return (*typedef_alias)->tag == DW_TAG_structure_type;
 	}
@@ -684,7 +699,10 @@ size_t tag__size(const struct tag *self, const struct cu *cu)
 	else {
 		const struct tag *type = cu__find_tag_by_id(cu, self->type);
 
-		assert(type != NULL);
+		if (type == NULL) {
+			tag__type_not_found(self, cu);
+			return -1;
+		}
 		size = tag__size(type, cu);
 	}
 
@@ -711,19 +729,32 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 			strncpy(bf, "void *", len);
 		else {
 			type = cu__find_tag_by_id(cu, self->type);
-			snprintf(bf, len, "%s *", tag__name(type, cu, tmpbf,
-							    sizeof(tmpbf)));
+			if (type == NULL) {
+				tag__type_not_found(self, cu);
+				strncpy(bf, "<ERROR>", len);
+			} else
+				snprintf(bf, len, "%s *",
+					 tag__name(type, cu,
+						   tmpbf, sizeof(tmpbf)));
 		}
 	} else if (self->tag == DW_TAG_volatile_type ||
 		   self->tag == DW_TAG_const_type) {
 		type = cu__find_tag_by_id(cu, self->type);
-		snprintf(bf, len, "%s %s ",
-			 self->tag == DW_TAG_volatile_type ? "volatile" :
-			 				     "const",
-			 tag__name(type, cu, tmpbf, sizeof(tmpbf)));
+		if (type == NULL && self->type != 0) {
+			tag__type_not_found(self, cu);
+			strncpy(bf, "<ERROR>", len);
+		} else
+			snprintf(bf, len, "%s %s ",
+				 self->tag == DW_TAG_volatile_type ?
+				 	"volatile" : "const",
+				 tag__name(type, cu, tmpbf, sizeof(tmpbf)));
 	} else if (self->tag == DW_TAG_array_type) {
 		type = cu__find_tag_by_id(cu, self->type);
-		return tag__name(type, cu, bf, len);
+		if (type == NULL) {
+			tag__type_not_found(self, cu);
+			strncpy(bf, "<ERROR>", len);
+		} else
+			return tag__name(type, cu, bf, len);
 	} else if (self->tag == DW_TAG_subroutine_type)
 		ftype__snprintf(tag__ftype(self), cu, bf, len, NULL, 0, 0, 0);
 	else
@@ -783,7 +814,10 @@ static size_t class_member__size(const struct class_member *self,
 				 const struct cu *cu)
 {
 	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
-	assert(type != NULL);
+	if (type == NULL) {
+		tag__type_not_found(&self->tag, cu);
+		return -1;
+	}
 	return tag__size(type, cu);
 }
 
@@ -809,7 +843,10 @@ const char *parameter__name(struct parameter *self, const struct cu *cu)
 		/* No? Does it have a DW_AT_abstract_origin? */
 		struct parameter *alias =
 			cu__find_parameter_by_id(cu, self->abstract_origin);
-		assert(alias != NULL);
+		if (alias == NULL) {
+			tag__type_not_found(&self->tag, cu);
+			return NULL;
+		}
 		/* Now cache the result in this tag ->name field */
 		self->name = alias->name;
 	}
@@ -824,7 +861,10 @@ Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu)
 		/* No? Does it have a DW_AT_abstract_origin? */
 		struct parameter *alias =
 			cu__find_parameter_by_id(cu, self->abstract_origin);
-		assert(alias != NULL);
+		if (alias == NULL) {
+			tag__type_not_found(&self->tag, cu);
+			return 0;
+		}
 		/* Now cache the result in this tag ->name and type fields */
 		self->name = alias->name;
 		self->tag.type = alias->tag.type;
@@ -1192,7 +1232,10 @@ const char *function__name(struct function *self, const struct cu *cu)
 		/* No? So it must have a DW_AT_abstract_origin... */
 		struct tag *tag = cu__find_tag_by_id(cu,
 						     self->abstract_origin);
-		assert(tag != NULL);
+		if (tag == NULL) {
+			tag__type_not_found(&self->proto.tag, cu);
+			return NULL;
+		}
 		/* ... and now we cache the result in this tag ->name field */
 		self->name = tag__function(tag)->name;
 	}
@@ -1432,7 +1475,10 @@ static void function__tag_print(const struct tag *tag, const struct cu *cu,
 				cu__find_tag_by_id(cu, exp->tag.type);
 		struct function *alias = tag__function(talias);
 
-		assert(alias != NULL);
+		if (alias == NULL) {
+			tag__type_not_found(&exp->tag, cu);
+			break;
+		}
 		printf("%.*s", indent, tabs);
 		c += printf("%s(); /* low_pc=%#llx */",
 			    function__name(alias, cu), exp->low_pc);
@@ -1502,8 +1548,13 @@ size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 			s += n; l -= n;
 		} else
 			first_parm = 0;
-		type = cu__find_tag_by_id(cu, parameter__type(pos, cu));
 		name = parameter__name(pos, cu);
+		type = cu__find_tag_by_id(cu, parameter__type(pos, cu));
+		if (type == NULL) {
+			tag__type_not_found(&pos->tag, cu);
+			stype = "<ERROR>";
+			goto print_it;
+		}
 		if (type->tag == DW_TAG_pointer_type) {
 			if (type->type != 0) {
 				struct tag *ptype =
@@ -1520,6 +1571,7 @@ size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 					    name, 0, 0, 0);
 			goto next;
 		}
+print_it:
 		stype = tag__name(type, cu, sbf, sizeof(sbf));
 		n = snprintf(s, l, "%s%s%s", stype,
 			     name ? " " : "", name ?: "");
@@ -1697,6 +1749,14 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 		}
 
 		type = cu__find_tag_by_id(cu, pos->tag.type);
+		if (type == NULL) {
+			tag__type_not_found(&pos->tag, cu);
+			n = snprintf(bf, l,
+				     "%.*s>>>ERROR: type for %s not found!\n",
+				     ntabs + 1, tabs, pos->name);
+			bf += n; l -= n;
+			continue;
+		}
 		size = tag__size(type, cu);
 		n = snprintf(bf, l, "%.*s", ntabs + 1, tabs);
 		bf += n; l -= n;
