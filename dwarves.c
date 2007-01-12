@@ -1190,6 +1190,16 @@ static size_t union__snprintf(const struct type *self, const struct cu *cu,
 	return len - l;
 }
 
+static void union__print(const struct tag *tag, const struct cu *cu,
+			 const char *suffix)
+{
+	const struct type *utype = tag__type(tag);
+	char bf[32768];
+
+	union__snprintf(utype, cu, bf, sizeof(bf), suffix, 0, 26, 23);
+	fputs(bf, stdout);
+}
+
 static struct class *class__new(Dwarf_Die *die)
 {
 	struct class *self = zalloc(sizeof(*self));
@@ -1951,6 +1961,9 @@ void tag__print(const struct tag *self, const struct cu *cu,
 		break;
 	case DW_TAG_subprogram:
 		function__print(self, cu);
+		break;
+	case DW_TAG_union_type:
+		union__print(self, cu, suffix);
 		break;
 	default:
 		printf("%s: %s tag not supported!\n", __FUNCTION__,
