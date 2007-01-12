@@ -28,6 +28,7 @@ static size_t decl_exclude_prefix_len;
 static uint16_t nr_holes;
 static uint16_t nr_bit_holes;
 static uint8_t show_packable;
+static uint8_t verbose;
 
 struct structure {
 	struct list_head   node;
@@ -235,7 +236,8 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
 
 	str = structures__find(name);
 	if (str != NULL) {
-		class__chkdupdef(str->class, str->cu, class, cu);
+		if (verbose)
+			class__chkdupdef(str->class, str->cu, class, cu);
 		str->nr_files++;
 		return NULL;
 	}
@@ -270,6 +272,7 @@ static struct option long_options[] = {
 	{ "cu_exclude",		required_argument,	NULL, 'X' },
 	{ "decl_exclude",	required_argument,	NULL, 'D' },
 	{ "packable",		no_argument,		NULL, 'p' },
+	{ "verbose",		no_argument,		NULL, 'V' },
 	{ NULL, 0, NULL, 0, }
 };
 
@@ -288,6 +291,7 @@ static void usage(void)
 		"   -s, --sizes                  show size of classes\n"
 		"   -t, --nr_definitions         show how many times struct was defined\n"
 		"   -D, --decl_exclude <prefix>  exclude classes declared in files with prefix\n"
+		"   -V, --verbose		 be verbose\n"
 		"   -x, --exclude <prefix>       exclude prefixed classes from reports\n"
 		"   -X, --cu_exclude <prefix>    exclude prefixed compilation units from reports\n",
 		DEFAULT_CACHELINE_SIZE);
@@ -301,7 +305,7 @@ int main(int argc, char *argv[])
 	char *class_name = NULL;
 	void (*formatter)(const struct structure *s) = class_formatter;
 
-	while ((option = getopt_long(argc, argv, "B:c:D:hH:nNpstx:X:",
+	while ((option = getopt_long(argc, argv, "B:c:D:hH:nNpstVx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
@@ -321,6 +325,7 @@ int main(int argc, char *argv[])
 		case 'X': cu__exclude_prefix = optarg;
 			  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
 							  break;
+		case 'V': verbose = 1;			  break;
 		case 'h': usage();			  return EXIT_SUCCESS;
 		default:  usage();			  return EXIT_FAILURE;
 		}
