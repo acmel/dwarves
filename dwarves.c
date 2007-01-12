@@ -272,6 +272,19 @@ static struct tag *tag__new(Dwarf_Die *die)
 	return self;
 }
 
+static void __tag__type_not_found(const struct tag *self, const struct cu *cu,
+				  const char *fn)
+{
+	char bf[64];
+
+	fprintf(stderr, "%s: %#llx type not found for %s (id=%#llx)\n",
+		fn, self->type, dwarf_tag_name(self->tag), self->id);
+	fflush(stdout);
+}
+
+#define tag__type_not_found(self, cu) \
+	__tag__type_not_found(self, cu, __FUNCTION__)
+
 void tag__print_decl_info(const struct tag *self)
 {
 	printf("/* %s:%u */\n", self->decl_file, self->decl_line);
@@ -320,6 +333,11 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 	const struct tag *ptr_type;
 	int is_pointer = 0;
 	char bf[512];
+
+	if (type == NULL) {
+		tag__type_not_found(tag_self, cu);
+		return;
+	}
 
 	switch (type->tag) {
 	case DW_TAG_pointer_type:
@@ -484,19 +502,6 @@ struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 
 	return NULL;
 }
-
-static void __tag__type_not_found(const struct tag *self, const struct cu *cu,
-				  const char *fn)
-{
-	char bf[64];
-
-	fprintf(stderr, "%s: %#llx type not found for %s (id=%#llx)\n",
-		fn, self->type, dwarf_tag_name(self->tag), self->id);
-	fflush(stdout);
-}
-
-#define tag__type_not_found(self, cu) \
-	__tag__type_not_found(self, cu, __FUNCTION__)
 
 struct tag *cu__find_struct_by_name(const struct cu *self, const char *name)
 {
