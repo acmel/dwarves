@@ -1642,8 +1642,6 @@ void function__print(const struct tag *tag_self, const struct cu *cu)
 {
 	struct function *self = tag__function(tag_self);
 	char bf[2048];
-	struct tag *class_type;
-	const char *type = "<ERROR>";
 
 	printf("/* %s:%u */\n", tag_self->decl_file, tag_self->decl_line);
 
