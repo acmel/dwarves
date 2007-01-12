@@ -237,7 +237,7 @@ extern void tag__print(const struct tag *self, const struct cu *cu,
 		       const char *prefix, const char *suffix);
 
 extern const char *function__name(struct function *self, const struct cu *cu);
-extern void function__print(struct function *self, const struct cu *cu,
+extern void function__print(const struct tag *tag_self, const struct cu *cu,
 			    const int show_stats,
 			    const int show_variables,
 			    const int show_inline_expansions);
@@ -252,9 +252,9 @@ extern struct cu *cus__find_cu_by_name(const struct cus *self,
 extern struct tag *cus__find_struct_by_name(const struct cus *self,
 					    struct cu **cu,
 					    const char *name);
-extern struct function *cus__find_function_by_name(const struct cus *self,
-						   struct cu **cu,
-						   const char *name);
+extern struct tag *cus__find_function_by_name(const struct cus *self,
+					      struct cu **cu,
+					      const char *name);
 extern int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 				       struct ftype *ftype);
 extern int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
@@ -288,8 +288,8 @@ extern const struct class_member *
 				     const struct class_member *trailer,
 				     const size_t bit_hole_size);
 
-extern struct function *cu__find_function_by_name(const struct cu *cu,
-						  const char *name);
+extern struct tag *cu__find_function_by_name(const struct cu *cu,
+					     const char *name);
 
 static inline size_t function__size(const struct function *self)
 {

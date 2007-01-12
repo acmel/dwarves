@@ -163,10 +163,11 @@ static int cu_emit_kretprobes_table_iterator(struct cu *cu, void *cookie)
 static void emit_function_defs(const char *fn)
 {
 	struct cu *cu;
-	struct function *f = cus__find_function_by_name(kprobes_cus, &cu, fn);
+	struct tag *f = cus__find_function_by_name(kprobes_cus, &cu, fn);
 
 	if (f != NULL) {
-		cus__emit_ftype_definitions(kprobes_cus, cu, &f->proto);
+		cus__emit_ftype_definitions(kprobes_cus, cu,
+					    &tag__function(f)->proto);
 		function__print(f, cu, 0, 0, 0);
 		putchar('\n');
 	}

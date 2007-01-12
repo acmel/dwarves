@@ -24,24 +24,25 @@ static int show_cc_uninlined;
 
 struct fn_stats {
 	struct list_head node;
-	struct function	 *function;
+	struct tag	 *tag;
 	const struct cu	 *cu;
 	uint32_t	 nr_expansions;
 	uint32_t	 size_expansions;
 	uint32_t	 nr_files;
 };
 
-static struct fn_stats *fn_stats__new(struct function *function,
-				      const struct cu *cu)
+static struct fn_stats *fn_stats__new(struct tag *tag, const struct cu *cu)
 {
 	struct fn_stats *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->function = function;
+		const struct function *fn = tag__function(tag);
+
+		self->tag = tag;
 		self->cu = cu;
 		self->nr_files = 1;
-		self->nr_expansions = function->cu_total_nr_inline_expansions;
-		self->size_expansions = function->cu_total_size_inline_expansions;
+		self->nr_expansions = fn->cu_total_nr_inline_expansions;
+		self->size_expansions = fn->cu_total_size_inline_expansions;
 	}
 
 	return self;
@@ -54,69 +55,78 @@ static struct fn_stats *fn_stats__find(const char *name)
 	struct fn_stats *pos;
 
 	list_for_each_entry(pos, &fn_stats__list, node)
-		if (strcmp(function__name(pos->function, pos->cu), name) == 0)
+		if (strcmp(function__name(tag__function(pos->tag), pos->cu),
+			   name) == 0)
 			return pos;
 	return NULL;
 }
 
-static void fn_stats__add(struct function *function, const struct cu *cu)
+static void fn_stats__add(struct tag *tag, const struct cu *cu)
 {
-	struct fn_stats *inl = fn_stats__new(function, cu);
-	if (inl != NULL)
-		list_add(&inl->node, &fn_stats__list);
+	struct fn_stats *fns = fn_stats__new(tag, cu);
+	if (fns != NULL)
+		list_add(&fns->node, &fn_stats__list);
 }
 
 static void fn_stats_inline_exps_fmtr(const struct fn_stats *self)
 {
-	if (self->function->lexblock.nr_inline_expansions > 0)
-		printf("%s: %u %u\n", function__name(self->function, self->cu),
-		       self->function->lexblock.nr_inline_expansions,
-		       self->function->lexblock.size_inline_expansions);
+	struct function *fn = tag__function(self->tag);
+	if (fn->lexblock.nr_inline_expansions > 0)
+		printf("%s: %u %u\n", function__name(fn, self->cu),
+		       fn->lexblock.nr_inline_expansions,
+		       fn->lexblock.size_inline_expansions);
 }
 
 static void fn_stats_labels_fmtr(const struct fn_stats *self)
 {
-	if (self->function->lexblock.nr_labels > 0)
-		printf("%s: %u\n", function__name(self->function, self->cu),
-		       self->function->lexblock.nr_labels);
+	struct function *fn = tag__function(self->tag);
+	if (fn->lexblock.nr_labels > 0)
+		printf("%s: %u\n", function__name(fn, self->cu),
+		       fn->lexblock.nr_labels);
 }
 
 static void fn_stats_variables_fmtr(const struct fn_stats *self)
 {
-	if (self->function->lexblock.nr_variables > 0)
-		printf("%s: %u\n", function__name(self->function, self->cu),
-		       self->function->lexblock.nr_variables);
+	struct function *fn = tag__function(self->tag);
+	if (fn->lexblock.nr_variables > 0)
+		printf("%s: %u\n", function__name(fn, self->cu),
+		       fn->lexblock.nr_variables);
 }
 
 static void fn_stats_nr_parms_fmtr(const struct fn_stats *self)
 {
-	printf("%s: %u\n", function__name(self->function, self->cu),
-	       self->function->proto.nr_parms);
+	struct function *fn = tag__function(self->tag);
+	printf("%s: %u\n", function__name(fn, self->cu),
+	       fn->proto.nr_parms);
 }
 
 static void fn_stats_name_len_fmtr(const struct fn_stats *self)
 {
-	const char *name = function__name(self->function, self->cu);
+	struct function *fn = tag__function(self->tag);
+	const char *name = function__name(fn, self->cu);
 	printf("%s: %u\n", name, strlen(name));
 }
 
 static void fn_stats_size_fmtr(const struct fn_stats *self)
 {
-	const size_t size = function__size(self->function);
+	struct function *fn = tag__function(self->tag);
+	const size_t size = function__size(fn);
+
 	if (size != 0)
-		printf("%s: %u\n", function__name(self->function, self->cu),
-		       size);
+		printf("%s: %u\n", function__name(fn, self->cu), size);
 }
 
 static void fn_stats_fmtr(const struct fn_stats *self)
 {
 	if (verbose) {
-		function__print(self->function, self->cu, 1,
-				show_variables, show_inline_expansions);
+		function__print(self->tag, self->cu, 1, show_variables,
+				show_inline_expansions);
 		printf("/* definitions: %u */\n", self->nr_files);
 		putchar('\n');
-	} else
-		puts(function__name(self->function, self->cu));
+	} else {
+		struct function *fn = tag__function(self->tag);
+		puts(function__name(fn, self->cu));
+	}
 }
 
 static void print_fn_stats(void (*formatter)(const struct fn_stats *f))
@@ -131,7 +141,7 @@ static void fn_stats_inline_stats_fmtr(const struct fn_stats *self)
 {
 	if (self->nr_expansions > 1)
 		printf("%-31.31s %6lu %7lu  %6lu %6u\n",
-		       function__name(self->function, self->cu),
+		       function__name(tag__function(self->tag), self->cu),
 		       self->size_expansions, self->nr_expansions,
 		       self->size_expansions / self->nr_expansions,
 		       self->nr_files);
@@ -219,10 +229,14 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 		return NULL;
 
 	fstats = fn_stats__find(name);
-	if (fstats != NULL && fstats->function->external) {
+	if (fstats != NULL) {
+		struct function *fn = tag__function(fstats->tag);
+
+		if (!fn->external)
+			return tag;
+
 		if (verbose)
-			fn_stats__chkdupdef(fstats->function, fstats->cu,
-					    function, cu);
+			fn_stats__chkdupdef(fn, fstats->cu, function, cu);
 		fstats->nr_expansions   += function->cu_total_nr_inline_expansions;
 		fstats->size_expansions += function->cu_total_size_inline_expansions;
 		fstats->nr_files++;
@@ -235,7 +249,7 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 static int unique_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
 	if (tag->tag == DW_TAG_subprogram)
-		fn_stats__add(tag__function(tag), cu);
+		fn_stats__add(tag, cu);
 	return 0;
 }
 
@@ -258,7 +272,7 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	if (ftype__has_parm_of_type(&function->proto, cookie, cu)) {
 		if (verbose)
-			function__print(function, cu, 1, 0, 0);
+			function__print(tag, cu, 1, 0, 0);
 		else
 			printf("%s\n", function__name(function, cu));
 	}
@@ -284,7 +298,7 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	function = tag__function(tag);
 	if (strcmp(function__name(function, cu), cookie) == 0) {
-		function__print(function, cu, 1, show_variables,
+		function__print(tag, cu, 1, show_variables,
 				show_inline_expansions);
 		return 1;
 	}

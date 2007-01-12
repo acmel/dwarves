@@ -532,13 +532,13 @@ struct tag *cus__find_struct_by_name(const struct cus *self,
 	return NULL;
 }
 
-struct function *cus__find_function_by_name(const struct cus *self,
-					    struct cu **cu, const char *name)
+struct tag *cus__find_function_by_name(const struct cus *self,
+				       struct cu **cu, const char *name)
 {
 	struct cu *pos;
 
 	list_for_each_entry(pos, &self->cus, node) {
-		struct function *function = cu__find_function_by_name(pos, name);
+		struct tag *function = cu__find_function_by_name(pos, name);
 
 		if (function != NULL) {
 			if (cu != NULL)
@@ -601,8 +601,7 @@ static void cus__add_fwd_decl(struct cus *self, struct type *type)
 		list_add_tail(&type->node, self->fwd_decls);
 }
 
-struct function *cu__find_function_by_name(const struct cu *self,
-					   const char *name)
+struct tag *cu__find_function_by_name(const struct cu *self, const char *name)
 {
 	struct tag *pos;
 	struct function *fpos;
@@ -615,7 +614,7 @@ struct function *cu__find_function_by_name(const struct cu *self,
 			continue;
 		fpos = tag__function(pos);
 		if (fpos->name != NULL && strcmp(fpos->name, name) == 0)
-			return fpos;
+			return pos;
 	}
 
 	return NULL;
@@ -1639,16 +1638,16 @@ print_it:
 	return len - (l - n);
 }
 
-void function__print(struct function *self, const struct cu *cu,
+void function__print(const struct tag *tag_self, const struct cu *cu,
 		     int show_stats, const int show_variables,
 		     const int show_inline_expansions)
 {
+	struct function *self = tag__function(tag_self);
 	char bf[2048];
 	struct tag *class_type;
 	const char *type = "<ERROR>";
 
-	printf("/* %s:%u */\n", self->proto.tag.decl_file,
-				self->proto.tag.decl_line);
+	printf("/* %s:%u */\n", tag_self->decl_file, tag_self->decl_line);
 
 	ftype__snprintf(&self->proto, cu, bf, sizeof(bf),
 			function__name(self, cu),

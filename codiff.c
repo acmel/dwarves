@@ -82,7 +82,7 @@ static struct diff_info *diff_info__new(const struct tag *twin,
 static void diff_function(const struct cu *new_cu, struct function *function,
 			  struct cu *cu)
 {
-	struct function *new_function;
+	struct tag *new_tag;
 	const char *name;
 
 	assert(function->proto.tag.tag == DW_TAG_subprogram);
@@ -91,8 +91,9 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 		return;
 
 	name = function__name(function, cu);
-	new_function = cu__find_function_by_name(new_cu, name);
-	if (new_function != NULL) {
+	new_tag = cu__find_function_by_name(new_cu, name);
+	if (new_tag != NULL) {
+		struct function *new_function = tag__function(new_tag);
 		int32_t diff = (function__size(new_function) -
 				function__size(function));
 		if (diff != 0) {
@@ -263,7 +264,6 @@ static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
 				       void *old_cu)
 {
 	struct function *function = tag__function(tfunction);
-	struct function *old_function;
 	const char *name;
 
 	assert(function->proto.tag.tag == DW_TAG_subprogram);
@@ -272,8 +272,7 @@ static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
 		return 0;
 
 	name = function__name(function, cu);
-	old_function = cu__find_function_by_name(old_cu, name);
-	if (old_function == NULL) {
+	if (cu__find_function_by_name(old_cu, name) == NULL) {
 		const size_t len = strlen(name);
 		const int32_t diff = function__size(function);
 
