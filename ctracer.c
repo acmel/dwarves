@@ -9,8 +9,10 @@
 
 #include <getopt.h>
 #include <limits.h>
+#include <search.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 
 #include "dwarves.h"
@@ -20,6 +22,35 @@ static struct cus *kprobes_cus;
 
 static LIST_HEAD(cus__definitions);
 static LIST_HEAD(cus__fwd_decls);
+
+static void *jprobes_emitted;
+static void *kretprobes_emitted;
+
+static int methods__compare(const void *a, const void *b)
+{
+	return strcmp(a, b);
+}
+
+static int methods__add(void **table, const char *str)
+{
+	char **s = tsearch(str, table, methods__compare);
+
+	if (s != NULL) {
+		if (*s == str) {
+			char *dup = strdup(str);
+			if (dup != NULL)
+				*s = dup;
+			else {
+				tdelete(str, table, methods__compare);
+				return -1;
+			}
+		} else
+			return -1;
+	} else
+		return -1;
+
+	return 0;
+}
 
 static void method__add(struct cu *cu, struct function *function)
 {
@@ -105,6 +136,9 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
+		if (methods__add(&jprobes_emitted, function__name(pos, cu)) != 0)
+			continue;
+		pos->priv = (void *)1; /* Mark as visited, for the table iterator */
 		cus__emit_ftype_definitions(cus, cu, &pos->proto);
 		function__emit_kprobes(pos, cu, target);
 	}
@@ -117,7 +151,8 @@ static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node)
-		printf("\t&jprobe__%s,\n", function__name(pos, cu));
+		if (pos->priv != NULL)
+			printf("\t&jprobe__%s,\n", function__name(pos, cu));
 
 	return 0;
 }
@@ -144,8 +179,13 @@ static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie)
 {
 	struct function *pos;
 
-	list_for_each_entry(pos, &cu->tool_list, tool_node)
+	list_for_each_entry(pos, &cu->tool_list, tool_node) {
+		if (methods__add(&kretprobes_emitted,
+				 function__name(pos, cu)) != 0)
+			continue;
+		pos->priv = (void *)1; /* Mark as visited, for the table iterator */
 		function__emit_kretprobes(pos, cu);
+	}
 
 	return 0;
 }
@@ -155,7 +195,8 @@ static int cu_emit_kretprobes_table_iterator(struct cu *cu, void *cookie)
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node)
-		printf("\t&kretprobe__%s,\n", function__name(pos, cu));
+		if (pos->priv != NULL)
+			printf("\t&kretprobe__%s,\n", function__name(pos, cu));
 
 	return 0;
 }
