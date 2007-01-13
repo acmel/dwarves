@@ -369,15 +369,15 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 
 static size_t enumeration__snprintf(const struct tag *tag_self,
 				    char *bf, size_t len,
-				    const char *suffix, uint8_t ntabs)
+				    const char *suffix, uint8_t indent)
 {
 	const struct type *self = tag__type(tag_self);
 	struct enumerator *pos;
 	char *s = bf;
 	size_t printed = 0, n;
 
-	if (ntabs >= sizeof(tabs))
-		ntabs = sizeof(tabs) - 1;
+	if (indent >= sizeof(tabs))
+		indent = sizeof(tabs) - 1;
 
 	n = snprintf(s, len, "enum%s%s {\n",
 		     self->name ? " " : "", self->name ?: "");
@@ -385,27 +385,27 @@ static size_t enumeration__snprintf(const struct tag *tag_self,
 	len -= n;
 	printed += n;
 	list_for_each_entry(pos, &self->members, tag.node) {
-		n = snprintf(s, len, "%.*s\t%s = %u,\n", ntabs, tabs,
+		n = snprintf(s, len, "%.*s\t%s = %u,\n", indent, tabs,
 			     pos->name, pos->value);
 		s += n;
 		len -= n;
 		printed += n;
 	}
 
-	n = snprintf(s, len, "%.*s}%s%s", ntabs, tabs,
+	n = snprintf(s, len, "%.*s}%s%s", indent, tabs,
 		     suffix ? " " : "", suffix ?: "");
 	return printed + n;
 }
 
 static void enumeration__print(const struct tag *tag_self,
-			       const char *suffix, uint8_t ntabs)
+			       const char *suffix, uint8_t indent)
 {
 	char bf[4096];
 
-	if (ntabs >= sizeof(tabs))
-		ntabs = sizeof(tabs) - 1;
+	if (indent >= sizeof(tabs))
+		indent = sizeof(tabs) - 1;
 
-	enumeration__snprintf(tag_self, bf, sizeof(bf), suffix, ntabs);
+	enumeration__snprintf(tag_self, bf, sizeof(bf), suffix, indent);
 	fputs(bf, stdout);
 }
 
@@ -1020,17 +1020,17 @@ static size_t array_type__snprintf(const struct tag *tag_self,
 
 static size_t union__snprintf(const struct type *self, const struct cu *cu,
 			      char *bf, size_t len, const char *suffix,
-			      uint8_t ntabs, size_t type_spacing,
+			      uint8_t indent, size_t type_spacing,
 			      size_t name_spacing);
 static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			      char *bf, size_t len,
 			      const char *prefix, const char *suffix,
-			      uint8_t ntabs, size_t type_spacing,
+			      uint8_t indent, size_t type_spacing,
 			      size_t name_spacing, int emit_stats);
 
 static size_t class_member__snprintf(struct class_member *self,
 				     struct tag *type, const struct cu *cu,
-				     char *bf, size_t len, size_t ntabs,
+				     char *bf, size_t len, size_t indent,
 				     size_t type_spacing, size_t name_spacing)
 {
 	char tbf[128];
@@ -1063,7 +1063,7 @@ static size_t class_member__snprintf(struct class_member *self,
 					self->name);
 
 		return class__snprintf(tag__class(type), cu, bf, len,
-				       NULL, self->name, ntabs,
+				       NULL, self->name, indent,
 				       type_spacing - 8, name_spacing, 0);
 	} else if (type->tag == DW_TAG_union_type) {
 		struct type *ctype = tag__type(type);
@@ -1073,7 +1073,7 @@ static size_t class_member__snprintf(struct class_member *self,
 					type_spacing - 6, ctype->name,
 					self->name);
 
-		return union__snprintf(ctype, cu, bf, len, self->name, ntabs,
+		return union__snprintf(ctype, cu, bf, len, self->name, indent,
 				       type_spacing - 8, name_spacing);
 	} else if (type->tag == DW_TAG_enumeration_type) {
 		struct type *ctype = tag__type(type);
@@ -1083,7 +1083,7 @@ static size_t class_member__snprintf(struct class_member *self,
 					type_spacing - 5, ctype->name,
 					self->name);
 
-		return enumeration__snprintf(type, bf, len, self->name, ntabs);
+		return enumeration__snprintf(type, bf, len, self->name, indent);
 	}
 	return snprintf(bf, len, "%-*s %s", type_spacing,
 			tag__name(type, cu, tbf, sizeof(tbf)),
@@ -1092,13 +1092,13 @@ static size_t class_member__snprintf(struct class_member *self,
 
 static size_t struct_member__snprintf(struct class_member *self,
 				      struct tag *type, const struct cu *cu,
-				      char *bf, size_t len, size_t ntabs,
+				      char *bf, size_t len, size_t indent,
 				      size_t type_spacing, size_t name_spacing)
 {
 	size_t l = len;
 	ssize_t spacing;
 	const size_t size = tag__size(type, cu);
-	size_t n = class_member__snprintf(self, type, cu, bf, l, ntabs,
+	size_t n = class_member__snprintf(self, type, cu, bf, l, indent,
 					  type_spacing, name_spacing);
 	
 	bf += n; l -= n;
@@ -1129,13 +1129,13 @@ static size_t struct_member__snprintf(struct class_member *self,
 
 static size_t union_member__snprintf(struct class_member *self,
 				     struct tag *type, const struct cu *cu,
-				     char *bf, size_t len, size_t ntabs,
+				     char *bf, size_t len, size_t indent,
 				     size_t type_spacing, size_t name_spacing)
 {
 	size_t l = len;
 	ssize_t spacing;
 	const size_t size = tag__size(type, cu);
-	size_t n = class_member__snprintf(self, type, cu, bf, l, ntabs,
+	size_t n = class_member__snprintf(self, type, cu, bf, l, indent,
 					  type_spacing, name_spacing);
 	
 	bf += n; l -= n;
@@ -1158,15 +1158,15 @@ static size_t union_member__snprintf(struct class_member *self,
 
 static size_t union__snprintf(const struct type *self, const struct cu *cu,
 			      char *bf, size_t len,
-			      const char *suffix, uint8_t ntabs,
+			      const char *suffix, uint8_t indent,
 			      size_t type_spacing, size_t name_spacing)
 {
 	struct class_member *pos;
 	char *s = bf;
 	size_t l = len, n;
 
-	if (ntabs >= sizeof(tabs))
-		ntabs = sizeof(tabs) - 1;
+	if (indent >= sizeof(tabs))
+		indent = sizeof(tabs) - 1;
 
 	n = snprintf(s, l, "union%s%s {\n",
 		     self->name ? " " : "", self->name ?: "");
@@ -1175,16 +1175,16 @@ static size_t union__snprintf(const struct type *self, const struct cu *cu,
 	list_for_each_entry(pos, &self->members, tag.node) {
 		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
 
-		n = snprintf(s, l, "%.*s", ntabs + 1, tabs);
+		n = snprintf(s, l, "%.*s", indent + 1, tabs);
 		s += n; l -= n;
-		n = union_member__snprintf(pos, type, cu, s, l, ntabs + 1,
+		n = union_member__snprintf(pos, type, cu, s, l, indent + 1,
 					   type_spacing, name_spacing);
 		s += n; l -= n;
 		n = snprintf(s, l, "\n");
 		s += n; l -= n;
 	}
 
-	n = snprintf(s, len, "%.*s}%s%s", ntabs, tabs,
+	n = snprintf(s, len, "%.*s}%s%s", indent, tabs,
 		     suffix ? " " : "", suffix ?: "");
 	l -= n;
 	return len - l;
@@ -1701,7 +1701,7 @@ static size_t class__snprintf_cacheline_boundary(char *bf, size_t len,
 						 size_t sum, size_t sum_holes,
 						 uint8_t *newline,
 						 uint32_t *cacheline,
-						 size_t ntabs)
+						 size_t indent)
 {
 	size_t l = len;
 	const size_t real_sum = sum + sum_holes;
@@ -1719,7 +1719,7 @@ static size_t class__snprintf_cacheline_boundary(char *bf, size_t len,
 			*newline = 0;
 		}
 
-		n = snprintf(bf, l, "%.*s", ntabs, tabs);
+		n = snprintf(bf, l, "%.*s", indent, tabs);
 		bf += n; l -= n;
 
 		if (cacheline_pos == 0)
@@ -1741,7 +1741,7 @@ static size_t class__snprintf_cacheline_boundary(char *bf, size_t len,
 static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			      char *bf, size_t len,
 			      const char *prefix, const char *suffix,
-			      uint8_t ntabs, size_t type_spacing,
+			      uint8_t indent, size_t type_spacing,
 			      size_t name_spacing, int emit_stats)
 {
 	const char *orig_bf = bf;
@@ -1762,8 +1762,8 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 
 	bf += n; l -= n;
 
-	if (ntabs >= sizeof(tabs))
-		ntabs = sizeof(tabs) - 1;
+	if (indent >= sizeof(tabs))
+		indent = sizeof(tabs) - 1;
 
 	list_for_each_entry(pos, &tself->members, tag.node) {
 		struct tag *type;
@@ -1773,7 +1773,7 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 						       sum, sum_holes,
 						       &newline,
 						       &last_cacheline,
-						       ntabs + 1);
+						       indent + 1);
 		bf += n; l -= n;
 
 		if (last_offset != -1) {
@@ -1785,7 +1785,7 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 				n = snprintf(bf, l, "%.*s/* Bitfield "
 					     "WARNING: DWARF "
 					     "size=%u, real size=%u */\n",
-					     ntabs + 1, tabs,
+					     indent + 1, tabs,
 					     last_size, cc_last_size);
 				bf += n; l -= n;
 				sum -= last_size - cc_last_size;
@@ -1824,14 +1824,14 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			tag__type_not_found(&pos->tag, cu);
 			n = snprintf(bf, l,
 				     "%.*s>>>ERROR: type for %s not found!\n",
-				     ntabs + 1, tabs, pos->name);
+				     indent + 1, tabs, pos->name);
 			bf += n; l -= n;
 			continue;
 		}
 		size = tag__size(type, cu);
-		n = snprintf(bf, l, "%.*s", ntabs + 1, tabs);
+		n = snprintf(bf, l, "%.*s", indent + 1, tabs);
 		bf += n; l -= n;
-		n = struct_member__snprintf(pos, type, cu, bf, l, ntabs + 1,
+		n = struct_member__snprintf(pos, type, cu, bf, l, indent + 1,
 					    type_spacing, name_spacing);
 		bf += n; l -= n;
 
@@ -1841,7 +1841,7 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 				bf += n; l -= n;
 			}
 			n = snprintf(bf, l, "\n%.*s/* XXX %d bit%s hole, "
-				     "try to pack */", ntabs + 1, tabs,
+				     "try to pack */", indent + 1, tabs,
 				     pos->bit_hole,
 				     pos->bit_hole != 1 ? "s" : "");
 			bf += n; l -= n;
@@ -1855,7 +1855,7 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			}
 
 			n = snprintf(bf, l, "\n%.*s/* XXX %d byte%s "
-				     "hole, try to pack */", ntabs + 1, tabs,
+				     "hole, try to pack */", indent + 1, tabs,
 				     pos->hole, pos->hole != 1 ? "s" : "");
 			bf += n; l -= n;
 			sum_holes += pos->hole;
@@ -1882,10 +1882,10 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 
 	n = class__snprintf_cacheline_boundary(bf, l, last_cacheline, sum,
 					       sum_holes, &newline,
-					       &last_cacheline, ntabs + 1);
+					       &last_cacheline, indent + 1);
 	bf += n; l -= n;
 	n = snprintf(bf, l, "%.*s}%s%s",
-		     ntabs, tabs, suffix ? " ": "", suffix ?: "");
+		     indent, tabs, suffix ? " ": "", suffix ?: "");
 	bf += n; l -= n;
 
 	if (!emit_stats)
@@ -1896,36 +1896,36 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 	bf += n; l -= n;
 	if (sum_holes > 0) {
 		n = snprintf(bf, l, "%.*s   /* sum members: %lu, "
-			    "holes: %d, sum holes: %lu */\n", ntabs, tabs,
+			    "holes: %d, sum holes: %lu */\n", indent, tabs,
 			     sum, self->nr_holes, sum_holes);
 		bf += n; l -= n;
 	}
 	if (sum_bit_holes > 0) {
 		n = snprintf(bf, l, "%.*s   /* bit holes: %d, sum "
-			     "bit holes: %u bits */\n", ntabs, tabs,
+			     "bit holes: %u bits */\n", indent, tabs,
 		       self->nr_bit_holes, sum_bit_holes);
 		bf += n; l -= n;
 	}
 	if (self->padding > 0) {
-		n = snprintf(bf, l, "%.*s   /* padding: %u */\n", ntabs, tabs,
+		n = snprintf(bf, l, "%.*s   /* padding: %u */\n", indent, tabs,
 			     self->padding);
 		bf += n; l -= n;
 	}
 	if (self->bit_padding > 0) {
 		n = snprintf(bf, l, "%.*s   /* bit_padding: %u bits */\n",
-			     ntabs, tabs, self->bit_padding);
+			     indent, tabs, self->bit_padding);
 		bf += n; l -= n;
 	}
 	last_cacheline = tself->size % cacheline_size;
 	if (last_cacheline != 0) {
 		n = snprintf(bf, l, "%.*s   /* last cacheline: %u bytes */\n",
-			     ntabs, tabs, last_cacheline);
+			     indent, tabs, last_cacheline);
 		bf += n; l -= n;
 	}
 
 	if (sum + sum_holes != tself->size - self->padding) {
 		n = snprintf(bf, l, "\n%.*s/* BRAIN FART ALERT! %u != "
-			     "%u + %u(holes), diff = %u */\n\n", ntabs, tabs,
+			     "%u + %u(holes), diff = %u */\n\n", indent, tabs,
 			     tself->size, sum, sum_holes,
 			     tself->size - (sum + sum_holes));
 		bf += n; l -= n;
