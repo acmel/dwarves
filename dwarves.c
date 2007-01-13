@@ -1066,7 +1066,8 @@ static size_t class_member__snprintf(struct class_member *self,
 		return snprintf(bf, len, "%-*s %s",
 				type_spacing, "<ERROR>", self->name);
 
-	if (type->tag == DW_TAG_pointer_type) {
+	switch (type->tag) {
+	case DW_TAG_pointer_type:
 		if (type->type != 0) {
 			struct tag *ptype = cu__find_tag_by_id(cu, type->type);
 			if (ptype->tag == DW_TAG_subroutine_type) {
@@ -1075,13 +1076,14 @@ static size_t class_member__snprintf(struct class_member *self,
 						       0, 1, type_spacing);
 			}
 		}
-	} else if (type->tag == DW_TAG_subroutine_type)
+		break;
+	case DW_TAG_subroutine_type:
 		return ftype__snprintf(tag__ftype(type), cu, bf, len,
 				       self->name, 0, 0, type_spacing);
-	else if (type->tag == DW_TAG_array_type)
+	case DW_TAG_array_type:
 		return array_type__snprintf(type, cu, bf, len, self->name,
 					    type_spacing);
-	else if (type->tag == DW_TAG_structure_type) {
+	case DW_TAG_structure_type: {
 		struct type *ctype = tag__type(type);
 
 		if (ctype->name != NULL)
@@ -1092,7 +1094,8 @@ static size_t class_member__snprintf(struct class_member *self,
 		return class__snprintf(tag__class(type), cu, bf, len,
 				       NULL, self->name, indent,
 				       type_spacing - 8, name_spacing, 0);
-	} else if (type->tag == DW_TAG_union_type) {
+	}
+	case DW_TAG_union_type: {
 		struct type *ctype = tag__type(type);
 
 		if (ctype->name != NULL)
@@ -1102,7 +1105,8 @@ static size_t class_member__snprintf(struct class_member *self,
 
 		return union__snprintf(ctype, cu, bf, len, self->name, indent,
 				       type_spacing - 8, name_spacing);
-	} else if (type->tag == DW_TAG_enumeration_type) {
+	}
+	case DW_TAG_enumeration_type: {
 		struct type *ctype = tag__type(type);
 
 		if (ctype->name != NULL)
@@ -1112,6 +1116,8 @@ static size_t class_member__snprintf(struct class_member *self,
 
 		return enumeration__snprintf(type, bf, len, self->name, indent);
 	}
+	}
+
 	return snprintf(bf, len, "%-*s %s", type_spacing,
 			tag__name(type, cu, tbf, sizeof(tbf)),
 			self->name);
