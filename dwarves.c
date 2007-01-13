@@ -2580,10 +2580,10 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	}
 	type = cu__find_tag_by_id(cu, tdef->type);
 
-	if (type->tag == DW_TAG_typedef)
-		cus__emit_typedef_definitions(self, cu, type);
-
 	switch (type->tag) {
+	case DW_TAG_typedef:
+		cus__emit_typedef_definitions(self, cu, type);
+		break;
 	case DW_TAG_pointer_type:
 		ptr_type = cu__find_tag_by_id(cu, type->type);
 		if (ptr_type->tag != DW_TAG_subroutine_type)
