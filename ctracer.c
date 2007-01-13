@@ -238,6 +238,7 @@ static void emit_module_preamble(void)
 	emit_class_fwd_decl("pt_regs");
 	emit_class_fwd_decl("kretprobe_instance");
 
+	emit_function_defs("yield");
 	emit_function_defs("printk");
 	emit_function_defs("register_jprobe");
 	emit_function_defs("unregister_jprobe");
@@ -286,6 +287,8 @@ static void emit_module_init(void)
 	       "		else\n"
 	       "			++nr;\n"
 	       "		++i;\n"
+	       "		if ((i % 5) == 0)\n"
+	       "			yield();"
 	       "	}\n\n"
 	       "	printk(\"ctracer: registered %%u entry probes\\n\", nj);\n"
 	       "	printk(\"ctracer: registered %%u exit probes\\n\", nr);\n"
@@ -305,6 +308,8 @@ static void emit_module_exit(void)
 	       "		unregister_jprobe(jprobes[i]);\n"
 	       "		unregister_kretprobe(kretprobes[i]);\n"
 	       "		++i;\n"
+	       "		if ((i % 5) == 0)\n"
+	       "			yield();"
 	       "	}\n\n"
 	       "}\n\n");
 	emit_module_exitcall("jprobe_exit");
