@@ -1523,9 +1523,6 @@ static void tags__add(void *tags, const struct tag *tag)
 	tsearch(tag, tags, tags__compare);
 }
 
-static void lexblock__print(const struct lexblock *self, const struct cu *cu,
-			    int indent);
-
 static void function__tag_print(const struct tag *tag, const struct cu *cu,
 				int indent)
 {
@@ -1578,8 +1575,8 @@ static void function__tag_print(const struct tag *tag, const struct cu *cu,
 	printf("%-*.*s// %5u\n", 70 - c, 70 - c, " ",  tag->decl_line);
 }
 
-static void lexblock__print(const struct lexblock *self, const struct cu *cu,
-			    int indent)
+void lexblock__print(const struct lexblock *self, const struct cu *cu,
+		     int indent)
 {
 	struct tag *pos;
 
