@@ -169,6 +169,7 @@ struct function {
 	struct lexblock	 lexblock;
 	const char	 *name;
 	Dwarf_Off	 abstract_origin;
+	Dwarf_Off	 specification;
 	size_t		 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;
 	uint8_t		 inlined;	/* two bits used */

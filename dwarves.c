@@ -680,6 +680,17 @@ static struct variable *cu__find_variable_by_id(const struct cu *self,
 	return NULL;
 }
 
+static struct tag *ftype__find_parm_by_id(const struct ftype *self,
+					  const Dwarf_Off id)
+{
+	struct tag *pos;
+
+	list_for_each_entry(pos, &self->parms, node)
+		if (pos->id == id)
+			return pos;
+	return 0;
+}
+
 static struct parameter *cu__find_parameter_by_id(const struct cu *self,
 						  const Dwarf_Off id)
 {
@@ -691,11 +702,14 @@ static struct parameter *cu__find_parameter_by_id(const struct cu *self,
 
 		if (pos->tag == DW_TAG_subprogram) {
 			struct function *fn = tag__function(pos);
-			struct tag *tag =
-				lexblock__find_tag_by_id(&fn->lexblock, id);
-
-			if (tag != NULL)
-				return tag__parameter(tag);
+			struct tag *tag = ftype__find_parm_by_id(&fn->proto,
+								 id);
+			if (tag != NULL) {
+				tag = lexblock__find_tag_by_id(&fn->lexblock,
+							       id);
+				if (tag != NULL)
+					return tag__parameter(tag);
+			}
 		}
 
 	return NULL;
@@ -1290,6 +1304,7 @@ static struct function *function__new(Dwarf_Die *die)
 		self->external = dwarf_hasattr(die, DW_AT_external);
 		self->abstract_origin = attr_numeric(die,
 						     DW_AT_abstract_origin);
+		self->specification   = attr_numeric(die, DW_AT_specification);
 	}
 
 	return self;
@@ -1303,8 +1318,12 @@ const char *function__name(struct function *self, const struct cu *cu)
 		struct tag *tag = cu__find_tag_by_id(cu,
 						     self->abstract_origin);
 		if (tag == NULL) {
-			tag__type_not_found(&self->proto.tag, cu);
-			return NULL;
+			/* ... or a DW_TAG_specification... */
+			tag = cu__find_tag_by_id(cu, self->specification);
+			if (tag == NULL) {
+				tag__type_not_found(&self->proto.tag, cu);
+				return NULL;
+			}
 		}
 		/* ... and now we cache the result in this tag ->name field */
 		self->name = tag__function(tag)->name;
@@ -1618,7 +1637,6 @@ size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
 		name = parameter__name(pos, cu);
 		type = cu__find_tag_by_id(cu, parameter__type(pos, cu));
 		if (type == NULL) {
-			tag__type_not_found(&pos->tag, cu);
 			stype = "<ERROR>";
 			goto print_it;
 		}
