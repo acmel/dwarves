@@ -1061,6 +1061,7 @@ static size_t class_member__snprintf(struct class_member *self,
 				     size_t type_spacing, size_t name_spacing)
 {
 	char tbf[128];
+	struct type *ctype;
 
 	if (type == NULL)
 		return snprintf(bf, len, "%-*s %s",
@@ -1083,8 +1084,8 @@ static size_t class_member__snprintf(struct class_member *self,
 	case DW_TAG_array_type:
 		return array_type__snprintf(type, cu, bf, len, self->name,
 					    type_spacing);
-	case DW_TAG_structure_type: {
-		struct type *ctype = tag__type(type);
+	case DW_TAG_structure_type:
+		ctype = tag__type(type);
 
 		if (ctype->name != NULL)
 			return snprintf(bf, len, "struct %-*s %s",
@@ -1094,9 +1095,8 @@ static size_t class_member__snprintf(struct class_member *self,
 		return class__snprintf(tag__class(type), cu, bf, len,
 				       NULL, self->name, indent,
 				       type_spacing - 8, name_spacing, 0);
-	}
-	case DW_TAG_union_type: {
-		struct type *ctype = tag__type(type);
+	case DW_TAG_union_type:
+		ctype = tag__type(type);
 
 		if (ctype->name != NULL)
 			return snprintf(bf, len, "union %-*s %s",
@@ -1105,9 +1105,8 @@ static size_t class_member__snprintf(struct class_member *self,
 
 		return union__snprintf(ctype, cu, bf, len, self->name, indent,
 				       type_spacing - 8, name_spacing);
-	}
-	case DW_TAG_enumeration_type: {
-		struct type *ctype = tag__type(type);
+	case DW_TAG_enumeration_type:
+		ctype = tag__type(type);
 
 		if (ctype->name != NULL)
 			return snprintf(bf, len, "enum %-*s %s",
@@ -1115,7 +1114,6 @@ static size_t class_member__snprintf(struct class_member *self,
 					self->name);
 
 		return enumeration__snprintf(type, bf, len, self->name, indent);
-	}
 	}
 
 	return snprintf(bf, len, "%-*s %s", type_spacing,
