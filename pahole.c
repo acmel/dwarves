@@ -35,6 +35,7 @@ struct structure {
 	const struct class *class;
 	const struct cu	   *cu;
 	uint32_t	   nr_files;
+	uint32_t	   nr_methods;
 };
 
 static struct structure *structure__new(const struct class *class,
@@ -43,9 +44,10 @@ static struct structure *structure__new(const struct class *class,
 	struct structure *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->class    = class;
-		self->cu       = cu;
-		self->nr_files = 1;
+		self->class      = class;
+		self->cu         = cu;
+		self->nr_files   = 1;
+		self->nr_methods = 0;
 	}
 
 	return self;
@@ -80,6 +82,11 @@ static void nr_members_formatter(const struct structure *self)
 {
 	printf("%s: %u\n", class__name(self->class),
 	       class__nr_members(self->class));
+}
+
+static void nr_methods_formatter(const struct structure *self)
+{
+	printf("%s: %u\n", class__name(self->class), self->nr_methods);
 }
 
 static void size_formatter(const struct structure *self)
@@ -259,6 +266,53 @@ static int cu_unique_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, unique_iterator, cookie, tag__filter);
 }
 
+static struct tag *nr_methods__filter(struct tag *tag, struct cu *cu,
+				      void *cookie)
+{
+	if (tag->tag != DW_TAG_subprogram)
+		return NULL;
+
+	if (function__declared_inline(tag__function(tag)))
+		return NULL;
+
+	return tag;
+}
+
+static int nr_methods_iterator(struct tag *tag, struct cu *cu, void *cookie)
+{
+	struct parameter *pos;
+	struct structure *str;
+	struct type *ctype;
+
+	list_for_each_entry(pos, &tag__ftype(tag)->parms, tag.node) {
+		struct tag *type =
+			cu__find_tag_by_id(cu, parameter__type(pos, cu));
+
+		if (type == NULL || type->tag != DW_TAG_pointer_type)
+			continue;
+
+		type = cu__find_tag_by_id(cu, type->type);
+		if (type == NULL || type->tag != DW_TAG_structure_type)
+			continue;
+
+		ctype = tag__type(type);
+		if (ctype->name == NULL)
+			continue;
+
+		str = structures__find(ctype->name);
+		if (str != NULL)
+			++str->nr_methods;
+	}
+
+	return 0;
+}
+
+static int cu_nr_methods_iterator(struct cu *cu, void *cookie)
+{
+	return cu__for_each_tag(cu, nr_methods_iterator, cookie,
+				nr_methods__filter);
+}
+
 static struct option long_options[] = {
 	{ "cacheline_size",	required_argument,	NULL, 'c' },
 	{ "class_name_len",	no_argument,		NULL, 'N' },
@@ -268,6 +322,7 @@ static struct option long_options[] = {
 	{ "nr_members",		no_argument,		NULL, 'n' },
 	{ "sizes",		no_argument,		NULL, 's' },
 	{ "nr_definitions",	no_argument,		NULL, 't' },
+	{ "nr_methods",		no_argument,		NULL, 'm' },
 	{ "exclude",		required_argument,	NULL, 'x' },
 	{ "cu_exclude",		required_argument,	NULL, 'X' },
 	{ "decl_exclude",	required_argument,	NULL, 'D' },
@@ -288,6 +343,7 @@ static void usage(void)
 		"   -c, --cacheline_size <size>  set cacheline size (default=%d)\n"
 		"   -n, --nr_members             show number of members\n"
 		"   -N, --class_name_len         show size of classes\n"
+		"   -m, --nr_methods             show number of methods\n"
 		"   -s, --sizes                  show size of classes\n"
 		"   -t, --nr_definitions         show how many times struct was defined\n"
 		"   -D, --decl_exclude <prefix>  exclude classes declared in files with prefix\n"
@@ -305,7 +361,7 @@ int main(int argc, char *argv[])
 	char *class_name = NULL;
 	void (*formatter)(const struct structure *s) = class_formatter;
 
-	while ((option = getopt_long(argc, argv, "B:c:D:hH:nNpstVx:X:",
+	while ((option = getopt_long(argc, argv, "B:c:D:hH:mnNpstVx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
@@ -314,6 +370,7 @@ int main(int argc, char *argv[])
 		case 's': formatter = size_formatter;		break;
 		case 'n': formatter = nr_members_formatter;	break;
 		case 'N': formatter = class_name_len_formatter;	break;
+		case 'm': formatter = nr_methods_formatter;	break;
 		case 'p': show_packable	= 1;			break;
 		case 't': formatter = nr_definitions_formatter;	break;
 		case 'D': decl_exclude_prefix = optarg;
@@ -355,6 +412,8 @@ int main(int argc, char *argv[])
 	}
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, cu__filter);
+	if (formatter == nr_methods_formatter)
+		cus__for_each_cu(cus, cu_nr_methods_iterator, NULL, cu__filter);
 
 	if (class_name != NULL) {
 		struct structure *s = structures__find(class_name);
