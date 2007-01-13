@@ -2638,7 +2638,9 @@ int cus__emit_fwd_decl(struct cus *self, struct type *ctype)
 		return 0;
 	}
 
-	printf("struct %s;\n", ctype->name);
+	printf("%s %s;\n",
+	       ctype->tag.tag == DW_TAG_union_type ? "union" : "struct",
+	       ctype->name);
 	cus__add_fwd_decl(self, ctype);
 	return 1;
 }
