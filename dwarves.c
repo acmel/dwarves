@@ -2730,7 +2730,12 @@ int cus__emit_type_definitions(struct cus *self, struct cu *cu,
 
 	if (tag->tag == DW_TAG_structure_type)
 		class__find_holes(tag__class(tag), cu);
+
 	tag__print(tag, cu, prefix, suffix);
+
+	if (tag->tag != DW_TAG_structure_type)
+		putchar(';');
+
 	putchar('\n');
 	return 1;
 }
