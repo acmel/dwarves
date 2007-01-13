@@ -287,7 +287,8 @@ static void __tag__type_not_found(const struct tag *self, const struct cu *cu,
 
 void tag__print_decl_info(const struct tag *self)
 {
-	printf("/* %s:%u */\n", self->decl_file, self->decl_line);
+	printf("/* <%llx> %s:%u */\n",
+	       self->id, self->decl_file, self->decl_line);
 }
 
 static struct base_type *base_type__new(Dwarf_Die *die)
