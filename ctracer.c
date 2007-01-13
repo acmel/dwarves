@@ -178,7 +178,7 @@ static void emit_struct_defs(const char *name)
 	struct cu *cu;
 	struct tag *c = cus__find_struct_by_name(kprobes_cus, &cu, name);
 	if (c != NULL)
-		cus__emit_struct_definitions(kprobes_cus, cu, c, NULL, NULL);
+		cus__emit_type_definitions(kprobes_cus, cu, c, NULL, NULL);
 }
 
 static void emit_class_fwd_decl(const char *name)

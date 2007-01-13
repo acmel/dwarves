@@ -259,9 +259,9 @@ extern struct tag *cus__find_function_by_name(const struct cus *self,
 					      const char *name);
 extern int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 				       struct ftype *ftype);
-extern int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
-					struct tag *tag, const char *prefix,
-					const char *suffix);
+extern int cus__emit_type_definitions(struct cus *self, struct cu *cu,
+				      struct tag *tag, const char *prefix,
+				      const char *suffix);
 extern int cus__emit_fwd_decl(struct cus *self, struct type *ctype);
 
 extern struct tag *cu__find_tag_by_id(const struct cu *self,

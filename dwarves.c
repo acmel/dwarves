@@ -2578,12 +2578,13 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	case DW_TAG_subroutine_type:
 		cus__emit_ftype_definitions(self, cu, tag__ftype(type));
 		break;
-	case DW_TAG_structure_type: {
+	case DW_TAG_structure_type:
+	case DW_TAG_union_type: {
 		const struct type *ctype = tag__type(type);
 
 		if (ctype->name == NULL) {
-			cus__emit_struct_definitions(self, cu, type,
-						     "typedef", def->name);
+			cus__emit_type_definitions(self, cu, type,
+						   "typedef", def->name);
 			goto out;
 		}
 	}
@@ -2671,9 +2672,10 @@ next_indirection:
 			return cus__emit_enumeration_definitions(self, type);
 		break;
 	case DW_TAG_structure_type:
+	case DW_TAG_union_type:
 		if (pointer)
 			return cus__emit_fwd_decl(self, tag__type(type));
-		return cus__emit_struct_definitions(self, cu, type, NULL, NULL);
+		return cus__emit_type_definitions(self, cu, type, NULL, NULL);
 	case DW_TAG_subroutine_type:
 		return cus__emit_ftype_definitions(self, cu, tag__ftype(type));
 	}
@@ -2698,11 +2700,10 @@ int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 	return printed;
 }
 
-int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
-				 struct tag *tag,
-				 const char *prefix, const char *suffix)
+int cus__emit_type_definitions(struct cus *self, struct cu *cu,
+			       struct tag *tag,
+			       const char *prefix, const char *suffix)
 {
-	struct class *class;
 	struct type *ctype = tag__type(tag);
 	struct class_member *pos;
 	int printed = 0;
@@ -2718,15 +2719,15 @@ int cus__emit_struct_definitions(struct cus *self, struct cu *cu,
 
 	cus__add_definition(self, ctype);
 
-	class = tag__class(tag);
-	list_for_each_entry(pos, &class->type.members, tag.node)
+	list_for_each_entry(pos, &ctype->members, tag.node)
 		if (cus__emit_tag_definitions(self, cu, &pos->tag))
 			printed = 1;
 
 	if (printed)
 		putchar('\n');
 
-	class__find_holes(class, cu);
+	if (tag->tag == DW_TAG_structure_type)
+		class__find_holes(tag__class(tag), cu);
 	tag__print(tag, cu, prefix, suffix);
 	putchar('\n');
 	return 1;
