@@ -799,41 +799,53 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		      char *bf, size_t len)
 {
 	struct tag *type;
-	char tmpbf[128];
 
 	if (self == NULL)
 		strncpy(bf, "void", len);
-	else if (self->tag == DW_TAG_base_type)
+	else switch (self->tag) {
+	case DW_TAG_base_type:
 		strncpy(bf, tag__base_type(self)->name, len);
-	else if (self->tag == DW_TAG_subprogram)
+		break;
+	case DW_TAG_subprogram:
 		strncpy(bf, function__name(tag__function(self), cu), len);
-	else if (self->tag == DW_TAG_pointer_type)
+		break;
+	case DW_TAG_pointer_type:
 		return tag__ptr_name(self, cu, bf, len, '*');
-	else if (self->tag == DW_TAG_reference_type)
+		break;
+	case DW_TAG_reference_type:
 		return tag__ptr_name(self, cu, bf, len, '&');
-	else if (self->tag == DW_TAG_volatile_type ||
-		   self->tag == DW_TAG_const_type) {
+		break;
+	case DW_TAG_volatile_type:
+	case DW_TAG_const_type:
 		type = cu__find_tag_by_id(cu, self->type);
 		if (type == NULL && self->type != 0) {
 			tag__type_not_found(self, cu);
 			strncpy(bf, "<ERROR>", len);
-		} else
+		} else {
+			char tmpbf[128];
 			snprintf(bf, len, "%s %s ",
 				 self->tag == DW_TAG_volatile_type ?
 				 	"volatile" : "const",
 				 tag__name(type, cu, tmpbf, sizeof(tmpbf)));
-	} else if (self->tag == DW_TAG_array_type) {
+		}
+		break;
+	case DW_TAG_array_type:
 		type = cu__find_tag_by_id(cu, self->type);
 		if (type == NULL) {
 			tag__type_not_found(self, cu);
 			strncpy(bf, "<ERROR>", len);
 		} else
 			return tag__name(type, cu, bf, len);
-	} else if (self->tag == DW_TAG_subroutine_type)
+		break;
+	case DW_TAG_subroutine_type:
 		ftype__snprintf(tag__ftype(self), cu, bf, len, NULL, 0, 0, 0);
-	else
+		break;
+	default:
 		snprintf(bf, len, "%s%s", tag__prefix(cu, self->tag),
 			 tag__type(self)->name ?: "");
+		break;
+	}
+
 	return bf;
 }
 
