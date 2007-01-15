@@ -1051,9 +1051,9 @@ static size_t array_type__snprintf(const struct tag *tag_self,
 }
 
 static size_t union__snprintf(const struct type *self, const struct cu *cu,
-			      char *bf, size_t len, const char *suffix,
-			      uint8_t indent, size_t type_spacing,
-			      size_t name_spacing);
+			      char *bf, size_t len, const char *prefix,
+			      const char *suffix, uint8_t indent,
+			      size_t type_spacing, size_t name_spacing);
 static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			      char *bf, size_t len,
 			      const char *prefix, const char *suffix,
@@ -1108,8 +1108,8 @@ static size_t class_member__snprintf(struct class_member *self,
 					type_spacing - 6, ctype->name,
 					self->name);
 
-		return union__snprintf(ctype, cu, bf, len, self->name, indent,
-				       type_spacing - 8, name_spacing);
+		return union__snprintf(ctype, cu, bf, len, NULL, self->name,
+				       indent, type_spacing - 8, name_spacing);
 	case DW_TAG_enumeration_type:
 		ctype = tag__type(type);
 
@@ -1194,7 +1194,7 @@ static size_t union_member__snprintf(struct class_member *self,
 }
 
 static size_t union__snprintf(const struct type *self, const struct cu *cu,
-			      char *bf, size_t len,
+			      char *bf, size_t len, const char *prefix,
 			      const char *suffix, uint8_t indent,
 			      size_t type_spacing, size_t name_spacing)
 {
@@ -1205,6 +1205,10 @@ static size_t union__snprintf(const struct type *self, const struct cu *cu,
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 
+	if (prefix != NULL) {
+		n = snprintf(s, len, "%s ", prefix);
+		s += n; l -= n;
+	}
 	n = snprintf(s, l, "union%s%s {\n",
 		     self->name ? " " : "", self->name ?: "");
 	s += n;
@@ -1228,12 +1232,12 @@ static size_t union__snprintf(const struct type *self, const struct cu *cu,
 }
 
 static void union__print(const struct tag *tag, const struct cu *cu,
-			 const char *suffix)
+			 const char *prefix, const char *suffix)
 {
 	const struct type *utype = tag__type(tag);
 	char bf[32768];
 
-	union__snprintf(utype, cu, bf, sizeof(bf), suffix, 0, 26, 23);
+	union__snprintf(utype, cu, bf, sizeof(bf), prefix, suffix, 0, 26, 23);
 	fputs(bf, stdout);
 }
 
@@ -2001,7 +2005,7 @@ void tag__print(const struct tag *self, const struct cu *cu,
 		function__print(self, cu);
 		break;
 	case DW_TAG_union_type:
-		union__print(self, cu, suffix);
+		union__print(self, cu, prefix, suffix);
 		break;
 	default:
 		printf("%s: %s tag not supported!\n", __FUNCTION__,
@@ -2611,6 +2615,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 		def->definition_emitted = 1;
 		return 0;
 	}
+
 	type = cu__find_tag_by_id(cu, tdef->type);
 
 	switch (type->tag) {
