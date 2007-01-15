@@ -2602,7 +2602,8 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 			cus__emit_type_definitions(self, cu, type,
 						   "typedef", def->name);
 			goto out;
-		}
+		} else
+			cus__emit_type_definitions(self, cu, type, NULL, NULL);
 	}
 	}
 
