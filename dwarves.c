@@ -369,7 +369,7 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 }
 
 static size_t enumeration__snprintf(const struct tag *tag_self,
-				    char *bf, size_t len, const char *prefix,
+				    char *bf, size_t len,
 				    const char *suffix, uint8_t indent)
 {
 	const struct type *self = tag__type(tag_self);
@@ -380,10 +380,6 @@ static size_t enumeration__snprintf(const struct tag *tag_self,
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 
-	if (prefix != NULL) {
-		n = snprintf(s, len, "%s ", prefix);
-		s += n; len -= n;
-	}
 	n = snprintf(s, len, "enum%s%s {\n",
 		     self->name ? " " : "", self->name ?: "");
 	s += n;
@@ -402,7 +398,7 @@ static size_t enumeration__snprintf(const struct tag *tag_self,
 	return printed + n;
 }
 
-static void enumeration__print(const struct tag *tag_self, const char *prefix,
+static void enumeration__print(const struct tag *tag_self,
 			       const char *suffix, uint8_t indent)
 {
 	char bf[4096];
@@ -410,8 +406,7 @@ static void enumeration__print(const struct tag *tag_self, const char *prefix,
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 
-	enumeration__snprintf(tag_self, bf, sizeof(bf),
-			      prefix, suffix, indent);
+	enumeration__snprintf(tag_self, bf, sizeof(bf), suffix, indent);
 	fputs(bf, stdout);
 }
 
@@ -1118,7 +1113,7 @@ static size_t class_member__snprintf(struct class_member *self,
 					type_spacing - 5, ctype->name,
 					self->name);
 
-		return enumeration__snprintf(type, bf, len, NULL, self->name,
+		return enumeration__snprintf(type, bf, len, self->name,
 					     indent);
 	}
 
@@ -1993,7 +1988,7 @@ void tag__print(const struct tag *self, const struct cu *cu,
 
 	switch (self->tag) {
 	case DW_TAG_enumeration_type:
-		enumeration__print(self, NULL, NULL, 0);
+		enumeration__print(self, NULL, 0);
 		break;
 	case DW_TAG_typedef:
 		typedef__print(self, cu);
@@ -2569,7 +2564,6 @@ struct cus *cus__new(struct list_head *definitions,
 }
 
 static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag,
-					     const char *prefix,
 					     const char *suffix)
 {
 	struct type *etype = tag__type(tag);
@@ -2588,8 +2582,7 @@ static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag,
 		return 0;
 	}
 
-	tag__print_decl_info(tag);
-	enumeration__print(tag, prefix, suffix, 0);
+	enumeration__print(tag, suffix, 0);
 	puts(";");
 	cus__add_definition(self, etype);
 	return 1;
@@ -2635,12 +2628,13 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	case DW_TAG_enumeration_type: {
 		const struct type *ctype = tag__type(type);
 
+		tag__print_decl_info(type);
 		if (ctype->name == NULL) {
-			cus__emit_enumeration_definitions(self, type,
-							  "typedef", def->name);
+			fputs("typedef ", stdout);
+			cus__emit_enumeration_definitions(self, type, def->name);
 			goto out;
-		} else
-			cus__emit_enumeration_definitions(self, type, NULL, NULL);
+		} else 
+			cus__emit_enumeration_definitions(self, type, NULL);
 	}
 		break;
 	case DW_TAG_structure_type:
@@ -2711,9 +2705,11 @@ next_indirection:
 	case DW_TAG_typedef:
 		return cus__emit_typedef_definitions(self, cu, type);
 	case DW_TAG_enumeration_type:
-		if (tag__type(type)->name != NULL)
+		if (tag__type(type)->name != NULL) {
+			tag__print_decl_info(type);
 			return cus__emit_enumeration_definitions(self, type,
-								 NULL, NULL);
+								 NULL);
+		}
 		break;
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
