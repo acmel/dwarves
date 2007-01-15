@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 4
+Release: 5
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -81,6 +81,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Sat Jan 13 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+- 9a413e60a3875980d99817722bf019cba3a24573
+- pahole --nr_methods, improvements in tag__print, better support for unions
+
 * Fri Jan 12 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 - a1f5422656a91568a8b4edbcebaae9c1837b5cbd
 - Support a DW_TAG_reference_type
