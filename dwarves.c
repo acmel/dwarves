@@ -2642,11 +2642,13 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 		const struct type *ctype = tag__type(type);
 
 		if (ctype->name == NULL) {
-			cus__emit_type_definitions(self, cu, type,
-						   "typedef", def->name);
+			if (cus__emit_type_definitions(self, cu, type))
+				type__emit(type, cu, "typedef", def->name);
 			goto out;
-		} else
-			cus__emit_type_definitions(self, cu, type, NULL, NULL);
+		} else {
+			if (cus__emit_type_definitions(self, cu, type))
+				type__emit(type, cu, NULL, NULL);
+		}
 	}
 	}
 
@@ -2715,7 +2717,9 @@ next_indirection:
 	case DW_TAG_union_type:
 		if (pointer)
 			return cus__emit_fwd_decl(self, tag__type(type));
-		return cus__emit_type_definitions(self, cu, type, NULL, NULL);
+		if (cus__emit_type_definitions(self, cu, type))
+			type__emit(type, cu, NULL, NULL);
+		return 1;
 	case DW_TAG_subroutine_type:
 		return cus__emit_ftype_definitions(self, cu, tag__ftype(type));
 	}
@@ -2741,8 +2745,7 @@ int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 }
 
 int cus__emit_type_definitions(struct cus *self, struct cu *cu,
-			       struct tag *tag,
-			       const char *prefix, const char *suffix)
+			       struct tag *tag)
 {
 	struct type *ctype = tag__type(tag);
 	struct class_member *pos;
@@ -2765,17 +2768,22 @@ int cus__emit_type_definitions(struct cus *self, struct cu *cu,
 
 	if (printed)
 		putchar('\n');
+	return 1;
+}
 
-	if (tag->tag == DW_TAG_structure_type)
-		class__find_holes(tag__class(tag), cu);
+void type__emit(struct tag *tag_self, struct cu *cu,
+	       const char *prefix, const char *suffix)
+{
+	struct type *ctype = tag__type(tag_self);
+
+	if (tag_self->tag == DW_TAG_structure_type)
+		class__find_holes(tag__class(tag_self), cu);
 
 	if (ctype->name != NULL || suffix != NULL || prefix != NULL) {
-		tag__print(tag, cu, prefix, suffix);
+		tag__print(tag_self, cu, prefix, suffix);
 
-		if (tag->tag != DW_TAG_structure_type)
+		if (tag_self->tag != DW_TAG_structure_type)
 			putchar(';');
 		putchar('\n');
 	}
-
-	return 1;
 }

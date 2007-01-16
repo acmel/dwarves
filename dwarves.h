@@ -260,9 +260,10 @@ extern struct tag *cus__find_function_by_name(const struct cus *self,
 extern int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 				       struct ftype *ftype);
 extern int cus__emit_type_definitions(struct cus *self, struct cu *cu,
-				      struct tag *tag, const char *prefix,
-				      const char *suffix);
+				      struct tag *tag);
 extern int cus__emit_fwd_decl(struct cus *self, struct type *ctype);
+extern void type__emit(struct tag *tag_self, struct cu *cu,
+		       const char *prefix, const char *suffix);
 
 extern struct tag *cu__find_tag_by_id(const struct cu *self,
 				      const Dwarf_Off id);
