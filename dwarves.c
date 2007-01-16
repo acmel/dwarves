@@ -342,7 +342,13 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 
 	switch (type->tag) {
 	case DW_TAG_pointer_type:
+		if (type->type == 0) /* void pointer */
+			break;
 		ptr_type = cu__find_tag_by_id(cu, type->type);
+		if (ptr_type == NULL) {
+			tag__type_not_found(type, cu);
+			return;
+		}
 		if (ptr_type->tag != DW_TAG_subroutine_type)
 			break;
 		type = ptr_type;
