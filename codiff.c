@@ -623,6 +623,8 @@ int main(int argc, char *argv[])
 	    show_terse_type_changes == 0)
 		show_function_diffs = show_struct_diffs = 1;
 
+	dwarves__init(0);
+
 	old_cus = cus__new(NULL, NULL);
 	new_cus = cus__new(NULL, NULL);
 	if (old_cus == NULL || new_cus == NULL) {

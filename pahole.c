@@ -340,7 +340,7 @@ static void usage(void)
 		"   -B, --bit_holes <nr_holes>   show only structs at least <nr_holes> bit holes\n"
 		"   -H, --holes <nr_holes>       show only structs at least <nr_holes> holes\n"
 		"   -p, --packable		 show only structs that has holes that can be packed\n"
-		"   -c, --cacheline_size <size>  set cacheline size (default=%d)\n"
+		"   -c, --cacheline_size <size>  set cacheline size\n"
 		"   -n, --nr_members             show number of members\n"
 		"   -N, --class_name_len         show size of classes\n"
 		"   -m, --nr_methods             show number of methods\n"
@@ -349,8 +349,7 @@ static void usage(void)
 		"   -D, --decl_exclude <prefix>  exclude classes declared in files with prefix\n"
 		"   -V, --verbose		 be verbose\n"
 		"   -x, --exclude <prefix>       exclude prefixed classes from reports\n"
-		"   -X, --cu_exclude <prefix>    exclude prefixed compilation units from reports\n",
-		DEFAULT_CACHELINE_SIZE);
+		"   -X, --cu_exclude <prefix>    exclude prefixed compilation units from reports\n");
 }
 
 int main(int argc, char *argv[])
@@ -359,6 +358,7 @@ int main(int argc, char *argv[])
 	struct cus *cus;
 	char *file_name;
 	char *class_name = NULL;
+	size_t cacheline_size = 0;
 	void (*formatter)(const struct structure *s) = class_formatter;
 
 	while ((option = getopt_long(argc, argv, "B:c:D:hH:mnNpstVx:X:",
@@ -398,6 +398,8 @@ int main(int argc, char *argv[])
 		usage();
 		return EXIT_FAILURE;
 	}
+
+	dwarves__init(cacheline_size);
 
 	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {

@@ -372,6 +372,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
+	dwarves__init(0);
+
 	cus = cus__new(&cus__definitions, &cus__fwd_decls);
 	if (cus == NULL) {
 out_enomem:

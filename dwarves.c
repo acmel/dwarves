@@ -93,7 +93,7 @@ const char *dwarf_tag_name(const uint32_t tag)
 
 static const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
-size_t cacheline_size = DEFAULT_CACHELINE_SIZE;
+static size_t cacheline_size;
 
 static void *zalloc(const size_t size)
 {
@@ -2792,4 +2792,17 @@ void type__emit(struct tag *tag_self, struct cu *cu,
 			putchar(';');
 		putchar('\n');
 	}
+}
+
+void dwarves__init(size_t user_cacheline_size)
+{
+	if (user_cacheline_size == 0) {
+		long sys_cacheline_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+
+		if (sys_cacheline_size > 0)
+			cacheline_size = sys_cacheline_size;
+		else
+			cacheline_size = 64; /* Fall back to a sane value */
+	} else
+		cacheline_size = user_cacheline_size;
 }

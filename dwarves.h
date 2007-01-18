@@ -231,7 +231,7 @@ struct enumerator {
 	uint32_t	 value;
 };
 
-#define DEFAULT_CACHELINE_SIZE 64
+extern void dwarves__init(size_t user_cacheline_size);
 
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern void tag__print(const struct tag *self, const struct cu *cu,
@@ -347,8 +347,6 @@ static inline int class__is_declaration(const struct class *self)
 {
 	return self->type.declaration;
 }
-
-extern size_t cacheline_size;
 
 extern const char *variable__name(const struct variable *self,
 				  const struct cu *cu);

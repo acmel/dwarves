@@ -171,6 +171,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
+	dwarves__init(0);
+
 	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
 		fputs("prefcnt: insufficient memory\n", stderr);
