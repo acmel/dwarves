@@ -231,7 +231,7 @@ struct enumerator {
 	uint32_t	 value;
 };
 
-#define DEFAULT_CACHELINE_SIZE 32
+#define DEFAULT_CACHELINE_SIZE 64
 
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern void tag__print(const struct tag *self, const struct cu *cu,
