@@ -28,6 +28,10 @@ SET(pahole_SRCS pahole.c)
 ADD_EXECUTABLE(pahole ${pahole_SRCS})
 TARGET_LINK_LIBRARIES(pahole dwarves ${DWARF_LIBRARIES})
 
+SET(pdwtags_SRCS pdwtags.c)
+ADD_EXECUTABLE(pdwtags ${pdwtags_SRCS})
+TARGET_LINK_LIBRARIES(pdwtags dwarves ${DWARF_LIBRARIES})
+
 SET(pfunct_SRCS pfunct.c )
 ADD_EXECUTABLE(pfunct ${pfunct_SRCS})
 TARGET_LINK_LIBRARIES(pfunct dwarves ${DWARF_LIBRARIES})
@@ -36,6 +40,6 @@ SET(prefcnt_SRCS prefcnt.c)
 ADD_EXECUTABLE(prefcnt ${prefcnt_SRCS})
 TARGET_LINK_LIBRARIES(prefcnt dwarves ${DWARF_LIBRARIES})
 
-INSTALL(TARGETS codiff ctracer dtagnames pahole pfunct prefcnt RUNTIME DESTINATION /usr/bin)
+INSTALL(TARGETS codiff ctracer dtagnames pahole pdwtags pfunct prefcnt RUNTIME DESTINATION /usr/bin)
 INSTALL(TARGETS dwarves LIBRARY DESTINATION /usr/lib)
 INSTALL(FILES dwarves.h DESTINATION /usr/include)

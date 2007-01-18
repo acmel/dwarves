@@ -8,6 +8,7 @@ dtagnames.c
 list.h
 MANIFEST
 pahole.c
+pdwtags.c
 pfunct.c
 prefcnt.c
 README
