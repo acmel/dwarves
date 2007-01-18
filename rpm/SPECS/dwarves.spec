@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 6
+Release: 7
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -68,6 +68,7 @@ rm -rf %{buildroot}
 %{_bindir}/ctracer
 %{_bindir}/dtagnames
 %{_bindir}/pahole
+%{_bindir}/pdwtags
 %{_bindir}/pfunct
 %{_bindir}/prefcnt
 
@@ -81,6 +82,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Wed Jan 18 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+- fab0db03ea9046893ca110bb2b7d71b764f61033
+- pdwtags added
+
 * Wed Jan 17 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 - e3786105c007a39ff3dbfb36a3037e786021e0c6
 - First Fedora native build
