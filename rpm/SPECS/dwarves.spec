@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 5
+Release: 6
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -11,7 +11,7 @@ URL: http://oops.ghostprotocols.net:81/blog
 Source: pahole-%{version}.tar.bz2
 BuildRequires: cmake
 BuildRequires: binutils
-BuildRequires: libelfutils1-devel
+BuildRequires: elfutils-devel
 BuildRequires: gcc
 BuildRequires: glibc-devel
 BuildRequires: make
@@ -81,6 +81,11 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Wed Jan 17 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+- e3786105c007a39ff3dbfb36a3037e786021e0c6
+- First Fedora native build
+- struct, enum, enum, void typedefs
+
 * Sat Jan 13 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 - 9a413e60a3875980d99817722bf019cba3a24573
 - pahole --nr_methods, improvements in tag__print, better support for unions
