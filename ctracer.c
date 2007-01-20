@@ -17,12 +17,34 @@
 
 #include "dwarves.h"
 
-static struct cus *cus;
+/*
+ * List of compilation units being looked for functions with
+ * pointers to the specified struct.
+ */
+static struct cus *methods_cus;
+
+/**
+ * Compilation units with the definitions for the kprobes functions and struct
+ * definitions for the, can point to methods_cus if those definitions are
+ * available there (example: when using 'ctracer vmlinux sk_buff', vmlinux
+ * will have the sk_buff "methods" and the kprobes "classes" and "methods".
+ */
 static struct cus *kprobes_cus;
 
+/*
+ * List of definitions and forward declarations already emitted for
+ * methods_cus and kprobes_cus, to avoid duplication.
+ */
 static LIST_HEAD(cus__definitions);
 static LIST_HEAD(cus__fwd_decls);
 
+/*
+ * List of jprobes and kretprobes already emitted, this is a hack to cope with
+ * name space collisions, a better solution would be to in these cases to use the
+ * compilation unit name (net/ipv4/tcp.o, for instance) as a prefix when a
+ * static function has the same name in multiple compilation units (aka object
+ * files).
+ */
 static void *jprobes_emitted;
 static void *kretprobes_emitted;
 
@@ -31,6 +53,9 @@ static int methods__compare(const void *a, const void *b)
 	return strcmp(a, b);
 }
 
+/*
+ * Add a method to jprobes_emitted or kretprobes_emitted, see comment above.
+ */
 static int methods__add(void **table, const char *str)
 {
 	char **s = tsearch(str, table, methods__compare);
@@ -57,6 +82,10 @@ static void method__add(struct cu *cu, struct function *function)
 	list_add(&function->tool_node, &cu->tool_list);
 }
 
+/* 
+ * We want just the DW_TAG_subprogram tags that have as one of its parameters
+ * a pointer to the specified "class" (a struct, unions can be added later).
+ */
 static struct tag *function__filter(struct tag *tag, struct cu *cu, void *cookie)
 {
 	struct function *function;
@@ -73,15 +102,22 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu, void *cookie
 	return tag;
 }
 
+/*
+ * Add the function to the list of methods since it matches function__filter
+ * criteria.
+ */
 static int find_methods_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
-	if (tag->tag == DW_TAG_subprogram) {
-		struct function *function = tag__function(tag);
-		method__add(cu, function);
-	}
+	struct function *function = tag__function(tag);
+	method__add(cu, function);
 	return 0;
 }
 
+/*
+ * Iterate thru all the tags in the compilation unit, looking just for the
+ * DW_TAG_subprogram tags that have as one of its parameters a pointer to
+ * the specified "class" (struct).
+ */
 static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 {
 	struct tag *target = cu__find_struct_by_name(cu, cookie);
@@ -92,6 +128,20 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, find_methods_iterator, target, function__filter);
 }
 
+/*
+ * Emit the kprobes routine for one of the selected "methods", later we'll
+ * put this into the 'kprobes' table, in cu_emit_kprobes_table_iterator.
+ *
+ * This marks the function entry, function__emit_kretprobes will emit the
+ * probe for the function exit.
+ *
+ * For now it just printks the function name and the pointer, upcoming patches
+ * will use relayfs, just like blktrace does, using the struct definition to
+ * collect the specified subset of the struct members, just like OSTRA did,
+ * see an example of post processing at:
+ *
+ * http://oops.ghostprotocols.net:81/dccp/ostra/delay_100ms_loss20percent_packet_size_256/
+ */
 static int function__emit_kprobes(struct function *self, const struct cu *cu,
 				  const struct tag *target)
 {
@@ -130,6 +180,10 @@ static int function__emit_kprobes(struct function *self, const struct cu *cu,
 	return 0;
 }
 
+/*
+ * Iterate thru the list of methods previously collected by
+ * cu_find_methods_iterator, emitting the probes for function entry.
+ */
 static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 {
 	struct tag *target = cu__find_struct_by_name(cu, cookie);
@@ -139,13 +193,19 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 		if (methods__add(&jprobes_emitted, function__name(pos, cu)) != 0)
 			continue;
 		pos->priv = (void *)1; /* Mark as visited, for the table iterator */
-		cus__emit_ftype_definitions(cus, cu, &pos->proto);
+		cus__emit_ftype_definitions(methods_cus, cu, &pos->proto);
 		function__emit_kprobes(pos, cu, target);
 	}
 
 	return 0;
 }
 
+/*
+ * Iterate thru the list of methods previously collected by
+ * cu_find_methods_iterator, creating the 'kprobes' table, that will
+ * be used at the module init routine to register the kprobes for function
+ * entry, and at module exit time to unregister the kprobes.
+ */
 static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
 {
 	struct function *pos;
@@ -157,6 +217,19 @@ static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
+/*
+ * Emit the kprobes routine for one of the selected "methods", later we'll
+ * put this into the 'kprobes' table, in cu_emit_kprobes_table_iterator.
+ *
+ * This marks the function exit.
+ *
+ * We still need to get the pointer to the "class instance", i.e. the pointer
+ * to the specified struct, this will be done using the "data pouch" mentioned
+ * in the kprobes mailing list, where we at the entry kprobes we store the
+ * pointer to be used here, or possibly using plain kprobes at the function
+ * entry and using DW_AT_location to discover where in the stack or in a
+ * processor register were the parameters for the function.
+ */
 static int function__emit_kretprobes(struct function *self,
 				     const struct cu *cu)
 {
@@ -175,6 +248,10 @@ static int function__emit_kretprobes(struct function *self,
 	       "};\n\n", name, name, name);
 }
 
+/*
+ * Iterate thru the list of methods previously collected by
+ * cu_find_methods_iterator, emitting the probes for function exit.
+ */
 static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie)
 {
 	struct function *pos;
@@ -190,6 +267,12 @@ static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
+/*
+ * Iterate thru the list of methods previously collected by
+ * cu_find_methods_iterator, creating the 'kretprobes' table, that will
+ * be used at the module init routine to register the kprobes for function
+ * entry, and at module exit time to unregister the kretprobes.
+ */
 static int cu_emit_kretprobes_table_iterator(struct cu *cu, void *cookie)
 {
 	struct function *pos;
@@ -201,6 +284,14 @@ static int cu_emit_kretprobes_table_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
+/*
+ * Emit a definition for the specified function, looking for it in the
+ * tags previously collected, cus__emit_ftype_definitions will look at the
+ * function return type and recursively emit all the definitions needed,
+ * ditto for all the function parameters, emitting just a forward declaration
+ * if the parameter is just a pointer, or all of the enums, struct, unions,
+ * etc that are required for the resulting C source code to be built.
+ */
 static void emit_function_defs(const char *fn)
 {
 	struct cu *cu;
@@ -214,6 +305,10 @@ static void emit_function_defs(const char *fn)
 	}
 }
 
+/*
+ * Emit a struct definition, looking at all the function members and recursively
+ * emitting its type definitions (enums, structs, unions, etc).
+ */
 static void emit_struct_defs(const char *name)
 {
 	struct cu *cu;
@@ -224,6 +319,9 @@ static void emit_struct_defs(const char *name)
 	}
 }
 
+/*
+ * Emit a forward declaration ("struct foo;" or "union bar").
+ */
 static void emit_class_fwd_decl(const char *name)
 {
 	struct cu *cu;
@@ -232,6 +330,11 @@ static void emit_class_fwd_decl(const char *name)
 		cus__emit_fwd_decl(kprobes_cus, tag__type(c));
 }
 
+/*
+ * Emit the definitions used in the resulting kernel module C source code,
+ * we do this to avoid using #includes, that would emit definitions for
+ * things we emit, causing redefinitions.
+ */
 static void emit_module_preamble(void)
 {
 	emit_struct_defs("jprobe");
@@ -249,16 +352,28 @@ static void emit_module_preamble(void)
 	emit_function_defs("jprobe_return");
 }
 
+/*
+ * Emit a module initcall, as we don't use any #includes for the reason
+ * explained in emit_module_preamble().
+ */
 static void emit_module_initcall(const char *fn)
 {
 	printf("int init_module(void) __attribute__((alias(\"%s\")));\n\n", fn);
 }
 
+/*
+ * Emit a module exitcall, as we don't use any #includes for the reason
+ * explained in emit_module_preamble().
+ */
 static void emit_module_exitcall(const char *fn)
 {
 	printf("int cleanup_module(void) __attribute__((alias(\"%s\")));\n\n", fn);
 }
 
+/*
+ * Emit a module license, as we don't use any #includes for the reason
+ * explained in emit_module_preamble().
+ */
 static void emit_module_license(const char *license)
 {
 	printf("static const char __mod_license[] "
@@ -267,6 +382,11 @@ static void emit_module_license(const char *license)
 	       "\"license=%s\";\n\n", license);
 }
 
+/*
+ * Emit the module init routine, iterating thru the kprobes and kretprobes
+ * tables generated in cu_emit_kprobes_table_iterator and
+ * cu_emit_kretprobes_table_iterator to register the kprobes and kretprobes.
+ */
 static void emit_module_init(void)
 {
 	printf("static int __attribute__ "
@@ -300,6 +420,11 @@ static void emit_module_init(void)
 	emit_module_initcall("jprobe_init");
 }
 
+/*
+ * Emit the module exit routine, iterating thru the kprobes and kretprobes
+ * tables generated in cu_emit_kprobes_table_iterator and
+ * cu_emit_kretprobes_table_iterator to unregister the kprobes and kretprobes.
+ */
 static void emit_module_exit(void)
 {
 	printf("static void __attribute__ "
@@ -372,15 +497,30 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
+	/*
+         * Initialize libdwarves, for now just to get the machine L1 cacheline
+         * size, in the future may do more stuff.
+	 */
 	dwarves__init(0);
 
-	cus = cus__new(&cus__definitions, &cus__fwd_decls);
-	if (cus == NULL) {
+        /*
+         * Create the methods_cus (Compilation Units) object where we will
+	 * load the objects where we'll look for functions pointers to the
+	 * specified class, i.e. to find its "methods", where we'll insert
+	 * the entry and exit hooks.
+         */
+	methods_cus = cus__new(&cus__definitions, &cus__fwd_decls);
+	if (methods_cus == NULL) {
 out_enomem:
 		fputs("ctracer: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
 	
+        /*
+         * If --kprobes was specified load the binary with the definitions
+         * for the kprobes structs and functions used in the generated kernel
+         * module C source file.
+         */
 	if (kprobes_filename != NULL) {
 		kprobes_cus = cus__new(&cus__definitions, &cus__fwd_decls);
 		if (kprobes_cus == NULL)
@@ -389,10 +529,21 @@ out_enomem:
 			filename = kprobes_filename;
 			goto out_dwarf_err;
 		}
-	} else
-		kprobes_cus = cus;
+	} else {
+		/*
+		 * Or use the methods_cus specified for the methods as the
+		 * source for the kprobes structs and functions definitions.
+		 */
+		kprobes_cus = methods_cus;
+	}
 
-	if (dirname != NULL && cus__load_dir(cus, dirname, glob,
+	/*
+         * if --dir/-D was specified, recursively traverse the path looking for
+         * object files (compilation units) that match the glob specified (*.ko)
+         * for kernel modules, but could be "*.o" in the future when we support
+         * uprobes for user space tracing.
+	 */
+	if (dirname != NULL && cus__load_dir(methods_cus, dirname, glob,
 					     recursive) != 0) {
 		fprintf(stderr, "ctracer: couldn't load DWARF info "
 				"from %s dir with glob %s\n",
@@ -400,7 +551,10 @@ out_enomem:
 		return EXIT_FAILURE;
 	}
 
-	if (filename != NULL && cus__load(cus, filename) != 0) {
+        /*
+         * If a filename was specified, for instance "vmlinux", load it too.
+         */
+	if (filename != NULL && cus__load(methods_cus, filename) != 0) {
 out_dwarf_err:
 		fprintf(stderr, "ctracer: couldn't load DWARF info from %s\n",
 			filename);
@@ -408,14 +562,21 @@ out_dwarf_err:
 	}
 
 	emit_module_preamble();
-	cus__for_each_cu(cus, cu_find_methods_iterator, class_name, NULL);
-	cus__for_each_cu(cus, cu_emit_kprobes_iterator, class_name, NULL);
-	cus__for_each_cu(cus, cu_emit_kretprobes_iterator, NULL, NULL);
+	cus__for_each_cu(methods_cus, cu_find_methods_iterator,
+			 class_name, NULL);
+	cus__for_each_cu(methods_cus, cu_emit_kprobes_iterator,
+			 class_name, NULL);
+	cus__for_each_cu(methods_cus, cu_emit_kretprobes_iterator,
+			 NULL, NULL);
 	puts("static struct jprobe *jprobes[] = {");
-	cus__for_each_cu(cus, cu_emit_kprobes_table_iterator, NULL, NULL);
+	cus__for_each_cu(methods_cus, cu_emit_kprobes_table_iterator,
+			 NULL, NULL);
+	/* Emit the sentinel */
 	puts("\t(void *)0,\n};\n");
 	puts("static struct kretprobe *kretprobes[] = {");
-	cus__for_each_cu(cus, cu_emit_kretprobes_table_iterator, NULL, NULL);
+	cus__for_each_cu(methods_cus, cu_emit_kretprobes_table_iterator,
+			 NULL, NULL);
+	/* Emit the sentinel */
 	puts("\t(void *)0,\n};\n\n");
 	emit_module_init();
 	emit_module_exit();
