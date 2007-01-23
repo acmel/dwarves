@@ -524,7 +524,9 @@ struct tag *cu__find_struct_by_name(const struct cu *self, const char *name)
 			continue;
 
 		type = tag__type(pos);
-		if (type->name != NULL && strcmp(type->name, name) == 0)
+		if (!type->declaration &&
+		    type->name != NULL &&
+		    strcmp(type->name, name) == 0)
 			return pos;
 	}
 
