@@ -304,6 +304,40 @@ static struct base_type *base_type__new(Dwarf_Die *die)
 	return self;
 }
 
+static struct array_type *array_type__new(Dwarf_Die *die)
+{
+	struct array_type *self = zalloc(sizeof(*self));
+
+	if (self != NULL)
+		tag__init(&self->tag, die);
+
+	return self;
+}
+
+static size_t array_type__snprintf(const struct tag *tag_self,
+				   const struct cu *cu,
+				   char *bf, const size_t len,
+				   const char *name,
+				   size_t type_spacing)
+{
+	struct array_type *self = tag__array_type(tag_self);
+	char tbf[128];
+	size_t l = len;
+	size_t n = snprintf(bf, l, "%-*s %s", type_spacing,
+			    tag__name(tag_self, cu, tbf, sizeof(tbf)),
+			    name);
+	int i;
+
+	bf += n; l -= n;
+
+	for (i = 0; i < self->dimensions; ++i) {
+		n = snprintf(bf, l, "[%u]", self->nr_entries[i]);
+		bf += n; l -= n;
+	}
+
+	return len - l;
+}
+
 static void type__init(struct type *self, Dwarf_Die *die)
 {
 	tag__init(&self->tag, die);
@@ -341,6 +375,11 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 	}
 
 	switch (type->tag) {
+	case DW_TAG_array_type:
+		array_type__snprintf(type, cu, bf, sizeof(bf), self->name, 0);
+		fputs("typedef ", stdout);
+		fputs(bf, stdout);
+		return;
 	case DW_TAG_pointer_type:
 		if (type->type == 0) /* void pointer */
 			break;
@@ -1017,40 +1056,6 @@ static struct label *label__new(Dwarf_Die *die)
 	}
 
 	return self;
-}
-
-static struct array_type *array_type__new(Dwarf_Die *die)
-{
-	struct array_type *self = zalloc(sizeof(*self));
-
-	if (self != NULL)
-		tag__init(&self->tag, die);
-
-	return self;
-}
-
-static size_t array_type__snprintf(const struct tag *tag_self,
-				   const struct cu *cu,
-				   char *bf, const size_t len,
-				   const char *name,
-				   size_t type_spacing)
-{
-	struct array_type *self = tag__array_type(tag_self);
-	char tbf[128];
-	size_t l = len;
-	size_t n = snprintf(bf, l, "%-*s %s", type_spacing,
-			    tag__name(tag_self, cu, tbf, sizeof(tbf)),
-			    name);
-	int i;
-
-	bf += n; l -= n;
-
-	for (i = 0; i < self->dimensions; ++i) {
-		n = snprintf(bf, l, "[%u]", self->nr_entries[i]);
-		bf += n; l -= n;
-	}
-
-	return len - l;
 }
 
 static size_t union__snprintf(const struct type *self, const struct cu *cu,
@@ -2596,6 +2601,9 @@ static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag,
 	return 1;
 }
 
+static int cus__emit_tag_definitions(struct cus *self, struct cu *cu,
+				     struct tag *tag);
+
 static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 					 struct tag *tdef)
 {
@@ -2620,6 +2628,9 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	type = cu__find_tag_by_id(cu, tdef->type);
 
 	switch (type->tag) {
+	case DW_TAG_array_type:
+		cus__emit_tag_definitions(self, cu, type);
+		break;
 	case DW_TAG_typedef:
 		cus__emit_typedef_definitions(self, cu, type);
 		break;
