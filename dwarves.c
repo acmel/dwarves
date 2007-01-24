@@ -2660,8 +2660,18 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	}
 	}
 
-	typedef__print(tdef, cu);
-	puts(";");
+	/*
+	 * Recheck if the typedef was emitted, as there are cases, like
+	 * wait_queue_t in the Linux kernel, that is against struct
+	 * __wait_queue, that has a wait_queue_func_t member, a function
+	 * typedef that has as one of its parameters a... wait_queue_t, that
+	 * will thus be emitted before the function typedef, making a no go to
+	 * redefine the typedef after struct __wait_queue.
+	 */
+	if (!def->definition_emitted) {
+		typedef__print(tdef, cu);
+		puts(";");
+	}
 out:
 	cus__add_definition(self, def);
 	return 1;
