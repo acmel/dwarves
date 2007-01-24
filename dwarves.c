@@ -2699,19 +2699,18 @@ static int cus__emit_tag_definitions(struct cus *self, struct cu *cu,
 	if (type == NULL)
 		return 0;
 next_indirection:
-	if (type->tag == DW_TAG_pointer_type ||
-	    type->tag == DW_TAG_reference_type ||
-	    type->tag == DW_TAG_array_type ||
-	    type->tag == DW_TAG_const_type ||
-	    type->tag == DW_TAG_volatile_type) {
+	switch (type->tag) {
+	case DW_TAG_pointer_type:
+	case DW_TAG_reference_type:
 		pointer = 1;
+		/* Fall thru */
+	case DW_TAG_array_type:
+	case DW_TAG_const_type:
+	case DW_TAG_volatile_type:
 		type = cu__find_tag_by_id(cu, type->type);
 		if (type == NULL)
 			return 0;
 		goto next_indirection;
-	}
-
-	switch (type->tag) {
 	case DW_TAG_typedef:
 		return cus__emit_typedef_definitions(self, cu, type);
 	case DW_TAG_enumeration_type:
