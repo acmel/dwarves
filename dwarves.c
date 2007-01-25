@@ -402,11 +402,12 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 	case DW_TAG_structure_type: {
 		const struct type *ctype = tag__type(type);
 
-		if (ctype->name != NULL)
+		if (ctype->name != NULL) {
 			printf("typedef struct %s %s",
 			       ctype->name, self->name);
 			return;
 		}
+	}
 	}
 
 	printf("typedef %s %s", tag__name(type, cu, bf, sizeof(bf)),
