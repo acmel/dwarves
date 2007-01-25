@@ -204,20 +204,10 @@ static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 			return value;
 	}
 		break;
-	case DW_FORM_ref1:
-	case DW_FORM_ref2:
-	case DW_FORM_ref4:
-	case DW_FORM_ref8:
-	case DW_FORM_ref_addr:
-	case DW_FORM_ref_udata: {
-		Dwarf_Off ref;
-		if (dwarf_formref(&attr, &ref) == 0)
-			return (uintmax_t)ref;
-	}
 	case DW_FORM_flag:
 		return 1;
 	default:
-		printf("DW_AT_<0x%x>=0x%x\n", name, form);
+		fprintf(stderr, "DW_AT_<0x%x>=0x%x\n", name, form);
 		break;
 	}
 
@@ -250,13 +240,25 @@ static const char *attr_string(Dwarf_Die *die, uint32_t name)
 	return NULL;
 }
 
+static Dwarf_Off attr_type(Dwarf_Die *die, uint32_t attr_name)
+{
+	Dwarf_Attribute attr;
+	if (dwarf_attr(die, attr_name, &attr) != NULL) {
+		 Dwarf_Die type_die;
+		 if (dwarf_formref_die(&attr, &type_die) != NULL)
+		 	return dwarf_dieoffset(&type_die);
+
+	}
+	return 0;
+}
+
 static void tag__init(struct tag *self, Dwarf_Die *die)
 {
 	uint32_t decl_line;
 
 	self->tag	= dwarf_tag(die);
-	self->id	= dwarf_cuoffset(die);
-	self->type	= attr_numeric(die, DW_AT_type);
+	self->id	= dwarf_dieoffset(die);
+	self->type	= attr_type(die, DW_AT_type);
 	self->decl_file = strings__add(dwarf_decl_file(die));
 	dwarf_decl_line(die, &decl_line);
 	self->decl_line = decl_line;
@@ -476,8 +478,7 @@ static struct variable *variable__new(Dwarf_Die *die)
 	if (self != NULL) {
 		tag__init(&self->tag, die);
 		self->name = strings__add(attr_string(die, DW_AT_name));
-		self->abstract_origin = attr_numeric(die,
-					 	     DW_AT_abstract_origin);
+		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
 	}
 
 	return self;
@@ -963,8 +964,7 @@ static struct parameter *parameter__new(Dwarf_Die *die)
 		tag__init(&self->tag, die);
 		self->name	      = strings__add(attr_string(die,
 								 DW_AT_name));
-		self->abstract_origin = attr_numeric(die,
-						     DW_AT_abstract_origin);
+		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
 	}
 
 	return self;
@@ -1016,7 +1016,7 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die)
 		self->tag.decl_file =
 			strings__add(attr_string(die, DW_AT_call_file));
 		self->tag.decl_line = attr_numeric(die, DW_AT_call_line);
-		self->tag.type	    = attr_numeric(die, DW_AT_abstract_origin);
+		self->tag.type	    = attr_type(die, DW_AT_abstract_origin);
 
 		if (dwarf_lowpc(die, &self->low_pc))
 			self->low_pc = 0;
@@ -1337,9 +1337,8 @@ static struct function *function__new(Dwarf_Die *die)
 		self->name     = strings__add(attr_string(die, DW_AT_name));
 		self->inlined  = attr_numeric(die, DW_AT_inline);
 		self->external = dwarf_hasattr(die, DW_AT_external);
-		self->abstract_origin = attr_numeric(die,
-						     DW_AT_abstract_origin);
-		self->specification   = attr_numeric(die, DW_AT_specification);
+		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
+		self->specification   = attr_type(die, DW_AT_specification);
 	}
 
 	return self;
@@ -2088,7 +2087,7 @@ static uint64_t attr_upper_bound(Dwarf_Die *die)
 static void __cu__tag_not_handled(Dwarf_Die *die, const char *fn)
 {
 	fprintf(stderr, "%s: DW_TAG_%s @ <%#llx> not handled!\n",
-		fn, dwarf_tag_name(dwarf_tag(die)), dwarf_cuoffset(die));
+		fn, dwarf_tag_name(dwarf_tag(die)), dwarf_dieoffset(die));
 }
 
 #define cu__tag_not_handled(die) __cu__tag_not_handled(die, __FUNCTION__)
