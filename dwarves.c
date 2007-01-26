@@ -745,10 +745,13 @@ static struct parameter *cu__find_parameter_by_id(const struct cu *self,
 {
 	struct tag *pos;
 
-	list_for_each_entry(pos, &self->tags, node)
-		if (pos->id == id)
-			return tag__parameter(pos);
-
+	list_for_each_entry(pos, &self->tags, node) {
+		/*
+		 * There can't be any at the top level CU tags list,
+		 * it'll be in the ftype->parms list or in the lexblock->tags
+		 * list, see comment in die__create_new_parameter to see why
+		 * the later is possible.
+		 */
 		if (pos->tag == DW_TAG_subprogram) {
 			struct function *fn = tag__function(pos);
 			struct tag *tag = ftype__find_parm_by_id(&fn->proto,
@@ -760,6 +763,7 @@ static struct parameter *cu__find_parameter_by_id(const struct cu *self,
 					return tag__parameter(tag);
 			}
 		}
+	}
 
 	return NULL;
 }
@@ -1390,24 +1394,29 @@ static void ftype__add_parameter(struct ftype *self, struct parameter *parm)
 	list_add_tail(&parm->tag.node, &self->parms);
 }
 
+static void lexblock__add_tag(struct lexblock *self, struct tag *tag)
+{
+	list_add_tail(&tag->node, &self->tags);
+}
+
 static void lexblock__add_inline_expansion(struct lexblock *self,
 					   struct inline_expansion *exp)
 {
 	++self->nr_inline_expansions;
 	self->size_inline_expansions += exp->size;
-	list_add_tail(&exp->tag.node, &self->tags);
+	lexblock__add_tag(self, &exp->tag);
 }
 
 static void lexblock__add_variable(struct lexblock *self, struct variable *var)
 {
 	++self->nr_variables;
-	list_add_tail(&var->tag.node, &self->tags);
+	lexblock__add_tag(self, &var->tag);
 }
 
 static void lexblock__add_label(struct lexblock *self, struct label *label)
 {
 	++self->nr_labels;
-	list_add_tail(&label->tag.node, &self->tags);
+	lexblock__add_tag(self, &label->tag);
 }
 
 const struct class_member *class__find_bit_hole(const struct class *self,
@@ -2210,7 +2219,7 @@ static struct tag *die__create_new_array(Dwarf_Die *die)
 }
 
 static void die__create_new_parameter(Dwarf_Die *die, struct ftype *ftype,
-				      struct cu *cu)
+				      struct lexblock *lexblock)
 {
 	struct parameter *parm = parameter__new(die);
 
@@ -2219,8 +2228,19 @@ static void die__create_new_parameter(Dwarf_Die *die, struct ftype *ftype,
 
 	if (ftype != NULL)
 		ftype__add_parameter(ftype, parm);
-	else
-		cu__add_tag(cu, &parm->tag);
+	else {
+		/*
+		 * DW_TAG_formal_parameters on a non DW_TAG_subprogram nor
+		 * DW_TAG_subroutine_type tag happens sometimes, likely due to
+		 * compiler optimizing away a inline expansion (at least this
+		 * was observed in some cases, such as in the Linux kernel
+		 * current_kernel_time function circa 2.6.20-rc5), keep it in
+		 * the lexblock tag list because it can be referenced as an
+		 * DW_AT_abstract_origin in another DW_TAG_formal_parameter.
+		*/
+		lexblock__add_tag(lexblock, &parm->tag);
+	}
+
 }
 
 static void die__create_new_label(Dwarf_Die *die, struct lexblock *lexblock)
@@ -2363,7 +2383,7 @@ static void die__process_function(Dwarf_Die *die, struct ftype *ftype,
 	do {
 		switch (dwarf_tag(die)) {
 		case DW_TAG_formal_parameter:
-			die__create_new_parameter(die, ftype, cu);
+			die__create_new_parameter(die, ftype, lexblock);
 			continue;
 		case DW_TAG_variable:
 			die__create_new_variable(die, lexblock);
