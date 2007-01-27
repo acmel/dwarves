@@ -244,7 +244,6 @@ static int function__emit_kretprobes(struct function *self,
 	printf("static struct kretprobe kretprobe__%s = {\n"
 	       "\t.kp = { .symbol_name = \"%s\", },\n"
 	       "\t.handler = (kretprobe_handler_t)kretprobe_handler__%s,\n"
-	       "\t.maxactive = -1,\n\n"
 	       "};\n\n", name, name, name);
 }
 
@@ -343,111 +342,8 @@ static void emit_module_preamble(void)
 	emit_class_fwd_decl("pt_regs");
 	emit_class_fwd_decl("kretprobe_instance");
 
-	emit_function_defs("yield");
 	emit_function_defs("printk");
-	emit_function_defs("register_jprobe");
-	emit_function_defs("unregister_jprobe");
-	emit_function_defs("register_kretprobe");
-	emit_function_defs("unregister_kretprobe");
 	emit_function_defs("jprobe_return");
-}
-
-/*
- * Emit a module initcall, as we don't use any #includes for the reason
- * explained in emit_module_preamble().
- */
-static void emit_module_initcall(const char *fn)
-{
-	printf("int init_module(void) __attribute__((alias(\"%s\")));\n\n", fn);
-}
-
-/*
- * Emit a module exitcall, as we don't use any #includes for the reason
- * explained in emit_module_preamble().
- */
-static void emit_module_exitcall(const char *fn)
-{
-	printf("int cleanup_module(void) __attribute__((alias(\"%s\")));\n\n", fn);
-}
-
-/*
- * Emit a module license, as we don't use any #includes for the reason
- * explained in emit_module_preamble().
- */
-static void emit_module_license(const char *license)
-{
-	printf("static const char __mod_license[] "
-	       "__attribute__((__used__)) \n"
-	       "\t__attribute__((section(\".modinfo\"),unused)) = "
-	       "\"license=%s\";\n\n", license);
-}
-
-/*
- * Emit the module init routine, iterating thru the kprobes and kretprobes
- * tables generated in cu_emit_kprobes_table_iterator and
- * cu_emit_kretprobes_table_iterator to register the kprobes and kretprobes.
- */
-static void emit_module_init(void)
-{
-	printf("static int __attribute__ "
-	       "((__section__ (\".init.text\"))) jprobe_init(void)\n"
-	       "{\n"
-	       "	unsigned int i = 0, nj = 0, nr = 0;\n"
-	       "	while (jprobes[i] != (void *)0) {\n"
-	       "		int err = register_jprobe(jprobes[i]);\n"
-	       "		if (err != 0)\n"
-	       "			printk(\"register_jprobe(%%s) failed, "
-					        "returned %%d\\n\",\n"
-	       "			       jprobes[i]->kp.symbol_name, err);\n"
-	       "		else\n"
-	       "			++nj;\n"
-	       "		err = register_kretprobe(kretprobes[i]);\n"
-	       "		if (err != 0)\n"
-	       "			printk(\"register_kretprobe(%%s) failed, "
-					        "returned %%d\\n\",\n"
-	       "			       kretprobes[i]->kp.symbol_name, err);\n"
-	       "		else\n"
-	       "			++nr;\n"
-	       "		++i;\n"
-	       "		if ((i % 5) == 0)\n"
-	       "			yield();"
-	       "	}\n\n"
-	       "	printk(\"ctracer: registered %%u entry probes\\n\", nj);\n"
-	       "	printk(\"ctracer: registered %%u exit probes\\n\", nr);\n"
-	       "\n"
-	       "        return 0;\n"
-	       "}\n\n");
-	emit_module_initcall("jprobe_init");
-}
-
-/*
- * Emit the module exit routine, iterating thru the kprobes and kretprobes
- * tables generated in cu_emit_kprobes_table_iterator and
- * cu_emit_kretprobes_table_iterator to unregister the kprobes and kretprobes.
- */
-static void emit_module_exit(void)
-{
-	printf("static void __attribute__ "
-	       "((__section__ (\".exit.text\"))) jprobe_exit(void)\n"
-	       "{\n"
-	       "	int i = 0;\n"
-	       "	while (jprobes[i] != (void *)0) {\n"
-	       "		if (jprobes[i]->kp.nmissed)\n"
-	       "			printk(\"ctracer: entry: missed %%d %%s\\n\",\n"
-	       "				jprobes[i]->kp.nmissed,\n"
-	       "				jprobes[i]->kp.symbol_name);\n"
-	       "		unregister_jprobe(jprobes[i]);\n"
-	       "		if (kretprobes[i]->nmissed)\n"
-	       "			printk(\"ctracer: exit: missed %%d %%s\\n\",\n"
-	       "				kretprobes[i]->nmissed,\n"
-	       "				kretprobes[i]->kp.symbol_name);\n"
-	       "		unregister_kretprobe(kretprobes[i]);\n"
-	       "		++i;\n"
-	       "		if ((i % 5) == 0)\n"
-	       "			yield();\n"
-	       "	}\n\n"
-	       "}\n\n");
-	emit_module_exitcall("jprobe_exit");
 }
 
 static struct option long_options[] = {
@@ -587,19 +483,16 @@ out_dwarf_err:
 			 class_name, NULL);
 	cus__for_each_cu(methods_cus, cu_emit_kretprobes_iterator,
 			 NULL, NULL);
-	puts("static struct jprobe *jprobes[] = {");
+	puts("struct jprobe *ctracer__jprobes[] = {");
 	cus__for_each_cu(methods_cus, cu_emit_kprobes_table_iterator,
 			 NULL, NULL);
 	/* Emit the sentinel */
 	puts("\t(void *)0,\n};\n");
-	puts("static struct kretprobe *kretprobes[] = {");
+	puts("struct kretprobe *ctracer__kretprobes[] = {");
 	cus__for_each_cu(methods_cus, cu_emit_kretprobes_table_iterator,
 			 NULL, NULL);
 	/* Emit the sentinel */
-	puts("\t(void *)0,\n};\n\n");
-	emit_module_init();
-	emit_module_exit();
-	emit_module_license("GPL");
+	puts("\t(void *)0,\n};\n");
 
 	return EXIT_SUCCESS;
 }

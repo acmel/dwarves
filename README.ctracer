@@ -1,22 +1,56 @@
 Basic instructions to use ctracer:
 
-1. build the kernel with CONFIG_DEBUG_INFO=y, i.e. gcc -g, that will
-   insert the DWARF info needed by all the pahole tools, ctracer, etc.
+1. Install dwarves, if you are not that excited about building it I'm
+   keeping rpms for Fedora Core 6 here:
 
-2. Run ctracer to generate the kprobes module:
+   http://oops.ghostprotocols.net:81/acme/dwarves/rpm/
 
-[acme@newtoy linux-2.6]$ ctracer fs/ext3/built-in.o inode > module.c
+   The .src.rpm is there in case you want to rebuild it for another
+   rpm based distro.
 
-3. build module.c following the instructions in Documentation/kprobes.txt
+2. build the kernel with CONFIG_DEBUG_INFO=y, i.e. gcc -g, that will
+   insert the DWARF info needed by all the pahole tools, ctracer, etc, or
+   just install the kernel-debuginfo rpm package on FC6, other distros
+   have it with a different name, its just the kernel built with debug
+   info.
 
-4. load the resulting module, that will, as of now, just use printk, in the
-   future will use relayfs like blktrace does, but for now you'll get:
+3. Assuming you installed the kernel-debuginfo package, to run ctracer
+   on your workstation, just do the following steps:
 
-[root@qemu ~]# dmesg | tail
-[32178.442056] ext3_init_block_alloc_info: inode=cf5fecdc
-[32178.455011] ext3_new_blocks: inode=cf5fecdc
-[32178.480993] ext3_discard_reservation: inode=cf5fecdc
-[32200.609075] ext3_free_blocks: inode=cf5fecdc
-[32200.620973] ext3_discard_reservation: inode=cf5fecdc
-[32200.624582] ext3_discard_reservation: inode=cf5fecdc
-[32368.284849] ext3_free_blocks: inode=cf6e15ec
+mkdir foo
+cd foo
+ln -s /usr/lib/ctracer/ctracer_jprobe.c .
+ln -s /usr/lib/ctracer/Makefile .
+make CLASS=sock # to trace struct sock methods, this one is safe, try others
+                # and tell me your horror (or success :-) ) story.
+
+(kbuild gurus, send suggestions to simplify this procedure! :-) )
+
+4. load the resulting module:
+
+insmod ctracer.ko
+
+Then do a dmesg (this one was done in an Xorg session so tons of PF_LOCAL
+routines printk'ed):
+-> unix_peer_get: s=f6a8db80
+<- unix_peer_get
+<- unix_copy_addr
+-> unix_peer_get: s=f6a8db80
+<- unix_peer_get
+-> unix_peer_get: s=f6a8db80
+<- unix_peer_get
+-> unix_peer_get: s=f6a8db80
+<- unix_peer_get
+-> unix_peer_get: s=f6a8db80
+
+Try keeping 'tail -f /var/log/messages' on an xterm and doing some more exciting
+network activity (or if tracing other struct, relevant activity for it).
+
+When tired of the printk activity, just do:
+
+rmmod ctracer
+
+Change the shipped Makefile accordingly to build a module for qemu or another test
+machine.
+
+The relay transport is mostly ready and will be included in the upcoming changesets.
