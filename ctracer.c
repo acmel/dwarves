@@ -444,7 +444,7 @@ static void emit_module_exit(void)
 	       "		unregister_kretprobe(kretprobes[i]);\n"
 	       "		++i;\n"
 	       "		if ((i % 5) == 0)\n"
-	       "			yield();"
+	       "			yield();\n"
 	       "	}\n\n"
 	       "}\n\n");
 	emit_module_exitcall("jprobe_exit");
