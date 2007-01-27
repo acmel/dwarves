@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 7
+Release: 8
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -82,6 +82,13 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Fri Jan 26 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- c49f2c963425d5c09c429370e10d9af3d7d7fe32
+- Emit typedefs of typedef arrays
+- Detect typedef loops
+- Fix emission of arrays of structs, unions, etc
+- use sysconf for the default cacheline size
+
 * Wed Jan 18 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 - fab0db03ea9046893ca110bb2b7d71b764f61033
 - pdwtags added
