@@ -469,6 +469,8 @@ int main(int argc, char *argv[])
 	const char *filename = NULL, *dirname = NULL, *glob = NULL,
 		   *kprobes_filename = NULL;
 	char *class_name = NULL;
+	struct tag *class;
+	struct cu *cu;
 
 	while ((option = getopt_long(argc, argv, "D:g:k:rh",
 				     long_options, &option_index)) >= 0)
@@ -558,6 +560,15 @@ out_enomem:
 out_dwarf_err:
 		fprintf(stderr, "ctracer: couldn't load DWARF info from %s\n",
 			filename);
+		return EXIT_FAILURE;
+	}
+
+	/*
+	 * See if the specified struct exists:
+	 */
+	class = cus__find_struct_by_name(methods_cus, &cu, class_name);
+	if (class == NULL) {
+		fprintf(stderr, "ctracer: struct %s not found!\n", class_name);
 		return EXIT_FAILURE;
 	}
 
