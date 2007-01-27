@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 8
+Release: 9
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -53,7 +53,7 @@ make
 
 %install
 rm -Rf %{buildroot}
-mkdir -p %{buildroot}{%{_libdir},%{_bindir},%{_includedir}}
+mkdir -p %{buildroot}{%{_libdir},%{_bindir},%{_includedir},%{_libdir}/ctracer}
 
 make DESTDIR=%{buildroot} install
 
@@ -71,6 +71,9 @@ rm -rf %{buildroot}
 %{_bindir}/pdwtags
 %{_bindir}/pfunct
 %{_bindir}/prefcnt
+%dir %{_libdir}/ctracer
+%{_libdir}/ctracer/Makefile
+%{_libdir}/ctracer/ctracer_jprobe.c
 
 %files -n %{libname}%{libver}
 %defattr(0644,root,root,0755)
@@ -82,6 +85,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Sat Jan 27 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- 6bf2d2d7707b65e7ca21a13706d8d07824cd6f2f
+- ctracer improvements, /usr/lib/ctracer/, etc
+
 * Fri Jan 26 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - c49f2c963425d5c09c429370e10d9af3d7d7fe32
 - Emit typedefs of typedef arrays

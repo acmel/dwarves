@@ -14,3 +14,5 @@ prefcnt.c
 README
 README.ctracer
 rpm/SPECS/dwarves.spec
+lib/Makefile
+lib/ctracer_jprobe.c
