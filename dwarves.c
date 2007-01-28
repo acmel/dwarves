@@ -551,6 +551,21 @@ struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 	return NULL;
 }
 
+struct tag *cu__find_first_typedef_of_type(const struct cu *self,
+					   const Dwarf_Off type)
+{
+	struct tag *pos;
+
+	if (type == 0)
+		return NULL;
+
+	list_for_each_entry(pos, &self->tags, node)
+		if (pos->tag == DW_TAG_typedef && pos->type == type)
+			return pos;
+
+	return NULL;
+}
+
 struct tag *cu__find_struct_by_name(const struct cu *self, const char *name)
 {
 	struct tag *pos;
@@ -766,23 +781,6 @@ static struct parameter *cu__find_parameter_by_id(const struct cu *self,
 	}
 
 	return NULL;
-}
-
-int tag__is_struct(const struct tag *self, struct tag **typedef_alias,
-		   const struct cu *cu)
-{
-	*typedef_alias = NULL;
-	if (self->tag == DW_TAG_typedef) {
-		*typedef_alias = cu__find_tag_by_id(cu, self->type);
-		if (*typedef_alias == NULL) {
-			tag__type_not_found(self, cu);
-			return 0;
-		}
-		
-		return (*typedef_alias)->tag == DW_TAG_structure_type;
-	}
-
-	return self->tag == DW_TAG_structure_type;
 }
 
 static size_t array_type__nr_entries(const struct array_type *self)
