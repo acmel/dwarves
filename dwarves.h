@@ -267,10 +267,10 @@ extern void type__emit(struct tag *tag_self, struct cu *cu,
 
 extern struct tag *cu__find_tag_by_id(const struct cu *self,
 				      const Dwarf_Off id);
+extern struct tag *cu__find_first_typedef_of_type(const struct cu *self,
+						  const Dwarf_Off type);
 extern struct tag *cu__find_struct_by_name(const struct cu *cu,
 					   const char *name);
-extern int tag__is_struct(const struct tag *self, struct tag **typedef_alias,
-			  const struct cu *cu);
 extern void	    cu__account_inline_expansions(struct cu *self);
 extern int	    cu__for_each_tag(struct cu *self,
 				     int (*iterator)(struct tag *tag,

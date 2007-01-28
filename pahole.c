@@ -16,6 +16,9 @@
 
 #include "dwarves.h"
 
+static uint8_t class__include_anonymous;
+static uint8_t class__include_nested_anonymous;
+
 static char *class__exclude_prefix;
 static size_t class__exclude_prefix_len;
 
@@ -59,9 +62,17 @@ static struct structure *structures__find(const char *name)
 {
 	struct structure *pos;
 
-	list_for_each_entry(pos, &structures__list, node)
-		if (strcmp(class__name(pos->class), name) == 0)
+	if (name == NULL)
+		return NULL;
+
+	list_for_each_entry(pos, &structures__list, node) {
+		const char *class_name = class__name(pos->class);
+
+		if (class_name != NULL &&
+		    strcmp(class__name(pos->class), name) == 0)
 			return pos;
+	}
+
 	return NULL;
 }
 
@@ -103,7 +114,35 @@ static void class_name_len_formatter(const struct structure *self)
 
 static void class_formatter(const struct structure *self)
 {
-	tag__print(class__tag(self->class), self->cu, NULL, NULL);
+	struct tag *typedef_alias = NULL;
+	struct tag *tag = class__tag(self->class);
+	const char *name = class__name(self->class);
+
+	if (name == NULL) {
+		/*
+		 * Find the first typedef for this struct, this is enough
+		 * as if we optimize the struct all the typedefs will be
+		 * affected.
+		 */
+		typedef_alias = cu__find_first_typedef_of_type(self->cu,
+							       tag->id);
+		/*
+		 * If there is no typedefs for this anonymous struct it is
+		 * found just inside another struct, and in this case it'll
+		 * be printed when the type it is in is printed, but if
+		 * the user still wants to see its statistics, just use
+		 * --nested_anon_include.
+		 */
+		if (typedef_alias == NULL && !class__include_nested_anonymous)
+			return;
+	}
+
+	if (typedef_alias != NULL) {
+		const struct type *tdef = tag__type(typedef_alias);
+		tag__print(tag, self->cu, "typedef", tdef->name);
+	} else
+		tag__print(tag, self->cu, NULL, NULL);
+
 	printf("   /* definitions: %u */\n", self->nr_files);
 	putchar('\n');
 }
@@ -197,34 +236,25 @@ static void class__chkdupdef(const struct class *self, const struct cu *cu,
 		putchar('\n');
 }
 
-static struct tag *tag__to_struct(struct tag *tag, const struct cu *cu)
-{
-	struct tag *typedef_alias;
-
-	if (!tag__is_struct(tag, &typedef_alias, cu))
-		return NULL;
-	return typedef_alias ?: tag;
-}
-
 static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
 {
 	struct structure *str;
 	struct class *class;
 	const char *name;
 
-	tag = tag__to_struct(tag, cu);
-	if (tag == NULL) /* Not a structure */
+	if (tag->tag != DW_TAG_structure_type)
 		return NULL;
 
 	class = tag__class(tag);
 	name = class__name(class);
-	if (name == NULL)
-		return NULL;
 
 	if (class__is_declaration(class))
 		return NULL;
 
-	if (class__exclude_prefix != NULL &&
+	if (!class__include_anonymous && name == NULL)
+		return NULL;
+
+	if (class__exclude_prefix != NULL && name &&
 	    strncmp(class__exclude_prefix, name,
 		    class__exclude_prefix_len) == 0)
 		return NULL;
@@ -326,6 +356,8 @@ static struct option long_options[] = {
 	{ "exclude",		required_argument,	NULL, 'x' },
 	{ "cu_exclude",		required_argument,	NULL, 'X' },
 	{ "decl_exclude",	required_argument,	NULL, 'D' },
+	{ "anon_include",	no_argument,		NULL, 'a' },
+	{ "nested_anon_include",no_argument,		NULL, 'A' },
 	{ "packable",		no_argument,		NULL, 'p' },
 	{ "verbose",		no_argument,		NULL, 'V' },
 	{ NULL, 0, NULL, 0, }
@@ -349,7 +381,10 @@ static void usage(void)
 		"   -D, --decl_exclude <prefix>  exclude classes declared in files with prefix\n"
 		"   -V, --verbose		 be verbose\n"
 		"   -x, --exclude <prefix>       exclude prefixed classes from reports\n"
-		"   -X, --cu_exclude <prefix>    exclude prefixed compilation units from reports\n");
+		"   -X, --cu_exclude <prefix>    exclude prefixed compilation units from reports\n"
+		"   -a, --anon_include           include anonymous classes\n"
+		"   -A, --nested_anon_include    include nested (inside other structs)\n"
+		"                                anonymous classes\n");
 }
 
 int main(int argc, char *argv[])
@@ -361,7 +396,7 @@ int main(int argc, char *argv[])
 	size_t cacheline_size = 0;
 	void (*formatter)(const struct structure *s) = class_formatter;
 
-	while ((option = getopt_long(argc, argv, "B:c:D:hH:mnNpstVx:X:",
+	while ((option = getopt_long(argc, argv, "AaB:c:D:hH:mnNpstVx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
@@ -373,6 +408,8 @@ int main(int argc, char *argv[])
 		case 'm': formatter = nr_methods_formatter;	break;
 		case 'p': show_packable	= 1;			break;
 		case 't': formatter = nr_definitions_formatter;	break;
+		case 'a': class__include_anonymous = 1;		break;
+		case 'A': class__include_nested_anonymous = 1;	break;
 		case 'D': decl_exclude_prefix = optarg;
 			  decl_exclude_prefix_len = strlen(decl_exclude_prefix);
 							  break;
