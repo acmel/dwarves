@@ -1769,9 +1769,10 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 	size_t last_size = 0, size;
 	size_t last_bit_size = 0;
 	uint8_t newline = 0;
+	uint16_t nr_paddings = 0;
 	uint32_t sum = 0;
 	uint32_t sum_holes = 0;
-	uint32_t sum_padding = 0;
+	uint32_t sum_paddings = 0;
 	uint32_t sum_bit_holes = 0;
 	uint32_t last_cacheline = 0;
 	int last_offset = -1;
@@ -1851,8 +1852,13 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			continue;
 		}
 
-		if (type->tag == DW_TAG_structure_type)
-			sum_padding += tag__class(type)->padding; 
+		if (type->tag == DW_TAG_structure_type) {
+			const uint16_t padding = tag__class(type)->padding;
+			if (padding > 0) {
+				++nr_paddings;
+				sum_paddings += padding; 
+			}
+		}
 
 		size = tag__size(type, cu);
 		n = snprintf(bf, l, "%.*s", indent + 1, tabs);
@@ -1937,9 +1943,10 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			     self->padding);
 		bf += n; l -= n;
 	}
-	if (sum_padding > 0) {
-		n = snprintf(bf, l, "%.*s   /* sum padding: %u */\n", indent, tabs,
-			     sum_padding);
+	if (nr_paddings > 0) {
+		n = snprintf(bf, l, "%.*s   /* paddings: %u, "
+					      "sum paddings: %u */\n",
+			     indent, tabs, nr_paddings, sum_paddings);
 		bf += n; l -= n;
 	}
 	if (self->bit_padding > 0) {
