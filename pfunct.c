@@ -1,6 +1,7 @@
-/* 
+/*
   Copyright (C) 2006 Mandriva Conectiva S.A.
   Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
+  Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 
   This program is free software; you can redistribute it and/or modify it
   under the terms of version 2 of the GNU General Public License as
@@ -340,32 +341,30 @@ static void usage(void)
 	fprintf(stdout,
 		"usage: pfunct [options] <file_name> {<function_name>}\n"
 		" where: \n"
-		"   -c, --class=<class>               functions that have "
-						     "<class> pointer "
-						     "parameters\n"
-		"   -e, --externals		      show just external "
-						     "functions\n"
-		"   -g, --goto_labels                 show number of goto "
-						     "labels\n"
-		"   -G, --cc_uninlined		      declared inline, "
-						     "uninlined by compiler\n"
-		"   -H, --cc_inlined		      not declared inline, "
-						     "inlined by compiler\n"
-		"   -i, --inline_expansions           show inline expansions\n"
-		"   -I, --inline_expansions_stats     show inline expansions "
-						     "stats\n"
-		"   -t, --total_inline_stats	      show Multi-CU total "
-						     "inline expansions "
-						     "stats\n"
-		"   -s, --sizes                       show size of functions\n"
-		"   -N, --function_name_len           show size of functions "
-						     "names\n"
-		"   -p, --nr_parms 	              show number of "
-						     "parameters\n"
-		"   -S, --nr_variables                show number of "
-						     "variables\n"
-		"   -T, --variables                   show variables\n"
-		"   -V, --verbose                     be verbose\n");
+		"   -c, --class=<class>            functions that have "
+						  "<class> pointer "
+						  "parameters\n"
+		"   -e, --externals                show just external "
+						  "functions\n"
+		"   -g, --goto_labels              show number of goto "
+						  "labels\n"
+		"   -G, --cc_uninlined             declared inline, "
+						  "uninlined by compiler\n"
+		"   -H, --cc_inlined               not declared inline, "
+						  "inlined by compiler\n"
+		"   -i, --inline_expansions        show inline expansions\n"
+		"   -I, --inline_expansions_stats  show inline expansions "
+						  "stats\n"
+		"   -t, --total_inline_stats       show Multi-CU total "
+						  "inline expansions "
+						  "stats\n"
+		"   -s, --sizes                    show size of functions\n"
+		"   -N, --function_name_len        show size of functions "
+						  "names\n"
+		"   -p, --nr_parms                 show number of parameters\n"
+		"   -S, --nr_variables             show number of variables\n"
+		"   -T, --variables                show variables\n"
+		"   -V, --verbose                  be verbose\n");
 }
 
 int main(int argc, char *argv[])
@@ -434,7 +433,7 @@ int main(int argc, char *argv[])
 	else if (function_name != NULL)
 		cus__for_each_cu(cus, cu_function_iterator,
 				 function_name, NULL);
-	else 
+	else
 		print_fn_stats(formatter);
 
 	return EXIT_SUCCESS;
