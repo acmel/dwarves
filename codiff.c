@@ -237,19 +237,6 @@ out:
 					 new_cu, diff);
 }
 
-static int diff_class_iterator(struct tag *tag, struct cu *cu, void *new_cu)
-{
-	if (tag->tag == DW_TAG_structure_type)
-		diff_struct(new_cu, tag__class(tag), cu);
-
-	return 0;
-}
-
-static int diff_function_iterator(struct function *function, void *new_cu)
-{
-	return 0;
-}
-
 static int diff_tag_iterator(struct tag *tag, struct cu *cu, void *new_cu)
 {
 	if (tag->tag == DW_TAG_structure_type)
@@ -491,7 +478,7 @@ static int show_function_diffs_iterator(struct tag *tag, struct cu *cu,
 }
 
 static int show_structure_diffs_iterator(struct tag *tag, struct cu *cu,
-					 void *cookie)
+					 void *cookie __unused)
 {
 	struct class *class;
 
@@ -560,10 +547,6 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
-static int cu_show_new_classes_iterator(struct cu *cu, void *cookie)
-{
-}
-
 static void print_total_function_diff(const char *filename)
 {
 	int kind = 0;
@@ -575,16 +558,16 @@ static void print_total_function_diff(const char *filename)
 
 	if (total_function_bytes_added != 0) {
 		++kind;
-		printf(", %lu bytes added", total_function_bytes_added);
+		printf(", %u bytes added", total_function_bytes_added);
 	}
 
 	if (total_function_bytes_removed != 0) {
 		++kind;
-		printf(", %lu bytes removed", total_function_bytes_removed);
+		printf(", %u bytes removed", total_function_bytes_removed);
 	}
   
 	if (kind == 2)
-		printf(", diff: %+ld",
+		printf(", diff: %+d",
 		       (total_function_bytes_added -
 		        total_function_bytes_removed));
 	putchar('\n');

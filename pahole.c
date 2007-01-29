@@ -185,7 +185,8 @@ static int class__packable(const struct class *self)
 }
 
 static void class__dupmsg(const struct class *self, const struct cu *cu,
-			  const struct class *dup, const struct cu *dup_cu,
+			  const struct class *dup __unused,
+			  const struct cu *dup_cu,
 			  char *hdr, const char *fmt, ...)
 {
 	va_list args;
@@ -236,7 +237,8 @@ static void class__chkdupdef(const struct class *self, const struct cu *cu,
 		putchar('\n');
 }
 
-static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
+static struct tag *tag__filter(struct tag *tag, struct cu *cu,
+			       void *cookie __unused)
 {
 	struct structure *str;
 	struct class *class;
@@ -285,7 +287,8 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu, void *cookie)
 	return tag;
 }
 
-static int unique_iterator(struct tag *tag, struct cu *cu, void *cookie)
+static int unique_iterator(struct tag *tag, struct cu *cu,
+			   void *cookie __unused)
 {
 	structures__add(tag__class(tag), cu);
 	return 0;
@@ -296,8 +299,8 @@ static int cu_unique_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, unique_iterator, cookie, tag__filter);
 }
 
-static struct tag *nr_methods__filter(struct tag *tag, struct cu *cu,
-				      void *cookie)
+static struct tag *nr_methods__filter(struct tag *tag, struct cu *cu __unused,
+				      void *cookie __unused)
 {
 	if (tag->tag != DW_TAG_subprogram)
 		return NULL;
@@ -308,7 +311,8 @@ static struct tag *nr_methods__filter(struct tag *tag, struct cu *cu,
 	return tag;
 }
 
-static int nr_methods_iterator(struct tag *tag, struct cu *cu, void *cookie)
+static int nr_methods_iterator(struct tag *tag, struct cu *cu,
+			       void *cookie __unused)
 {
 	struct parameter *pos;
 	struct structure *str;

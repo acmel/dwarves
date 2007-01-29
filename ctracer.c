@@ -106,7 +106,8 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu, void *cookie
  * Add the function to the list of methods since it matches function__filter
  * criteria.
  */
-static int find_methods_iterator(struct tag *tag, struct cu *cu, void *cookie)
+static int find_methods_iterator(struct tag *tag, struct cu *cu,
+				 void *cookie __unused)
 {
 	struct function *function = tag__function(tag);
 	method__add(cu, function);
@@ -206,7 +207,7 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
  * be used at the module init routine to register the kprobes for function
  * entry, and at module exit time to unregister the kprobes.
  */
-static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
+static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie __unused)
 {
 	struct function *pos;
 
@@ -230,8 +231,8 @@ static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie)
  * entry and using DW_AT_location to discover where in the stack or in a
  * processor register were the parameters for the function.
  */
-static int function__emit_kretprobes(struct function *self,
-				     const struct cu *cu)
+static void function__emit_kretprobes(struct function *self,
+				      const struct cu *cu)
 {
 	const char *name = function__name(self, cu);
 
@@ -251,7 +252,7 @@ static int function__emit_kretprobes(struct function *self,
  * Iterate thru the list of methods previously collected by
  * cu_find_methods_iterator, emitting the probes for function exit.
  */
-static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie)
+static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie __unused)
 {
 	struct function *pos;
 
@@ -272,7 +273,8 @@ static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie)
  * be used at the module init routine to register the kprobes for function
  * entry, and at module exit time to unregister the kretprobes.
  */
-static int cu_emit_kretprobes_table_iterator(struct cu *cu, void *cookie)
+static int cu_emit_kretprobes_table_iterator(struct cu *cu,
+					     void *cookie __unused)
 {
 	struct function *pos;
 

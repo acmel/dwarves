@@ -114,7 +114,8 @@ static void refcnt_function(struct function *function, const struct cu *cu)
 }
 
 static int refcnt_function_iterator(struct function *function,
-				    const struct cu *cu, void *cookie)
+				    const struct cu *cu,
+				    void *cookie __unused)
 {
 	refcnt_function(function, cu);
 	return 0;
@@ -136,7 +137,8 @@ static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
-static int lost_iterator(struct tag *tag, struct cu *cu, void *cookie)
+static int lost_iterator(struct tag *tag, struct cu *cu,
+			 void *cookie __unused)
 {
 	if (tag->refcnt == 0 && tag->decl_file != NULL)
 		tag__print(tag, cu, NULL, NULL);

@@ -1,5 +1,5 @@
-#ifndef _PAHOLE_CLASSES_H_
-#define _PAHOLE_CLASSES_H_ 1
+#ifndef _DWARVES_H_
+#define _DWARVES_H_ 1
 /* 
   Copyright (C) 2006 Mandriva Conectiva S.A.
   Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
@@ -16,6 +16,10 @@
 
 #include "list.h"
 
+#ifndef __unused
+#define __unused __attribute__ ((unused))
+#endif
+
 struct cus {
 	struct list_head cus;
 	struct list_head priv_definitions; /* struct type entries */
@@ -31,7 +35,6 @@ struct cu {
 	const char	 *name;
 	uint8_t		 addr_size;
 	uint16_t	 language;
-	uint32_t	 id;
 	unsigned long	 nr_inline_expansions;
 	size_t		 size_inline_expansions;
 	uint32_t	 nr_functions_changed;
@@ -195,6 +198,8 @@ static inline struct parameter *tag__parameter(const struct tag *self)
 	return (struct parameter *)self;
 }
 
+extern Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu);
+
 struct variable {
 	struct tag	 tag;
 	char		 *name;
@@ -242,7 +247,7 @@ extern void function__print_stats(const struct tag *tag_self,
 				  const struct cu *cu);
 
 extern void lexblock__print(const struct lexblock *self, const struct cu *cu,
-			    int indent);
+			    uint16_t indent);
 
 extern struct cus *cus__new(struct list_head *definitions,
 			    struct list_head *fwd_decls);
@@ -355,4 +360,4 @@ extern const char *variable__type_name(const struct variable *self,
 				       char *bf, size_t len);
 
 extern const char *dwarf_tag_name(const uint32_t tag);
-#endif /* _PAHOLE_CLASSES_H_ */
+#endif /* _DWARVES_H_ */

@@ -12,7 +12,7 @@
 
 #include "dwarves.h"
 
-static int emit_tag(struct tag *self, struct cu *cu, void *cookie)
+static int emit_tag(struct tag *self, struct cu *cu, void *cookie __unused)
 {
 	if (self->tag != DW_TAG_array_type &&
 	    self->tag != DW_TAG_base_type &&
@@ -38,7 +38,7 @@ static int emit_tag(struct tag *self, struct cu *cu, void *cookie)
 	return 0;
 }
 
-static int cu__emit_tags(struct cu *self, void *cookie)
+static int cu__emit_tags(struct cu *self, void *cookie __unused)
 {
 	cu__for_each_tag(self, emit_tag, NULL, NULL);
 	return 0;

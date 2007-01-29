@@ -254,7 +254,7 @@ static Dwarf_Off attr_type(Dwarf_Die *die, uint32_t attr_name)
 
 static void tag__init(struct tag *self, Dwarf_Die *die)
 {
-	uint32_t decl_line;
+	int32_t decl_line;
 
 	self->tag	= dwarf_tag(die);
 	self->id	= dwarf_dieoffset(die);
@@ -274,18 +274,14 @@ static struct tag *tag__new(Dwarf_Die *die)
 	return self;
 }
 
-static void __tag__type_not_found(const struct tag *self, const struct cu *cu,
-				  const char *fn)
+static void __tag__type_not_found(const struct tag *self, const char *fn)
 {
-	char bf[64];
-
 	fprintf(stderr, "%s: %#llx type not found for %s (id=%#llx)\n",
 		fn, self->type, dwarf_tag_name(self->tag), self->id);
 	fflush(stdout);
 }
 
-#define tag__type_not_found(self, cu) \
-	__tag__type_not_found(self, cu, __FUNCTION__)
+#define tag__type_not_found(self) __tag__type_not_found(self, __FUNCTION__)
 
 void tag__print_decl_info(const struct tag *self)
 {
@@ -372,7 +368,7 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 	char bf[512];
 
 	if (type == NULL) {
-		tag__type_not_found(tag_self, cu);
+		tag__type_not_found(tag_self);
 		return;
 	}
 
@@ -387,7 +383,7 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 			break;
 		ptr_type = cu__find_tag_by_id(cu, type->type);
 		if (ptr_type == NULL) {
-			tag__type_not_found(type, cu);
+			tag__type_not_found(type);
 			return;
 		}
 		if (ptr_type->tag != DW_TAG_subroutine_type)
@@ -489,7 +485,7 @@ static void cus__add(struct cus *self, struct cu *cu)
 	list_add_tail(&cu->node, &self->cus);
 }
 
-static struct cu *cu__new(uint32_t cu, const char *name, uint8_t addr_size)
+static struct cu *cu__new(const char *name, uint8_t addr_size)
 {
 	struct cu *self = malloc(sizeof(*self));
 
@@ -515,11 +511,6 @@ static struct cu *cu__new(uint32_t cu, const char *name, uint8_t addr_size)
 static void cu__add_tag(struct cu *self, struct tag *tag)
 {
 	list_add_tail(&tag->node, &self->tags);
-}
-
-static void cu__add_function(struct cu *self, struct function *function)
-{
-	list_add_tail(&function->proto.tag.node, &self->tags);
 }
 
 static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
@@ -811,7 +802,7 @@ size_t tag__size(const struct tag *self, const struct cu *cu)
 		const struct tag *type = cu__find_tag_by_id(cu, self->type);
 
 		if (type == NULL) {
-			tag__type_not_found(self, cu);
+			tag__type_not_found(self);
 			return -1;
 		}
 		size = tag__size(type, cu);
@@ -832,7 +823,7 @@ static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
 		const struct tag *type = cu__find_tag_by_id(cu, self->type);
 
 		if (type == NULL) {
-			tag__type_not_found(self, cu);
+			tag__type_not_found(self);
 			snprintf(bf, len,
 				 "<ERROR: type not found!> %c", ptr_char);
 		} else {
@@ -870,7 +861,7 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	case DW_TAG_const_type:
 		type = cu__find_tag_by_id(cu, self->type);
 		if (type == NULL && self->type != 0) {
-			tag__type_not_found(self, cu);
+			tag__type_not_found(self);
 			strncpy(bf, "<ERROR>", len);
 		} else {
 			char tmpbf[128];
@@ -883,7 +874,7 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	case DW_TAG_array_type:
 		type = cu__find_tag_by_id(cu, self->type);
 		if (type == NULL) {
-			tag__type_not_found(self, cu);
+			tag__type_not_found(self);
 			strncpy(bf, "<ERROR>", len);
 		} else
 			return tag__name(type, cu, bf, len);
@@ -952,7 +943,7 @@ static size_t class_member__size(const struct class_member *self,
 {
 	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
 	if (type == NULL) {
-		tag__type_not_found(&self->tag, cu);
+		tag__type_not_found(&self->tag);
 		return -1;
 	}
 	return tag__size(type, cu);
@@ -980,7 +971,7 @@ const char *parameter__name(struct parameter *self, const struct cu *cu)
 		struct parameter *alias =
 			cu__find_parameter_by_id(cu, self->abstract_origin);
 		if (alias == NULL) {
-			tag__type_not_found(&self->tag, cu);
+			tag__type_not_found(&self->tag);
 			return NULL;
 		}
 		/* Now cache the result in this tag ->name field */
@@ -998,7 +989,7 @@ Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu)
 		struct parameter *alias =
 			cu__find_parameter_by_id(cu, self->abstract_origin);
 		if (alias == NULL) {
-			tag__type_not_found(&self->tag, cu);
+			tag__type_not_found(&self->tag);
 			return 0;
 		}
 		/* Now cache the result in this tag ->name and type fields */
@@ -1163,7 +1154,7 @@ static size_t struct_member__snprintf(struct class_member *self,
 	    tag__type(type)->name == NULL) {
 		/* Check if this is a anonymous union */
 		const size_t slen = self->name != NULL ?
-					strlen(self->name) : -1;
+					strlen(self->name) : (size_t)-1;
 		return len -
 			(l - snprintf(bf, l, "%*s/* %5u %5u */",
 				      type_spacing + name_spacing - slen - 3,
@@ -1194,7 +1185,7 @@ static size_t union_member__snprintf(struct class_member *self,
 	    tag__type(type)->name == NULL) {
 		/* Check if this is a anonymous union */
 		const size_t slen = self->name != NULL ?
-					strlen(self->name) : -1;
+					strlen(self->name) : (size_t)-1;
 		return n + snprintf(bf, l, ";%*s/* %11u */",
 				    type_spacing + name_spacing - slen - 3, " ",
 				    size);
@@ -1308,7 +1299,7 @@ static void lexblock__add_lexblock(struct lexblock *self,
 	list_add_tail(&child->tag.node, &self->tags);
 }
 
-static ftype__init(struct ftype *self, Dwarf_Die *die)
+static void ftype__init(struct ftype *self, Dwarf_Die *die)
 {
 	const uint16_t tag = dwarf_tag(die);
 	assert(tag == DW_TAG_subprogram || tag == DW_TAG_subroutine_type);
@@ -1357,7 +1348,7 @@ const char *function__name(struct function *self, const struct cu *cu)
 			/* ... or a DW_TAG_specification... */
 			tag = cu__find_tag_by_id(cu, self->specification);
 			if (tag == NULL) {
-				tag__type_not_found(&self->proto.tag, cu);
+				tag__type_not_found(&self->proto.tag);
 				return NULL;
 			}
 		}
@@ -1460,7 +1451,7 @@ void class__find_holes(struct class *self, const struct cu *cu)
 				 * when combining small bitfields with the next
 				 * member.
 				*/
-				if (cc_last_size < last_size)
+				if ((size_t)cc_last_size < last_size)
 					last_size = cc_last_size;
 
 				last->hole = cc_last_size - last_size;
@@ -1560,32 +1551,8 @@ void cu__account_inline_expansions(struct cu *self)
 	}
 }
 
-static int tags__compare(const void *a, const void *b)
-{
-	const struct tag *ta = a, *tb = b;
-
-	if (a == b)
-		return 0;
-	if (ta->decl_line < tb->decl_line)
-		return -1;
-	if (ta->decl_line > tb->decl_line)
-		return 1;
-	if (ta->tag == DW_TAG_inlined_subroutine)
-		return -1;
-	return 1;
-}
-
-static void tags__free(void *a)
-{
-}
-
-static void tags__add(void *tags, const struct tag *tag)
-{
-	tsearch(tag, tags, tags__compare);
-}
-
 static void function__tag_print(const struct tag *tag, const struct cu *cu,
-				int indent)
+				uint16_t indent)
 {
 	char bf[512];
 	const void *vtag = tag;
@@ -1603,7 +1570,7 @@ static void function__tag_print(const struct tag *tag, const struct cu *cu,
 		struct function *alias = tag__function(talias);
 
 		if (alias == NULL) {
-			tag__type_not_found(&exp->tag, cu);
+			tag__type_not_found(&exp->tag);
 			break;
 		}
 		printf("%.*s", indent, tabs);
@@ -1637,7 +1604,7 @@ static void function__tag_print(const struct tag *tag, const struct cu *cu,
 }
 
 void lexblock__print(const struct lexblock *self, const struct cu *cu,
-		     int indent)
+		     uint16_t indent)
 {
 	struct tag *pos;
 
@@ -1735,9 +1702,6 @@ static void function__print(const struct tag *tag_self, const struct cu *cu)
 void function__print_stats(const struct tag *tag_self, const struct cu *cu)
 {
 	struct function *self = tag__function(tag_self);
-	char bf[2048];
-	struct tag *class_type;
-	const char *type = "<ERROR>";
 
 	lexblock__print(&self->lexblock, cu, 0);
 
@@ -1801,7 +1765,6 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			      uint8_t indent, size_t type_spacing,
 			      size_t name_spacing, int emit_stats)
 {
-	const char *orig_bf = bf;
 	const struct type *tself = &self->type;
 	size_t last_size = 0, size;
 	size_t last_bit_size = 0;
@@ -1825,7 +1788,6 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 
 	list_for_each_entry(pos, &tself->members, tag.node) {
 		struct tag *type;
-		const struct class *class;
 		const ssize_t cc_last_size = pos->offset - last_offset;
 
 		n = class__snprintf_cacheline_boundary(bf, l, last_cacheline,
@@ -1836,7 +1798,8 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 		bf += n; l -= n;
 
 		if (last_offset != -1) {
-			if (cc_last_size < last_size && cc_last_size > 0) {
+			if (cc_last_size > 0 &&
+			    (size_t)cc_last_size < last_size) {
 				if (!newline++) {
 					n = snprintf(bf, l, "\n");
 					bf += n; l -= n;
@@ -1880,7 +1843,7 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 
 		type = cu__find_tag_by_id(cu, pos->tag.type);
 		if (type == NULL) {
-			tag__type_not_found(&pos->tag, cu);
+			tag__type_not_found(&pos->tag);
 			n = snprintf(bf, l,
 				     "%.*s>>>ERROR: type for %s not found!\n",
 				     indent + 1, tabs, pos->name);
@@ -1958,8 +1921,8 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 		     (tself->size + cacheline_size - 1) / cacheline_size);
 	bf += n; l -= n;
 	if (sum_holes > 0) {
-		n = snprintf(bf, l, "%.*s   /* sum members: %lu, "
-			    "holes: %d, sum holes: %lu */\n", indent, tabs,
+		n = snprintf(bf, l, "%.*s   /* sum members: %u, "
+			    "holes: %d, sum holes: %u */\n", indent, tabs,
 			     sum, self->nr_holes, sum_holes);
 		bf += n; l -= n;
 	}
@@ -2201,7 +2164,7 @@ static struct tag *die__create_new_array(Dwarf_Die *die)
 	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
 		fprintf(stderr, "%s: DW_TAG_array_type with no children!\n",
 			__FUNCTION__);
-		return;
+		return NULL;
 	}
 
 	die = &child;
@@ -2312,7 +2275,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die)
 	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
 		fprintf(stderr, "%s: DW_TAG_enumeration_type with no "
 				"children!\n", __FUNCTION__);
-		return;
+		return NULL;
 	}
 
 	die = &child;
@@ -2548,7 +2511,6 @@ int cus__load(struct cus *self, const char *filename)
 {
 	Dwarf_Off offset, last_offset, abbrev_offset;
 	uint8_t addr_size, offset_size;
-	uint32_t cu_id;
 	size_t hdr_size;
 	Dwarf *dwarf;
 	int err = -1;
@@ -2562,18 +2524,15 @@ int cus__load(struct cus *self, const char *filename)
 		goto out_close;
 
 	offset = last_offset = 0;
-	cu_id = 0;
 	while (dwarf_nextcu(dwarf, offset, &offset, &hdr_size,
 			    &abbrev_offset, &addr_size, &offset_size) == 0) {
 		Dwarf_Die die;
 
 		if (dwarf_offdie(dwarf, last_offset + hdr_size, &die) != NULL) {
-			struct cu *cu = cu__new(cu_id,
-						attr_string(&die, DW_AT_name),
+			struct cu *cu = cu__new(attr_string(&die, DW_AT_name),
 						addr_size);
 			if (cu == NULL)
 				oom("cu__new");
-			++cu_id;
 			die__process(&die, cu);
 			cus__add(self, cu);
 		}
