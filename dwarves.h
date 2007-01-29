@@ -240,7 +240,8 @@ extern void dwarves__init(size_t user_cacheline_size);
 
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern void tag__print(const struct tag *self, const struct cu *cu,
-		       const char *prefix, const char *suffix);
+		       const char *prefix, const char *suffix,
+		       uint8_t expand_types);
 
 extern const char *function__name(struct function *self, const struct cu *cu);
 extern void function__print_stats(const struct tag *tag_self,

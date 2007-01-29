@@ -33,6 +33,7 @@ static uint16_t nr_holes;
 static uint16_t nr_bit_holes;
 static uint8_t show_packable;
 static uint8_t verbose;
+static uint8_t expand_types;
 
 struct structure {
 	struct list_head   node;
@@ -140,9 +141,9 @@ static void class_formatter(const struct structure *self)
 
 	if (typedef_alias != NULL) {
 		const struct type *tdef = tag__type(typedef_alias);
-		tag__print(tag, self->cu, "typedef", tdef->name);
+		tag__print(tag, self->cu, "typedef", tdef->name, expand_types);
 	} else
-		tag__print(tag, self->cu, NULL, NULL);
+		tag__print(tag, self->cu, NULL, NULL, expand_types);
 
 	printf("   /* definitions: %u */\n", self->nr_files);
 	putchar('\n');
@@ -359,6 +360,7 @@ static struct option long_options[] = {
 	{ "nr_definitions",	no_argument,		NULL, 't' },
 	{ "nr_methods",		no_argument,		NULL, 'm' },
 	{ "exclude",		required_argument,	NULL, 'x' },
+	{ "expand_types",	no_argument,		NULL, 'e' },
 	{ "cu_exclude",		required_argument,	NULL, 'X' },
 	{ "decl_exclude",	required_argument,	NULL, 'D' },
 	{ "anon_include",	no_argument,		NULL, 'a' },
@@ -381,6 +383,7 @@ static void usage(void)
 		"   -p, --packable               show only structs that has "
 						"holes that can be packed\n"
 		"   -c, --cacheline_size <size>  set cacheline size\n"
+		"   -e, --expand_types           expand class members\n"
 		"   -n, --nr_members             show number of members\n"
 		"   -N, --class_name_len         show size of classes\n"
 		"   -m, --nr_methods             show number of methods\n"
@@ -408,12 +411,13 @@ int main(int argc, char *argv[])
 	size_t cacheline_size = 0;
 	void (*formatter)(const struct structure *s) = class_formatter;
 
-	while ((option = getopt_long(argc, argv, "AaB:c:D:hH:mnNpstVx:X:",
+	while ((option = getopt_long(argc, argv, "AaB:c:D:ehH:mnNpstVx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
 		case 'H': nr_holes = atoi(optarg);	  break;
 		case 'B': nr_bit_holes = atoi(optarg);	  break;
+		case 'e': expand_types = 1;			break;
 		case 's': formatter = size_formatter;		break;
 		case 'n': formatter = nr_members_formatter;	break;
 		case 'N': formatter = class_name_len_formatter;	break;
@@ -473,7 +477,8 @@ int main(int argc, char *argv[])
 			printf("struct %s not found!\n", class_name);
 			return EXIT_FAILURE;
 		}
-		tag__print(class__tag(s->class), s->cu, NULL, NULL);
+		tag__print(class__tag(s->class), s->cu, NULL, NULL,
+			   expand_types);
 	} else
 		print_classes(formatter);
 
