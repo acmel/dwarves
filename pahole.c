@@ -1,6 +1,7 @@
-/* 
+/*
   Copyright (C) 2006 Mandriva Conectiva S.A.
   Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
+  Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 
   This program is free software; you can redistribute it and/or modify it
   under the terms of version 2 of the GNU General Public License as
@@ -194,7 +195,7 @@ static void class__dupmsg(const struct class *self, const struct cu *cu,
 	if (!*hdr)
 		printf("class: %s\nfirst: %s\ncurrent: %s\n",
 		       class__name(self), cu->name, dup_cu->name);
-	
+
 	va_start(args, fmt);
 	vprintf(fmt, args);
 	va_end(args);
@@ -373,22 +374,29 @@ static void usage(void)
 		"usage: pahole [options] <file_name> {<class_name>}\n"
 		" where: \n"
 		"   -h, --help                   show usage info\n"
-		"   -B, --bit_holes <nr_holes>   show only structs at least <nr_holes> bit holes\n"
-		"   -H, --holes <nr_holes>       show only structs at least <nr_holes> holes\n"
-		"   -p, --packable		 show only structs that has holes that can be packed\n"
+		"   -B, --bit_holes <nr_holes>   show only structs at least "
+						"<nr_holes> bit holes\n"
+		"   -H, --holes <nr_holes>       show only structs at least "
+						"<nr_holes> holes\n"
+		"   -p, --packable               show only structs that has "
+						"holes that can be packed\n"
 		"   -c, --cacheline_size <size>  set cacheline size\n"
 		"   -n, --nr_members             show number of members\n"
 		"   -N, --class_name_len         show size of classes\n"
 		"   -m, --nr_methods             show number of methods\n"
 		"   -s, --sizes                  show size of classes\n"
-		"   -t, --nr_definitions         show how many times struct was defined\n"
-		"   -D, --decl_exclude <prefix>  exclude classes declared in files with prefix\n"
-		"   -V, --verbose		 be verbose\n"
-		"   -x, --exclude <prefix>       exclude prefixed classes from reports\n"
-		"   -X, --cu_exclude <prefix>    exclude prefixed compilation units from reports\n"
+		"   -t, --nr_definitions         show how many times struct "
+						"was defined\n"
+		"   -D, --decl_exclude <prefix>  exclude classes declared in "
+						"files with prefix\n"
+		"   -x, --exclude <prefix>       exclude prefixed classes\n"
+		"   -X, --cu_exclude <prefix>    exclude prefixed compilation "
+						"units\n"
 		"   -a, --anon_include           include anonymous classes\n"
-		"   -A, --nested_anon_include    include nested (inside other structs)\n"
-		"                                anonymous classes\n");
+		"   -A, --nested_anon_include    include nested (inside "
+						"other structs)\n"
+		"                                anonymous classes\n"
+		"   -V, --verbose                be verbose\n");
 }
 
 int main(int argc, char *argv[])
