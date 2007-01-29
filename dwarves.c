@@ -1808,6 +1808,7 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 	uint8_t newline = 0;
 	uint32_t sum = 0;
 	uint32_t sum_holes = 0;
+	uint32_t sum_padding = 0;
 	uint32_t sum_bit_holes = 0;
 	uint32_t last_cacheline = 0;
 	int last_offset = -1;
@@ -1824,6 +1825,7 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 
 	list_for_each_entry(pos, &tself->members, tag.node) {
 		struct tag *type;
+		const struct class *class;
 		const ssize_t cc_last_size = pos->offset - last_offset;
 
 		n = class__snprintf_cacheline_boundary(bf, l, last_cacheline,
@@ -1885,6 +1887,10 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			bf += n; l -= n;
 			continue;
 		}
+
+		if (type->tag == DW_TAG_structure_type)
+			sum_padding += tag__class(type)->padding; 
+
 		size = tag__size(type, cu);
 		n = snprintf(bf, l, "%.*s", indent + 1, tabs);
 		bf += n; l -= n;
@@ -1966,6 +1972,11 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 	if (self->padding > 0) {
 		n = snprintf(bf, l, "%.*s   /* padding: %u */\n", indent, tabs,
 			     self->padding);
+		bf += n; l -= n;
+	}
+	if (sum_padding > 0) {
+		n = snprintf(bf, l, "%.*s   /* sum padding: %u */\n", indent, tabs,
+			     sum_padding);
 		bf += n; l -= n;
 	}
 	if (self->bit_padding > 0) {
