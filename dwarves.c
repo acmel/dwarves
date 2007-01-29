@@ -1852,20 +1852,30 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			continue;
 		}
 
-		if (type->tag == DW_TAG_structure_type) {
-			const uint16_t padding = tag__class(type)->padding;
-			if (padding > 0) {
-				++nr_paddings;
-				sum_paddings += padding; 
-			}
-		}
-
 		size = tag__size(type, cu);
 		n = snprintf(bf, l, "%.*s", indent + 1, tabs);
 		bf += n; l -= n;
 		n = struct_member__snprintf(pos, type, cu, bf, l, indent + 1,
 					    type_spacing, name_spacing);
 		bf += n; l -= n;
+
+		if (type->tag == DW_TAG_structure_type) {
+			const uint16_t padding = tag__class(type)->padding;
+			if (padding > 0) {
+				++nr_paddings;
+				sum_paddings += padding; 
+				if (!newline++) {
+					n = snprintf(bf, l, "\n");
+					bf += n; l -= n;
+				}
+
+				n = snprintf(bf, l, "\n%.*s/* XXX last struct "
+					     "has %d byte%s of padding */",
+					     indent + 1, tabs,
+					     padding, padding != 1 ? "s" : "");
+				bf += n; l -= n;
+			}
+		}
 
 		if (pos->bit_hole != 0) {
 			if (!newline++) {
