@@ -562,6 +562,22 @@ struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 	return NULL;
 }
 
+struct tag *cu__find_base_type_by_name(const struct cu *self, const char *name)
+{
+	struct tag *pos;
+
+	if (name == NULL)
+		return NULL;
+
+	list_for_each_entry(pos, &self->tags, node) {
+		if (pos->tag == DW_TAG_base_type &&
+		    strcmp(tag__base_type(pos)->name, name) == 0)
+			return pos;
+	}
+
+	return NULL;
+}
+
 struct tag *cu__find_struct_by_name(const struct cu *self, const char *name)
 {
 	struct tag *pos;

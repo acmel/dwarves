@@ -262,6 +262,8 @@ extern int cus__load_dir(struct cus *self, const char *dirname,
 			 const char *filename_mask, const int recursive);
 extern struct cu *cus__find_cu_by_name(const struct cus *self,
 				       const char *name);
+extern struct tag *cu__find_base_type_by_name(const struct cu *self,
+					      const char *name);
 extern struct tag *cus__find_struct_by_name(const struct cus *self,
 					    struct cu **cu,
 					    const char *name);
