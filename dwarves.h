@@ -90,6 +90,8 @@ static inline struct tag *class__tag(const struct class *self)
 	return (struct tag *)self;
 }
 
+extern struct class *class__clone(const struct class *from);
+
 static inline const char *class__name(const struct class *self)
 {
 	return self->type.name;
@@ -134,6 +136,9 @@ struct class_member {
 	uint16_t	 hole;		/* If there is a hole before the next
 					   one (or the end of the struct) */
 };
+
+extern size_t class_member__size(const struct class_member *self,
+				 const struct cu *cu);
 
 struct lexblock {
 	struct tag	 tag;
@@ -329,6 +334,7 @@ extern int ftype__has_parm_of_type(const struct ftype *self,
 extern const char *tag__name(const struct tag *self, const struct cu *cu,
 			     char *bf, size_t len);
 extern size_t tag__size(const struct tag *self, const struct cu *cu);
+extern size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu);
 
 extern struct class_member *type__find_member_by_name(const struct type *self,
 						      const char *name);

@@ -349,6 +349,171 @@ static int cu_nr_methods_iterator(struct cu *cu, void *cookie)
 				nr_methods__filter);
 }
 
+static struct class_member *
+	class__find_next_hole_of_size(struct class *class,
+				      struct class_member *from,
+				      const struct cu *cu, size_t size)
+{
+	struct class_member *member =
+		list_prepare_entry(from, &class->type.members, tag.node);
+
+	list_for_each_entry_continue(member, &class->type.members, tag.node) {
+		if (member->hole != 0 &&
+		    class_member__size(member, cu) <= size)
+		    return member;
+	}
+
+	return NULL;
+}
+
+static void class__subtract_offsets_from(struct class *class,
+					 struct class_member *from,
+					 const size_t size)
+{
+	struct class_member *member =
+		list_prepare_entry(from, &class->type.members, tag.node);
+
+	list_for_each_entry_continue(member, &class->type.members, tag.node)
+		member->offset -= size;
+}
+
+static void class__move_member(struct class *class, struct class_member *dest,
+			       struct class_member *from, const struct cu *cu,
+			       int from_padding)
+{
+	const size_t from_size = class_member__size(from, cu);
+	const size_t dest_size = class_member__size(dest, cu);
+	size_t offset;
+	struct class_member *from_prev = list_entry(from->tag.node.prev,
+						    struct class_member,
+						    tag.node);
+
+	if (verbose)
+		printf("/* moving %s(size=%zd) to after "
+		       "%s(offset=%zd, size=%zd, hole=%zd) */\n",
+		       from->name, from_size,
+		       dest->name, dest->offset, dest_size, dest->hole);
+	/*
+	 *  Remove from from the list
+	 */
+	list_del(&from->tag.node);
+	/*
+	 * Add from after dest:
+	 */
+	__list_add(&from->tag.node,
+		   &dest->tag.node,
+		   dest->tag.node.next);
+
+	if (from_padding) {
+		/*
+		 * Check if we're eliminating the need for padding:
+		 */
+		if (from->offset % cu->addr_size == 0) {
+			/*
+			 * Good, no need for padding anymore:
+			 */
+			class->type.size -= from_size + class->padding;
+			class->padding = 0;
+		} else {
+			/*
+			 * No, so just add from_size to the padding:
+			 */
+			class->padding += from_size;
+			printf("adding %zd bytes from %s to the padding\n",
+			       from_size, from->name);
+		}
+	} else {
+		/*
+		 * See if we are adding a new hole that is bigger than
+		 * sizeof(long), this may have problems with explicit alignment
+		 * made by the programmer, perhaps we need A switch that allows
+		 * us to avoid realignment, just using existing holes but
+		 * keeping the existing alignment, anyway the programmer has to
+		 * check the resulting rerganization before using it, and for
+		 * automatic stuff such as the one that will be used for struct
+		 * "views" in tools such as ctracer we are more interested in
+		 * packing the subset as tightly as possible.
+		 */
+		if (from->hole + from_size >= cu->addr_size) {
+			class__subtract_offsets_from(class, from_prev,
+						     cu->addr_size);
+			class->type.size -= cu->addr_size;
+		} else {
+			/*
+			 * Add add the hole after from + its size to the member
+			 * before it:
+			 */
+			from_prev->hole += from->hole + from_size;
+		}
+		/*
+		 * Check if we have eliminated a hole
+		 */
+		if (dest->hole == from_size)
+			class->nr_holes--;
+	}
+	/*
+	 * Align from after dest:
+	 */
+	offset = dest->hole % from_size;
+	from->offset = dest->offset + dest_size + offset;
+	if (offset != 0) {
+		from->hole = dest->hole - (from_size + offset);
+		dest->hole = offset;
+	} else {
+		from->hole = dest->hole - from_size;
+		dest->hole = 0;
+	}
+}
+
+static struct class *class__reorganize(const struct class *class,
+				       const struct cu *cu)
+{
+	struct class_member *member, *brother, *last_member;
+	size_t last_member_size;
+	struct class *clone = class__clone(class);
+
+	if (clone == NULL)
+		return NULL;
+restart:
+	last_member = list_entry(clone->type.members.prev,
+				 struct class_member, tag.node);
+	last_member_size = class_member__size(last_member, cu);
+
+	list_for_each_entry(member, &clone->type.members, tag.node) {
+		/* See if we have a hole after this member */
+		if (member->hole != 0) {
+			/*
+			 * OK, try to find a member that has a hole after it
+			 * and that has a size that fits the current hole:
+			*/
+			brother = class__find_next_hole_of_size(clone, member,
+								cu,
+								member->hole);
+			if (brother != NULL) {
+				class__move_member(clone, member, brother,
+						   cu, 0);
+				goto restart;
+			}
+			/*
+			 * OK, but is there padding? If so the last member
+			 * has a hole, if we are not at the last member and
+			 * it has a size that is smaller than the current hole
+			 * we can move it after the current member, reducing
+			 * the padding or eliminating it altogether.
+			 */
+			if (clone->padding > 0 &&
+			    member != last_member &&
+			    last_member_size <= member->hole) {
+				class__move_member(clone, member, last_member,
+						   cu, 1);
+				goto restart;
+			}
+		}
+	}
+
+	return clone;
+}
+
 static struct option long_options[] = {
 	{ "cacheline_size",	required_argument,	NULL, 'c' },
 	{ "class_name_len",	no_argument,		NULL, 'N' },
@@ -366,6 +531,7 @@ static struct option long_options[] = {
 	{ "anon_include",	no_argument,		NULL, 'a' },
 	{ "nested_anon_include",no_argument,		NULL, 'A' },
 	{ "packable",		no_argument,		NULL, 'p' },
+	{ "reorganize",		no_argument,		NULL, 'k' },
 	{ "verbose",		no_argument,		NULL, 'V' },
 	{ NULL, 0, NULL, 0, }
 };
@@ -385,6 +551,8 @@ static void usage(void)
 		"   -c, --cacheline_size <size>  set cacheline size\n"
 		"   -e, --expand_types           expand class members\n"
 		"   -n, --nr_members             show number of members\n"
+		"   -k, --reorganize             reorg struct trying to "
+						"kill holes\n"
 		"   -N, --class_name_len         show size of classes\n"
 		"   -m, --nr_methods             show number of methods\n"
 		"   -s, --sizes                  show size of classes\n"
@@ -404,20 +572,21 @@ static void usage(void)
 
 int main(int argc, char *argv[])
 {
-	int option, option_index;
+	int option, option_index, reorganize = 0;
 	struct cus *cus;
 	char *file_name;
 	char *class_name = NULL;
 	size_t cacheline_size = 0;
 	void (*formatter)(const struct structure *s) = class_formatter;
 
-	while ((option = getopt_long(argc, argv, "AaB:c:D:ehH:mnNpstVx:X:",
+	while ((option = getopt_long(argc, argv, "AaB:c:D:ehH:kmnNpstVx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
 		case 'H': nr_holes = atoi(optarg);	  break;
 		case 'B': nr_bit_holes = atoi(optarg);	  break;
 		case 'e': expand_types = 1;			break;
+		case 'k': reorganize = 1;			break;
 		case 's': formatter = size_formatter;		break;
 		case 'n': formatter = nr_members_formatter;	break;
 		case 'N': formatter = class_name_len_formatter;	break;
@@ -442,9 +611,14 @@ int main(int argc, char *argv[])
 
 	if (optind < argc) {
 		switch (argc - optind) {
-		case 1:	 file_name = argv[optind++];	break;
-		case 2:	 file_name = argv[optind++];
-			 class_name = argv[optind++];	break;
+		case 1:	file_name = argv[optind++];
+			if (reorganize) {
+				usage();
+				return EXIT_FAILURE;
+			}
+			break;
+		case 2:	file_name = argv[optind++];
+			class_name = argv[optind++];	break;
 		default: usage();			return EXIT_FAILURE;
 		}
 	} else {
@@ -477,8 +651,38 @@ int main(int argc, char *argv[])
 			printf("struct %s not found!\n", class_name);
 			return EXIT_FAILURE;
 		}
-		tag__print(class__tag(s->class), s->cu, NULL, NULL,
-			   expand_types);
+ 		if (reorganize) {
+			size_t savings;
+ 			struct class *clone = class__reorganize(s->class,
+								s->cu);
+ 			if (clone == NULL) {
+ 				printf("pahole: out of memory!\n");
+ 				return EXIT_FAILURE;
+ 			}
+			savings = class__size(s->class) - class__size(clone);
+			if (savings != 0)
+				putchar('\n');
+ 			tag__print(class__tag(clone), s->cu,
+				   NULL, NULL, 0);
+			if (savings != 0) {
+				const size_t cacheline_savings =
+				      (tag__nr_cachelines(class__tag(s->class),
+					 		  s->cu) -
+				       tag__nr_cachelines(class__tag(clone),
+							  s->cu));
+
+				printf("   /* saved %u byte%s", savings,
+				       savings != 1 ? "s" : "");
+				if (cacheline_savings != 0)
+					printf(" and %zu cacheline%s",
+					       cacheline_savings,
+					       cacheline_savings != 1 ?
+					       		"s" : "");
+				puts("! */");
+			}
+ 		} else
+ 			tag__print(class__tag(s->class), s->cu,
+				   NULL, NULL, 0);
 	} else
 		print_classes(formatter);
 

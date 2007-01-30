@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 9
+Release: 10
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -85,6 +85,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Mon Jan 29 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- 2de67fcaf401ac1e20feca5fa88dfc63fbc4203e
+- Type expansion!
+
 * Sat Jan 27 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - 6bf2d2d7707b65e7ca21a13706d8d07824cd6f2f
 - ctracer improvements, /usr/lib/ctracer/, etc

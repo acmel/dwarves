@@ -274,6 +274,11 @@ static struct tag *tag__new(Dwarf_Die *die)
 	return self;
 }
 
+size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu)
+{
+	return (tag__size(self, cu) + cacheline_size - 1) / cacheline_size;
+}
+
 static void __tag__type_not_found(const struct tag *self, const char *fn)
 {
 	fprintf(stderr, "%s: %#llx type not found for %s (id=%#llx)\n",
@@ -938,8 +943,23 @@ static struct class_member *class_member__new(Dwarf_Die *die)
 	return self;
 }
 
-static size_t class_member__size(const struct class_member *self,
-				 const struct cu *cu)
+static void class_member__delete(struct class_member *self)
+{
+	free(self);
+}
+
+static struct class_member *class_member__clone(const struct class_member *from)
+{
+	struct class_member *self = malloc(sizeof(*self));
+
+	if (self != NULL)
+		memcpy(self, from, sizeof(*self));
+
+	return self;
+}
+
+size_t class_member__size(const struct class_member *self,
+			  const struct cu *cu)
 {
 	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
 	if (type == NULL) {
@@ -1263,10 +1283,53 @@ static struct class *class__new(Dwarf_Die *die)
 	return self;
 }
 
+static void class__delete(struct class *self)
+{
+	struct class_member *pos;
+
+	list_for_each_entry(pos, &self->type.members, tag.node)
+		class_member__delete(pos);
+
+	free(self);
+}
+
 static void type__add_member(struct type *self, struct class_member *member)
 {
 	++self->nr_members;
 	list_add_tail(&member->tag.node, &self->members);
+}
+
+static int type__clone_members(struct type *self, const struct type *from)
+{
+	struct class_member *pos;
+
+	self->nr_members = 0;
+	INIT_LIST_HEAD(&self->members);
+
+	list_for_each_entry(pos, &from->members, tag.node) {
+		struct class_member *member_clone = class_member__clone(pos);
+
+		if (member_clone == NULL)
+			return -1;
+		type__add_member(self, member_clone);
+	}
+
+	return 0;
+}
+
+struct class *class__clone(const struct class *from)
+{
+	struct class *self = zalloc(sizeof(*self));
+
+	if (self != NULL) {
+		memcpy(self, from, sizeof(*self));
+		if (type__clone_members(&self->type, &from->type) != 0) {
+			class__delete(self);
+			self = NULL;
+		}
+	}
+
+	return self;
 }
 
 static void enumeration__add(struct type *self, struct enumerator *enumerator)
@@ -1946,7 +2009,7 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 		goto out;
 
 	n = snprintf(bf, l, "; /* size: %u, cachelines: %u */\n", tself->size,
-		     (tself->size + cacheline_size - 1) / cacheline_size);
+		     tag__nr_cachelines(class__tag(self), cu));
 	bf += n; l -= n;
 	if (sum_holes > 0) {
 		n = snprintf(bf, l, "%.*s   /* sum members: %u, "
