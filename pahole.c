@@ -358,10 +358,31 @@ static struct class_member *
 		list_prepare_entry(from, &class->type.members, tag.node);
 
 	list_for_each_entry_continue(member, &class->type.members, tag.node) {
-		if (member->hole != 0 &&
+		/*
+		 * For now refrain from returning the head of a bitfield,
+		 * we would have to move all the bitfield members.
+		 */
+		if (member->bit_size == 0 &&
+		    member->hole != 0 &&
 		    class_member__size(member, cu) <= size)
 		    return member;
 	}
+
+	return NULL;
+}
+
+static struct class_member *
+	class__find_next_bit_hole_of_size(const struct class *class,
+					  struct class_member *from,
+					  size_t size)
+{
+	struct class_member *member =
+		list_prepare_entry(from, &class->type.members, tag.node);
+
+	list_for_each_entry_continue(member, &class->type.members, tag.node)
+		if (member->bit_hole != 0 &&
+		    member->bit_size <= size)
+		    return member;
 
 	return NULL;
 }
@@ -465,6 +486,173 @@ static void class__move_member(struct class *class, struct class_member *dest,
 	}
 }
 
+static void class__move_bit_member(struct class *class, const struct cu *cu,
+				   struct class_member *dest,
+				   struct class_member *from)
+{
+	struct class_member *from_prev = list_entry(from->tag.node.prev,
+						    struct class_member,
+						    tag.node);
+
+	if (verbose)
+		printf("/* moving %s(bit size=%u) to after "
+		       "%s(bit offset=%zd, bit size=%zd, bit hole=%zd) */\n",
+		       from->name, from->bit_size,
+		       dest->name, dest->bit_offset, dest->bit_size,
+		       dest->bit_hole);
+	/*
+	 *  Remove from from the list
+	 */
+	list_del(&from->tag.node);
+	/*
+	 * Add from after dest:
+	 */
+	__list_add(&from->tag.node,
+		   &dest->tag.node,
+		   dest->tag.node.next);
+
+	/* Check if this was the last entry in the bitfield */
+	if (from_prev->bit_size == 0) {
+		const size_t from_size = class_member__size(from, cu);
+		/*
+		 * Are we shrinking the struct?
+		 */
+		if (from_size >= cu->addr_size) {
+			class__subtract_offsets_from(class, from_prev,
+						     from_size);
+			class->type.size -= cu->addr_size;
+		}
+		class->nr_bit_holes--;
+	} else {
+		/*
+		 * Add add the hole after from + its size to the member
+		 * before it:
+		 */
+		from_prev->bit_hole += from->bit_hole + from->bit_size;
+	}
+	from->bit_hole = dest->bit_hole - from->bit_size;
+	/*
+	 * Tricky, what are the rules for bitfield layouts on this arch?
+	 * Assume its IA32
+	 */
+	from->bit_offset = dest->bit_offset + dest->bit_size;
+	/*
+	 * Now both have the some offset:
+	 */
+	from->offset = dest->offset;
+	dest->bit_hole = 0;
+}
+
+static void class__demote_bitfield_members(struct class *class,
+					   struct class_member *from,
+					   struct class_member *to,
+					   const struct base_type *old_type,
+					   const struct base_type *new_type)
+{
+	const size_t bit_diff = new_type->size - old_type->size;
+	struct class_member *member =
+		list_prepare_entry(from, &class->type.members, tag.node);
+
+	list_for_each_entry_from(member, &class->type.members, tag.node) {
+		member->bit_hole   = 0;
+		/*
+		 * Assume IA32 bitfield layout
+		 */
+		member->bit_offset -= bit_diff;
+		member->tag.type = new_type->tag.id;
+		if (member == to)
+			break;
+	}
+}
+
+static void class__demote_bitfields(struct class *class, const struct cu *cu)
+{
+	struct class_member *member;
+	struct class_member *bitfield_member_head;
+	size_t current_bitfield_size, size;
+
+	list_for_each_entry(member, &class->type.members, tag.node) {
+		/*
+		 * Check if we are moving away from a bitfield
+		 */
+		if (member->bit_size == 0) {
+			current_bitfield_size = 0;
+			bitfield_member_head = NULL;
+		} else {
+			if (bitfield_member_head == NULL)
+				bitfield_member_head = member;
+			current_bitfield_size += member->bit_size;
+		}
+
+		/*
+		 * Have we got to the end of a bitfield with holes?
+		 */
+		if (member->bit_hole == 0)
+			continue;
+
+		size = class_member__size(member, cu);
+	{
+	    	const struct tag *old_type_tag =
+					cu__find_tag_by_id(cu, member->tag.type);
+		struct tag *new_type_tag;
+		const char *old_type = tag__base_type(old_type_tag)->name;
+		const char *new_type;
+	    	const size_t bytes_needed = (current_bitfield_size + 7) / 8;
+		size_t new_size;
+
+		switch (bytes_needed) {
+		case sizeof(unsigned char):
+			new_type = "unsigned char"; break;
+		case sizeof(unsigned short int):
+			new_type = "short unsigned int"; break;
+		case sizeof(unsigned int):
+			new_type = "unsigned int"; break;
+		}
+		if (verbose)
+			printf("/* demoting bitfield starting at %s "
+			       "from %s to %s */\n",
+			       bitfield_member_head->name, old_type, new_type);
+		new_type_tag = cu__find_base_type_by_name(cu, new_type);
+
+		class__demote_bitfield_members(class,
+					       bitfield_member_head, member,	
+					       tag__base_type(old_type_tag),
+					       tag__base_type(new_type_tag));
+		new_size = class_member__size(member, cu);
+		member->hole = size - new_size;
+		if (member->hole != 0)
+			++class->nr_holes;
+		member->bit_hole = new_size * 8 - current_bitfield_size;
+		if (member->bit_hole != 0)
+			++class->nr_bit_holes;
+	}
+	}
+}
+
+static void class__reorganize_bitfields(struct class *class,
+					const struct cu *cu)
+{
+	struct class_member *member, *brother;
+restart:
+	list_for_each_entry(member, &class->type.members, tag.node) {
+		/* See if we have a hole after this member */
+		if (member->bit_hole != 0) {
+			/*
+			 * OK, try to find a member that has a bit hole after
+			 * it and that has a size that fits the current hole:
+			*/
+			brother =
+			   class__find_next_bit_hole_of_size(class, member,
+							     member->bit_hole);
+			if (brother != NULL) {
+				class__move_bit_member(class, cu,
+						       member, brother);
+				goto restart;
+			}
+		}
+	}
+}
+
 static struct class *class__reorganize(const struct class *class,
 				       const struct cu *cu)
 {
@@ -474,6 +662,9 @@ static struct class *class__reorganize(const struct class *class,
 
 	if (clone == NULL)
 		return NULL;
+
+	class__reorganize_bitfields(clone, cu);
+	class__demote_bitfields(clone, cu);
 restart:
 	last_member = list_entry(clone->type.members.prev,
 				 struct class_member, tag.node);

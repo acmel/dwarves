@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 10
+Release: 11
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -85,6 +85,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Tue Jan 30 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- 4a4b75e75a6d7f34215d320cc4a9f669b6ba4075
+- pahole --reorganize
+
 * Mon Jan 29 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - 2de67fcaf401ac1e20feca5fa88dfc63fbc4203e
 - Type expansion!
