@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 11
+Release: 12
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -15,7 +15,7 @@ BuildRequires: elfutils-devel
 BuildRequires: gcc
 BuildRequires: glibc-devel
 BuildRequires: make
-BuildRoot: %{_tmppath}/%{name}-%{version}-root
+BuildRoot: %{_tmppath}/%{name}-%{version}-acme
 
 %description
 dwarves is a set of tools that use the DWARF debugging information inserted in
@@ -48,7 +48,7 @@ DWARF processing library development files
 %setup -q -c -n %{name}-%{version}
 
 %build
-cmake .
+cmake -D __LIB=%{_lib} .
 make
 
 %install
@@ -85,6 +85,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Tue Jan 30 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- 8e236f4ca37b8a3d2057f4ede5a14ab1fa99f73c
+- x86-64 lib install fixes
+
 * Tue Jan 30 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - 4a4b75e75a6d7f34215d320cc4a9f669b6ba4075
 - pahole --reorganize

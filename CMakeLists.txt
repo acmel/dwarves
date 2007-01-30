@@ -1,5 +1,18 @@
 project(pahole)
 
+# Try to parse this later, Helio just showed me a KDE4 example to support
+# x86-64 builds.
+# the following are directories where stuff will be installed to
+set(__LIB "" CACHE STRING "Define suffix of directory name (32/64)" )
+
+macro(_SET_FANCY _var _value _comment)
+	if (NOT DEFINED ${_var})
+		set(${_var} ${_value})
+	else (NOT DEFINED ${_var})
+		set(${_var} "${${_var}}" CACHE PATH "${_comment}")
+	endif (NOT DEFINED ${_var})
+endmacro(_SET_FANCY)
+
 # where to look first for cmake modules,
 # before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
@@ -7,6 +20,8 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 SET(CMAKE_BUILD_TYPE debug)
 
 find_package(DWARF REQUIRED)
+
+_SET_FANCY(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}/usr/${__LIB}" "libdir")
 
 SET(dwarves_LIB_SRCS dwarves.c)
 ADD_LIBRARY(dwarves SHARED ${dwarves_LIB_SRCS})
@@ -41,6 +56,6 @@ ADD_EXECUTABLE(prefcnt ${prefcnt_SRCS})
 TARGET_LINK_LIBRARIES(prefcnt dwarves ${DWARF_LIBRARIES})
 
 INSTALL(TARGETS codiff ctracer dtagnames pahole pdwtags pfunct prefcnt RUNTIME DESTINATION /usr/bin)
-INSTALL(TARGETS dwarves LIBRARY DESTINATION /usr/lib)
+INSTALL(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 INSTALL(FILES dwarves.h DESTINATION /usr/include)
-INSTALL(FILES lib/Makefile lib/ctracer_jprobe.c DESTINATION /usr/lib/ctracer)
+INSTALL(FILES lib/Makefile lib/ctracer_jprobe.c DESTINATION ${LIB_INSTALL_DIR}/ctracer)
