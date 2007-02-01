@@ -288,10 +288,10 @@ static void __tag__type_not_found(const struct tag *self, const char *fn)
 
 #define tag__type_not_found(self) __tag__type_not_found(self, __FUNCTION__)
 
-void tag__print_decl_info(const struct tag *self)
+static void tag__print_decl_info(const struct tag *self, FILE *fp)
 {
-	printf("/* <%llx> %s:%u */\n",
-	       self->id, self->decl_file, self->decl_line);
+	fprintf(fp, "/* <%llx> %s:%u */\n",
+		self->id, self->decl_file, self->decl_line);
 }
 
 static struct base_type *base_type__new(Dwarf_Die *die)
@@ -364,7 +364,8 @@ static struct type *type__new(Dwarf_Die *die)
 	return self;
 }
 
-static void typedef__print(const struct tag *tag_self, const struct cu *cu)
+static void typedef__print(const struct tag *tag_self, const struct cu *cu,
+			   FILE *fp)
 {
 	const struct type *self = tag__type(tag_self);
 	const struct tag *type = cu__find_tag_by_id(cu, tag_self->type);
@@ -380,8 +381,8 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 	switch (type->tag) {
 	case DW_TAG_array_type:
 		array_type__snprintf(type, cu, bf, sizeof(bf), self->name, 0);
-		fputs("typedef ", stdout);
-		fputs(bf, stdout);
+		fputs("typedef ", fp);
+		fputs(bf, fp);
 		return;
 	case DW_TAG_pointer_type:
 		if (type->type == 0) /* void pointer */
@@ -399,22 +400,22 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu)
 	case DW_TAG_subroutine_type:
 		ftype__snprintf(tag__ftype(type), cu, bf, sizeof(bf),
 				self->name, 0, is_pointer, 0);
-		fputs("typedef ", stdout);
-		fputs(bf, stdout);
+		fputs("typedef ", fp);
+		fputs(bf, fp);
 		return;
 	case DW_TAG_structure_type: {
 		const struct type *ctype = tag__type(type);
 
 		if (ctype->name != NULL) {
-			printf("typedef struct %s %s",
-			       ctype->name, self->name);
+			fprintf(fp, "typedef struct %s %s",
+				ctype->name, self->name);
 			return;
 		}
 	}
 	}
 
-	printf("typedef %s %s", tag__name(type, cu, bf, sizeof(bf)),
-	       self->name);
+	fprintf(fp, "typedef %s %s", tag__name(type, cu, bf, sizeof(bf)),
+		self->name);
 }
 
 static size_t enumeration__snprintf(const struct tag *tag_self,
@@ -448,7 +449,7 @@ static size_t enumeration__snprintf(const struct tag *tag_self,
 }
 
 static void enumeration__print(const struct tag *tag_self,
-			       const char *suffix, uint8_t indent)
+			       const char *suffix, uint8_t indent, FILE *fp)
 {
 	char bf[4096];
 
@@ -456,7 +457,7 @@ static void enumeration__print(const struct tag *tag_self,
 		indent = sizeof(tabs) - 1;
 
 	enumeration__snprintf(tag_self, bf, sizeof(bf), suffix, indent);
-	fputs(bf, stdout);
+	fputs(bf, fp);
 }
 
 static struct enumerator *enumerator__new(Dwarf_Die *die)
@@ -1279,14 +1280,14 @@ static size_t union__snprintf(const struct type *self, const struct cu *cu,
 
 static void union__print(const struct tag *tag, const struct cu *cu,
 			 const char *prefix, const char *suffix,
-			 uint8_t expand_types)
+			 uint8_t expand_types, FILE *fp)
 {
 	const struct type *utype = tag__type(tag);
 	char bf[32768];
 
 	union__snprintf(utype, cu, bf, sizeof(bf), prefix, suffix,
 			expand_types, 0, 26, 23);
-	fputs(bf, stdout);
+	fputs(bf, fp);
 }
 
 static struct class *class__new(Dwarf_Die *die)
@@ -1641,7 +1642,7 @@ void cu__account_inline_expansions(struct cu *self)
 }
 
 static void function__tag_print(const struct tag *tag, const struct cu *cu,
-				uint16_t indent)
+				uint16_t indent, FILE *fp)
 {
 	char bf[512];
 	const void *vtag = tag;
@@ -1662,47 +1663,48 @@ static void function__tag_print(const struct tag *tag, const struct cu *cu,
 			tag__type_not_found(&exp->tag);
 			break;
 		}
-		printf("%.*s", indent, tabs);
-		c += printf("%s(); /* low_pc=%#llx */",
-			    function__name(alias, cu), exp->low_pc);
+		fprintf(fp, "%.*s", indent, tabs);
+		c += fprintf(fp, "%s(); /* low_pc=%#llx */",
+			     function__name(alias, cu), exp->low_pc);
 	}
 		break;
 	case DW_TAG_variable:
-		printf("%.*s", indent, tabs);
-		c += printf("%s %s;", variable__type_name(vtag, cu,
-							  bf, sizeof(bf)),
-			    variable__name(vtag, cu));
+		fprintf(fp, "%.*s", indent, tabs);
+		c += fprintf(fp, "%s %s;",
+			     variable__type_name(vtag, cu, bf, sizeof(bf)),
+			     variable__name(vtag, cu));
 		break;
 	case DW_TAG_label: {
 		const struct label *label = vtag;
-		printf("%.*s", indent, tabs);
-		putchar('\n');
-		c = printf("%s:", label->name);
+		fprintf(fp, "%.*s", indent, tabs);
+		fputc('\n', fp);
+		c = fprintf(fp, "%s:", label->name);
 	}
 		break;
 	case DW_TAG_lexical_block:
-		lexblock__print(vtag, cu, indent);
+		lexblock__print(vtag, cu, indent, fp);
 		return;
 	default:
-		printf("%.*s", indent, tabs);
-		c += printf("%s <%llx>", dwarf_tag_name(tag->tag), tag->id);
+		fprintf(fp, "%.*s", indent, tabs);
+		c += fprintf(fp, "%s <%llx>",
+			     dwarf_tag_name(tag->tag), tag->id);
 		break;
 	}
 
-	printf("%-*.*s// %5u\n", 70 - c, 70 - c, " ",  tag->decl_line);
+	fprintf(fp, "%-*.*s// %5u\n", 70 - c, 70 - c, " ", tag->decl_line);
 }
 
 void lexblock__print(const struct lexblock *self, const struct cu *cu,
-		     uint16_t indent)
+		    uint16_t indent, FILE *fp)
 {
 	struct tag *pos;
 
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
-	printf("%.*s{\n", indent, tabs);
+	fprintf(fp, "%.*s{\n", indent, tabs);
 	list_for_each_entry(pos, &self->tags, node)
-		function__tag_print(pos, cu, indent + 1);
-	printf("%.*s}\n", indent, tabs);
+		function__tag_print(pos, cu, indent + 1, fp);
+	fprintf(fp, "%.*s}\n", indent, tabs);
 }
 
 size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
@@ -1777,7 +1779,8 @@ print_it:
 	return len - (l - n);
 }
 
-static void function__print(const struct tag *tag_self, const struct cu *cu)
+static void function__print(const struct tag *tag_self, const struct cu *cu,
+			    FILE *fp)
 {
 	struct function *self = tag__function(tag_self);
 	char bf[2048];
@@ -1785,25 +1788,26 @@ static void function__print(const struct tag *tag_self, const struct cu *cu)
 	ftype__snprintf(&self->proto, cu, bf, sizeof(bf),
 			function__name(self, cu),
 			function__declared_inline(self), 0, 0);
-	fputs(bf, stdout);
+	fputs(bf, fp);
 }
 
-void function__print_stats(const struct tag *tag_self, const struct cu *cu)
+void function__print_stats(const struct tag *tag_self, const struct cu *cu,
+			   FILE *fp)
 {
 	struct function *self = tag__function(tag_self);
 
-	lexblock__print(&self->lexblock, cu, 0);
+	lexblock__print(&self->lexblock, cu, 0, fp);
 
-	printf("/* size: %u", function__size(self));
+	fprintf(fp, "/* size: %u", function__size(self));
 	if (self->lexblock.nr_variables > 0)
-		printf(", variables: %u", self->lexblock.nr_variables);
+		fprintf(fp, ", variables: %u", self->lexblock.nr_variables);
 	if (self->lexblock.nr_labels > 0)
-		printf(", goto labels: %u", self->lexblock.nr_labels);
+		fprintf(fp, ", goto labels: %u", self->lexblock.nr_labels);
 	if (self->lexblock.nr_inline_expansions > 0)
-		printf(", inline expansions: %u (%u bytes)",
-		       self->lexblock.nr_inline_expansions,
-		       self->lexblock.size_inline_expansions);
-	fputs(" */\n", stdout);
+		fprintf(fp, ", inline expansions: %u (%u bytes)",
+			self->lexblock.nr_inline_expansions,
+			self->lexblock.size_inline_expansions);
+	fputs(" */\n", fp);
 }
 
 void class__subtract_offsets_from(struct class *self, const struct cu *cu,
@@ -1881,7 +1885,7 @@ static struct class_member *
 
 static void class__move_member(struct class *class, struct class_member *dest,
 			       struct class_member *from, const struct cu *cu,
-			       int from_padding, const int verbose)
+			       int from_padding, const int verbose, FILE *fp)
 {
 	const size_t from_size = class_member__size(from, cu);
 	const size_t dest_size = class_member__size(dest, cu);
@@ -1901,7 +1905,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 	const uint16_t new_from_offset = dest->offset + dest_size + offset;
 
 	if (verbose)
-		fputs("/* Moving", stdout);
+		fputs("/* Moving", fp);
 
 	if (from->bit_size != 0) {
 		struct class_member *pos =
@@ -1912,7 +1916,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 		LIST_HEAD(from_list);
 
 		if (verbose)
-			printf(" bitfield('%s' ... ", from->name);
+			fprintf(fp, " bitfield('%s' ... ", from->name);
 		list_for_each_entry_safe_from(pos, tmp, &class->type.members,
 					      tag.node) {
 			/*
@@ -1931,10 +1935,10 @@ static void class__move_member(struct class *class, struct class_member *dest,
 		tail_from->bit_hole = orig_tail_from_bit_hole;
 		list_splice(&from_list, &dest->tag.node);
 		if (verbose)
-			printf("'%s')", tail_from->name);
+			fprintf(fp, "'%s')", tail_from->name);
 	} else {
 		if (verbose)
-			printf(" '%s'", from->name);
+			fprintf(fp, " '%s'", from->name);
 		/*
 		 *  Remove 'from' from the list
 		 */
@@ -1948,7 +1952,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 	}
 		
 	if (verbose)
-		printf(" from after '%s' to after '%s' */\n",
+		fprintf(fp, " from after '%s' to after '%s' */\n",
 		       from_prev->name, dest->name);
 
 	if (from_padding) {
@@ -1966,8 +1970,8 @@ static void class__move_member(struct class *class, struct class_member *dest,
 			 * No, so just add from_size to the padding:
 			 */
 			class->padding += from_size;
-			printf("adding %zd bytes from %s to the padding\n",
-			       from_size, from->name);
+			fprintf(fp, "/* adding %zd bytes from %s to "
+				"the padding */\n", from_size, from->name);
 		}
 	} else {
 		/*
@@ -2003,15 +2007,15 @@ static void class__move_member(struct class *class, struct class_member *dest,
 	dest->hole = offset;
 
 	if (verbose > 1) {
- 		class__print(class__tag(class), cu, NULL, NULL, 0);
-		putchar('\n');
+ 		class__print(class__tag(class), cu, NULL, NULL, 0, fp);
+		fputc('\n', fp);
 	}
 }
 
 static void class__move_bit_member(struct class *class, const struct cu *cu,
 				   struct class_member *dest,
 				   struct class_member *from,
-				   const int verbose)
+				   const int verbose, FILE *fp)
 {
 	struct class_member *from_prev = list_entry(from->tag.node.prev,
 						    struct class_member,
@@ -2020,10 +2024,10 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 					&class->type.members);
 
 	if (verbose)
-		printf("/* Moving '%s:%u' from after '%s' to "
-		       "after '%s:%u' */\n",
-		       from->name, from->bit_size, from_prev->name,
-		       dest->name, dest->bit_size);
+		fprintf(fp, "/* Moving '%s:%u' from after '%s' to "
+			"after '%s:%u' */\n",
+			from->name, from->bit_size, from_prev->name,
+			dest->name, dest->bit_size);
 	/*
 	 *  Remove 'from' from the list
 	 */
@@ -2078,8 +2082,8 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 	from->hole = dest->hole;
 	dest->hole = 0;
 	if (verbose > 1) {
-		class__print(class__tag(class), cu, NULL, NULL, 0);
-		putchar('\n');
+		class__print(class__tag(class), cu, NULL, NULL, 0, fp);
+		fputc('\n', fp);
 	}
 }
 
@@ -2125,7 +2129,7 @@ static struct tag *cu__find_base_type_of_size(const struct cu *cu,
 }
 
 static int class__demote_bitfields(struct class *class, const struct cu *cu,
-				   const int verbose)
+				   const int verbose, FILE *fp)
 {
 	struct class_member *member;
 	struct class_member *bitfield_head;
@@ -2160,11 +2164,11 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		old_type_tag = cu__find_tag_by_id(cu, member->tag.type);
 		new_type_tag = cu__find_base_type_of_size(cu, bytes_needed);
 		if (verbose)
-			printf("/* Demoting bitfield ('%s' ... '%s') "
-			       "from '%s' to '%s' */\n",
-			       bitfield_head->name, member->name,
-			       tag__base_type(old_type_tag)->name,
-			       tag__base_type(new_type_tag)->name);
+			fprintf(fp, "/* Demoting bitfield ('%s' ... '%s') "
+				"from '%s' to '%s' */\n",
+				bitfield_head->name, member->name,
+				tag__base_type(old_type_tag)->name,
+				tag__base_type(new_type_tag)->name);
 
 		class__demote_bitfield_members(class,
 					       bitfield_head, member,	
@@ -2182,8 +2186,8 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		if (member->bit_hole == 0)
 			--class->nr_bit_holes;
 		if (verbose > 1) {
- 			class__print(class__tag(class), cu, NULL, NULL, 0);
-			putchar('\n');
+ 			class__print(class__tag(class), cu, NULL, NULL, 0, fp);
+			fputc('\n', fp);
 		}
 	}
 	/*
@@ -2204,11 +2208,11 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 				cu__find_base_type_of_size(cu, bytes_needed);
 
 			if (verbose)
-				printf("/* Demoting bitfield ('%s') "
-				       "from '%s' to '%s' */\n",
-				       member->name,
-				       tag__base_type(old_type_tag)->name,
-				       tag__base_type(new_type_tag)->name);
+				fprintf(fp, "/* Demoting bitfield ('%s') "
+					"from '%s' to '%s' */\n",
+					member->name,
+					tag__base_type(old_type_tag)->name,
+					tag__base_type(new_type_tag)->name);
 			class__demote_bitfield_members(class,
 						       member, member,	
 						 tag__base_type(old_type_tag),
@@ -2233,8 +2237,8 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			some_was_demoted = 1;
 			if (verbose > 1) {
 				class__print(class__tag(class), cu,
-					   NULL, NULL, 0);
-				putchar('\n');
+					   NULL, NULL, 0, fp);
+				fputc('\n', fp);
 			}
 		}
 	}
@@ -2243,7 +2247,8 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 }
 
 static void class__reorganize_bitfields(struct class *class,
-					const struct cu *cu, const int verbose)
+					const struct cu *cu,
+					const int verbose, FILE *fp)
 {
 	struct class_member *member, *brother;
 restart:
@@ -2260,7 +2265,7 @@ restart:
 			if (brother != NULL) {
 				class__move_bit_member(class, cu,
 						       member, brother,
-						       verbose);
+						       verbose, fp);
 				goto restart;
 			}
 		}
@@ -2308,7 +2313,7 @@ static void class__fixup_bitfield_types(const struct class *self,
 */
 static void class__fixup_member_types(const struct class *self,
 				      const struct cu *cu,
-				      const uint8_t verbose)
+				      const uint8_t verbose, FILE *fp)
 {
 	struct class_member *pos, *bitfield_head = NULL;
 	uint8_t fixup_was_done = 0;
@@ -2353,23 +2358,23 @@ static void class__fixup_member_types(const struct class *self,
 		bitfield_head = NULL;
 	}
 	if (verbose && fixup_was_done) {
-		printf("/* bitfield types were fixed */\n");
+		fprintf(fp, "/* bitfield types were fixed */\n");
 		if (verbose > 1) {
- 			class__print(class__tag(self), cu, NULL, NULL, 0);
-			putchar('\n');
+ 			class__print(class__tag(self), cu, NULL, NULL, 0, fp);
+			fputc('\n', fp);
 		}
 	}
 }
 
 struct class *class__reorganize(struct class *self, const struct cu *cu,
-				const int verbose)
+				const int verbose, FILE *fp)
 {
 	struct class_member *member, *brother, *last_member;
 	size_t last_member_size;
 
-	class__fixup_member_types(self, cu, verbose);
-	while (class__demote_bitfields(self, cu, verbose))
-		class__reorganize_bitfields(self, cu, verbose);
+	class__fixup_member_types(self, cu, verbose, fp);
+	while (class__demote_bitfields(self, cu, verbose, fp))
+		class__reorganize_bitfields(self, cu, verbose, fp);
 restart:
 	last_member = list_entry(self->type.members.prev,
 				 struct class_member, tag.node);
@@ -2387,7 +2392,7 @@ restart:
 								member->hole);
 			if (brother != NULL) {
 				class__move_member(self, member, brother,
-						   cu, 0, verbose);
+						   cu, 0, verbose, fp);
 				goto restart;
 			}
 			/*
@@ -2401,7 +2406,7 @@ restart:
 			    member != last_member &&
 			    last_member_size <= member->hole) {
 				class__move_member(self, member, last_member,
-						   cu, 1, verbose);
+						   cu, 1, verbose, fp);
 				goto restart;
 			}
 		}
@@ -2679,40 +2684,40 @@ out:
 
 void class__print(const struct tag *tag, const struct cu *cu,
 		  const char *prefix, const char *suffix,
-		  uint8_t expand_types)
+		  uint8_t expand_types, FILE *fp)
 {
 	char bf[32768];
 
 	class__snprintf(tag__class(tag), cu, bf, sizeof(bf),
 			prefix, suffix, expand_types, 0, 26, 23, 1);
-	fputs(bf, stdout);
+	fputs(bf, fp);
 }
 
 void tag__print(const struct tag *self, const struct cu *cu,
 		const char *prefix, const char *suffix,
-		uint8_t expand_types)
+		uint8_t expand_types, FILE *fp)
 {
-	tag__print_decl_info(self);
+	tag__print_decl_info(self, fp);
 
 	switch (self->tag) {
 	case DW_TAG_enumeration_type:
-		enumeration__print(self, NULL, 0);
+		enumeration__print(self, NULL, 0, fp);
 		break;
 	case DW_TAG_typedef:
-		typedef__print(self, cu);
+		typedef__print(self, cu, fp);
 		break;
 	case DW_TAG_structure_type:
-		class__print(self, cu, prefix, suffix, expand_types);
+		class__print(self, cu, prefix, suffix, expand_types, fp);
 		break;
 	case DW_TAG_subprogram:
-		function__print(self, cu);
+		function__print(self, cu, fp);
 		break;
 	case DW_TAG_union_type:
-		union__print(self, cu, prefix, suffix, expand_types);
+		union__print(self, cu, prefix, suffix, expand_types, fp);
 		break;
 	default:
-		printf("%s: %s tag not supported!\n", __FUNCTION__,
-		       dwarf_tag_name(self->tag));
+		fprintf(fp, "%s: %s tag not supported!\n", __func__,
+			dwarf_tag_name(self->tag));
 		break;
 	}
 }
@@ -3297,7 +3302,7 @@ static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag,
 		return 0;
 	}
 
-	enumeration__print(tag, suffix, 0);
+	enumeration__print(tag, suffix, 0, stdout);
 	puts(";");
 	cus__add_definition(self, etype);
 	return 1;
@@ -3349,7 +3354,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	case DW_TAG_enumeration_type: {
 		const struct type *ctype = tag__type(type);
 
-		tag__print_decl_info(type);
+		tag__print_decl_info(type, stdout);
 		if (ctype->name == NULL) {
 			fputs("typedef ", stdout);
 			cus__emit_enumeration_definitions(self, type, def->name);
@@ -3382,7 +3387,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	 * redefine the typedef after struct __wait_queue.
 	 */
 	if (!def->definition_emitted) {
-		typedef__print(tdef, cu);
+		typedef__print(tdef, cu, stdout);
 		puts(";");
 	}
 out:
@@ -3438,7 +3443,7 @@ next_indirection:
 		return cus__emit_typedef_definitions(self, cu, type);
 	case DW_TAG_enumeration_type:
 		if (tag__type(type)->name != NULL) {
-			tag__print_decl_info(type);
+			tag__print_decl_info(type, stdout);
 			return cus__emit_enumeration_definitions(self, type,
 								 NULL);
 		}
@@ -3510,7 +3515,7 @@ void type__emit(struct tag *tag_self, struct cu *cu,
 		class__find_holes(tag__class(tag_self), cu);
 
 	if (ctype->name != NULL || suffix != NULL || prefix != NULL) {
-		tag__print(tag_self, cu, prefix, suffix, 0);
+		tag__print(tag_self, cu, prefix, suffix, 0, stdout);
 
 		if (tag_self->tag != DW_TAG_structure_type)
 			putchar(';');

@@ -25,12 +25,12 @@ static int emit_tag(struct tag *self, struct cu *cu, void *cookie __unused)
 		if (self->tag == DW_TAG_structure_type)
 			class__find_holes(tag__class(self), cu);
 
-		tag__print(self, cu, NULL, NULL, 0);
+		tag__print(self, cu, NULL, NULL, 0, stdout);
 
 		if (self->tag == DW_TAG_subprogram) {
 			const struct function *fn = tag__function(self);
 			putchar('\n');
-			lexblock__print(&fn->lexblock, cu, 0);
+			lexblock__print(&fn->lexblock, cu, 0, stdout);
 		} else if (self->tag != DW_TAG_structure_type)
 			puts(";");
 		putchar('\n');

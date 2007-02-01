@@ -11,6 +11,7 @@
 
 
 #include <stdint.h>
+#include <stdio.h>
 #include <dwarf.h>
 #include <elfutils/libdw.h>
 
@@ -251,20 +252,20 @@ extern void class__subtract_offsets_from(struct class *self,
 					 const uint16_t size);
 extern struct class *class__reorganize(struct class *self,
 				       const struct cu *cu,
-				       const int verbose);
+				       const int verbose, FILE *fp);
 extern void class__print(const struct tag *tag, const struct cu *cu,
 			 const char *prefix, const char *suffix,
-			 uint8_t expand_types);
+			 uint8_t expand_types, FILE *fp);
 extern void tag__print(const struct tag *self, const struct cu *cu,
 		       const char *prefix, const char *suffix,
-		       uint8_t expand_types);
+		       uint8_t expand_types, FILE *fp);
 
 extern const char *function__name(struct function *self, const struct cu *cu);
 extern void function__print_stats(const struct tag *tag_self,
-				  const struct cu *cu);
+				  const struct cu *cu, FILE *fp);
 
 extern void lexblock__print(const struct lexblock *self, const struct cu *cu,
-			    uint16_t indent);
+			    uint16_t indent, FILE *fp);
 
 extern struct cus *cus__new(struct list_head *definitions,
 			    struct list_head *fwd_decls);

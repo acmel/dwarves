@@ -301,7 +301,7 @@ static void emit_function_defs(const char *fn)
 	if (f != NULL) {
 		cus__emit_ftype_definitions(kprobes_cus, cu,
 					    &tag__function(f)->proto);
-		tag__print(f, cu, NULL, NULL, 0);
+		tag__print(f, cu, NULL, NULL, 0, stdout);
 		puts(";\n");
 	}
 }
