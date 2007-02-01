@@ -495,7 +495,7 @@ int main(int argc, char *argv[])
 			size_t savings;
 			const uint8_t reorg_verbose =
 					show_reorg_steps ? 2 : global_verbose;
- 			struct class *clone = class__clone(s->class);
+ 			struct class *clone = class__clone(s->class, NULL);
  			if (clone == NULL) {
  				printf("pahole: out of memory!\n");
  				return EXIT_FAILURE;

@@ -91,7 +91,9 @@ static inline struct tag *class__tag(const struct class *self)
 	return (struct tag *)self;
 }
 
-extern struct class *class__clone(const struct class *from);
+extern struct class *class__clone(const struct class *from,
+				  const char *new_class_name);
+extern void class__delete(struct class *self);
 
 static inline const char *class__name(const struct class *self)
 {

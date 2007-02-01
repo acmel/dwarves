@@ -1300,7 +1300,7 @@ static struct class *class__new(Dwarf_Die *die)
 	return self;
 }
 
-static void class__delete(struct class *self)
+void class__delete(struct class *self)
 {
 	struct class_member *pos;
 
@@ -1334,16 +1334,19 @@ static int type__clone_members(struct type *self, const struct type *from)
 	return 0;
 }
 
-struct class *class__clone(const struct class *from)
+struct class *class__clone(const struct class *from,
+			   const char *new_class_name)
 {
 	struct class *self = zalloc(sizeof(*self));
 
-	if (self != NULL) {
+	 if (self != NULL) {
 		memcpy(self, from, sizeof(*self));
 		if (type__clone_members(&self->type, &from->type) != 0) {
 			class__delete(self);
 			self = NULL;
 		}
+		if (new_class_name != NULL)
+			self->type.name = strings__add(new_class_name);
 	}
 
 	return self;
