@@ -1302,9 +1302,9 @@ static struct class *class__new(Dwarf_Die *die)
 
 void class__delete(struct class *self)
 {
-	struct class_member *pos;
+	struct class_member *pos, *next;
 
-	list_for_each_entry(pos, &self->type.members, tag.node)
+	list_for_each_entry_safe(pos, next, &self->type.members, tag.node)
 		class_member__delete(pos);
 
 	free(self);
