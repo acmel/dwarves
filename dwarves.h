@@ -244,6 +244,9 @@ struct enumerator {
 extern void dwarves__init(size_t user_cacheline_size);
 
 extern void class__find_holes(struct class *self, const struct cu *cu);
+extern void class__print(const struct tag *tag, const struct cu *cu,
+			 const char *prefix, const char *suffix,
+			 uint8_t expand_types);
 extern void tag__print(const struct tag *self, const struct cu *cu,
 		       const char *prefix, const char *suffix,
 		       uint8_t expand_types);

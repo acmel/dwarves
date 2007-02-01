@@ -2073,9 +2073,9 @@ out:
 	return len - l;
 }
 
-static void class__print(const struct tag *tag, const struct cu *cu,
-			 const char *prefix, const char *suffix,
-			 uint8_t expand_types)
+void class__print(const struct tag *tag, const struct cu *cu,
+		  const char *prefix, const char *suffix,
+		  uint8_t expand_types)
 {
 	char bf[32768];
 
