@@ -139,6 +139,7 @@ struct class_member {
 
 extern size_t class_member__size(const struct class_member *self,
 				 const struct cu *cu);
+extern void class_member__delete(struct class_member *self);
 
 struct lexblock {
 	struct tag	 tag;
@@ -244,6 +245,13 @@ struct enumerator {
 extern void dwarves__init(size_t user_cacheline_size);
 
 extern void class__find_holes(struct class *self, const struct cu *cu);
+extern void class__subtract_offsets_from(struct class *self,
+					 const struct cu *cu,
+					 struct class_member *from,
+					 const uint16_t size);
+extern struct class *class__reorganize(struct class *self,
+				       const struct cu *cu,
+				       const int verbose);
 extern void class__print(const struct tag *tag, const struct cu *cu,
 			 const char *prefix, const char *suffix,
 			 uint8_t expand_types);
