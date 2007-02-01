@@ -545,6 +545,11 @@ static void class__move_member(struct class *class, struct class_member *dest,
 
 	tail_from->hole = dest->hole - (from_size + offset);
 	dest->hole = offset;
+
+	if (verbose > 1) {
+ 		class__print(class__tag(class), cu, NULL, NULL, 0);
+		putchar('\n');
+	}
 }
 
 static void class__move_bit_member(struct class *class, const struct cu *cu,
@@ -616,6 +621,10 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 	dest->bit_hole = 0;
 	from->hole = dest->hole;
 	dest->hole = 0;
+	if (verbose > 1) {
+		class__print(class__tag(class), cu, NULL, NULL, 0);
+		putchar('\n');
+	}
 }
 
 static void class__demote_bitfield_members(struct class *class,
@@ -716,6 +725,10 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		*/
 		if (member->bit_hole == 0)
 			--class->nr_bit_holes;
+		if (verbose > 1) {
+ 			class__print(class__tag(class), cu, NULL, NULL, 0);
+			putchar('\n');
+		}
 	}
 	/*
 	 * Now look if we have bit padding, i.e. if the the last member
@@ -757,10 +770,16 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 						    member->bit_size);
 			} else {
 				class->padding = 0;
-				class->bit_padding = new_size * 8 - member->bit_size;
+				class->bit_padding = (new_size * 8 -
+						      member->bit_size);
 				member->bit_hole = 0;
 			}
 			some_was_demoted = 1;
+			if (verbose > 1) {
+				class__print(class__tag(class), cu,
+					   NULL, NULL, 0);
+				putchar('\n');
+			}
 		}
 	}
 
@@ -832,9 +851,11 @@ static void class__fixup_bitfield_types(const struct class *self,
  * sizes.
 */
 static void class__fixup_member_types(const struct class *self,
-				      const struct cu *cu)
+				      const struct cu *cu,
+				      const uint8_t verbose)
 {
 	struct class_member *pos, *bitfield_head = NULL;
+	uint8_t fixup_was_done = 0;
 
 	list_for_each_entry(pos, &self->type.members, tag.node) {
 		/*
@@ -870,9 +891,17 @@ static void class__fixup_member_types(const struct class *self,
 				class__fixup_bitfield_types(self,
 							    bitfield_head, pos,
 							    new_type_tag->id);
+				fixup_was_done = 1;
 			}
 		}
 		bitfield_head = NULL;
+	}
+	if (verbose && fixup_was_done) {
+		printf("/* bitfield types were fixed */\n");
+		if (verbose > 1) {
+ 			class__print(class__tag(self), cu, NULL, NULL, 0);
+			putchar('\n');
+		}
 	}
 }
 
@@ -887,7 +916,7 @@ static struct class *class__reorganize(const struct class *class,
 	if (clone == NULL)
 		return NULL;
 
-	class__fixup_member_types(clone, cu);
+	class__fixup_member_types(clone, cu, verbose);
 	while (class__demote_bitfields(clone, cu, verbose))
 		class__reorganize_bitfields(clone, cu, verbose);
 restart:
@@ -948,6 +977,7 @@ static struct option long_options[] = {
 	{ "nested_anon_include",no_argument,		NULL, 'A' },
 	{ "packable",		no_argument,		NULL, 'p' },
 	{ "reorganize",		no_argument,		NULL, 'k' },
+	{ "show_reorg_steps",	no_argument,		NULL, 'S' },
 	{ "verbose",		no_argument,		NULL, 'V' },
 	{ NULL, 0, NULL, 0, }
 };
@@ -969,6 +999,8 @@ static void usage(void)
 		"   -n, --nr_members             show number of members\n"
 		"   -k, --reorganize             reorg struct trying to "
 						"kill holes\n"
+		"   -S, --show_reorg_steps       show the struct layout at "
+						"each reorganization step\n"
 		"   -N, --class_name_len         show size of classes\n"
 		"   -m, --nr_methods             show number of methods\n"
 		"   -s, --sizes                  show size of classes\n"
@@ -988,14 +1020,14 @@ static void usage(void)
 
 int main(int argc, char *argv[])
 {
-	int option, option_index, reorganize = 0;
+	int option, option_index, reorganize = 0, show_reorg_steps = 0;
 	struct cus *cus;
 	char *file_name;
 	char *class_name = NULL;
 	size_t cacheline_size = 0;
 	void (*formatter)(const struct structure *s) = class_formatter;
 
-	while ((option = getopt_long(argc, argv, "AaB:c:D:ehH:kmnNpstVx:X:",
+	while ((option = getopt_long(argc, argv, "AaB:c:D:ehH:kmnNpsStVx:X:",
 				     long_options, &option_index)) >= 0)
 		switch (option) {
 		case 'c': cacheline_size = atoi(optarg);  break;
@@ -1003,6 +1035,7 @@ int main(int argc, char *argv[])
 		case 'B': nr_bit_holes = atoi(optarg);	  break;
 		case 'e': expand_types = 1;			break;
 		case 'k': reorganize = 1;			break;
+		case 'S': show_reorg_steps = 1;			break;
 		case 's': formatter = size_formatter;		break;
 		case 'n': formatter = nr_members_formatter;	break;
 		case 'N': formatter = class_name_len_formatter;	break;
@@ -1069,16 +1102,21 @@ int main(int argc, char *argv[])
 		}
  		if (reorganize) {
 			size_t savings;
+			const uint8_t reorg_verbose =
+					show_reorg_steps ? 2 : global_verbose;
  			struct class *clone = class__reorganize(s->class,
 								s->cu,
-								global_verbose);
+								reorg_verbose);
  			if (clone == NULL) {
  				printf("pahole: out of memory!\n");
  				return EXIT_FAILURE;
  			}
 			savings = class__size(s->class) - class__size(clone);
-			if (savings != 0 && global_verbose)
+			if (savings != 0 && reorg_verbose) {
 				putchar('\n');
+				if (show_reorg_steps)
+					puts("/* Final reorganized struct: */");
+			}
  			tag__print(class__tag(clone), s->cu,
 				   NULL, NULL, 0);
 			if (savings != 0) {
