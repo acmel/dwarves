@@ -32,7 +32,7 @@ static size_t decl_exclude_prefix_len;
 static uint16_t nr_holes;
 static uint16_t nr_bit_holes;
 static uint8_t show_packable;
-static uint8_t verbose;
+static uint8_t global_verbose;
 static uint8_t expand_types;
 
 struct structure {
@@ -277,7 +277,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 
 	str = structures__find(name);
 	if (str != NULL) {
-		if (verbose)
+		if (global_verbose)
 			class__chkdupdef(str->class, str->cu, class, cu);
 		str->nr_files++;
 		return NULL;
@@ -356,16 +356,17 @@ static struct class_member *
 {
 	struct class_member *member =
 		list_prepare_entry(from, &class->type.members, tag.node);
+	struct class_member *bitfield_head = NULL;
 
 	list_for_each_entry_continue(member, &class->type.members, tag.node) {
-		/*
-		 * For now refrain from returning the head of a bitfield,
-		 * we would have to move all the bitfield members.
-		 */
-		if (member->bit_size == 0 &&
-		    member->hole != 0 &&
+		if (member->bit_size != 0) {
+			if (bitfield_head == NULL)
+				bitfield_head = member;
+		} else
+			bitfield_head = NULL;
+		if (member->hole != 0 &&
 		    class_member__size(member, cu) <= size)
-		    return member;
+		    return bitfield_head ? : member;
 	}
 
 	return NULL;
@@ -384,52 +385,121 @@ static struct class_member *
 		    member->bit_size <= size)
 		    return member;
 
+	/*
+	 * Now look if the last member is a one member bitfield,
+	 * i.e. if we have bit_padding
+	 */
+	if (class->bit_padding != 0)
+		return list_entry(class->type.members.prev,
+				  struct class_member, tag.node);
+
 	return NULL;
 }
 
 static void class__subtract_offsets_from(struct class *class,
+					 const struct cu *cu,
 					 struct class_member *from,
-					 const size_t size)
+					 const uint16_t size)
 {
 	struct class_member *member =
 		list_prepare_entry(from, &class->type.members, tag.node);
 
 	list_for_each_entry_continue(member, &class->type.members, tag.node)
 		member->offset -= size;
+
+	if (class->padding != 0) {
+		struct class_member *last_member =
+			list_entry(class->type.members.prev,
+				   struct class_member, tag.node);
+		const size_t last_member_size =
+			class_member__size(last_member, cu);
+		const ssize_t new_padding =
+			(class__size(class) -
+			 (last_member->offset + last_member_size));
+		if (new_padding > 0)
+			class->padding = new_padding;
+		else
+			class->padding = 0;
+	}
 }
 
 static void class__move_member(struct class *class, struct class_member *dest,
 			       struct class_member *from, const struct cu *cu,
-			       int from_padding)
+			       int from_padding, const int verbose)
 {
 	const size_t from_size = class_member__size(from, cu);
 	const size_t dest_size = class_member__size(dest, cu);
-	size_t offset;
+	struct class_member *tail_from = from;
 	struct class_member *from_prev = list_entry(from->tag.node.prev,
 						    struct class_member,
 						    tag.node);
+	uint16_t orig_tail_from_hole = tail_from->hole;
+	const uint16_t orig_from_offset = from->offset;
+	/*
+	 * Align 'from' after 'dest':
+	 */
+	const uint16_t offset = dest->hole % from_size;
+	/*
+	 * Set new 'from' offset, after 'dest->offset', aligned
+	 */
+	const uint16_t new_from_offset = dest->offset + dest_size + offset;
 
 	if (verbose)
-		printf("/* moving %s(size=%zd) to after "
-		       "%s(offset=%zd, size=%zd, hole=%zd) */\n",
-		       from->name, from_size,
-		       dest->name, dest->offset, dest_size, dest->hole);
-	/*
-	 *  Remove from from the list
-	 */
-	list_del(&from->tag.node);
-	/*
-	 * Add from after dest:
-	 */
-	__list_add(&from->tag.node,
-		   &dest->tag.node,
-		   dest->tag.node.next);
+		fputs("/* Moving", stdout);
+
+	if (from->bit_size != 0) {
+		struct class_member *pos =
+				list_prepare_entry(from, &class->type.members,
+						   tag.node);
+		struct class_member *tmp;
+		uint8_t orig_tail_from_bit_hole;
+		LIST_HEAD(from_list);
+
+		if (verbose)
+			printf(" bitfield('%s' ... ", from->name);
+		list_for_each_entry_safe_from(pos, tmp, &class->type.members,
+					      tag.node) {
+			/*
+			 * Have we reached the end of the bitfield?
+			 */
+			if (pos->offset != orig_from_offset)
+				break;
+			tail_from = pos;
+			orig_tail_from_hole = tail_from->hole;
+			orig_tail_from_bit_hole = tail_from->bit_hole;
+			pos->offset = new_from_offset;
+			pos->hole = 0;
+			pos->bit_hole = 0;
+			list_move_tail(&pos->tag.node, &from_list);
+		}
+		tail_from->bit_hole = orig_tail_from_bit_hole;
+		list_splice(&from_list, &dest->tag.node);
+		if (verbose)
+			printf("'%s')", tail_from->name);
+	} else {
+		if (verbose)
+			printf(" '%s'", from->name);
+		/*
+		 *  Remove 'from' from the list
+		 */
+		list_del(&from->tag.node);
+		/*
+		 * Add 'from' after 'dest':
+		 */
+		__list_add(&from->tag.node, &dest->tag.node,
+			   dest->tag.node.next);
+		from->offset = new_from_offset;
+	}
+		
+	if (verbose)
+		printf(" from after '%s' to after '%s' */\n",
+		       from_prev->name, dest->name);
 
 	if (from_padding) {
 		/*
 		 * Check if we're eliminating the need for padding:
 		 */
-		if (from->offset % cu->addr_size == 0) {
+		if (orig_from_offset % cu->addr_size == 0) {
 			/*
 			 * Good, no need for padding anymore:
 			 */
@@ -455,16 +525,16 @@ static void class__move_member(struct class *class, struct class_member *dest,
 		 * "views" in tools such as ctracer we are more interested in
 		 * packing the subset as tightly as possible.
 		 */
-		if (from->hole + from_size >= cu->addr_size) {
-			class__subtract_offsets_from(class, from_prev,
-						     cu->addr_size);
+		if (orig_tail_from_hole + from_size >= cu->addr_size) {
 			class->type.size -= cu->addr_size;
+			class__subtract_offsets_from(class, cu, from_prev,
+						     cu->addr_size);
 		} else {
 			/*
-			 * Add add the hole after from + its size to the member
+			 * Add the hole after 'from' + its size to the member
 			 * before it:
 			 */
-			from_prev->hole += from->hole + from_size;
+			from_prev->hole += orig_tail_from_hole + from_size;
 		}
 		/*
 		 * Check if we have eliminated a hole
@@ -472,36 +542,29 @@ static void class__move_member(struct class *class, struct class_member *dest,
 		if (dest->hole == from_size)
 			class->nr_holes--;
 	}
-	/*
-	 * Align from after dest:
-	 */
-	offset = dest->hole % from_size;
-	from->offset = dest->offset + dest_size + offset;
-	if (offset != 0) {
-		from->hole = dest->hole - (from_size + offset);
-		dest->hole = offset;
-	} else {
-		from->hole = dest->hole - from_size;
-		dest->hole = 0;
-	}
+
+	tail_from->hole = dest->hole - (from_size + offset);
+	dest->hole = offset;
 }
 
 static void class__move_bit_member(struct class *class, const struct cu *cu,
 				   struct class_member *dest,
-				   struct class_member *from)
+				   struct class_member *from,
+				   const int verbose)
 {
 	struct class_member *from_prev = list_entry(from->tag.node.prev,
 						    struct class_member,
 						    tag.node);
+	const uint8_t is_last_member = (from->tag.node.next ==
+					&class->type.members);
 
 	if (verbose)
-		printf("/* moving %s(bit size=%u) to after "
-		       "%s(bit offset=%zd, bit size=%zd, bit hole=%zd) */\n",
-		       from->name, from->bit_size,
-		       dest->name, dest->bit_offset, dest->bit_size,
-		       dest->bit_hole);
+		printf("/* Moving '%s:%u' from after '%s' to "
+		       "after '%s:%u' */\n",
+		       from->name, from->bit_size, from_prev->name,
+		       dest->name, dest->bit_size);
 	/*
-	 *  Remove from from the list
+	 *  Remove 'from' from the list
 	 */
 	list_del(&from->tag.node);
 	/*
@@ -513,22 +576,32 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 
 	/* Check if this was the last entry in the bitfield */
 	if (from_prev->bit_size == 0) {
-		const size_t from_size = class_member__size(from, cu);
+		size_t from_size = class_member__size(from, cu);
 		/*
 		 * Are we shrinking the struct?
 		 */
-		if (from_size >= cu->addr_size) {
-			class__subtract_offsets_from(class, from_prev,
-						     from_size);
-			class->type.size -= cu->addr_size;
-		}
-		class->nr_bit_holes--;
+		if (from_size + from->hole >= cu->addr_size) {
+			class->type.size -= from_size + from->hole;
+			class__subtract_offsets_from(class, cu, from_prev,
+						     from_size + from->hole);
+		} else if (is_last_member)
+			class->padding += from_size;
+		else
+			from_prev->hole += from_size + from->hole;
+		if (is_last_member) {
+			/*
+			 * Now we don't have bit_padding anymore
+			 */
+			class->bit_padding = 0;
+		} else
+			class->nr_bit_holes--;
 	} else {
 		/*
-		 * Add add the hole after from + its size to the member
+		 * Add add the holes after from + its size to the member
 		 * before it:
 		 */
 		from_prev->bit_hole += from->bit_hole + from->bit_size;
+		from_prev->hole = from->hole;
 	}
 	from->bit_hole = dest->bit_hole - from->bit_size;
 	/*
@@ -541,6 +614,8 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 	 */
 	from->offset = dest->offset;
 	dest->bit_hole = 0;
+	from->hole = dest->hole;
+	dest->hole = 0;
 }
 
 static void class__demote_bitfield_members(struct class *class,
@@ -549,12 +624,11 @@ static void class__demote_bitfield_members(struct class *class,
 					   const struct base_type *old_type,
 					   const struct base_type *new_type)
 {
-	const size_t bit_diff = new_type->size - old_type->size;
+	const uint8_t bit_diff = (old_type->size - new_type->size) * 8;
 	struct class_member *member =
 		list_prepare_entry(from, &class->type.members, tag.node);
 
 	list_for_each_entry_from(member, &class->type.members, tag.node) {
-		member->bit_hole   = 0;
 		/*
 		 * Assume IA32 bitfield layout
 		 */
@@ -562,14 +636,37 @@ static void class__demote_bitfield_members(struct class *class,
 		member->tag.type = new_type->tag.id;
 		if (member == to)
 			break;
+		member->bit_hole = 0;
 	}
 }
 
-static void class__demote_bitfields(struct class *class, const struct cu *cu)
+static struct tag *cu__find_base_type_of_size(const struct cu *cu,
+					      const size_t size)
+{
+	const char *type_name;
+
+	switch (size) {
+	case sizeof(unsigned char):
+		type_name = "unsigned char"; break;
+	case sizeof(unsigned short int):
+		type_name = "short unsigned int"; break;
+	case sizeof(unsigned int):
+		type_name = "unsigned int"; break;
+	default:
+		return NULL;
+	}
+
+	return cu__find_base_type_by_name(cu, type_name);
+}
+
+static int class__demote_bitfields(struct class *class, const struct cu *cu,
+				   const int verbose)
 {
 	struct class_member *member;
-	struct class_member *bitfield_member_head;
-	size_t current_bitfield_size, size;
+	struct class_member *bitfield_head;
+	const struct tag *old_type_tag, *new_type_tag;
+	size_t current_bitfield_size, size, bytes_needed, new_size;
+	int some_was_demoted = 0;
 
 	list_for_each_entry(member, &class->type.members, tag.node) {
 		/*
@@ -577,10 +674,10 @@ static void class__demote_bitfields(struct class *class, const struct cu *cu)
 		 */
 		if (member->bit_size == 0) {
 			current_bitfield_size = 0;
-			bitfield_member_head = NULL;
+			bitfield_head = NULL;
 		} else {
-			if (bitfield_member_head == NULL)
-				bitfield_member_head = member;
+			if (bitfield_head == NULL)
+				bitfield_head = member;
 			current_bitfield_size += member->bit_size;
 		}
 
@@ -591,31 +688,21 @@ static void class__demote_bitfields(struct class *class, const struct cu *cu)
 			continue;
 
 		size = class_member__size(member, cu);
-	{
-	    	const struct tag *old_type_tag =
-					cu__find_tag_by_id(cu, member->tag.type);
-		struct tag *new_type_tag;
-		const char *old_type = tag__base_type(old_type_tag)->name;
-		const char *new_type;
-	    	const size_t bytes_needed = (current_bitfield_size + 7) / 8;
-		size_t new_size;
+	    	bytes_needed = (current_bitfield_size + 7) / 8;
+		if (bytes_needed == size)
+			continue;
 
-		switch (bytes_needed) {
-		case sizeof(unsigned char):
-			new_type = "unsigned char"; break;
-		case sizeof(unsigned short int):
-			new_type = "short unsigned int"; break;
-		case sizeof(unsigned int):
-			new_type = "unsigned int"; break;
-		}
+		old_type_tag = cu__find_tag_by_id(cu, member->tag.type);
+		new_type_tag = cu__find_base_type_of_size(cu, bytes_needed);
 		if (verbose)
-			printf("/* demoting bitfield starting at %s "
-			       "from %s to %s */\n",
-			       bitfield_member_head->name, old_type, new_type);
-		new_type_tag = cu__find_base_type_by_name(cu, new_type);
+			printf("/* Demoting bitfield ('%s' ... '%s') "
+			       "from '%s' to '%s' */\n",
+			       bitfield_head->name, member->name,
+			       tag__base_type(old_type_tag)->name,
+			       tag__base_type(new_type_tag)->name);
 
 		class__demote_bitfield_members(class,
-					       bitfield_member_head, member,	
+					       bitfield_head, member,	
 					       tag__base_type(old_type_tag),
 					       tag__base_type(new_type_tag));
 		new_size = class_member__size(member, cu);
@@ -623,14 +710,65 @@ static void class__demote_bitfields(struct class *class, const struct cu *cu)
 		if (member->hole != 0)
 			++class->nr_holes;
 		member->bit_hole = new_size * 8 - current_bitfield_size;
-		if (member->bit_hole != 0)
-			++class->nr_bit_holes;
+		some_was_demoted = 1;
+		/*
+		 * Have we packed it so that there are no hole now?
+		*/
+		if (member->bit_hole == 0)
+			--class->nr_bit_holes;
 	}
+	/*
+	 * Now look if we have bit padding, i.e. if the the last member
+	 * is a bitfield and its the sole member in this bitfield, i.e.
+	 * if it wasn't already demoted as part of a bitfield of more than
+	 * one member:
+	 */
+	member = list_entry(class->type.members.prev,
+			    struct class_member, tag.node);
+	if (class->bit_padding != 0 && bitfield_head == member) {
+		size = class_member__size(member, cu);
+	    	bytes_needed = (member->bit_size + 7) / 8;
+		if (bytes_needed < size) {
+			old_type_tag =
+				cu__find_tag_by_id(cu, member->tag.type);
+			new_type_tag =
+				cu__find_base_type_of_size(cu, bytes_needed);
+
+			if (verbose)
+				printf("/* Demoting bitfield ('%s') "
+				       "from '%s' to '%s' */\n",
+				       member->name,
+				       tag__base_type(old_type_tag)->name,
+				       tag__base_type(new_type_tag)->name);
+			class__demote_bitfield_members(class,
+						       member, member,	
+						 tag__base_type(old_type_tag),
+						 tag__base_type(new_type_tag));
+			new_size = class_member__size(member, cu);
+			member->hole = 0;
+			/*
+			 * Do we need byte padding?
+			 */
+			if (member->offset + new_size < class__size(class)) {
+				class->padding = (class__size(class) -
+						  (member->offset + new_size));
+				class->bit_padding = 0;
+				member->bit_hole = (new_size * 8 -
+						    member->bit_size);
+			} else {
+				class->padding = 0;
+				class->bit_padding = new_size * 8 - member->bit_size;
+				member->bit_hole = 0;
+			}
+			some_was_demoted = 1;
+		}
 	}
+
+	return some_was_demoted;
 }
 
 static void class__reorganize_bitfields(struct class *class,
-					const struct cu *cu)
+					const struct cu *cu, const int verbose)
 {
 	struct class_member *member, *brother;
 restart:
@@ -646,15 +784,101 @@ restart:
 							     member->bit_hole);
 			if (brother != NULL) {
 				class__move_bit_member(class, cu,
-						       member, brother);
+						       member, brother,
+						       verbose);
 				goto restart;
 			}
 		}
 	}
 }
 
+static void class__fixup_bitfield_types(const struct class *self,
+					struct class_member *from,
+					struct class_member *to_before,
+					Dwarf_Off type)
+{
+	struct class_member *member =
+		list_prepare_entry(from, &self->type.members, tag.node);
+
+	list_for_each_entry_from(member, &self->type.members, tag.node) {
+		if (member == to_before)
+			break;
+		member->tag.type = type;
+	}
+}
+
+/*
+ * Think about this pahole output a bit:
+ *
+ * [filo examples]$ pahole swiss_cheese cheese
+ * / * <11b> /home/acme/git/pahole/examples/swiss_cheese.c:3 * /
+ * struct cheese {
+ * <SNIP>
+ *       int         bitfield1:1;   / * 64 4 * /
+ *       int         bitfield2:1;   / * 64 4 * /
+ *
+ *       / * XXX 14 bits hole, try to pack * /
+ *       / * Bitfield WARNING: DWARF size=4, real size=2 * /
+ *
+ *       short int   d;             / * 66 2 * /
+ * <SNIP>
+ * 
+ * The compiler (gcc 4.1.1 20070105 (Red Hat 4.1.1-51) in the above example),
+ * Decided to combine what was declared as an int (4 bytes) bitfield but doesn't
+ * uses even one byte with the next field, that is a short int (2 bytes),
+ * without demoting the type of the bitfield to short int (2 bytes), so in terms
+ * of alignment the real size is 2, not 4, to make things easier for the rest of
+ * the reorganizing routines we just do the demotion ourselves, fixing up the
+ * sizes.
+*/
+static void class__fixup_member_types(const struct class *self,
+				      const struct cu *cu)
+{
+	struct class_member *pos, *bitfield_head = NULL;
+
+	list_for_each_entry(pos, &self->type.members, tag.node) {
+		/*
+		 * Is this bitfield member?
+		 */
+		if (pos->bit_size != 0) {
+			/*
+			 * The first entry in a bitfield?
+			 */
+			if (bitfield_head == NULL)
+				bitfield_head = pos;
+			continue;
+		}
+		/*
+		 * OK, not a bitfield member, but have we just passed
+		 * by a bitfield?
+		 */
+		if (bitfield_head != NULL) {
+			const uint16_t real_size = (pos->offset -
+						  bitfield_head->offset);
+			const size_t size = class_member__size(bitfield_head,
+							       cu);
+			if (real_size != size) {
+				struct tag *new_type_tag =
+					cu__find_base_type_of_size(cu,
+								   real_size);
+				if (new_type_tag == NULL) {
+					fprintf(stderr, "pahole: couldn't find"
+						" a base_type of %d bytes!\n",
+						real_size);
+					continue;
+				}
+				class__fixup_bitfield_types(self,
+							    bitfield_head, pos,
+							    new_type_tag->id);
+			}
+		}
+		bitfield_head = NULL;
+	}
+}
+
 static struct class *class__reorganize(const struct class *class,
-				       const struct cu *cu)
+				       const struct cu *cu,
+				       const int verbose)
 {
 	struct class_member *member, *brother, *last_member;
 	size_t last_member_size;
@@ -663,8 +887,9 @@ static struct class *class__reorganize(const struct class *class,
 	if (clone == NULL)
 		return NULL;
 
-	class__reorganize_bitfields(clone, cu);
-	class__demote_bitfields(clone, cu);
+	class__fixup_member_types(clone, cu);
+	while (class__demote_bitfields(clone, cu, verbose))
+		class__reorganize_bitfields(clone, cu, verbose);
 restart:
 	last_member = list_entry(clone->type.members.prev,
 				 struct class_member, tag.node);
@@ -682,7 +907,7 @@ restart:
 								member->hole);
 			if (brother != NULL) {
 				class__move_member(clone, member, brother,
-						   cu, 0);
+						   cu, 0, verbose);
 				goto restart;
 			}
 			/*
@@ -696,7 +921,7 @@ restart:
 			    member != last_member &&
 			    last_member_size <= member->hole) {
 				class__move_member(clone, member, last_member,
-						   cu, 1);
+						   cu, 1, verbose);
 				goto restart;
 			}
 		}
@@ -795,7 +1020,7 @@ int main(int argc, char *argv[])
 		case 'X': cu__exclude_prefix = optarg;
 			  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
 							  break;
-		case 'V': verbose = 1;			  break;
+		case 'V': global_verbose = 1;		  break;
 		case 'h': usage();			  return EXIT_SUCCESS;
 		default:  usage();			  return EXIT_FAILURE;
 		}
@@ -845,13 +1070,14 @@ int main(int argc, char *argv[])
  		if (reorganize) {
 			size_t savings;
  			struct class *clone = class__reorganize(s->class,
-								s->cu);
+								s->cu,
+								global_verbose);
  			if (clone == NULL) {
  				printf("pahole: out of memory!\n");
  				return EXIT_FAILURE;
  			}
 			savings = class__size(s->class) - class__size(clone);
-			if (savings != 0)
+			if (savings != 0 && global_verbose)
 				putchar('\n');
  			tag__print(class__tag(clone), s->cu,
 				   NULL, NULL, 0);
