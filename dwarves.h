@@ -209,10 +209,21 @@ static inline struct parameter *tag__parameter(const struct tag *self)
 
 extern Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu);
 
+enum vlocation {
+	LOCATION_UNKNOWN,
+	LOCATION_LOCAL,
+	LOCATION_GLOBAL,
+	LOCATION_REGISTER,
+	LOCATION_OPTIMIZED
+};
+
 struct variable {
 	struct tag	 tag;
 	char		 *name;
 	Dwarf_Off	 abstract_origin;
+	uint8_t		 external:1;
+	uint8_t		 declaration:1;
+	enum vlocation	 location;
 };
 
 static inline struct variable *tag__variable(const struct tag *self)

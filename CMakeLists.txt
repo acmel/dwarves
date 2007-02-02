@@ -47,6 +47,10 @@ SET(pdwtags_SRCS pdwtags.c)
 ADD_EXECUTABLE(pdwtags ${pdwtags_SRCS})
 TARGET_LINK_LIBRARIES(pdwtags dwarves ${DWARF_LIBRARIES})
 
+SET(pglobal_SRCS pglobal.c)
+ADD_EXECUTABLE(pglobal ${pglobal_SRCS})
+TARGET_LINK_LIBRARIES(pglobal dwarves ${DWARF_LIBRARIES})
+
 SET(pfunct_SRCS pfunct.c )
 ADD_EXECUTABLE(pfunct ${pfunct_SRCS})
 TARGET_LINK_LIBRARIES(pfunct dwarves ${DWARF_LIBRARIES})

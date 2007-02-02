@@ -252,6 +252,17 @@ static Dwarf_Off attr_type(Dwarf_Die *die, uint32_t attr_name)
 	return 0;
 }
 
+static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
+{
+	Dwarf_Attribute attr;
+	if (dwarf_attr(die, DW_AT_location, &attr) != NULL) {
+		if (dwarf_getlocation(&attr, expr, exprlen) == 0)
+			return 0;
+	}
+
+	return 1;
+}
+
 static void tag__init(struct tag *self, Dwarf_Die *die)
 {
 	int32_t decl_line;
@@ -473,6 +484,28 @@ static struct enumerator *enumerator__new(Dwarf_Die *die)
 	return self;
 }
 
+static enum vlocation dwarf__location(Dwarf_Die *die)
+{
+	Dwarf_Op *expr;
+	size_t exprlen;
+	enum vlocation location = LOCATION_UNKNOWN;
+
+	if (attr_location(die, &expr, &exprlen) != 0)
+		location = LOCATION_OPTIMIZED;
+	else if (exprlen != 0)
+		switch (expr->atom) {
+		case DW_OP_addr:
+			location = LOCATION_GLOBAL;	break;
+		case DW_OP_reg1 ... DW_OP_reg31:
+		case DW_OP_breg0 ... DW_OP_breg31:
+			location = LOCATION_REGISTER;	break;
+		case DW_OP_fbreg:
+			location = LOCATION_LOCAL;	break;
+		}
+
+	return location;
+}
+
 static struct variable *variable__new(Dwarf_Die *die)
 {
 	struct variable *self = malloc(sizeof(*self));
@@ -481,6 +514,13 @@ static struct variable *variable__new(Dwarf_Die *die)
 		tag__init(&self->tag, die);
 		self->name = strings__add(attr_string(die, DW_AT_name));
 		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
+		/* variable is visible outside of its enclosing cu */
+		self->external = dwarf_hasattr(die, DW_AT_external);
+		/* non-defining declaration of an object */
+		self->declaration = dwarf_hasattr(die, DW_AT_declaration);
+		self->location = LOCATION_UNKNOWN;
+		if (!self->declaration)
+			self->location = dwarf__location(die);
 	}
 
 	return self;
@@ -849,7 +889,7 @@ static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
 			snprintf(bf, len,
 				 "<ERROR: type not found!> %c", ptr_char);
 		} else {
-			char tmpbf[128];
+			char tmpbf[512];
 			snprintf(bf, len, "%s %c",
 				 tag__name(type, cu,
 					   tmpbf, sizeof(tmpbf)), ptr_char);
@@ -913,22 +953,28 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	return bf;
 }
 
+static struct tag *variable__type(const struct variable *self,
+				  const struct cu *cu)
+{
+	struct variable *var;
+
+	if (self->tag.type != 0)
+		return cu__find_tag_by_id(cu, self->tag.type);
+	else if (self->abstract_origin != 0) {
+		var = cu__find_variable_by_id(cu, self->abstract_origin);
+		if (var)
+			return variable__type(var, cu);
+	}
+
+	return NULL;
+}
+
 const char *variable__type_name(const struct variable *self,
 				const struct cu *cu,
 				char *bf, size_t len)
 {
-	if (self->tag.type != 0) {
-		struct tag *tag = cu__find_tag_by_id(cu, self->tag.type);
-		return tag__name(tag, cu, bf, len);
-	} else if (self->abstract_origin != 0) {
-		struct variable *var =
-			cu__find_variable_by_id(cu, self->abstract_origin);
-
-		if (var != NULL)
-		       return variable__type_name(var, cu, bf, len);
-	}
-	
-	return NULL;
+	const struct tag *tag = variable__type(self, cu);
+	return tag != NULL ? tag__name(tag, cu, bf, len) : NULL;
 }
 
 const char *variable__name(const struct variable *self, const struct cu *cu)
@@ -941,6 +987,26 @@ const char *variable__name(const struct variable *self, const struct cu *cu)
 			cu__find_variable_by_id(cu, self->abstract_origin);
 		if (var != NULL)
 			return var->name;
+	}
+	return NULL;
+}
+
+static const char *variable__prefix(const struct variable *var)
+{
+	switch (var->location) {
+	case LOCATION_REGISTER:
+		return "register ";
+	case LOCATION_UNKNOWN:
+		if (var->external && var->declaration)
+			return "extern ";
+		break;
+	case LOCATION_GLOBAL:
+		if (!var->external)
+			return "static ";
+		break;
+	case LOCATION_LOCAL:
+	case LOCATION_OPTIMIZED:
+		break;
 	}
 	return NULL;
 }
@@ -1101,18 +1167,17 @@ static size_t class__snprintf(const struct class *self, const struct cu *cu,
 			      uint8_t indent, size_t type_spacing,
 			      size_t name_spacing, int emit_stats);
 
-static size_t class_member__snprintf(struct class_member *self,
-				     struct tag *type, const struct cu *cu,
-				     char *bf, size_t len,
-				     uint8_t expand_types, size_t indent,
-				     size_t type_spacing, size_t name_spacing)
+static size_t type__snprintf(struct tag *type, const char *name,
+			     const struct cu *cu, char *bf, size_t len,
+			     uint8_t expand_types, size_t indent,
+			     size_t type_spacing, size_t name_spacing)
 {
 	char tbf[128];
 	struct type *ctype;
 
 	if (type == NULL)
 		return snprintf(bf, len, "%-*s %s",
-				type_spacing, "<ERROR>", self->name);
+				type_spacing, "<ERROR>", name);
 
 	switch (type->tag) {
 	case DW_TAG_pointer_type:
@@ -1120,37 +1185,35 @@ static size_t class_member__snprintf(struct class_member *self,
 			struct tag *ptype = cu__find_tag_by_id(cu, type->type);
 			if (ptype->tag == DW_TAG_subroutine_type) {
 				return ftype__snprintf(tag__ftype(ptype), cu,
-						       bf, len, self->name,
+						       bf, len, name,
 						       0, 1, type_spacing);
 			}
 		}
 		break;
 	case DW_TAG_subroutine_type:
 		return ftype__snprintf(tag__ftype(type), cu, bf, len,
-				       self->name, 0, 0, type_spacing);
+				       name, 0, 0, type_spacing);
 	case DW_TAG_array_type:
-		return array_type__snprintf(type, cu, bf, len, self->name,
+		return array_type__snprintf(type, cu, bf, len, name,
 					    type_spacing);
 	case DW_TAG_structure_type:
 		ctype = tag__type(type);
 
 		if (ctype->name != NULL && !expand_types)
 			return snprintf(bf, len, "struct %-*s %s",
-					type_spacing - 7, ctype->name,
-					self->name);
+					type_spacing - 7, ctype->name, name);
 
 		return class__snprintf(tag__class(type), cu, bf, len,
-				       NULL, self->name, expand_types, indent,
+				       NULL, name, expand_types, indent,
 				       type_spacing - 8, name_spacing, 0);
 	case DW_TAG_union_type:
 		ctype = tag__type(type);
 
 		if (ctype->name != NULL && !expand_types)
 			return snprintf(bf, len, "union %-*s %s",
-					type_spacing - 6, ctype->name,
-					self->name);
+					type_spacing - 6, ctype->name, name);
 
-		return union__snprintf(ctype, cu, bf, len, NULL, self->name,
+		return union__snprintf(ctype, cu, bf, len, NULL, name,
 				       expand_types, indent, type_spacing - 8,
 				       name_spacing);
 	case DW_TAG_enumeration_type:
@@ -1158,16 +1221,14 @@ static size_t class_member__snprintf(struct class_member *self,
 
 		if (ctype->name != NULL)
 			return snprintf(bf, len, "enum %-*s %s",
-					type_spacing - 5, ctype->name,
-					self->name);
+					type_spacing - 5, ctype->name, name);
 
-		return enumeration__snprintf(type, bf, len, self->name,
-					     indent);
+		return enumeration__snprintf(type, bf, len, name, indent);
 	}
 
 	return snprintf(bf, len, "%-*s %s", type_spacing,
 			tag__name(type, cu, tbf, sizeof(tbf)),
-			self->name);
+			name);
 }
 
 static size_t struct_member__snprintf(struct class_member *self,
@@ -1179,8 +1240,8 @@ static size_t struct_member__snprintf(struct class_member *self,
 	size_t l = len;
 	ssize_t spacing;
 	const size_t size = tag__size(type, cu);
-	size_t n = class_member__snprintf(self, type, cu, bf, l, expand_types,
-					  indent, type_spacing, name_spacing);
+	size_t n = type__snprintf(type, self->name, cu, bf, l, expand_types,
+				  indent, type_spacing, name_spacing);
 	
 	bf += n; l -= n;
 	if (self->bit_size != 0)
@@ -1217,8 +1278,8 @@ static size_t union_member__snprintf(struct class_member *self,
 	size_t l = len;
 	ssize_t spacing;
 	const size_t size = tag__size(type, cu);
-	size_t n = class_member__snprintf(self, type, cu, bf, l, expand_types,
-					  indent, type_spacing, name_spacing);
+	size_t n = type__snprintf(type, self->name, cu, bf, l, expand_types,
+				  indent, type_spacing, name_spacing);
 	
 	bf += n; l -= n;
 	if ((type->tag == DW_TAG_union_type ||
@@ -2696,6 +2757,27 @@ void class__print(const struct tag *tag, const struct cu *cu,
 	fputs(bf, fp);
 }
 
+static void variable__print(const struct tag *tag, const struct cu *cu,
+			    uint8_t expand_types, FILE *fp)
+{
+	char bf[4096];
+	const struct variable *var = tag__variable(tag);
+	const char *name = variable__name(var, cu);
+
+	if (name != NULL) {
+		struct tag *type = variable__type(var, cu);
+		if (type != NULL) {
+			const char *varprefix = variable__prefix(var);
+
+			if (varprefix != NULL)
+				fputs(varprefix, fp);
+			type__snprintf(type, name, cu, bf, sizeof(bf),
+				       expand_types, 0, 0, 0);
+			fputs(bf, fp);
+		}
+	}
+}
+
 void tag__print(const struct tag *self, const struct cu *cu,
 		const char *prefix, const char *suffix,
 		uint8_t expand_types, FILE *fp)
@@ -2717,6 +2799,9 @@ void tag__print(const struct tag *self, const struct cu *cu,
 		break;
 	case DW_TAG_union_type:
 		union__print(self, cu, prefix, suffix, expand_types, fp);
+		break;
+	case DW_TAG_variable:
+		variable__print(self, cu, expand_types, fp);
 		break;
 	default:
 		fprintf(fp, "%s: %s tag not supported!\n", __func__,
@@ -2947,14 +3032,13 @@ static void die__create_new_label(Dwarf_Die *die, struct lexblock *lexblock)
 	lexblock__add_label(lexblock, label);
 }
 
-static void die__create_new_variable(Dwarf_Die *die,
-				     struct lexblock *lexblock)
+static struct tag *die__create_new_variable(Dwarf_Die *die)
 {
 	struct variable *var = variable__new(die);
 	if (var == NULL)
 		oom("variable__new");
 
-	lexblock__add_variable(lexblock, var);
+	return &var->tag;
 }
 
 static struct tag *die__create_new_subroutine_type(Dwarf_Die *die)
@@ -3079,8 +3163,10 @@ static void die__process_function(Dwarf_Die *die, struct ftype *ftype,
 		case DW_TAG_formal_parameter:
 			die__create_new_parameter(die, ftype, lexblock);
 			continue;
-		case DW_TAG_variable:
-			die__create_new_variable(die, lexblock);
+		case DW_TAG_variable: {
+			struct tag *tag = die__create_new_variable(die);
+			lexblock__add_variable(lexblock, tag__variable(tag));
+		}
 			continue;
 		case DW_TAG_unspecified_parameters:
 			if (ftype != NULL)
@@ -3137,6 +3223,8 @@ static void __die__process_tag(Dwarf_Die *die, struct cu *cu, const char *fn)
 		new_tag = die__create_new_typedef(die);		break;
 	case DW_TAG_union_type:
 		new_tag = die__create_new_union(die, cu);	break;
+	case DW_TAG_variable:
+		new_tag = die__create_new_variable(die);	break;
 	default:
 		__cu__tag_not_handled(die, fn);			return;
 	}
@@ -3148,14 +3236,7 @@ static void __die__process_tag(Dwarf_Die *die, struct cu *cu, const char *fn)
 static void die__process_unit(Dwarf_Die *die, struct cu *cu)
 {
 	do {
-		switch (dwarf_tag(die)) {
-		case DW_TAG_variable:
-			/* Handle global variables later */
-			continue;
-		default:
-			die__process_tag(die, cu);
-			continue;
-		}
+		die__process_tag(die, cu);
 	} while (dwarf_siblingof(die, die) == 0);
 }
 
