@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 12
+Release: 13
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -70,6 +70,7 @@ rm -rf %{buildroot}
 %{_bindir}/pahole
 %{_bindir}/pdwtags
 %{_bindir}/pfunct
+%{_bindir}/pglobal
 %{_bindir}/prefcnt
 %dir %{_libdir}/ctracer
 %{_libdir}/ctracer/Makefile
@@ -85,6 +86,12 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Fri Feb  2 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- 4ab3403e3b72a18fbd5fe15630e76605264ba18c
+- pglobal, by Davi Arnaut
+- pahole --show_reorg_steps
+- Reorganize bitfields in pahole --reorganize
+
 * Tue Jan 30 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - 8e236f4ca37b8a3d2057f4ede5a14ab1fa99f73c
 - x86-64 lib install fixes

@@ -59,7 +59,8 @@ SET(prefcnt_SRCS prefcnt.c)
 ADD_EXECUTABLE(prefcnt ${prefcnt_SRCS})
 TARGET_LINK_LIBRARIES(prefcnt dwarves ${DWARF_LIBRARIES})
 
-INSTALL(TARGETS codiff ctracer dtagnames pahole pdwtags pfunct prefcnt RUNTIME DESTINATION /usr/bin)
+INSTALL(TARGETS codiff ctracer dtagnames pahole pdwtags
+		pfunct pglobal prefcnt RUNTIME DESTINATION /usr/bin)
 INSTALL(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 INSTALL(FILES dwarves.h DESTINATION /usr/include)
 INSTALL(FILES lib/Makefile lib/ctracer_jprobe.c DESTINATION ${LIB_INSTALL_DIR}/ctracer)

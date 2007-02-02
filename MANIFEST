@@ -10,6 +10,7 @@ MANIFEST
 pahole.c
 pdwtags.c
 pfunct.c
+pglobal.c
 prefcnt.c
 README
 README.ctracer
