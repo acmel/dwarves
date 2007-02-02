@@ -4,6 +4,7 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/stddef.h>
+#include "ctracer_relay.h"
 
 extern struct jprobe	*ctracer__jprobes[];
 extern struct kretprobe *ctracer__kretprobes[];
@@ -11,6 +12,9 @@ extern struct kretprobe *ctracer__kretprobes[];
 static int __init ctracer__jprobe_init(void)
 {
 	int i = 0, nj = 0, nr = 0;
+
+	if (ctracer__relay_init() != 0)
+		return -1;
 
 	while (ctracer__jprobes[i] != NULL) {
 		int err = register_jprobe(ctracer__jprobes[i]);
@@ -43,6 +47,8 @@ module_init(ctracer__jprobe_init);
 static void __exit ctracer__jprobe_exit(void)
 {
 	int i = 0;
+
+	ctracer__relay_exit();
 
 	while (ctracer__jprobes[i] != NULL) {
 		if (ctracer__jprobes[i]->kp.nmissed != 0)

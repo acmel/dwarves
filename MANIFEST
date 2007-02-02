@@ -17,3 +17,7 @@ README.ctracer
 rpm/SPECS/dwarves.spec
 lib/Makefile
 lib/ctracer_jprobe.c
+lib/ctracer_relay.c
+lib/ctracer_relay.h
+ostra/ostra-cg
+ostra/python/ostra.py

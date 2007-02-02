@@ -63,4 +63,8 @@ INSTALL(TARGETS codiff ctracer dtagnames pahole pdwtags
 		pfunct pglobal prefcnt RUNTIME DESTINATION /usr/bin)
 INSTALL(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 INSTALL(FILES dwarves.h DESTINATION /usr/include)
-INSTALL(FILES lib/Makefile lib/ctracer_jprobe.c DESTINATION ${LIB_INSTALL_DIR}/ctracer)
+INSTALL(FILES ostra/ostra-cg DESTINATION /usr/bin)
+INSTALL(FILES ostra/python/ostra.py DESTINATION ${LIB_INSTALL_DIR}/ctracer/python)
+INSTALL(FILES lib/Makefile lib/ctracer_jprobe.c
+	      lib/ctracer_relay.c lib/ctracer_relay.h
+	DESTINATION ${LIB_INSTALL_DIR}/ctracer)

@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 13
+Release: 14
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -72,9 +72,14 @@ rm -rf %{buildroot}
 %{_bindir}/pfunct
 %{_bindir}/pglobal
 %{_bindir}/prefcnt
+%{_bindir}/ostra-cg
 %dir %{_libdir}/ctracer
 %{_libdir}/ctracer/Makefile
 %{_libdir}/ctracer/ctracer_jprobe.c
+%{_libdir}/ctracer/ctracer_relay.c
+%{_libdir}/ctracer/ctracer_relay.h
+%dir %{_libdir}/ctracer/python
+%{_libdir}/ctracer/python/ostra.py*
 
 %files -n %{libname}%{libver}
 %defattr(0644,root,root,0755)
@@ -87,7 +92,15 @@ rm -rf %{buildroot}
 
 %changelog
 * Fri Feb  2 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
-- 4ab3403e3b72a18fbd5fe15630e76605264ba18c
+- d37f41df58c375412badf827e24dfc346cea2ff2
+- ostra-cg
+- relay/debugfs
+- mini-structs
+- ctracer2ostra
+- All this in the Makefile
+
+* Fri Feb  2 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- b7cad1782d683571ffb2601b429ab151bddad5d7
 - pglobal, by Davi Arnaut
 - pahole --show_reorg_steps
 - Reorganize bitfields in pahole --reorganize

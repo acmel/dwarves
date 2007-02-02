@@ -1,0 +1,410 @@
+#!/usr/bin/python
+# ostra-cg - generate callgraphs from encoded trace
+#
+# Arnaldo Carvalho de Melo <acme@redhat.com>
+#                          <acme@ghostprotocols.net>
+#
+# Copyright (C) 2005, 2006, 2007 Arnaldo Carvalho de Melo
+# Licensed under the Open Software License version 1.1
+
+import sys, datetime, os, ostra
+
+class_def = None
+
+ident = 0
+
+verbose		= False
+valid_html	= False
+print_exits	= True
+print_exit_details = False
+print_function_times = True
+gen_html	= True
+html_file_seq	= 0
+nr_lines_per_page = 256
+output_file	= None
+callgraph	= None
+print_nr_exit_points = False
+first_table_row = True
+plot_min_samples = 4
+plot = False
+tab_space = 10
+my_object = None
+
+# @import url(file:///home/acme/git/ostra/ostra.css);
+html_style_import='''
+<style type="text/css">
+@import url(http://vger.kernel.org/~acme/ostra.css);
+</style>
+'''
+
+def emit_html_page_sequence_links(page):
+	global output_file
+
+	output_file.write("<div class=\"page_links\">")
+	if page != 1:
+		if page == 2:
+			prev = "index"
+		else:
+			prev = str(page - 2)
+		output_file.write("<a href=\"index.html\">Index</a> | ")
+		output_file.write("<a href=\"%s.html\">Previous</a> | " % prev)
+	output_file.write("<a href=\"%d.html\">Next</a> | " % page)
+	output_file.write("<a href=\"changes.html\">Where fields changed</a> | ")
+	output_file.write("<a href=\"methods/index.html\">Methods statistics</a> | ")
+	output_file.write("<a href=\"last.html\">Last</a>\n")
+	output_file.write("</div>")
+
+def close_callgraph_file():
+	if gen_html:
+		output_file.write("</td></tr></table>\n")
+		emit_html_page_sequence_links(html_file_seq)
+		if valid_html:
+			output_file.write('''
+<p>
+<a href="http://validator.w3.org/check?uri=referer"><img border="0"
+   src="http://www.w3.org/Icons/valid-html401"
+   alt="Valid HTML 4.01!" height="31" width="88"></a>
+</p>
+''')
+		output_file.write("</body>\n</html>\n")
+
+	output_file.close()
+
+def new_callgraph_file(traced_class):
+	global html_file_seq, output_file, first_table_row
+
+	if not gen_html:
+		if output_file == None:
+			output_file = file("%s.txt" % callgraph, "w")
+		return
+
+	first_table_row = True
+
+	if html_file_seq == 0:
+		os.mkdir(callgraph)
+		if output_file != None:
+			output_file.close()
+		filename = "index"
+		help = '''
+<h3>Tracing struct %s methods (functions with a struct %s * argument)</h3>
+<h3>Click on the timestamps to see the object state</h3>
+<h3>Click on the functions to go to its definition in LXR (http://lxr.linux.no/)</h3>
+<h3 style=\"color:red;\">Red timestamps means the state changed</h3>
+''' % (traced_class, traced_class)
+	else:
+		close_callgraph_file()
+		filename = str(html_file_seq)
+		help = " "
+
+	output_file = file("%s/%s.html" % (callgraph, filename), "w")
+	output_file.write('''
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>OSTRA Callgraph: %s, file %d</title>
+%s
+</head>
+<body>
+''' % (callgraph, html_file_seq, html_style_import))
+
+	html_file_seq += 1
+	emit_html_page_sequence_links(html_file_seq)
+
+	output_file.write("\n%s\n<table class=\"listing\" cellspacing=\"0\" border=\"0\">\n" % help)
+
+def trim_tstamp(tstamp):
+	return str(tstamp).strip().lstrip('0').lstrip(':').lstrip('0').lstrip(':').lstrip('0').lstrip('.').lstrip('0')
+
+def object_state():
+	output = "<table class=\"state\" cellspacing=\"0\">"
+	state_changed = False
+	for field in class_def.fields.values():
+		if not field.cg:
+			continue
+		value_changed_or_not_zero = False
+		value = field.value
+		if field.changed():
+			state_changed = True
+			last_value = field.last_value
+			if field.table and last_value and field.table.has_key(int(last_value)):
+				last_value = field.table[int(last_value)]
+			transition = "%s -> " % last_value
+			color = " class=\"odd\""
+			value_changed_or_not_zero = True
+		else:
+			field_changed = False
+			transition = ""
+			color = ""
+			if value != "0" and value != None:
+				value_changed_or_not_zero = True
+
+		if value_changed_or_not_zero:
+			if field.table and value and field.table.has_key(int(value)):
+				value = field.table[int(value)]
+			output = output.strip() + "<tr%s><td>%s</td><td class=\"right\">%s%s</td></tr>" % \
+						  (color, field, transition, value)
+	output += "</table>"
+	return (output, state_changed)
+
+total_lines = 0
+
+def tstamp_str():
+	global total_lines, first_table_row
+
+	total_lines += 1
+
+	if gen_html:
+		state, changed = object_state()
+		if changed:
+			anchor = "%d.%d" % (class_def.tstamp.seconds, class_def.tstamp.microseconds)
+			anchor_color = " class=\"red\""
+		else:
+			anchor = ""
+			anchor_color = ""
+		if total_lines % 2 == 1:
+			row_color = "odd"
+		else:
+			row_color = "evn"
+		if first_table_row:
+			close_last_tr = ""
+			first_table_row = False
+		else:
+			close_last_tr = "</td></tr>\n"
+
+		return "%s<tr class=\"%s\"><td class=\"state\"><a name=\"%s\"%s>%04d.%06d<span>%s</span></a></td>" % \
+			(close_last_tr, row_color, anchor, anchor_color,
+			 class_def.tstamp.seconds, class_def.tstamp.microseconds, state)
+	else:
+		return "%06d.%06d" % (class_def.tstamp.seconds, class_def.tstamp.microseconds)
+
+def indent_str(indent, text):
+	if gen_html:
+		method = class_def.current_method()
+		time_so_far = method.total_time.seconds * 10000 + method.total_time.microseconds
+		tooltip = "%s: calls=%d, total time=%dus" % (method.name, method.calls, time_so_far)
+		if class_def.fields["action"].value[0] == 'o':
+			if class_def.fields.has_key("exit_point"):
+				tooltip += ", exit point=%d" % (int(class_def.fields["exit_point"].value) + 1)
+		else:
+			text = "<a class=\"lxr\" href=\"http://lxr.linux.no/ident?i=%s\">%s</a>" % (method.name, text)
+
+		return "<td title=\"%s\">%s%s" % (tooltip, "&nbsp;" * tab_space * indent, text)
+	else:
+		return "%s%s" % ("\t" * ident, text)
+
+def function_time_str(time):
+	if gen_html:
+		if class_def.current_method().print_return_value:
+			ret_value = "%s" % class_def.fields["return_value"].value
+		else:
+			ret_value = "0"
+		if ret_value == "0":
+			ret_value = ""
+		else:
+			ret_value=" title=\"returned %s\"" % ret_value
+		return "</td><td%s class=\"time\">%sus" % (ret_value, time)
+	else:
+		return " %sus\n" % time
+
+previous_was_entry = False
+nr_lines = 0
+
+def process_record():
+	global ident, previous_was_entry, nr_lines
+
+	if gen_html:
+		nr_lines += 1
+		if nr_lines > nr_lines_per_page:
+			if ident == 0 or nr_lines > nr_lines_per_page * 5:
+				new_callgraph_file(traced_class)
+				nr_lines = 0
+
+	method = class_def.current_method()
+
+	if class_def.fields["action"].value[0] == 'i':
+		output = "%s()" % method.name
+
+		if print_exits and previous_was_entry:
+			if gen_html:
+				last_open = " {</td><td>&nbsp;"
+			else:
+				last_open = " {\n"
+		else:
+			last_open = ""
+		output_file.write("%s%s %s" % (last_open, tstamp_str(), indent_str(ident, output.strip())))
+		if not print_exits:
+			output_file.write("\n")
+
+		ident += 1
+		
+		method.calls += 1
+		method.last_tstamp = class_def.tstamp
+		previous_was_entry = True
+	else:
+		if not method.last_tstamp:
+			method.last_tstamp = class_def.tstamp
+		tstamp_delta = class_def.tstamp - method.last_tstamp
+		if tstamp_delta < datetime.timedelta():
+			tstamp_delta = datetime.timedelta()
+		method.total_time += tstamp_delta
+
+
+		if ident > 0:
+			ident -= 1
+		if print_exits:
+			if print_exit_details:
+				exit_point = int(class_def.fields["exit_point"].value) + 1
+			if class_def.last_method.name != method.name:
+				output_file.write("%s %s" % (tstamp_str(), indent_str(ident, "}")))
+				if print_exit_details:
+					output_file.write(" EXIT #%d (%s)" % (exit_point, method.name))
+			else:
+				if print_exit_details:
+					output_file.write("EXIT #%d" % exit_point)
+
+		function_time = trim_tstamp(tstamp_delta)
+		if len(function_time) == 0:
+			function_time = "0"
+		if print_exits:
+			if print_function_times:
+				output_file.write(function_time_str(function_time))
+			else:
+				output_file.write("\n")
+
+		if print_nr_exit_points:
+			if method.exits.has_key(exit_point):
+				method.exits[exit_point] += 1
+			else:
+				method.exits[exit_point] = 1
+
+		previous_was_entry = False
+
+	return html_file_seq - 1
+
+def print_where_fields_changed():
+	f = file("%s/changes.html" % callgraph, "w")
+	f.write('''
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>OSTRA Callgraph: %s, Where the Fields Changed</title>
+%s
+</head>
+<body>
+<h3>Click on the values to go to where it was changed</h3>
+<h3>Click on the field names to see a plotting of its value over time</h3>
+''' % (callgraph, html_style_import))
+	output_file.write("<div class=\"page_links\">")
+	f.write("<a href=\"index.html\">Index</a>\n")
+	f.write("<a href=\"%d.html\">Last</a>\n" % (html_file_seq - 1))
+	f.write("<table border=\"1\">")
+
+	max_samples = 50
+
+	for key in class_def.fields.keys():
+		fields = class_def.fields[key]
+		changes = fields.changes
+
+		changes_str=""
+		link_pre=""
+		link_pos=""
+		if len(changes) == 0:
+			changes_str="Unchanged</td></tr>\n"
+		elif plot and len(changes) >= plot_min_samples and fields.plot_fmt != "dev_null":
+			link_pre="<a href=\"%s.png\">" % key
+			link_pos="</a>"
+
+		f.write("<tr><td valign=\"top\">%s%s%s</td><td>%s" % (link_pre, key, link_pos, changes_str))
+		if len(changes) == 0:
+			continue
+
+		f.write("<table border=\"0\">\n")
+		nr_samples = 0
+		for change in changes:
+			nr_samples += 1
+			if nr_samples <= max_samples:
+				if change.seq == 0:
+					filename="index"
+				else:
+					filename = str(change.seq)
+				f.write("<tr><td><a href=%s.html#%d.%d>%s</td></tr>" % \
+					(filename, change.tstamp.seconds, change.tstamp.microseconds, change.value))
+
+		if nr_samples > max_samples:
+			f.write("<tr><td>Only %d samples out of %d were printed</td></tr>" % (max_samples, nr_samples))
+		
+		f.write("</table>\n</td></tr>\n")
+
+	f.write("</table>")
+	output_file.write("</div>")
+	f.write("</body>\n</html>\n")
+	f.close()
+	os.symlink("changes.html", "%s/%d.html" % (callgraph, html_file_seq))
+	os.symlink("%d.html" % (html_file_seq - 1), "%s/last.html" % callgraph)
+
+
+def method_stats(class_def, callgraph):
+	os.mkdir("%s/methods" % callgraph)
+	f = file("%s/methods/index.html" % callgraph, "w")
+	f.write('''
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>OSTRA Callgraph: %s, Methods Statistics</title>
+%s
+</head>
+<body>
+<h3>Click on the methods names to see a plotting of the times for each call</h3>
+''' % (callgraph, html_style_import))
+
+	if plot:
+		class_def.plot_methods(callgraph)
+	f.write("<table border=\"1\">")
+	for method in class_def.methods.values():
+		changes_str=""
+		link_pre=""
+		link_pos=""
+		if len(method.times) < 4:
+			changes_str="Less than 4 calls</td></tr>\n"
+		else:
+			if plot:
+				link_pre="<a href=\"%s.png\">" % method.name
+				link_pos="</a>"
+			changes_str="%d calls</td></tr>\n" % len(method.times)
+
+		f.write("<tr><td valign=\"top\">%s%s%s</td><td>%s" % \
+				(link_pre, method.name, link_pos, changes_str))
+	f.write("</table>")
+	f.write("</body>\n</html>\n")
+	f.close()
+
+if __name__ == '__main__':
+	if len(sys.argv) not in [ 3, 4 ]:
+		print "usage: ostra-cg <traced_class> <encoded_trace> [object]"
+		sys.exit(1)
+
+	gen_html      = True
+	traced_class  = sys.argv[1]
+	callgraph     = "%s.callgraph" % traced_class
+	encoded_trace = sys.argv[2]
+	if len(sys.argv) == 4:
+		my_object = sys.argv[3]
+		if my_object == "none":
+			my_object = None
+	plot = True
+
+	class_def = ostra.class_definition(class_def_file = "%s.fields" % traced_class,
+					   class_methods_file = "%s.functions" % traced_class)
+	new_callgraph_file(traced_class)
+        class_def.parse_file(encoded_trace, verbose = verbose,
+			     process_record = process_record,
+			     my_object = my_object)
+	if gen_html:
+		print_where_fields_changed()
+	close_callgraph_file()
+	method_stats(class_def, callgraph)
+	if plot:
+		ostra.plot(class_def, callgraph)
