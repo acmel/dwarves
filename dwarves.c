@@ -297,7 +297,7 @@ static void __tag__type_not_found(const struct tag *self, const char *fn)
 	fflush(stdout);
 }
 
-#define tag__type_not_found(self) __tag__type_not_found(self, __FUNCTION__)
+#define tag__type_not_found(self) __tag__type_not_found(self, __func__)
 
 static void tag__print_decl_info(const struct tag *self, FILE *fp)
 {
@@ -3368,7 +3368,7 @@ struct cus *cus__new(struct list_head *definitions,
 }
 
 static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag,
-					     const char *suffix)
+					     const char *suffix, FILE *fp)
 {
 	struct type *etype = tag__type(tag);
 
@@ -3386,17 +3386,17 @@ static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag,
 		return 0;
 	}
 
-	enumeration__print(tag, suffix, 0, stdout);
-	puts(";");
+	enumeration__print(tag, suffix, 0, fp);
+	fputs(";", fp);
 	cus__add_definition(self, etype);
 	return 1;
 }
 
 static int cus__emit_tag_definitions(struct cus *self, struct cu *cu,
-				     struct tag *tag);
+				     struct tag *tag, FILE *fp);
 
 static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
-					 struct tag *tdef)
+					 struct tag *tdef, FILE *fp)
 {
 	struct type *def = tag__type(tdef);
 	struct tag *type, *ptr_type;
@@ -3420,10 +3420,10 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 
 	switch (type->tag) {
 	case DW_TAG_array_type:
-		cus__emit_tag_definitions(self, cu, type);
+		cus__emit_tag_definitions(self, cu, type, fp);
 		break;
 	case DW_TAG_typedef:
-		cus__emit_typedef_definitions(self, cu, type);
+		cus__emit_typedef_definitions(self, cu, type, fp);
 		break;
 	case DW_TAG_pointer_type:
 		ptr_type = cu__find_tag_by_id(cu, type->type);
@@ -3433,18 +3433,20 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 		is_pointer = 1;
 		/* Fall thru */
 	case DW_TAG_subroutine_type:
-		cus__emit_ftype_definitions(self, cu, tag__ftype(type));
+		cus__emit_ftype_definitions(self, cu, tag__ftype(type), fp);
 		break;
 	case DW_TAG_enumeration_type: {
 		const struct type *ctype = tag__type(type);
 
-		tag__print_decl_info(type, stdout);
+		tag__print_decl_info(type, fp);
 		if (ctype->name == NULL) {
-			fputs("typedef ", stdout);
-			cus__emit_enumeration_definitions(self, type, def->name);
+			fputs("typedef ", fp);
+			cus__emit_enumeration_definitions(self, type,
+							  def->name, fp);
 			goto out;
 		} else 
-			cus__emit_enumeration_definitions(self, type, NULL);
+			cus__emit_enumeration_definitions(self, type,
+							  NULL, fp);
 	}
 		break;
 	case DW_TAG_structure_type:
@@ -3452,13 +3454,11 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 		const struct type *ctype = tag__type(type);
 
 		if (ctype->name == NULL) {
-			if (cus__emit_type_definitions(self, cu, type))
-				type__emit(type, cu, "typedef", def->name);
+			if (cus__emit_type_definitions(self, cu, type, fp))
+				type__emit(type, cu, "typedef", def->name, fp);
 			goto out;
-		} else {
-			if (cus__emit_type_definitions(self, cu, type))
-				type__emit(type, cu, NULL, NULL);
-		}
+		} else if (cus__emit_type_definitions(self, cu, type, fp))
+			type__emit(type, cu, NULL, NULL, fp);
 	}
 	}
 
@@ -3471,15 +3471,15 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	 * redefine the typedef after struct __wait_queue.
 	 */
 	if (!def->definition_emitted) {
-		typedef__print(tdef, cu, stdout);
-		puts(";");
+		typedef__print(tdef, cu, fp);
+		fputs(";", fp);
 	}
 out:
 	cus__add_definition(self, def);
 	return 1;
 }
 
-int cus__emit_fwd_decl(struct cus *self, struct type *ctype)
+int cus__emit_fwd_decl(struct cus *self, struct type *ctype, FILE *fp)
 {
 	/* Have we already emitted this in this CU? */
 	if (ctype->fwd_decl_emitted)
@@ -3495,15 +3495,15 @@ int cus__emit_fwd_decl(struct cus *self, struct type *ctype)
 		return 0;
 	}
 
-	printf("%s %s;\n",
-	       ctype->tag.tag == DW_TAG_union_type ? "union" : "struct",
-	       ctype->name);
+	fprintf(fp, "%s %s;\n",
+		ctype->tag.tag == DW_TAG_union_type ? "union" : "struct",
+		ctype->name);
 	cus__add_fwd_decl(self, ctype);
 	return 1;
 }
 
 static int cus__emit_tag_definitions(struct cus *self, struct cu *cu,
-				     struct tag *tag)
+				     struct tag *tag, FILE *fp)
 {
 	struct tag *type = cu__find_tag_by_id(cu, tag->type);
 	int pointer = 0;
@@ -3524,47 +3524,48 @@ next_indirection:
 			return 0;
 		goto next_indirection;
 	case DW_TAG_typedef:
-		return cus__emit_typedef_definitions(self, cu, type);
+		return cus__emit_typedef_definitions(self, cu, type, fp);
 	case DW_TAG_enumeration_type:
 		if (tag__type(type)->name != NULL) {
-			tag__print_decl_info(type, stdout);
+			tag__print_decl_info(type, fp);
 			return cus__emit_enumeration_definitions(self, type,
-								 NULL);
+								 NULL, fp);
 		}
 		break;
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
 		if (pointer)
-			return cus__emit_fwd_decl(self, tag__type(type));
-		if (cus__emit_type_definitions(self, cu, type))
-			type__emit(type, cu, NULL, NULL);
+			return cus__emit_fwd_decl(self, tag__type(type), fp);
+		if (cus__emit_type_definitions(self, cu, type, fp))
+			type__emit(type, cu, NULL, NULL, fp);
 		return 1;
 	case DW_TAG_subroutine_type:
-		return cus__emit_ftype_definitions(self, cu, tag__ftype(type));
+		return cus__emit_ftype_definitions(self, cu,
+						   tag__ftype(type), fp);
 	}
 
 	return 0;
 }
 
 int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
-				struct ftype *ftype)
+				struct ftype *ftype, FILE *fp)
 {
 	struct parameter *pos;
 	/* First check the function return type */
-	int printed = cus__emit_tag_definitions(self, cu, &ftype->tag);
+	int printed = cus__emit_tag_definitions(self, cu, &ftype->tag, fp);
 
 	/* Then its parameters */
 	list_for_each_entry(pos, &ftype->parms, tag.node)
-		if (cus__emit_tag_definitions(self, cu, &pos->tag))
+		if (cus__emit_tag_definitions(self, cu, &pos->tag, fp))
 			printed = 1;
 
 	if (printed)
-		putchar('\n');
+		fputc('\n', fp);
 	return printed;
 }
 
 int cus__emit_type_definitions(struct cus *self, struct cu *cu,
-			       struct tag *tag)
+			       struct tag *tag, FILE *fp)
 {
 	struct type *ctype = tag__type(tag);
 	struct class_member *pos;
@@ -3582,16 +3583,16 @@ int cus__emit_type_definitions(struct cus *self, struct cu *cu,
 	cus__add_definition(self, ctype);
 
 	list_for_each_entry(pos, &ctype->members, tag.node)
-		if (cus__emit_tag_definitions(self, cu, &pos->tag))
+		if (cus__emit_tag_definitions(self, cu, &pos->tag, fp))
 			printed = 1;
 
 	if (printed)
-		putchar('\n');
+		fputc('\n', fp);
 	return 1;
 }
 
 void type__emit(struct tag *tag_self, struct cu *cu,
-	       const char *prefix, const char *suffix)
+		const char *prefix, const char *suffix, FILE *fp)
 {
 	struct type *ctype = tag__type(tag_self);
 
@@ -3599,11 +3600,11 @@ void type__emit(struct tag *tag_self, struct cu *cu,
 		class__find_holes(tag__class(tag_self), cu);
 
 	if (ctype->name != NULL || suffix != NULL || prefix != NULL) {
-		tag__print(tag_self, cu, prefix, suffix, 0, stdout);
+		tag__print(tag_self, cu, prefix, suffix, 0, fp);
 
 		if (tag_self->tag != DW_TAG_structure_type)
-			putchar(';');
-		putchar('\n');
+			fputc(';', fp);
+		fputc('\n', fp);
 	}
 }
 

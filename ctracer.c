@@ -194,7 +194,8 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 		if (methods__add(&jprobes_emitted, function__name(pos, cu)) != 0)
 			continue;
 		pos->priv = (void *)1; /* Mark as visited, for the table iterator */
-		cus__emit_ftype_definitions(methods_cus, cu, &pos->proto);
+		cus__emit_ftype_definitions(methods_cus, cu,
+					    &pos->proto, stdout);
 		function__emit_kprobes(pos, cu, target);
 	}
 
@@ -300,7 +301,7 @@ static void emit_function_defs(const char *fn)
 
 	if (f != NULL) {
 		cus__emit_ftype_definitions(kprobes_cus, cu,
-					    &tag__function(f)->proto);
+					    &tag__function(f)->proto, stdout);
 		tag__print(f, cu, NULL, NULL, 0, stdout);
 		puts(";\n");
 	}
@@ -315,8 +316,8 @@ static void emit_struct_defs(const char *name)
 	struct cu *cu;
 	struct tag *c = cus__find_struct_by_name(kprobes_cus, &cu, name);
 	if (c != NULL) {
-		cus__emit_type_definitions(kprobes_cus, cu, c);
-		type__emit(c, cu, NULL, NULL);
+		cus__emit_type_definitions(kprobes_cus, cu, c, stdout);
+		type__emit(c, cu, NULL, NULL, stdout);
 	}
 }
 
@@ -328,7 +329,7 @@ static void emit_class_fwd_decl(const char *name)
 	struct cu *cu;
 	struct tag *c = cus__find_struct_by_name(kprobes_cus, &cu, name);
 	if (c != NULL)
-		cus__emit_fwd_decl(kprobes_cus, tag__type(c));
+		cus__emit_fwd_decl(kprobes_cus, tag__type(c), stdout);
 }
 
 /*
