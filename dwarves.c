@@ -1347,7 +1347,7 @@ static void union__print(const struct tag *tag, const struct cu *cu,
 	char bf[32768];
 
 	union__snprintf(utype, cu, bf, sizeof(bf), prefix, suffix,
-			expand_types, 0, 26, 23);
+			expand_types, 0, 26, expand_types ? 50 : 23);
 	fputs(bf, fp);
 }
 
@@ -2753,7 +2753,8 @@ void class__print(const struct tag *tag, const struct cu *cu,
 	char bf[32768];
 
 	class__snprintf(tag__class(tag), cu, bf, sizeof(bf),
-			prefix, suffix, expand_types, 0, 26, 23, 1);
+			prefix, suffix, expand_types, 0, 26,
+			expand_types ? 50 : 23, 1);
 	fputs(bf, fp);
 }
 
