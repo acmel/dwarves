@@ -527,7 +527,7 @@ int main(int argc, char *argv[])
 			}
  		} else
  			tag__print(class__tag(s->class), s->cu,
-				   NULL, NULL, 0, stdout);
+				   NULL, NULL, expand_types, stdout);
 	} else
 		print_classes(formatter);
 
