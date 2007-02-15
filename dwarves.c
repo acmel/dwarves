@@ -301,10 +301,10 @@ static void __tag__type_not_found(const struct tag *self, const char *fn)
 
 #define tag__type_not_found(self) __tag__type_not_found(self, __func__)
 
-static void tag__print_decl_info(const struct tag *self, FILE *fp)
+static size_t tag__fprintf_decl_info(const struct tag *self, FILE *fp)
 {
-	fprintf(fp, "/* <%llx> %s:%u */\n",
-		self->id, self->decl_file, self->decl_line);
+	return fprintf(fp, "/* <%llx> %s:%u */\n",
+		       self->id, self->decl_file, self->decl_line);
 }
 
 static struct base_type *base_type__new(Dwarf_Die *die)
@@ -2661,7 +2661,7 @@ void tag__fprintf(const struct tag *self, const struct cu *cu,
 		  const char *prefix, const char *suffix,
 		  uint8_t expand_types, FILE *fp)
 {
-	tag__print_decl_info(self, fp);
+	tag__fprintf_decl_info(self, fp);
 
 	switch (self->tag) {
 	case DW_TAG_enumeration_type:
@@ -3321,7 +3321,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	case DW_TAG_enumeration_type: {
 		const struct type *ctype = tag__type(type);
 
-		tag__print_decl_info(type, fp);
+		tag__fprintf_decl_info(type, fp);
 		if (ctype->name == NULL) {
 			fputs("typedef ", fp);
 			cus__emit_enumeration_definitions(self, type,
@@ -3410,7 +3410,7 @@ next_indirection:
 		return cus__emit_typedef_definitions(self, cu, type, fp);
 	case DW_TAG_enumeration_type:
 		if (tag__type(type)->name != NULL) {
-			tag__print_decl_info(type, fp);
+			tag__fprintf_decl_info(type, fp);
 			return cus__emit_enumeration_definitions(self, type,
 								 NULL, fp);
 		}
