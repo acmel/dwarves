@@ -279,8 +279,9 @@ extern const char *function__name(struct function *self, const struct cu *cu);
 extern void function__print_stats(const struct tag *tag_self,
 				  const struct cu *cu, FILE *fp);
 
-extern void lexblock__print(const struct lexblock *self, const struct cu *cu,
-			    uint16_t indent, FILE *fp);
+extern size_t lexblock__fprintf(const struct lexblock *self,
+				const struct cu *cu,
+				uint16_t indent, FILE *fp);
 
 extern struct cus *cus__new(struct list_head *definitions,
 			    struct list_head *fwd_decls);

@@ -1642,12 +1642,13 @@ void cu__account_inline_expansions(struct cu *self)
 	}
 }
 
-static void function__tag_print(const struct tag *tag, const struct cu *cu,
-				uint16_t indent, FILE *fp)
+static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
+				    uint16_t indent, FILE *fp)
 {
 	char bf[512];
+	size_t printed = 0, n;
 	const void *vtag = tag;
-	int c;
+	size_t c;
 
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
@@ -1664,48 +1665,57 @@ static void function__tag_print(const struct tag *tag, const struct cu *cu,
 			tag__type_not_found(&exp->tag);
 			break;
 		}
-		fprintf(fp, "%.*s", indent, tabs);
-		c += fprintf(fp, "%s(); /* low_pc=%#llx */",
-			     function__name(alias, cu), exp->low_pc);
+		printed = fprintf(fp, "%.*s", indent, tabs);
+		n = fprintf(fp, "%s(); /* low_pc=%#llx */",
+			    function__name(alias, cu), exp->low_pc);
+		c += n;
+		printed += n;
 	}
 		break;
 	case DW_TAG_variable:
-		fprintf(fp, "%.*s", indent, tabs);
-		c += fprintf(fp, "%s %s;",
-			     variable__type_name(vtag, cu, bf, sizeof(bf)),
-			     variable__name(vtag, cu));
+		printed = fprintf(fp, "%.*s", indent, tabs);
+		n = fprintf(fp, "%s %s;",
+			    variable__type_name(vtag, cu, bf, sizeof(bf)),
+			    variable__name(vtag, cu));
+		c += n;
+		printed += n;
 		break;
 	case DW_TAG_label: {
 		const struct label *label = vtag;
-		fprintf(fp, "%.*s", indent, tabs);
+		printed = fprintf(fp, "%.*s", indent, tabs);
 		fputc('\n', fp);
+		++printed;
 		c = fprintf(fp, "%s:", label->name);
+		printed += c;
 	}
 		break;
 	case DW_TAG_lexical_block:
-		lexblock__print(vtag, cu, indent, fp);
-		return;
+		return lexblock__fprintf(vtag, cu, indent, fp);
 	default:
-		fprintf(fp, "%.*s", indent, tabs);
-		c += fprintf(fp, "%s <%llx>",
-			     dwarf_tag_name(tag->tag), tag->id);
+		printed = fprintf(fp, "%.*s", indent, tabs);
+		n = fprintf(fp, "%s <%llx>", dwarf_tag_name(tag->tag),
+			    tag->id);
+		c += n;
+		printed += n;
 		break;
 	}
 
-	fprintf(fp, "%-*.*s// %5u\n", 70 - c, 70 - c, " ", tag->decl_line);
+	return printed + fprintf(fp, "%-*.*s// %5u\n", 70 - c, 70 - c, " ",
+				 tag->decl_line);
 }
 
-void lexblock__print(const struct lexblock *self, const struct cu *cu,
-		    uint16_t indent, FILE *fp)
+size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
+			 uint16_t indent, FILE *fp)
 {
 	struct tag *pos;
+	size_t n;
 
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
-	fprintf(fp, "%.*s{\n", indent, tabs);
+	n = fprintf(fp, "%.*s{\n", indent, tabs);
 	list_for_each_entry(pos, &self->tags, node)
-		function__tag_print(pos, cu, indent + 1, fp);
-	fprintf(fp, "%.*s}\n", indent, tabs);
+		n += function__tag_fprintf(pos, cu, indent + 1, fp);
+	return n + fprintf(fp, "%.*s}\n", indent, tabs);
 }
 
 size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
@@ -1786,7 +1796,7 @@ void function__print_stats(const struct tag *tag_self, const struct cu *cu,
 {
 	struct function *self = tag__function(tag_self);
 
-	lexblock__print(&self->lexblock, cu, 0, fp);
+	lexblock__fprintf(&self->lexblock, cu, 0, fp);
 
 	fprintf(fp, "/* size: %u", function__size(self));
 	if (self->lexblock.nr_variables > 0)
