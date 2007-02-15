@@ -538,7 +538,7 @@ static void emit_function_defs(const char *fn)
 		cus__emit_ftype_definitions(kprobes_cus, cu,
 					    &tag__function(f)->proto,
 					    fp_methods);
-		tag__print(f, cu, NULL, NULL, 0, fp_methods);
+		tag__fprintf(f, cu, NULL, NULL, 0, fp_methods);
 		fputs(";\n", fp_methods);
 	}
 }

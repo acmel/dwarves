@@ -271,9 +271,9 @@ extern size_t class__fprintf(const struct class *self, const struct cu *cu,
 			     uint8_t expand_types, uint8_t indent,
 			     size_t type_spacing, size_t name_spacing,
 			     int emit_stats, FILE *fp);
-extern void tag__print(const struct tag *self, const struct cu *cu,
-		       const char *prefix, const char *suffix,
-		       uint8_t expand_types, FILE *fp);
+extern void tag__fprintf(const struct tag *self, const struct cu *cu,
+			 const char *prefix, const char *suffix,
+			 uint8_t expand_types, FILE *fp);
 
 extern const char *function__name(struct function *self, const struct cu *cu);
 extern void function__print_stats(const struct tag *tag_self,

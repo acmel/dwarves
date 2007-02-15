@@ -2657,9 +2657,9 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 	return n;
 }
 
-void tag__print(const struct tag *self, const struct cu *cu,
-		const char *prefix, const char *suffix,
-		uint8_t expand_types, FILE *fp)
+void tag__fprintf(const struct tag *self, const struct cu *cu,
+		  const char *prefix, const char *suffix,
+		  uint8_t expand_types, FILE *fp)
 {
 	tag__print_decl_info(self, fp);
 
@@ -3483,7 +3483,7 @@ void type__emit(struct tag *tag_self, struct cu *cu,
 		class__find_holes(tag__class(tag_self), cu);
 
 	if (ctype->name != NULL || suffix != NULL || prefix != NULL) {
-		tag__print(tag_self, cu, prefix, suffix, 0, fp);
+		tag__fprintf(tag_self, cu, prefix, suffix, 0, fp);
 
 		if (tag_self->tag != DW_TAG_structure_type)
 			fputc(';', fp);
