@@ -1782,13 +1782,13 @@ print_it:
 	return n;
 }
 
-static void function__print(const struct tag *tag_self, const struct cu *cu,
-			    FILE *fp)
+static size_t function__fprintf(const struct tag *tag_self,
+				const struct cu *cu, FILE *fp)
 {
 	struct function *self = tag__function(tag_self);
 
-	ftype__fprintf(&self->proto, cu, function__name(self, cu),
-		       function__declared_inline(self), 0, 0, fp);
+	return ftype__fprintf(&self->proto, cu, function__name(self, cu),
+			      function__declared_inline(self), 0, 0, fp);
 }
 
 void function__print_stats(const struct tag *tag_self, const struct cu *cu,
@@ -2683,7 +2683,7 @@ void tag__fprintf(const struct tag *self, const struct cu *cu,
 			       fp);
 		break;
 	case DW_TAG_subprogram:
-		function__print(self, cu, fp);
+		function__fprintf(self, cu, fp);
 		break;
 	case DW_TAG_union_type:
 		union__fprintf(tag__type(self), cu, prefix, suffix,
