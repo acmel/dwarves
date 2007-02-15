@@ -296,7 +296,7 @@ static void __tag__type_not_found(const struct tag *self, const char *fn)
 {
 	fprintf(stderr, "%s: %#llx type not found for %s (id=%#llx)\n",
 		fn, self->type, dwarf_tag_name(self->tag), self->id);
-	fflush(stdout);
+	fflush(stderr);
 }
 
 #define tag__type_not_found(self) __tag__type_not_found(self, __func__)
@@ -368,32 +368,32 @@ static struct type *type__new(Dwarf_Die *die)
 	return self;
 }
 
-static void typedef__print(const struct tag *tag_self, const struct cu *cu,
-			   FILE *fp)
+static size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
+			       FILE *fp)
 {
 	const struct type *self = tag__type(tag_self);
 	const struct tag *type = cu__find_tag_by_id(cu, tag_self->type);
 	const struct tag *ptr_type;
 	char bf[512];
 	int is_pointer = 0;
+	size_t n;
 
 	if (type == NULL) {
 		tag__type_not_found(tag_self);
-		return;
+		return 0;
 	}
 
 	switch (type->tag) {
 	case DW_TAG_array_type:
-		fputs("typedef ", fp);
-		array_type__fprintf(type, cu, self->name, 0, fp);
-		return;
+		n = fprintf(fp, "typedef ");
+		return n + array_type__fprintf(type, cu, self->name, 0, fp);
 	case DW_TAG_pointer_type:
 		if (type->type == 0) /* void pointer */
 			break;
 		ptr_type = cu__find_tag_by_id(cu, type->type);
 		if (ptr_type == NULL) {
 			tag__type_not_found(type);
-			return;
+			return 0;
 		}
 		if (ptr_type->tag != DW_TAG_subroutine_type)
 			break;
@@ -401,23 +401,20 @@ static void typedef__print(const struct tag *tag_self, const struct cu *cu,
 		is_pointer = 1;
 		/* Fall thru */
 	case DW_TAG_subroutine_type:
-		fputs("typedef ", fp);
-		ftype__fprintf(tag__ftype(type), cu, self->name, 0,
-			       is_pointer, 0, fp);
-		return;
+		n = fprintf(fp, "typedef ");
+		return n + ftype__fprintf(tag__ftype(type), cu, self->name, 0,
+					  is_pointer, 0, fp);
 	case DW_TAG_structure_type: {
 		const struct type *ctype = tag__type(type);
 
-		if (ctype->name != NULL) {
-			fprintf(fp, "typedef struct %s %s",
-				ctype->name, self->name);
-			return;
-		}
+		if (ctype->name != NULL)
+			return fprintf(fp, "typedef struct %s %s",
+				       ctype->name, self->name);
 	}
 	}
 
-	fprintf(fp, "typedef %s %s", tag__name(type, cu, bf, sizeof(bf)),
-		self->name);
+	return fprintf(fp, "typedef %s %s",
+		       tag__name(type, cu, bf, sizeof(bf)), self->name);
 }
 
 static size_t enumeration__fprintf(const struct tag *tag_self,
@@ -2668,7 +2665,7 @@ void tag__fprintf(const struct tag *self, const struct cu *cu,
 		enumeration__fprintf(self, suffix, 0, fp);
 		break;
 	case DW_TAG_typedef:
-		typedef__print(self, cu, fp);
+		typedef__fprintf(self, cu, fp);
 		break;
 	case DW_TAG_structure_type:
 		class__fprintf(tag__class(self), cu, prefix, suffix,
@@ -3354,7 +3351,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	 * redefine the typedef after struct __wait_queue.
 	 */
 	if (!def->definition_emitted) {
-		typedef__print(tdef, cu, fp);
+		typedef__fprintf(tdef, cu, fp);
 		fputs(";", fp);
 	}
 out:
