@@ -2665,40 +2665,42 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 	return n;
 }
 
-void tag__fprintf(const struct tag *self, const struct cu *cu,
-		  const char *prefix, const char *suffix,
-		  uint8_t expand_types, FILE *fp)
+size_t tag__fprintf(const struct tag *self, const struct cu *cu,
+		    const char *prefix, const char *suffix,
+		    uint8_t expand_types, FILE *fp)
 {
-	tag__fprintf_decl_info(self, fp);
+	size_t printed = tag__fprintf_decl_info(self, fp);
 
 	switch (self->tag) {
 	case DW_TAG_enumeration_type:
-		enumeration__fprintf(self, suffix, 0, fp);
+		printed += enumeration__fprintf(self, suffix, 0, fp);
 		break;
 	case DW_TAG_typedef:
-		typedef__fprintf(self, cu, fp);
+		printed += typedef__fprintf(self, cu, fp);
 		break;
 	case DW_TAG_structure_type:
-		class__fprintf(tag__class(self), cu, prefix, suffix,
-			       expand_types, 0, 26, expand_types ? 55 : 23, 1,
-			       fp);
+		printed += class__fprintf(tag__class(self), cu, prefix, suffix,
+					  expand_types, 0, 26,
+					  expand_types ? 55 : 23, 1, fp);
 		break;
 	case DW_TAG_subprogram:
-		function__fprintf(self, cu, fp);
+		printed += function__fprintf(self, cu, fp);
 		break;
 	case DW_TAG_union_type:
-		union__fprintf(tag__type(self), cu, prefix, suffix,
-			       expand_types, 0,
-			       26, expand_types ? 55 : 21, fp);
+		printed += union__fprintf(tag__type(self), cu, prefix, suffix,
+					  expand_types, 0, 26,
+					  expand_types ? 55 : 21, fp);
 		break;
 	case DW_TAG_variable:
-		variable__fprintf(self, cu, expand_types, fp);
+		printed += variable__fprintf(self, cu, expand_types, fp);
 		break;
 	default:
-		fprintf(fp, "%s: %s tag not supported!\n", __func__,
-			dwarf_tag_name(self->tag));
+		printed += fprintf(fp, "%s: %s tag not supported!\n", __func__,
+				   dwarf_tag_name(self->tag));
 		break;
 	}
+
+	return printed;
 }
 
 int cu__for_each_tag(struct cu *self,
