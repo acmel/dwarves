@@ -281,8 +281,8 @@ static int class__emit_ostra_converter(const struct tag *tag_self,
 	fputs("#include <stdio.h>\n"
 	      "#include <string.h>\n"
 	      "#include \"ctracer_relay.h\"\n\n", fp_converter);
-	class__print(class__tag(mini_class), cu, NULL, NULL, 0, fp_converter);
-
+	class__fprintf(mini_class, cu, NULL, NULL, 0, 0, 26, 23, 1,
+		       fp_converter);
 	emit_struct_member_table_entry(fp_fields, field++, "action", 0,
 				       "entry,exit");
 	emit_struct_member_table_entry(fp_fields, field++, "function_id", 0,
@@ -354,7 +354,8 @@ static int class__emit_subset(const struct tag *tag_self, const struct cu *cu)
 	if (mini_class == NULL)
 		goto out;
 
-	class__print(class__tag(mini_class), cu, NULL, NULL, 0, fp_methods);
+	class__fprintf(mini_class, cu, NULL, NULL, 0, 0, 26, 23, 1,
+		       fp_methods);
 	fputc('\n', fp_methods);
 	class__emit_class_state_collector(self, mini_class);
 	err = 0;
@@ -372,16 +373,14 @@ out:
 static int function__emit_kprobes(struct function *self, const struct cu *cu,
 				  const struct tag *target)
 {
-	char bf[2048];
 	char jprobe_name[256];
 	struct parameter *pos;
 	const char *name = function__name(self, cu);
 
+	fputs("static ", fp_methods);
 	snprintf(jprobe_name, sizeof(jprobe_name), "jprobe_entry__%s", name);
-	ftype__snprintf(&self->proto, cu, bf, sizeof(bf), jprobe_name, 0, 0, 0);
-	fprintf(fp_methods,
-		"static %s\n"
-		"{\n", bf);
+	ftype__fprintf(&self->proto, cu, jprobe_name, 0, 0, 0, fp_methods);
+	fputs("\n{\n", fp_methods);
 
 	list_for_each_entry(pos, &self->proto.parms, tag.node) {
 		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);

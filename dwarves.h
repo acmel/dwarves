@@ -266,9 +266,11 @@ extern void class__subtract_offsets_from(struct class *self,
 extern struct class *class__reorganize(struct class *self,
 				       const struct cu *cu,
 				       const int verbose, FILE *fp);
-extern void class__print(const struct tag *tag, const struct cu *cu,
-			 const char *prefix, const char *suffix,
-			 uint8_t expand_types, FILE *fp);
+extern size_t class__fprintf(const struct class *self, const struct cu *cu,
+			     const char *prefix, const char *suffix,
+			     uint8_t expand_types, uint8_t indent,
+			     size_t type_spacing, size_t name_spacing,
+			     int emit_stats, FILE *fp);
 extern void tag__print(const struct tag *self, const struct cu *cu,
 		       const char *prefix, const char *suffix,
 		       uint8_t expand_types, FILE *fp);
@@ -349,11 +351,10 @@ static inline int function__inlined(const struct function *self)
 	        self->inlined == DW_INL_declared_inlined);
 }
 
-extern size_t ftype__snprintf(const struct ftype *self, const struct cu *cu,
-			      char *bf, const size_t len,
-			      const char *name, const int inlined,
-			      const int is_pointer,
-			      const size_t type_spacing);
+extern size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
+			     const char *name, const int inlined,
+			     const int is_pointer, const size_t type_spacing,
+			     FILE *fp);
 extern int ftype__has_parm_of_type(const struct ftype *self,
 				   const struct tag *target,
 				   const struct cu *cu);
