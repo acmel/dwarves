@@ -276,8 +276,8 @@ extern void tag__fprintf(const struct tag *self, const struct cu *cu,
 			 uint8_t expand_types, FILE *fp);
 
 extern const char *function__name(struct function *self, const struct cu *cu);
-extern void function__print_stats(const struct tag *tag_self,
-				  const struct cu *cu, FILE *fp);
+extern size_t function__fprintf_stats(const struct tag *tag_self,
+				      const struct cu *cu, FILE *fp);
 
 extern size_t lexblock__fprintf(const struct lexblock *self,
 				const struct cu *cu,

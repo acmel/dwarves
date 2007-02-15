@@ -1791,23 +1791,24 @@ static size_t function__fprintf(const struct tag *tag_self,
 			      function__declared_inline(self), 0, 0, fp);
 }
 
-void function__print_stats(const struct tag *tag_self, const struct cu *cu,
-			   FILE *fp)
+size_t function__fprintf_stats(const struct tag *tag_self,
+			       const struct cu *cu, FILE *fp)
 {
 	struct function *self = tag__function(tag_self);
+	size_t printed = lexblock__fprintf(&self->lexblock, cu, 0, fp);
 
-	lexblock__fprintf(&self->lexblock, cu, 0, fp);
-
-	fprintf(fp, "/* size: %u", function__size(self));
+	printed += fprintf(fp, "/* size: %u", function__size(self));
 	if (self->lexblock.nr_variables > 0)
-		fprintf(fp, ", variables: %u", self->lexblock.nr_variables);
+		printed += fprintf(fp, ", variables: %u",
+				   self->lexblock.nr_variables);
 	if (self->lexblock.nr_labels > 0)
-		fprintf(fp, ", goto labels: %u", self->lexblock.nr_labels);
+		printed += fprintf(fp, ", goto labels: %u",
+				   self->lexblock.nr_labels);
 	if (self->lexblock.nr_inline_expansions > 0)
-		fprintf(fp, ", inline expansions: %u (%u bytes)",
+		printed += fprintf(fp, ", inline expansions: %u (%u bytes)",
 			self->lexblock.nr_inline_expansions,
 			self->lexblock.size_inline_expansions);
-	fputs(" */\n", fp);
+	return printed + fprintf(fp, " */\n");
 }
 
 void class__subtract_offsets_from(struct class *self, const struct cu *cu,

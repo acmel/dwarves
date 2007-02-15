@@ -123,7 +123,7 @@ static void fn_stats_fmtr(const struct fn_stats *self)
 		tag__fprintf(self->tag, self->cu, NULL, NULL, 0, stdout);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
-			function__print_stats(self->tag, self->cu, stdout);
+			function__fprintf_stats(self->tag, self->cu, stdout);
 		printf("/* definitions: %u */\n", self->nr_files);
 		putchar('\n');
 	} else {
@@ -306,7 +306,7 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 		tag__fprintf(tag, cu, NULL, NULL, 0, stdout);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
-			function__print_stats(tag, cu, stdout);
+			function__fprintf_stats(tag, cu, stdout);
 		return 1;
 	}
 	return 0;
