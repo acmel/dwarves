@@ -12,24 +12,26 @@ if (DWARF_INCLUDE_DIR AND LIBDW_INCLUDE_DIR AND DWARF_LIBRARY AND ELF_LIBRARY)
 endif (DWARF_INCLUDE_DIR AND LIBDW_INCLUDE_DIR AND DWARF_LIBRARY AND ELF_LIBRARY)
 
 find_path(DWARF_INCLUDE_DIR dwarf.h
+	/usr/include
 	/usr/local/include
 	/usr/include/libdwarf
-	/usr/include
+	~/usr/local/include
 )
 
 find_path(LIBDW_INCLUDE_DIR elfutils/libdw.h
-	/usr/local/include
 	/usr/include
+	/usr/local/include
+	~/usr/local/include
 )
 
 find_library(DWARF_LIBRARY
 	NAMES dw dwarf
-	PATHS /usr/lib /usr/local/lib /usr/lib64 /usr/local/lib64
+	PATHS /usr/lib /usr/local/lib /usr/lib64 /usr/local/lib64 ~/usr/local/lib ~/usr/local/lib64
 )
 
 find_library(ELF_LIBRARY
 	NAMES elf
-	PATHS /usr/lib /usr/local/lib /usr/lib64 /usr/local/lib64
+	PATHS /usr/lib /usr/local/lib /usr/lib64 /usr/local/lib64 ~/usr/local/lib ~/usr/local/lib64
 )
 
 if (DWARF_INCLUDE_DIR AND LIBDW_INCLUDE_DIR AND DWARF_LIBRARY AND ELF_LIBRARY)
@@ -55,3 +57,4 @@ else (DWARF_FOUND)
 endif (DWARF_FOUND)
 
 mark_as_advanced(DWARF_INCLUDE_DIR LIBDW_INCLUDE_DIR DWARF_LIBRARY ELF_LIBRARY)
+include_directories(${DWARF_INCLUDE_DIR} ${LIBDW_INCLUDE_DIR})
