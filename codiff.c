@@ -351,9 +351,26 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 			printf("%s: BRAIN FART ALERT: comparing %s to %s, "
 			       "should be the same name\n", __FUNCTION__,
 			       function->name, twin->name);
-		else
-			printf(" # %d -> %d\n", function__size(function),
+		else {
+			printf(" # %d -> %d", function__size(function),
 			       function__size(twin));
+			if (function->lexblock.nr_lexblocks !=
+			    twin->lexblock.nr_lexblocks)
+				printf(", lexblocks: %d -> %d",
+				       function->lexblock.nr_lexblocks,
+				       twin->lexblock.nr_lexblocks);
+			if (function->lexblock.nr_inline_expansions !=
+			    twin->lexblock.nr_inline_expansions)
+				printf(", # inlines: %d -> %d",
+				       function->lexblock.nr_inline_expansions,
+				       twin->lexblock.nr_inline_expansions);
+			if (function->lexblock.size_inline_expansions !=
+			    twin->lexblock.size_inline_expansions)
+				printf(", size inlines: %d -> %d",
+				       function->lexblock.size_inline_expansions,
+				       twin->lexblock.size_inline_expansions);
+			putchar('\n');
+		}
 	}
 }
 
