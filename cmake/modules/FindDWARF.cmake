@@ -17,11 +17,9 @@ find_path(DWARF_INCLUDE_DIR dwarf.h
 	/usr/include
 )
 
-find_path(LIBDW_INCLUDE_DIR libdw.h
+find_path(LIBDW_INCLUDE_DIR elfutils/libdw.h
 	/usr/local/include
 	/usr/include
-	/usr/include/elfutils
-	/usr/local/include/elfutils
 )
 
 find_library(DWARF_LIBRARY
@@ -45,9 +43,9 @@ endif (DWARF_INCLUDE_DIR AND LIBDW_INCLUDE_DIR AND DWARF_LIBRARY AND ELF_LIBRARY
 if (DWARF_FOUND)
 	if (NOT DWARF_FIND_QUIETLY)
 		message(STATUS "Found dwarf.h header: ${DWARF_INCLUDE_DIR}")
-		message(STATUS "Found elfutils libdw.h header: ${LIBDW_INCLUDE_DIR}")
-		message(STATUS "Found elfutils libdw library: ${DWARF_LIBRARY}")
-		message(STATUS "Found elfutils libelf library: ${ELF_LIBRARY}")
+		message(STATUS "Found elfutils/libdw.h header: ${LIBDW_INCLUDE_DIR}")
+		message(STATUS "Found libdw library: ${DWARF_LIBRARY}")
+		message(STATUS "Found libelf library: ${ELF_LIBRARY}")
 	endif (NOT DWARF_FIND_QUIETLY)
 else (DWARF_FOUND)
 	if (DWARF_FIND_REQUIRED)
