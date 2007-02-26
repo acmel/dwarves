@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 14
+Release: 15
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -91,6 +91,14 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Sun Feb 25 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- 3c148cd84b74b89663febdefab23356952906502
+- _snprintf routines changed to _fprintf
+- codiff shows diffs in number and total size of inline expansions
+- codiff shows diffs in the number of lexblocks
+- better alignment in the --expand_types case
+- CMake improvements
+
 * Fri Feb  2 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - d37f41df58c375412badf827e24dfc346cea2ff2
 - ostra-cg
