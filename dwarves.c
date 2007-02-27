@@ -1143,7 +1143,7 @@ static size_t type__fprintf(struct tag *type, const char *name,
 	int typedef_expanded = 0;
 
 	if (type == NULL)
-		return fprintf(fp, "%-*s %s", type_spacing, "<ERROR>", name);
+		goto out_type_not_found;
 
 	if (expand_types) {
 		while (type->tag == DW_TAG_typedef) {
@@ -1155,6 +1155,8 @@ static size_t type__fprintf(struct tag *type, const char *name,
 				typedef_expanded = 1;
 			}
 			type = cu__find_tag_by_id(cu, type->type);
+			if (type == NULL)
+				goto out_type_not_found;
 		}
 		if (typedef_expanded)
 			printed += fprintf(fp, " */ ", ctype->name);
@@ -1164,6 +1166,8 @@ static size_t type__fprintf(struct tag *type, const char *name,
 	case DW_TAG_pointer_type:
 		if (type->type != 0) {
 			struct tag *ptype = cu__find_tag_by_id(cu, type->type);
+			if (ptype == NULL)
+				goto out_type_not_found;
 			if (ptype->tag == DW_TAG_subroutine_type)
 				return (printed +
 					ftype__fprintf(tag__ftype(ptype), cu,
@@ -1209,6 +1213,8 @@ static size_t type__fprintf(struct tag *type, const char *name,
 
 	return printed + fprintf(fp, "%-*s %s", type_spacing,
 				 tag__name(type, cu, tbf, sizeof(tbf)), name);
+out_type_not_found:
+	return fprintf(fp, "%-*s %s", type_spacing, "<ERROR>", name);
 }
 
 static size_t struct_member__fprintf(struct class_member *self,
