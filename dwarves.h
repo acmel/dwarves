@@ -49,9 +49,9 @@ struct tag {
 	struct list_head node;
 	Dwarf_Off	 type;
 	Dwarf_Off	 id;
-	uint16_t	 tag;
-	uint16_t	 decl_line;
 	const char	 *decl_file;
+	uint16_t	 decl_line;
+	uint16_t	 tag;
 	uint32_t	 refcnt;
 };
 
