@@ -167,8 +167,8 @@ static int check_print_change(const struct class_member *old,
 
 	if (changes && print && !show_terse_type_changes)
 		printf("    %s\n"
-		       "     from: %-21s /* %5u(%u) %5u(%u) */\n"
-		       "     to:   %-21s /* %5u(%u) %5u(%u) */\n",
+		       "     from: %-21s /* %5u(%u) %5zd(%d) */\n"
+		       "     to:   %-21s /* %5u(%u) %5zd(%u) */\n",
 		       old->name,
 		       old_type_name, old->offset, old->bit_offset,
 		       old_size, old->bit_size,
@@ -334,7 +334,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 	const struct diff_info *di = function->priv;
 
 	printf("  %-*.*s | %+4d",
-	       cu->max_len_changed_item, cu->max_len_changed_item,
+	       (int)cu->max_len_changed_item, (int)cu->max_len_changed_item,
 	       function__name(function, cu), di->diff);
 
 	if (!verbose) {
@@ -352,7 +352,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 			       "should be the same name\n", __FUNCTION__,
 			       function->name, twin->name);
 		else {
-			printf(" # %d -> %d", function__size(function),
+			printf(" # %zd -> %zd", function__size(function),
 			       function__size(twin));
 			if (function->lexblock.nr_lexblocks !=
 			    twin->lexblock.nr_lexblocks)
@@ -366,7 +366,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 				       twin->lexblock.nr_inline_expansions);
 			if (function->lexblock.size_inline_expansions !=
 			    twin->lexblock.size_inline_expansions)
-				printf(", size inlines: %d -> %d",
+				printf(", size inlines: %zd -> %zd",
 				       function->lexblock.size_inline_expansions,
 				       twin->lexblock.size_inline_expansions);
 			putchar('\n');
@@ -380,7 +380,7 @@ static void show_changed_member(char change, const struct class_member *member,
 	const struct tag *type = cu__find_tag_by_id(cu, member->tag.type);
 	char bf[128];
 
-	printf("    %c%-26s %-21s /* %5u %5u */\n",
+	printf("    %c%-26s %-21s /* %5u %5zd */\n",
 	       change, tag__name(type, cu, bf, sizeof(bf)), member->name,
 	       member->offset, tag__size(type, cu));
 }
@@ -453,8 +453,8 @@ static void show_diffs_structure(const struct class *structure,
 
 	if (!show_terse_type_changes)
 		printf("  struct %-*.*s | %+4d\n",
-		       cu->max_len_changed_item - sizeof("struct"),
-		       cu->max_len_changed_item - sizeof("struct"),
+		       (int)(cu->max_len_changed_item - sizeof("struct")),
+		       (int)(cu->max_len_changed_item - sizeof("struct")),
 		       class__name(structure), diff);
 
 	if (diff != 0)
@@ -548,15 +548,16 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 		if (cu->function_bytes_added != 0) {
 			++kind;
 			total_function_bytes_added += cu->function_bytes_added;
-			printf(", %u bytes added", cu->function_bytes_added);
+			printf(", %zd bytes added", cu->function_bytes_added);
 		}
 		if (cu->function_bytes_removed != 0) {
 			++kind;
 			total_function_bytes_removed += cu->function_bytes_removed;
-			printf(", %u bytes removed", cu->function_bytes_removed);
+			printf(", %zd bytes removed",
+			       cu->function_bytes_removed);
 		}
 		if (kind == 2)
-			printf(", diff: %+d",
+			printf(", diff: %+zd",
 			       (cu->function_bytes_added -
 			        cu->function_bytes_removed));
 		putchar('\n');

@@ -269,7 +269,7 @@ extern struct class *class__reorganize(struct class *self,
 extern size_t class__fprintf(const struct class *self, const struct cu *cu,
 			     const char *prefix, const char *suffix,
 			     uint8_t expand_types, uint8_t indent,
-			     size_t type_spacing, size_t name_spacing,
+			     int type_spacing, int name_spacing,
 			     int emit_stats, FILE *fp);
 extern size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 			   const char *prefix, const char *suffix,
@@ -354,7 +354,7 @@ static inline int function__inlined(const struct function *self)
 
 extern size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 			     const char *name, const int inlined,
-			     const int is_pointer, const size_t type_spacing,
+			     const int is_pointer, const int type_spacing,
 			     FILE *fp);
 extern int ftype__has_parm_of_type(const struct ftype *self,
 				   const struct tag *target,

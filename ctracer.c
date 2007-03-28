@@ -191,7 +191,7 @@ static void class__emit_class_state_collector(const struct class *self,
 					      const struct class *clone)
 {
 	struct class_member *pos;
-	size_t len = class__find_biggest_member_name(clone);
+	int len = class__find_biggest_member_name(clone);
 
 	fprintf(fp_methods,
 		"void ctracer__class_state(const void *from, void *to)\n"
@@ -393,8 +393,8 @@ static int function__emit_kprobes(struct function *self, const struct cu *cu,
 			continue;
 
 		fprintf(fp_methods,
-			"\tctracer__method_entry(%#llx, %s, %u);\n",
-			self->proto.tag.id, pos->name,
+			"\tctracer__method_entry(%#llx, %s, %zd);\n",
+			(unsigned long long)self->proto.tag.id, pos->name,
 			class__size(mini_class));
 		break;
 	}
@@ -445,7 +445,8 @@ static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie __unused)
 		if (pos->priv != NULL) {
 			const char *name = function__name(pos, cu);
 			fprintf(fp_methods, "\t&jprobe__%s,\n", name);
-			fprintf(cookie, "%llu:%s\n", pos->proto.tag.id, name);
+			fprintf(cookie, "%llu:%s\n",
+				(unsigned long long)pos->proto.tag.id, name);
 		}
 
 	return 0;
@@ -475,7 +476,7 @@ static void function__emit_kretprobes(struct function *self,
 		"{\n"
 		"\tctracer__method_exit(%#llx);\n"
 		"\treturn 0;\n"
-		"}\n\n", name, self->proto.tag.id);
+		"}\n\n", name, (unsigned long long)self->proto.tag.id);
 	fprintf(fp_methods,
 		"static struct kretprobe kretprobe__%s = {\n"
 		"\t.kp = { .symbol_name = \"%s\", },\n"

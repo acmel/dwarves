@@ -295,7 +295,8 @@ size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu)
 static void __tag__type_not_found(const struct tag *self, const char *fn)
 {
 	fprintf(stderr, "%s: %#llx type not found for %s (id=%#llx)\n",
-		fn, self->type, dwarf_tag_name(self->tag), self->id);
+		fn, (unsigned long long)self->type, dwarf_tag_name(self->tag),
+		(unsigned long long)self->id);
 	fflush(stderr);
 }
 
@@ -304,7 +305,8 @@ static void __tag__type_not_found(const struct tag *self, const char *fn)
 static size_t tag__fprintf_decl_info(const struct tag *self, FILE *fp)
 {
 	return fprintf(fp, "/* <%llx> %s:%u */\n",
-		       self->id, self->decl_file, self->decl_line);
+		       (unsigned long long)self->id,
+		       self->decl_file, self->decl_line);
 }
 
 static struct base_type *base_type__new(Dwarf_Die *die)
@@ -332,7 +334,7 @@ static struct array_type *array_type__new(Dwarf_Die *die)
 
 static size_t array_type__fprintf(const struct tag *tag_self,
 				  const struct cu *cu, const char *name,
-				  size_t type_spacing, FILE *fp)
+				  int type_spacing, FILE *fp)
 {
 	struct array_type *self = tag__array_type(tag_self);
 	char tbf[128];
@@ -1134,8 +1136,8 @@ static size_t union__fprintf(const struct type *self, const struct cu *cu,
 
 static size_t type__fprintf(struct tag *type, const char *name,
 			    const struct cu *cu, uint8_t expand_types,
-			    size_t indent, size_t type_spacing,
-			    size_t name_spacing, FILE *fp)
+			    int indent, int type_spacing,
+			    int name_spacing, FILE *fp)
 {
 	char tbf[128];
 	struct type *ctype;
@@ -1159,7 +1161,7 @@ static size_t type__fprintf(struct tag *type, const char *name,
 				goto out_type_not_found;
 		}
 		if (typedef_expanded)
-			printed += fprintf(fp, " */ ", ctype->name);
+			printed += fprintf(fp, " */ ");
 	}
 
 	switch (type->tag) {
@@ -1219,12 +1221,12 @@ out_type_not_found:
 
 static size_t struct_member__fprintf(struct class_member *self,
 				     struct tag *type, const struct cu *cu,
-				     uint8_t expand_types, size_t indent,
-				     size_t type_spacing, size_t name_spacing,
+				     uint8_t expand_types, int indent,
+				     int type_spacing, int name_spacing,
 				     FILE *fp)
 {
-	ssize_t spacing;
-	const size_t size = tag__size(type, cu);
+	int spacing;
+	const int size = tag__size(type, cu);
 	size_t printed = type__fprintf(type, self->name, cu, expand_types,
 				       indent, type_spacing, name_spacing, fp);
 	
@@ -1241,8 +1243,8 @@ static size_t struct_member__fprintf(struct class_member *self,
 		/* Look if is a type defined inline */
 	    tag__type(type)->name == NULL) {
 		/* Check if this is a anonymous union */
-		const size_t slen = self->name != NULL ?
-					strlen(self->name) : (size_t)-1;
+		const int slen = self->name != NULL ?
+					(int)strlen(self->name) : -1;
 		return printed + fprintf(fp, "%*s/* %5u %5u */",
 					 type_spacing + name_spacing - slen - 3,
 					 " ", self->offset, size);
@@ -1255,11 +1257,11 @@ static size_t struct_member__fprintf(struct class_member *self,
 
 static size_t union_member__fprintf(struct class_member *self,
 				    struct tag *type, const struct cu *cu,
-				    uint8_t expand_types, size_t indent,
-				    size_t type_spacing, size_t name_spacing,
+				    uint8_t expand_types, int indent,
+				    int type_spacing, int name_spacing,
 				    FILE *fp)
 {
-	ssize_t spacing;
+	int spacing;
 	const size_t size = tag__size(type, cu);
 	size_t printed = type__fprintf(type, self->name, cu, expand_types,
 				       indent, type_spacing, name_spacing, fp);
@@ -1270,19 +1272,18 @@ static size_t union_member__fprintf(struct class_member *self,
 		/* Look if is a type defined inline */
 	    tag__type(type)->name == NULL) {
 		/* Check if this is a anonymous union */
-		const size_t slen = self->name != NULL ?
-					strlen(self->name) : (size_t)-1;
+		const int slen = self->name != NULL ? (int)strlen(self->name) : -1;
 		/*
 		 * Add the comment with the union size after padding the
 		 * '} member_name;' last line of the type printed in the
 		 * above call to type__fprintf.
 		 */
-		return printed + fprintf(fp, ";%*s/* %11u */",
+		return printed + fprintf(fp, ";%*s/* %11zd */",
 					 type_spacing + name_spacing - slen - 3,
 					 " ", size);
 	}
 	spacing = type_spacing + name_spacing - (printed + 1);
-	return printed + fprintf(fp, ";%*s/* %11u */",
+	return printed + fprintf(fp, ";%*s/* %11zd */",
 				 spacing > 0 ? spacing : 0, " ", size);
 }
 
@@ -1677,7 +1678,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 	char bf[512];
 	size_t printed = 0, n;
 	const void *vtag = tag;
-	size_t c;
+	int c;
 
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
@@ -1696,7 +1697,8 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 		}
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		n = fprintf(fp, "%s(); /* low_pc=%#llx */",
-			    function__name(alias, cu), exp->low_pc);
+			    function__name(alias, cu),
+			    (unsigned long long)exp->low_pc);
 		c += n;
 		printed += n;
 	}
@@ -1723,7 +1725,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 	default:
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		n = fprintf(fp, "%s <%llx>", dwarf_tag_name(tag->tag),
-			    tag->id);
+			    (unsigned long long)tag->id);
 		c += n;
 		printed += n;
 		break;
@@ -1749,7 +1751,7 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 
 size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 		      const char *name, const int inlined,
-		      const int is_pointer, size_t type_spacing, FILE *fp)
+		      const int is_pointer, int type_spacing, FILE *fp)
 {
 	struct parameter *pos;
 	struct tag *type = cu__find_tag_by_id(cu, self->tag.type);
@@ -1832,7 +1834,7 @@ size_t function__fprintf_stats(const struct tag *tag_self,
 	struct function *self = tag__function(tag_self);
 	size_t printed = lexblock__fprintf(&self->lexblock, cu, 0, fp);
 
-	printed += fprintf(fp, "/* size: %u", function__size(self));
+	printed += fprintf(fp, "/* size: %zd", function__size(self));
 	if (self->lexblock.nr_variables > 0)
 		printed += fprintf(fp, ", variables: %u",
 				   self->lexblock.nr_variables);
@@ -1840,7 +1842,7 @@ size_t function__fprintf_stats(const struct tag *tag_self,
 		printed += fprintf(fp, ", goto labels: %u",
 				   self->lexblock.nr_labels);
 	if (self->lexblock.nr_inline_expansions > 0)
-		printed += fprintf(fp, ", inline expansions: %u (%u bytes)",
+		printed += fprintf(fp, ", inline expansions: %u (%zd bytes)",
 			self->lexblock.nr_inline_expansions,
 			self->lexblock.size_inline_expansions);
 	return printed + fprintf(fp, " */\n");
@@ -2457,7 +2459,7 @@ static size_t class__fprintf_cacheline_boundary(uint32_t last_cacheline,
 						size_t sum, size_t sum_holes,
 						uint8_t *newline,
 						uint32_t *cacheline,
-						size_t indent, FILE *fp)
+						int indent, FILE *fp)
 {
 	const size_t real_sum = sum + sum_holes;
 	size_t printed = 0;
@@ -2492,7 +2494,7 @@ static size_t class__fprintf_cacheline_boundary(uint32_t last_cacheline,
 size_t class__fprintf(const struct class *self, const struct cu *cu,
 		      const char *prefix, const char *suffix,
 		      uint8_t expand_types, uint8_t indent,
-		      size_t type_spacing, size_t name_spacing,
+		      int type_spacing, int name_spacing,
 		      int emit_stats, FILE *fp)
 {
 	const struct type *tself = &self->type;
@@ -2531,8 +2533,8 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 					++printed;
 				}
 				printed += fprintf(fp, "%.*s/* Bitfield "
-						   "WARNING: DWARF size=%u, "
-						   "real size=%u */\n",
+						   "WARNING: DWARF size=%zd, "
+						   "real size=%zd */\n",
 						   indent + 1, tabs,
 						   last_size, cc_last_size);
 				sum -= last_size - cc_last_size;
@@ -2650,7 +2652,7 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 	if (!emit_stats)
 		goto out;
 
-	printed += fprintf(fp, "; /* size: %u, cachelines: %u */\n",
+	printed += fprintf(fp, "; /* size: %zd, cachelines: %zd */\n",
 			   tself->size, tag__nr_cachelines(class__tag(self),
 			   cu));
 	if (sum_holes > 0)
@@ -2677,8 +2679,8 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 				   "*/\n", indent, tabs, last_cacheline);
 
 	if (sum + sum_holes != tself->size - self->padding)
-		printed += fprintf(fp, "\n%.*s/* BRAIN FART ALERT! %u != %u "
-				   "+ %u(holes), diff = %u */\n\n",
+		printed += fprintf(fp, "\n%.*s/* BRAIN FART ALERT! %zd != %u "
+				   "+ %u(holes), diff = %zd */\n\n",
 				   indent, tabs, tself->size, sum, sum_holes,
 				   tself->size - (sum + sum_holes));
 out:
@@ -2809,7 +2811,8 @@ static uint64_t attr_upper_bound(Dwarf_Die *die)
 static void __cu__tag_not_handled(Dwarf_Die *die, const char *fn)
 {
 	fprintf(stderr, "%s: DW_TAG_%s @ <%#llx> not handled!\n",
-		fn, dwarf_tag_name(dwarf_tag(die)), dwarf_dieoffset(die));
+		fn, dwarf_tag_name(dwarf_tag(die)),
+		(unsigned long long)dwarf_dieoffset(die));
 }
 
 #define cu__tag_not_handled(die) __cu__tag_not_handled(die, __FUNCTION__)

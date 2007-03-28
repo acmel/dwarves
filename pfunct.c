@@ -73,7 +73,7 @@ static void fn_stats_inline_exps_fmtr(const struct fn_stats *self)
 {
 	struct function *fn = tag__function(self->tag);
 	if (fn->lexblock.nr_inline_expansions > 0)
-		printf("%s: %u %u\n", function__name(fn, self->cu),
+		printf("%s: %u %zd\n", function__name(fn, self->cu),
 		       fn->lexblock.nr_inline_expansions,
 		       fn->lexblock.size_inline_expansions);
 }
@@ -105,7 +105,7 @@ static void fn_stats_name_len_fmtr(const struct fn_stats *self)
 {
 	struct function *fn = tag__function(self->tag);
 	const char *name = function__name(fn, self->cu);
-	printf("%s: %u\n", name, strlen(name));
+	printf("%s: %zd\n", name, strlen(name));
 }
 
 static void fn_stats_size_fmtr(const struct fn_stats *self)
@@ -114,7 +114,7 @@ static void fn_stats_size_fmtr(const struct fn_stats *self)
 	const size_t size = function__size(fn);
 
 	if (size != 0)
-		printf("%s: %u\n", function__name(fn, self->cu), size);
+		printf("%s: %zd\n", function__name(fn, self->cu), size);
 }
 
 static void fn_stats_fmtr(const struct fn_stats *self)

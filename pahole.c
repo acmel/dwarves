@@ -104,14 +104,14 @@ static void nr_methods_formatter(const struct structure *self)
 
 static void size_formatter(const struct structure *self)
 {
-	printf("%s: %u %u\n", class__name(self->class),
+	printf("%s: %zd %u\n", class__name(self->class),
 	       class__size(self->class), self->class->nr_holes);
 }
 
 static void class_name_len_formatter(const struct structure *self)
 {
 	const char *name = class__name(self->class);
-	printf("%s: %u\n", name, strlen(name));
+	printf("%s: %zd\n", name, strlen(name));
 }
 
 static void class_formatter(const struct structure *self)
@@ -516,7 +516,7 @@ int main(int argc, char *argv[])
 				       tag__nr_cachelines(class__tag(clone),
 							  s->cu));
 
-				printf("   /* saved %u byte%s", savings,
+				printf("   /* saved %zd byte%s", savings,
 				       savings != 1 ? "s" : "");
 				if (cacheline_savings != 0)
 					printf(" and %zu cacheline%s",
