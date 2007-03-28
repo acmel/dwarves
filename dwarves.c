@@ -2521,11 +2521,13 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 		struct tag *type;
 		const ssize_t cc_last_size = pos->offset - last_offset;
 
-		printed += class__fprintf_cacheline_boundary(last_cacheline,
-							     sum, sum_holes,
-							     &newline,
-							     &last_cacheline,
-							     indent + 1, fp);
+		if (pos->offset != last_offset)
+			printed +=
+			    class__fprintf_cacheline_boundary(last_cacheline,
+							      sum, sum_holes,
+							      &newline,
+							      &last_cacheline,
+							      indent + 1, fp);
 		if (last_offset != -1) {
 			if (cc_last_size > 0 &&
 			    (size_t)cc_last_size < last_size) {
