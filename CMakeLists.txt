@@ -26,38 +26,39 @@ _set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}/usr/${__LIB}" "libdir")
 set(dwarves_LIB_SRCS dwarves.c)
 add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
+target_link_libraries(dwarves ${DWARF_LIBRARIES})
 
 set(codiff_SRCS codiff.c)
 add_executable(codiff ${codiff_SRCS})
-target_link_libraries(codiff dwarves ${DWARF_LIBRARIES})
+target_link_libraries(codiff dwarves)
 
 set(ctracer_SRCS ctracer.c)
 add_executable(ctracer ${ctracer_SRCS})
-target_link_libraries(ctracer dwarves ${DWARF_LIBRARIES})
+target_link_libraries(ctracer dwarves)
 
 set(dtagnames_SRCS dtagnames.c)
 add_executable(dtagnames ${dtagnames_SRCS})
-target_link_libraries(dtagnames dwarves ${DWARF_LIBRARIES})
+target_link_libraries(dtagnames dwarves)
 
 set(pahole_SRCS pahole.c)
 add_executable(pahole ${pahole_SRCS})
-target_link_libraries(pahole dwarves ${DWARF_LIBRARIES})
+target_link_libraries(pahole dwarves)
 
 set(pdwtags_SRCS pdwtags.c)
 add_executable(pdwtags ${pdwtags_SRCS})
-target_link_libraries(pdwtags dwarves ${DWARF_LIBRARIES})
+target_link_libraries(pdwtags dwarves)
 
 set(pglobal_SRCS pglobal.c)
 add_executable(pglobal ${pglobal_SRCS})
-target_link_libraries(pglobal dwarves ${DWARF_LIBRARIES})
+target_link_libraries(pglobal dwarves)
 
 set(pfunct_SRCS pfunct.c )
 add_executable(pfunct ${pfunct_SRCS})
-target_link_libraries(pfunct dwarves ${DWARF_LIBRARIES})
+target_link_libraries(pfunct dwarves)
 
 set(prefcnt_SRCS prefcnt.c)
 add_executable(prefcnt ${prefcnt_SRCS})
-target_link_libraries(prefcnt dwarves ${DWARF_LIBRARIES})
+target_link_libraries(prefcnt dwarves)
 
 install(TARGETS codiff ctracer dtagnames pahole pdwtags
 		pfunct pglobal prefcnt RUNTIME DESTINATION /usr/bin)
