@@ -593,7 +593,7 @@ static void print_total_function_diff(const char *filename)
 
 int main(int argc, char *argv[])
 {
-	int option, option_index;
+	int option, option_index, err;
 	struct cus *old_cus, *new_cus;
 	const char *old_filename, *new_filename;
 
@@ -633,15 +633,15 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (cus__load(old_cus, old_filename) != 0) {
-		fprintf(stderr, "codiff: couldn't load DWARF info from %s\n",
-			old_filename);
+	err = cus__load(old_cus, old_filename);
+	if (err != 0) {
+		cus__print_error_msg("codiff", old_filename, err);
 		return EXIT_FAILURE;
 	}
 
-	if (cus__load(new_cus, new_filename) != 0) {
-		fprintf(stderr, "codiff: couldn't load DWARF info from %s\n",
-			new_filename);
+	err = cus__load(new_cus, new_filename);
+	if (err != 0) {
+		cus__print_error_msg("codiff", new_filename, err);
 		return EXIT_FAILURE;
 	}
 

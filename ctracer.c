@@ -614,7 +614,7 @@ static void usage(void)
 
 int main(int argc, char *argv[])
 {
-	int option, option_index, recursive = 0;
+	int option, option_index, err, recursive = 0;
 	const char *filename = NULL, *dirname = NULL, *glob = NULL,
 		   *kprobes_filename = NULL;
 	char *class_name = NULL;
@@ -680,7 +680,8 @@ out_enomem:
 		kprobes_cus = cus__new(&cus__definitions, &cus__fwd_decls);
 		if (kprobes_cus == NULL)
 			goto out_enomem;
-		if (cus__load(kprobes_cus, kprobes_filename) != 0) {
+		err = cus__load(kprobes_cus, kprobes_filename);
+		if (err != 0) {
 			filename = kprobes_filename;
 			goto out_dwarf_err;
 		}
@@ -709,11 +710,13 @@ out_enomem:
         /*
          * If a filename was specified, for instance "vmlinux", load it too.
          */
-	if (filename != NULL && cus__load(methods_cus, filename) != 0) {
+	if (filename != NULL) {
+		err = cus__load(methods_cus, filename);
+		if (err != 0) {
 out_dwarf_err:
-		fprintf(stderr, "ctracer: couldn't load DWARF info from %s\n",
-			filename);
-		return EXIT_FAILURE;
+			cus__print_error_msg("ctracer", filename, err);
+			return EXIT_FAILURE;
+		}
 	}
 
 	/*

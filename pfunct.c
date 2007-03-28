@@ -339,7 +339,7 @@ static struct option long_options[] = {
 static void usage(void)
 {
 	fprintf(stdout,
-		"usage: pfunct [options] <file_name> {<function_name>}\n"
+		"usage: pfunct [options] <filename> {<function_name>}\n"
 		" where: \n"
 		"   -c, --class=<class>            functions that have "
 						  "<class> pointer "
@@ -369,8 +369,8 @@ static void usage(void)
 
 int main(int argc, char *argv[])
 {
-	int option, option_index;
-	const char *file_name;
+	int option, option_index, err;
+	const char *filename;
 	struct cus *cus;
 	char *class_name = NULL;
 	char *function_name = NULL;
@@ -400,8 +400,8 @@ int main(int argc, char *argv[])
 
 	if (optind < argc) {
 		switch (argc - optind) {
-		case 1:	 file_name = argv[optind++];	 break;
-		case 2:	 file_name = argv[optind++];
+		case 1:	 filename = argv[optind++];	 break;
+		case 2:	 filename = argv[optind++];
 			 function_name = argv[optind++]; break;
 		default: usage();			 return EXIT_FAILURE;
 		}
@@ -418,9 +418,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (cus__load(cus, file_name) != 0) {
-		fprintf(stderr, "pfunct: couldn't load DWARF info from %s\n",
-			file_name);
+	err = cus__load(cus, filename);
+	if (err != 0) {
+		cus__print_error_msg("pfunct", filename, err);
 		return EXIT_FAILURE;
 	}
 

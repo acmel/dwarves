@@ -56,6 +56,7 @@ static void usage(void)
 
 int main(int argc, char *argv[])
 {
+	int err;
 	struct cus *cus;
 	char *filename = argv[1];
 
@@ -72,9 +73,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (cus__load(cus, filename) != 0) {
-		fprintf(stderr, "pdwtags: couldn't load DWARF info from %s\n",
-		       filename);
+	err = cus__load(cus, filename);
+	if (err != 0) {
+		cus__print_error_msg("pdwtags", filename, err);
 		return EXIT_FAILURE;
 	}
 

@@ -8,6 +8,7 @@
   published by the Free Software Foundation.
 */
 
+#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <dwarf.h>
@@ -376,7 +377,7 @@ static struct option long_options[] = {
 static void usage(void)
 {
 	fprintf(stderr,
-		"usage: pahole [options] <file_name> {<class_name>}\n"
+		"usage: pahole [options] <filename> {<class_name>}\n"
 		" where: \n"
 		"   -h, --help                   show usage info\n"
 		"   -B, --bit_holes <nr_holes>   show only structs at least "
@@ -411,9 +412,9 @@ static void usage(void)
 
 int main(int argc, char *argv[])
 {
-	int option, option_index, reorganize = 0, show_reorg_steps = 0;
+	int option, option_index, err, reorganize = 0, show_reorg_steps = 0;
 	struct cus *cus;
-	char *file_name;
+	char *filename;
 	char *class_name = NULL;
 	size_t cacheline_size = 0;
 	void (*formatter)(const struct structure *s) = class_formatter;
@@ -451,13 +452,13 @@ int main(int argc, char *argv[])
 
 	if (optind < argc) {
 		switch (argc - optind) {
-		case 1:	file_name = argv[optind++];
+		case 1:	filename = argv[optind++];
 			if (reorganize) {
 				usage();
 				return EXIT_FAILURE;
 			}
 			break;
-		case 2:	file_name = argv[optind++];
+		case 2:	filename = argv[optind++];
 			class_name = argv[optind++];	break;
 		default: usage();			return EXIT_FAILURE;
 		}
@@ -474,9 +475,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (cus__load(cus, file_name) != 0) {
-		fprintf(stderr, "pahole: couldn't load DWARF info from %s\n",
-		       file_name);
+	err = cus__load(cus, filename);
+	if (err != 0) {
+		cus__print_error_msg("pahole", filename, err);
 		return EXIT_FAILURE;
 	}
 

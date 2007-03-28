@@ -273,7 +273,7 @@ static struct option long_options[] = {
 static void usage(void)
 {
 	fprintf(stdout,
-		"usage: pglobal [options] <file_name>\n"
+		"usage: pglobal [options] <filename>\n"
 		" where: \n"
 		"   -v, --variables	show global variables\n"
 		"   -f, --functions	show global functions\n"
@@ -283,9 +283,9 @@ static void usage(void)
 
 int main(int argc, char *argv[])
 {
+	int option, option_index, err;
 	char *filename;
 	struct cus *cus;
-	int option, option_index;
 	int walk_var = 0, walk_fun = 0;
 
 	while ((option = getopt_long(argc, argv, "vfVh",
@@ -317,9 +317,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (cus__load(cus, filename) != 0) {
-		fprintf(stderr, "pglobal: couldn't load DWARF info from %s\n",
-			filename);
+	err = cus__load(cus, filename);
+	if (err != 0) {
+		cus__print_error_msg("pglobal", filename, err);
 		return EXIT_FAILURE;
 	}
 

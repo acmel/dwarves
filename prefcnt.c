@@ -24,7 +24,7 @@ static struct option long_options[] = {
 static void usage(void)
 {
 	fprintf(stderr,
-		"usage: prefcnt [options] <file_name>\n"
+		"usage: prefcnt [options] <filename>\n"
 		" where: \n"
 		"   -h, --help   usage options\n");
 }
@@ -152,9 +152,9 @@ static int cu_lost_iterator(struct cu *cu, void *cookie)
 
 int main(int argc, char *argv[])
 {
-	int option, option_index;
+	int option, option_index, err;
 	struct cus *cus;
-	const char *file_name;
+	const char *filename;
 
 	while ((option = getopt_long(argc, argv, "h",
 				     long_options, &option_index)) >= 0)
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 
 	if (optind < argc) {
 		switch (argc - optind) {
-		case 1:	 file_name = argv[optind++];	 break;
+		case 1:	 filename = argv[optind++];	 break;
 		default: usage();			 return EXIT_FAILURE;
 		}
 	} else {
@@ -181,9 +181,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (cus__load(cus, file_name) != 0) {
-		fprintf(stderr, "prefcnt: couldn't load DWARF info from %s\n",
-			file_name);
+	err = cus__load(cus, filename);
+	if (err != 0) {
+		cus__print_error_msg("pdwtags", filename, err);
 		return EXIT_FAILURE;
 	}
 

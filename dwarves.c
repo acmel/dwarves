@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <dirent.h>
 #include <dwarf.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <libelf.h>
@@ -3253,12 +3254,15 @@ int cus__load(struct cus *self, const char *filename)
 	uint8_t addr_size, offset_size;
 	size_t hdr_size;
 	Dwarf *dwarf;
-	int err = -1;
 	int fd = open(filename, O_RDONLY);	
+	int err;
 
-	if (fd < 0)
+	if (fd < 0) {
+		err = errno;
 		goto out;
+	}
 
+	err = -EINVAL;
 	dwarf = dwarf_begin(fd, DWARF_C_READ);
 	if (dwarf == NULL)
 		goto out_close;
@@ -3286,6 +3290,16 @@ out_close:
 	close(fd);
 out:
 	return err;
+}
+
+void cus__print_error_msg(const char *progname, const char *filename,
+			  const int err)
+{
+	if (err == -EINVAL)
+		fprintf(stderr, "%s: couldn't load DWARF info from %s\n",
+		       progname, filename);
+	else
+		fprintf(stderr, "%s: %s\n", progname, strerror(err));
 }
 
 struct cus *cus__new(struct list_head *definitions,
