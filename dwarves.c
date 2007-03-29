@@ -2519,7 +2519,6 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 
 	list_for_each_entry(pos, &tself->members, tag.node) {
 		struct tag *type;
-		const ssize_t cc_last_size = pos->offset - last_offset;
 
 		if (pos->offset != last_offset)
 			printed +=
@@ -2529,7 +2528,20 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 							      &last_cacheline,
 							      indent + 1, fp);
 		if (last_offset != -1) {
-			if (cc_last_size > 0 &&
+			const ssize_t cc_last_size = pos->offset - last_offset;
+
+			if (pos->offset < last_offset) {
+				if (!newline++) {
+					fputc('\n', fp);
+					++printed;
+				}
+				printed += fprintf(fp, "%.*s/* WARNING: DWARF"
+						   " offset=%zd, real offset="
+						   "%zd */\n",
+						   indent + 1, tabs,
+						   pos->offset,
+						   last_offset + last_size);
+			} else if (cc_last_size > 0 &&
 			    (size_t)cc_last_size < last_size) {
 				if (!newline++) {
 					fputc('\n', fp);
