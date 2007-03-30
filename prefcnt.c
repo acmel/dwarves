@@ -9,25 +9,11 @@
 
 #include <assert.h>
 #include <dwarf.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "dwarves.h"
-
-static struct option long_options[] = {
-	{ "help",			no_argument,		NULL, 'h' },
-	{ NULL, 0, NULL, 0, }
-};
-
-static void usage(void)
-{
-	fprintf(stderr,
-		"usage: prefcnt [options] <filename>\n"
-		" where: \n"
-		"   -h, --help   usage options\n");
-}
 
 static void refcnt_tag(struct tag *tag, const struct cu *cu);
 
@@ -140,8 +126,10 @@ static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 static int lost_iterator(struct tag *tag, struct cu *cu,
 			 void *cookie __unused)
 {
-	if (tag->refcnt == 0 && tag->decl_file != NULL)
+	if (tag->refcnt == 0 && tag->decl_file != NULL) {
 		tag__fprintf(tag, cu, NULL, NULL, 0, stdout);
+		puts(";\n");
+	}
 	return 0;
 }
 
@@ -152,26 +140,16 @@ static int cu_lost_iterator(struct cu *cu, void *cookie)
 
 int main(int argc, char *argv[])
 {
-	int option, option_index, err;
+	int err;
 	struct cus *cus;
 	const char *filename;
 
-	while ((option = getopt_long(argc, argv, "h",
-				     long_options, &option_index)) >= 0)
-		switch (option) {
-		case 'h': usage(); return EXIT_SUCCESS;
-		default:  usage(); return EXIT_FAILURE;
-		}
-
-	if (optind < argc) {
-		switch (argc - optind) {
-		case 1:	 filename = argv[optind++];	 break;
-		default: usage();			 return EXIT_FAILURE;
-		}
-	} else {
-		usage();
+	if (argc != 2) {
+		fputs("usage: prefcnt <filename>\n", stderr);
 		return EXIT_FAILURE;
 	}
+
+	filename = argv[1];
 
 	dwarves__init(0);
 
@@ -183,7 +161,7 @@ int main(int argc, char *argv[])
 
 	err = cus__load(cus, filename);
 	if (err != 0) {
-		cus__print_error_msg("pdwtags", filename, err);
+		cus__print_error_msg("prefcnt", filename, err);
 		return EXIT_FAILURE;
 	}
 
