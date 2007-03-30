@@ -38,35 +38,21 @@ static void cus__dump_class_tag_names(struct cus *self)
 	cus__for_each_cu(self, cu__dump_class_tag_names, NULL, NULL);
 }
 
-static void usage(void)
-{
-	fprintf(stderr, "usage: dtagnames <filename>\n");
-}
-
 int main(int argc, char *argv[])
 {
-	int err;
-	struct cus *cus;
-	char *filename = argv[1];
+	int err, remaining;
+	struct cus *cus = cus__new(NULL, NULL);
 
-	if (argc != 2) {
-		usage();
-		return EXIT_FAILURE;
-	}
-
-	dwarves__init(0);
-
-	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
 		fputs("dtagnames: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
 
-	err = cus__load(cus, filename);
-	if (err != 0) {
-		cus__print_error_msg("dtagnames", filename, err);
+	err = cus__loadfl(cus, NULL, argc, argv, &remaining);
+	if (err != 0)
 		return EXIT_FAILURE;
-	}
+
+	dwarves__init(0);
 
 	cus__dump_class_tag_names(cus);
 	print_malloc_stats();
