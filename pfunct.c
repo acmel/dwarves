@@ -325,7 +325,7 @@ static const struct argp_option pfunct__options[] = {
 		.doc  = "functions that have CLASS pointer parameters",
 	},
 	{
-		.key  = 'e',
+		.key  = 'E',
 		.name = "externals",
 		.doc  = "show just external functions",
 	},
@@ -400,11 +400,12 @@ static char *function_name;
 static int show_total_inline_expansion_stats;
 
 static error_t pfunct__options_parser(int key, char *arg,
-				      struct argp_state *state __unused)
+				      struct argp_state *state)
 {
 	switch (key) {
+	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
 	case 'c': class_name = arg;			 break;
-	case 'e': show_externals = 1;			 break;
+	case 'E': show_externals = 1;			 break;
 	case 's': formatter = fn_stats_size_fmtr;	 break;
 	case 'S': formatter = fn_stats_variables_fmtr;	 break;
 	case 'p': formatter = fn_stats_nr_parms_fmtr;	 break;
@@ -434,37 +435,25 @@ static struct argp pfunct__argp = {
 int main(int argc, char *argv[])
 {
 	int remaining, err;
-	const char *filename;
-	struct cus *cus;
+	struct cus *cus = cus__new(NULL, NULL);
 
-	argp_parse(&pfunct__argp, argc, argv, 0, &remaining, NULL);
-
-	if (remaining < argc) {
-		switch (argc - remaining) {
-		case 1:	 filename = argv[remaining++];	 break;
-		case 2:	 filename = argv[remaining++];
-			 function_name = argv[remaining++]; break;
-		default: goto failure;
-		}
-	} else {
-failure:
-		argp_help(&pfunct__argp, stderr, ARGP_HELP_SEE, "pfunct");
-		return EXIT_FAILURE;
-	}
-
-	dwarves__init(0);
-
-	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
 		fputs("pfunct: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
 
-	err = cus__load(cus, filename);
-	if (err != 0) {
-		cus__print_error_msg("pfunct", filename, err);
+	err = cus__loadfl(cus, &pfunct__argp, argc, argv, &remaining);
+	if (err != 0)
 		return EXIT_FAILURE;
+
+	switch (argc - remaining) {
+	case 0:  break;
+	case 1:	 function_name = argv[remaining++]; break;
+	default: argp_help(&pfunct__argp, stderr, ARGP_HELP_SEE, "pfunct");
+		 return EXIT_FAILURE;
 	}
+
+	dwarves__init(0);
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, NULL);
 
