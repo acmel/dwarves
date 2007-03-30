@@ -287,9 +287,10 @@ static const struct argp_option pglobal__options[] = {
 static int walk_var, walk_fun;
 
 static error_t pglobal__options_parser(int key, char *arg __unused,
-				      struct argp_state *state __unused)
+				      struct argp_state *state)
 {
 	switch (key) {
+	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
 	case 'v': walk_var = 1;		break;
 	case 'f': walk_fun = 1;		break;
 	case 'V': verbose = 1;		break;
@@ -309,36 +310,18 @@ static struct argp pglobal__argp = {
 int main(int argc, char *argv[])
 {
 	int remaining, err;
-	char *filename;
-	struct cus *cus;
-
-	argp_parse(&pglobal__argp, argc, argv, 0, &remaining, NULL);
-
-	if (remaining < argc) {
-		switch (argc - remaining) {
-		case 1: filename = argv[remaining++];	break;
-		goto failure;
-		}
-	} else {
-failure:
-		argp_help(&pglobal__argp, stderr, ARGP_HELP_SEE, "pglobal");
-		return EXIT_FAILURE;
-	}
-
-	dwarves__init(0);
-
-	cus = cus__new(NULL, NULL);
+	struct cus *cus = cus__new(NULL, NULL);
 
 	if (cus == NULL) {
 		fputs("pglobal: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
 
-	err = cus__load(cus, filename);
-	if (err != 0) {
-		cus__print_error_msg("pglobal", filename, err);
+	err = cus__loadfl(cus, &pglobal__argp, argc, argv, &remaining);
+	if (err != 0)
 		return EXIT_FAILURE;
-	}
+
+	dwarves__init(0);
 
 	if (walk_var) {
 		cus__for_each_cu(cus, cu_extvar_iterator, NULL, NULL);
