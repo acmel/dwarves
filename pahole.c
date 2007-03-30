@@ -374,12 +374,12 @@ static const struct argp_option pahole__options[] = {
 	},
 	{
 		.name = "packable",
-		.key  = 'p',
+		.key  = 'P',
 		.doc  = "show only structs that has holes that can be packed",
 	},
 	{
 		.name = "expand_types",
-		.key  = 'e',
+		.key  = 'E',
 		.doc  = "expand class members",
 	},
 	{
@@ -389,7 +389,7 @@ static const struct argp_option pahole__options[] = {
 	},
 	{
 		.name = "reorganize",
-		.key  = 'k',
+		.key  = 'R',
 		.doc  = "reorg struct trying to kill holes",
 	},
 	{
@@ -458,20 +458,21 @@ static const struct argp_option pahole__options[] = {
 static void (*formatter)(const struct structure *s) = class_formatter;
 
 static error_t pahole__options_parser(int key, char *arg,
-				      struct argp_state *state __unused)
+				      struct argp_state *state)
 {
 	switch (key) {
+	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
 	case 'c': cacheline_size = atoi(arg);		break;
 	case 'H': nr_holes = atoi(arg);			break;
 	case 'B': nr_bit_holes = atoi(arg);		break;
-	case 'e': expand_types = 1;			break;
-	case 'k': reorganize = 1;			break;
+	case 'E': expand_types = 1;			break;
+	case 'R': reorganize = 1;			break;
 	case 'S': show_reorg_steps = 1;			break;
 	case 's': formatter = size_formatter;		break;
 	case 'n': formatter = nr_members_formatter;	break;
 	case 'N': formatter = class_name_len_formatter;	break;
 	case 'm': formatter = nr_methods_formatter;	break;
-	case 'p': show_packable	= 1;			break;
+	case 'P': show_packable	= 1;			break;
 	case 't': formatter = nr_definitions_formatter;	break;
 	case 'a': class__include_anonymous = 1;		break;
 	case 'A': class__include_nested_anonymous = 1;	break;
@@ -503,30 +504,8 @@ int main(int argc, char *argv[])
 {
 	int err;
 	struct cus *cus;
-	char *filename;
 	char *class_name = NULL;
 	int remaining;
-
-	argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL);
-
-	if (remaining < argc) {
-		switch (argc - remaining) {
-		case 1:	filename = argv[remaining++];
-			if (reorganize)
-				goto failure;
-			break;
-		case 2:	filename = argv[remaining++];
-			class_name = argv[remaining++];	break;
-		default:
-			goto failure;
-		}
-	} else {
-failure:
-		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, "pahole");
-		return EXIT_FAILURE;
-	}
-
-	dwarves__init(cacheline_size);
 
 	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
@@ -534,11 +513,19 @@ failure:
 		return EXIT_FAILURE;
 	}
 
-	err = cus__load(cus, filename);
-	if (err != 0) {
-		cus__print_error_msg("pahole", filename, err);
+	err = cus__loadfl(cus, &pahole__argp, argc, argv, &remaining);
+	if (err != 0)
+		return EXIT_FAILURE;
+
+	switch (argc - remaining) {
+	case 0: break;
+	case 1:	class_name = argv[remaining++];	break;
+	default:
+		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, "pahole");
 		return EXIT_FAILURE;
 	}
+
+	dwarves__init(cacheline_size);
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, cu__filter);
 	if (formatter == nr_methods_formatter)
