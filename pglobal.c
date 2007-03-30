@@ -7,12 +7,12 @@
  */
 
 #define _GNU_SOURCE
+#include <argp.h>
 #include <malloc.h>
 #include <search.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <getopt.h>
 #include <unistd.h>
 
 #include "dwarves.h"
@@ -263,48 +263,65 @@ static void free_node(void *nodep)
 	free(*node);
 }
 
-static struct option long_options[] = {
-	{ "variables",		no_argument,		NULL, 'v' },
-	{ "functions",		no_argument,		NULL, 'f' },
-	{ "verbose",		no_argument,		NULL, 'V' },
-	{ NULL, 0, NULL, 0, }
+static const struct argp_option pglobal__options[] = {
+	{
+		.key  = 'v',
+		.name = "variables",
+		.doc  = "show global variables",
+	},
+	{
+		.key  = 'f',
+		.name = "functions",
+		.doc  = "show global functions",
+	},
+	{
+		.key  = 'V',
+		.name = "verbose",
+		.doc  = "be verbose",
+	},
+	{
+		.name = NULL,
+	}
 };
 
-static void usage(void)
+static int walk_var, walk_fun;
+
+static error_t pglobal__options_parser(int key, char *arg __unused,
+				      struct argp_state *state __unused)
 {
-	fprintf(stdout,
-		"usage: pglobal [options] <filename>\n"
-		" where: \n"
-		"   -v, --variables	show global variables\n"
-		"   -f, --functions	show global functions\n"
-		"   -V, --verbose	be verbose\n"
-		"   -h, --help		show usage info\n");
+	switch (key) {
+	case 'v': walk_var = 1;		break;
+	case 'f': walk_fun = 1;		break;
+	case 'V': verbose = 1;		break;
+	default:  return ARGP_ERR_UNKNOWN;
+	}
+	return 0;
 }
+
+static const char pglobal__args_doc[] = "[FILE]";
+
+static struct argp pglobal__argp = {
+	.options  = pglobal__options,
+	.parser	  = pglobal__options_parser,
+	.args_doc = pglobal__args_doc,
+};
 
 int main(int argc, char *argv[])
 {
-	int option, option_index, err;
+	int remaining, err;
 	char *filename;
 	struct cus *cus;
-	int walk_var = 0, walk_fun = 0;
 
-	while ((option = getopt_long(argc, argv, "vfVh",
-				     long_options, &option_index)) >= 0)
-		switch (option) {
-		case 'v': walk_var = 1;		break;
-		case 'f': walk_fun = 1;		break;
-		case 'V': verbose = 1;		break;
-		case 'h': usage();		return EXIT_SUCCESS;
-		default:  usage();		return EXIT_SUCCESS;
-		}
+	argp_parse(&pglobal__argp, argc, argv, 0, &remaining, NULL);
 
-	if (optind < argc) {
-		switch (argc - optind) {
-		case 1: filename = argv[optind++];	break;
-		default: usage();			return EXIT_FAILURE;
+	if (remaining < argc) {
+		switch (argc - remaining) {
+		case 1: filename = argv[remaining++];	break;
+		goto failure;
 		}
 	} else {
-		usage();
+failure:
+		argp_help(&pglobal__argp, stderr, ARGP_HELP_SEE, "pglobal");
 		return EXIT_FAILURE;
 	}
 
