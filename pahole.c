@@ -8,8 +8,7 @@
   published by the Free Software Foundation.
 */
 
-#include <errno.h>
-#include <getopt.h>
+#include <argp.h>
 #include <stdio.h>
 #include <dwarf.h>
 #include <stdarg.h>
@@ -35,6 +34,9 @@ static uint16_t nr_bit_holes;
 static uint8_t show_packable;
 static uint8_t global_verbose;
 static uint8_t expand_types;
+static size_t cacheline_size;
+static int reorganize;
+static int show_reorg_steps;
 
 struct structure {
 	struct list_head   node;
@@ -351,119 +353,176 @@ static int cu_nr_methods_iterator(struct cu *cu, void *cookie)
 				nr_methods__filter);
 }
 
-static struct option long_options[] = {
-	{ "cacheline_size",	required_argument,	NULL, 'c' },
-	{ "class_name_len",	no_argument,		NULL, 'N' },
-	{ "help",		no_argument,		NULL, 'h' },
-	{ "bit_holes",		required_argument,	NULL, 'B' },
-	{ "holes",		required_argument,	NULL, 'H' },
-	{ "nr_members",		no_argument,		NULL, 'n' },
-	{ "sizes",		no_argument,		NULL, 's' },
-	{ "nr_definitions",	no_argument,		NULL, 't' },
-	{ "nr_methods",		no_argument,		NULL, 'm' },
-	{ "exclude",		required_argument,	NULL, 'x' },
-	{ "expand_types",	no_argument,		NULL, 'e' },
-	{ "cu_exclude",		required_argument,	NULL, 'X' },
-	{ "decl_exclude",	required_argument,	NULL, 'D' },
-	{ "anon_include",	no_argument,		NULL, 'a' },
-	{ "nested_anon_include",no_argument,		NULL, 'A' },
-	{ "packable",		no_argument,		NULL, 'p' },
-	{ "reorganize",		no_argument,		NULL, 'k' },
-	{ "show_reorg_steps",	no_argument,		NULL, 'S' },
-	{ "verbose",		no_argument,		NULL, 'V' },
-	{ NULL, 0, NULL, 0, }
+static const struct argp_option pahole__options[] = {
+	{
+		.name = "bit_holes",
+		.key  = 'B',
+		.arg  = "NR_HOLES",
+		.doc  = "Show only structs at least NR_HOLES bit holes"
+	},
+	{
+		.name = "cacheline_size",
+		.key  = 'c',
+		.arg  = "SIZE",
+		.doc  = "set cacheline size to SIZE"
+	},
+	{
+		.name = "holes",
+		.key  = 'H',
+		.arg  = "NR_HOLES",
+		.doc  = "show only structs at least NR_HOLES holes",
+	},
+	{
+		.name = "packable",
+		.key  = 'p',
+		.doc  = "show only structs that has holes that can be packed",
+	},
+	{
+		.name = "expand_types",
+		.key  = 'e',
+		.doc  = "expand class members",
+	},
+	{
+		.name = "nr_members",
+		.key  = 'n',
+		.doc  = "show number of members",
+	},
+	{
+		.name = "reorganize",
+		.key  = 'k',
+		.doc  = "reorg struct trying to kill holes",
+	},
+	{
+		.name = "show_reorg_steps",
+		.key  = 'S',
+		.doc  = "show the struct layout at each reorganization step",
+	},
+	{
+		.name = "class_name_len",
+		.key  = 'N',
+		.doc  = "show size of classes",
+	},
+	{
+		.name = "nr_methods",
+		.key  = 'm',
+		.doc  = "show number of methods",
+	},
+	{
+		.name = "sizes",
+		.key  = 's',
+		.doc  = "show size of classes",
+	},
+	{
+		.name = "nr_definitions",
+		.key  = 't',
+		.doc  = "show how many times struct was defined",
+	},
+	{
+		.name = "decl_exclude",
+		.key  = 'D',
+		.arg  = "PREFIX",
+		.doc  = "exclude classes declared in files with PREFIX",
+	},
+	{
+		.name = "exclude",
+		.key  = 'x',
+		.arg  = "PREFIX",
+		.doc  = "exclude PREFIXed classes",
+	},
+	{
+		.name = "cu_exclude",
+		.key  = 'X',
+		.arg  = "PREFIX",
+		.doc  = "exclude PREFIXed compilation units",
+	},
+	{
+		.name = "anon_include",
+		.key  = 'a',
+		.doc  = "include anonymous classes",
+	},
+	{
+		.name = "nested_anon_include",
+		.key  = 'A',
+		.doc  = "include nested (inside other structs) anonymous classes",
+	},
+	{
+		.name = "verbose",
+		.key  = 'V',
+		.doc  = "be verbose",
+	},
+	{
+		.name = NULL,
+	}
 };
 
-static void usage(void)
+static void (*formatter)(const struct structure *s) = class_formatter;
+
+static error_t pahole__options_parser(int key, char *arg,
+				      struct argp_state *state __unused)
 {
-	fprintf(stderr,
-		"usage: pahole [options] <filename> {<class_name>}\n"
-		" where: \n"
-		"   -h, --help                   show usage info\n"
-		"   -B, --bit_holes <nr_holes>   show only structs at least "
-						"<nr_holes> bit holes\n"
-		"   -H, --holes <nr_holes>       show only structs at least "
-						"<nr_holes> holes\n"
-		"   -p, --packable               show only structs that has "
-						"holes that can be packed\n"
-		"   -c, --cacheline_size <size>  set cacheline size\n"
-		"   -e, --expand_types           expand class members\n"
-		"   -n, --nr_members             show number of members\n"
-		"   -k, --reorganize             reorg struct trying to "
-						"kill holes\n"
-		"   -S, --show_reorg_steps       show the struct layout at "
-						"each reorganization step\n"
-		"   -N, --class_name_len         show size of classes\n"
-		"   -m, --nr_methods             show number of methods\n"
-		"   -s, --sizes                  show size of classes\n"
-		"   -t, --nr_definitions         show how many times struct "
-						"was defined\n"
-		"   -D, --decl_exclude <prefix>  exclude classes declared in "
-						"files with prefix\n"
-		"   -x, --exclude <prefix>       exclude prefixed classes\n"
-		"   -X, --cu_exclude <prefix>    exclude prefixed compilation "
-						"units\n"
-		"   -a, --anon_include           include anonymous classes\n"
-		"   -A, --nested_anon_include    include nested (inside "
-						"other structs)\n"
-		"                                anonymous classes\n"
-		"   -V, --verbose                be verbose\n");
+	switch (key) {
+	case 'c': cacheline_size = atoi(arg);		break;
+	case 'H': nr_holes = atoi(arg);			break;
+	case 'B': nr_bit_holes = atoi(arg);		break;
+	case 'e': expand_types = 1;			break;
+	case 'k': reorganize = 1;			break;
+	case 'S': show_reorg_steps = 1;			break;
+	case 's': formatter = size_formatter;		break;
+	case 'n': formatter = nr_members_formatter;	break;
+	case 'N': formatter = class_name_len_formatter;	break;
+	case 'm': formatter = nr_methods_formatter;	break;
+	case 'p': show_packable	= 1;			break;
+	case 't': formatter = nr_definitions_formatter;	break;
+	case 'a': class__include_anonymous = 1;		break;
+	case 'A': class__include_nested_anonymous = 1;	break;
+	case 'D': decl_exclude_prefix = arg;
+		  decl_exclude_prefix_len = strlen(decl_exclude_prefix);
+							break;
+	case 'x': class__exclude_prefix = arg;
+		  class__exclude_prefix_len = strlen(class__exclude_prefix);
+							break;
+	case 'X': cu__exclude_prefix = arg;
+		  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
+							break;
+	case 'V': global_verbose = 1;			break;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+	return 0;
 }
+
+static const char pahole__args_doc[] = "[FILE] {[CLASS]}";
+
+static struct argp pahole__argp = {
+	.options  = pahole__options,
+	.parser	  = pahole__options_parser,
+	.args_doc = pahole__args_doc,
+};
 
 int main(int argc, char *argv[])
 {
-	int option, option_index, err, reorganize = 0, show_reorg_steps = 0;
+	int err;
 	struct cus *cus;
 	char *filename;
 	char *class_name = NULL;
-	size_t cacheline_size = 0;
-	void (*formatter)(const struct structure *s) = class_formatter;
+	int remaining;
 
-	while ((option = getopt_long(argc, argv, "AaB:c:D:ehH:kmnNpsStVx:X:",
-				     long_options, &option_index)) >= 0)
-		switch (option) {
-		case 'c': cacheline_size = atoi(optarg);  break;
-		case 'H': nr_holes = atoi(optarg);	  break;
-		case 'B': nr_bit_holes = atoi(optarg);	  break;
-		case 'e': expand_types = 1;			break;
-		case 'k': reorganize = 1;			break;
-		case 'S': show_reorg_steps = 1;			break;
-		case 's': formatter = size_formatter;		break;
-		case 'n': formatter = nr_members_formatter;	break;
-		case 'N': formatter = class_name_len_formatter;	break;
-		case 'm': formatter = nr_methods_formatter;	break;
-		case 'p': show_packable	= 1;			break;
-		case 't': formatter = nr_definitions_formatter;	break;
-		case 'a': class__include_anonymous = 1;		break;
-		case 'A': class__include_nested_anonymous = 1;	break;
-		case 'D': decl_exclude_prefix = optarg;
-			  decl_exclude_prefix_len = strlen(decl_exclude_prefix);
-							  break;
-		case 'x': class__exclude_prefix = optarg;
-			  class__exclude_prefix_len = strlen(class__exclude_prefix);
-							  break;
-		case 'X': cu__exclude_prefix = optarg;
-			  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
-							  break;
-		case 'V': global_verbose = 1;		  break;
-		case 'h': usage();			  return EXIT_SUCCESS;
-		default:  usage();			  return EXIT_FAILURE;
-		}
+	argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL);
 
-	if (optind < argc) {
-		switch (argc - optind) {
-		case 1:	filename = argv[optind++];
-			if (reorganize) {
-				usage();
-				return EXIT_FAILURE;
-			}
+	if (remaining < argc) {
+		switch (argc - remaining) {
+		case 1:	filename = argv[remaining++];
+			if (reorganize)
+				goto failure;
 			break;
-		case 2:	filename = argv[optind++];
-			class_name = argv[optind++];	break;
-		default: usage();			return EXIT_FAILURE;
+		case 2:	filename = argv[remaining++];
+			class_name = argv[remaining++];	break;
+		default:
+			goto failure;
 		}
 	} else {
-		usage();
+failure:
+		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, "pahole");
 		return EXIT_FAILURE;
 	}
 
@@ -489,7 +548,7 @@ int main(int argc, char *argv[])
 		struct structure *s = structures__find(class_name);
 
 		if (s == NULL) {
-			printf("struct %s not found!\n", class_name);
+			fprintf(stderr, "struct %s not found!\n", class_name);
 			return EXIT_FAILURE;
 		}
  		if (reorganize) {
@@ -498,7 +557,7 @@ int main(int argc, char *argv[])
 					show_reorg_steps ? 2 : global_verbose;
  			struct class *clone = class__clone(s->class, NULL);
  			if (clone == NULL) {
- 				printf("pahole: out of memory!\n");
+ 				fprintf(stderr, "pahole: out of memory!\n");
  				return EXIT_FAILURE;
  			}
  			class__reorganize(clone, s->cu, reorg_verbose, stdout);
