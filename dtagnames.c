@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 
 	err = cus__load(cus, filename);
 	if (err != 0) {
-		cus__print_error_msg("codiff", filename, err);
+		cus__print_error_msg("dtagnames", filename, err);
 		return EXIT_FAILURE;
 	}
 
