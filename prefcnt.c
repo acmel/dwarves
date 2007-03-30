@@ -140,31 +140,19 @@ static int cu_lost_iterator(struct cu *cu, void *cookie)
 
 int main(int argc, char *argv[])
 {
-	int err;
-	struct cus *cus;
-	const char *filename;
+	int err, remaining;
+	struct cus *cus = cus__new(NULL, NULL);
 
-	if (argc != 2) {
-		fputs("usage: prefcnt <filename>\n", stderr);
-		return EXIT_FAILURE;
-	}
-
-	filename = argv[1];
-
-	dwarves__init(0);
-
-	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
 		fputs("prefcnt: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
 
-	err = cus__load(cus, filename);
-	if (err != 0) {
-		cus__print_error_msg("prefcnt", filename, err);
+	err = cus__loadfl(cus, NULL, argc, argv, &remaining);
+	if (err != 0)
 		return EXIT_FAILURE;
-	}
 
+	dwarves__init(0);
 	cus__for_each_cu(cus, cu_refcnt_iterator, NULL, NULL);
 	cus__for_each_cu(cus, cu_lost_iterator, NULL, NULL);
 
