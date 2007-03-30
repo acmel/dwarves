@@ -17,6 +17,8 @@
 
 #include "list.h"
 
+struct argp;
+
 #ifndef __unused
 #define __unused __attribute__ ((unused))
 #endif
@@ -285,6 +287,8 @@ extern size_t lexblock__fprintf(const struct lexblock *self,
 
 extern struct cus *cus__new(struct list_head *definitions,
 			    struct list_head *fwd_decls);
+extern int cus__loadfl(struct cus *self, struct argp *argp,
+		       int argc, char *argv[], int *remaining);
 extern int cus__load(struct cus *self, const char *filename);
 extern int cus__load_dir(struct cus *self, const char *dirname,
 			 const char *filename_mask, const int recursive);

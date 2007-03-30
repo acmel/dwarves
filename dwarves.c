@@ -3314,13 +3314,17 @@ int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[],
 	Dwfl *dwfl = NULL;
 	Dwarf_Die *cu_die = NULL;
 	Dwarf_Addr dwbias;
-	const struct argp_child argp_children[] = {
-		{ .argp = dwfl_standard_argp(), },
-		{ .argp = NULL }
-	};
 
-	argp->children = argp_children;
-	argp_parse(argp, argc, argv, 0, remaining, &dwfl);
+	if (argp != NULL) {
+		const struct argp_child argp_children[] = {
+			{ .argp = dwfl_standard_argp(), },
+			{ .argp = NULL }
+		};
+		argp->children = argp_children;
+		argp_parse(argp, argc, argv, 0, remaining, &dwfl);
+	} else
+		argp_parse(dwfl_standard_argp(), argc, argv, 0, remaining, &dwfl);
+
 	if (dwfl == NULL)
 		return -1;
 
