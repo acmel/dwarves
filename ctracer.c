@@ -7,7 +7,7 @@
   published by the Free Software Foundation.
 */
 
-#include <getopt.h>
+#include <argp.h>
 #include <limits.h>
 #include <search.h>
 #include <stdio.h>
@@ -588,67 +588,87 @@ static void emit_module_preamble(void)
 	emit_function_defs("jprobe_return");
 }
 
-static struct option long_options[] = {
-	{ "dir",			required_argument,	NULL, 'D' },
-	{ "src_dir",			required_argument,	NULL, 'd' },
-	{ "glob",			required_argument,	NULL, 'g' },
-	{ "kprobes",			required_argument,	NULL, 'k' },
-	{ "recursive",			no_argument,		NULL, 'r' },
-	{ "help",			no_argument,		NULL, 'h' },
-	{ NULL, 0, NULL, 0, }
+static const struct argp_option ctracer__options[] = {
+	{
+		.key  = 'd',
+		.name = "src_dir",
+		.doc  = "generate source files in this directory",
+	},
+	{
+		.key  = 'D',
+		.name = "dir",
+		.doc  = "load files in this directory",
+	},
+	{
+		.key  = 'g',
+		.name = "glob",
+		.doc  = "file mask to load",
+	},
+	{
+		.key  = 'k',
+		.name = "kprobes",
+		.doc  = "kprobes object file",
+	},
+	{
+		.key  = 'r',
+		.name = "recursive",
+		.doc  = "recursively load files",
+	},
+	{
+		.name = NULL,
+	}
 };
 
-static void usage(void)
+static const char *dirname, *glob, *kprobes_filename;
+static char *class_name;
+static int recursive;
+
+static error_t ctracer__options_parser(int key, char *arg,
+				      struct argp_state *state __unused)
 {
-	fprintf(stdout,
-		"usage: ctracer [options] <filename> <class_name>\n"
-		" where: \n"
-		"   -d, --src_dir	generate source files in this "
-				       "directory\n"
-		"   -D, --dir		load files in this directory\n"
-		"   -g, --glob		file mask to load\n"
-		"   -k, --kprobes	kprobes object file\n"
-		"   -r, --recursive	recursively load files\n"
-		"   -h, --help		show this help message\n");
+	switch (key) {
+	case 'd': src_dir = arg;		break;
+	case 'D': dirname = arg;		break;
+	case 'g': glob = arg;			break;
+	case 'k': kprobes_filename = arg;	break;
+	case 'r': recursive = 1;		break;
+	default:  return ARGP_ERR_UNKNOWN;
+	}
+	return 0;
 }
+
+static const char ctracer__args_doc[] = "[FILE] [CLASS]";
+
+static struct argp ctracer__argp = {
+	.options  = ctracer__options,
+	.parser	  = ctracer__options_parser,
+	.args_doc = ctracer__args_doc,
+};
 
 int main(int argc, char *argv[])
 {
-	int option, option_index, err, recursive = 0;
-	const char *filename = NULL, *dirname = NULL, *glob = NULL,
-		   *kprobes_filename = NULL;
-	char *class_name = NULL;
+	int remaining, err;
 	struct tag *class;
 	struct cu *cu;
+	const char *filename;
 	char functions_filename[PATH_MAX];
 	char methods_filename[PATH_MAX];
 	FILE *fp;
 
-	while ((option = getopt_long(argc, argv, "d:D:g:k:rh",
-				     long_options, &option_index)) >= 0)
-		switch (option) {
-		case 'd': src_dir = optarg;		break;
-		case 'D': dirname = optarg;		break;
-		case 'g': glob = optarg;		break;
-		case 'k': kprobes_filename = optarg;	break;
-		case 'r': recursive = 1;		break;
-		case 'h': usage();			return EXIT_SUCCESS;
-		default:  usage();			return EXIT_FAILURE;
-		}
+	argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL);
 
-	if (optind < argc) {
-		switch (argc - optind) {
-		case 1:	 if (kprobes_filename == NULL) {
-				usage();
-				return EXIT_FAILURE;
-			 }
-			 class_name = argv[optind++];	break;
-		case 2:	 filename  = argv[optind++];
-			 class_name = argv[optind++];	break;
-		default: usage();			return EXIT_FAILURE;
+	if (remaining < argc) {
+		switch (argc - remaining) {
+		case 1:	 if (kprobes_filename == NULL)
+				goto failure;
+			 class_name = argv[remaining++];	break;
+		case 2:	 filename  = argv[remaining++];
+			 class_name = argv[remaining++];	break;
+		default: goto failure;
 		}
 	} else {
-		usage();
+failure:
+		argp_help(&ctracer__argp, stderr, ARGP_HELP_SEE, "ctracer");
 		return EXIT_FAILURE;
 	}
 
