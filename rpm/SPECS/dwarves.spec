@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 15
+Release: 16
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -91,6 +91,11 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Fri Mar 30 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- fd3542317508d04e8178c5d391385d2aa50d6fb7
+- Use libdwfl in all tools that handle just one file, codiff and ctracer
+  still need work and are still using plain libdw.
+
 * Sun Feb 25 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - 3c148cd84b74b89663febdefab23356952906502
 - _snprintf routines changed to _fprintf
