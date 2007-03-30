@@ -49,36 +49,21 @@ static void cus__emit_tags(struct cus *self)
 	cus__for_each_cu(self, cu__emit_tags, NULL, NULL);
 }
 
-static void usage(void)
-{
-	printf("usage: pdwtags <filename>\n");
-}
-
 int main(int argc, char *argv[])
 {
-	int err;
-	struct cus *cus;
-	char *filename = argv[1];
+	int err, remaining;
+	struct cus *cus = cus__new(NULL, NULL);
 
-	if (argc != 2) {
-		usage();
-		return EXIT_FAILURE;
-	}
-
-	dwarves__init(0);
-
-	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
 		fputs("pwdtags: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
 
-	err = cus__load(cus, filename);
-	if (err != 0) {
-		cus__print_error_msg("pdwtags", filename, err);
+	err = cus__loadfl(cus, NULL, argc, argv, &remaining);
+	if (err != 0)
 		return EXIT_FAILURE;
-	}
 
+	dwarves__init(0);
 	cus__emit_tags(cus);
 	return EXIT_SUCCESS;
 }
