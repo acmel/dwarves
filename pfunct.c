@@ -8,7 +8,7 @@
   published by the Free Software Foundation.
 */
 
-#include <getopt.h>
+#include <argp.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -317,96 +317,138 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, function_iterator, cookie, NULL);
 }
 
-static struct option long_options[] = {
-	{ "class",			required_argument,	NULL, 'c' },
-	{ "externals",			no_argument,		NULL, 'e' },
-	{ "cc_inlined",			no_argument,		NULL, 'H' },
-	{ "cc_uninlined",		no_argument,		NULL, 'G' },
-	{ "function_name_len",		no_argument,		NULL, 'N' },
-	{ "goto_labels",		no_argument,		NULL, 'g' },
-	{ "inline_expansions",		no_argument,		NULL, 'i' },
-	{ "inline_expansions_stats",	no_argument,		NULL, 'I' },
-	{ "total_inline_stats",		no_argument,		NULL, 't' },
-	{ "help",			no_argument,		NULL, 'h' },
-	{ "nr_parms",			no_argument,		NULL, 'p' },
-	{ "sizes",			no_argument,		NULL, 's' },
-	{ "nr_variables",		no_argument,		NULL, 'S' },
-	{ "variables",			no_argument,		NULL, 'T' },
-	{ "verbose",			no_argument,		NULL, 'V' },
-	{ NULL, 0, NULL, 0, }
+static const struct argp_option pfunct__options[] = {
+	{
+		.key  = 'c',
+		.name = "class",
+		.arg  = "CLASS",
+		.doc  = "functions that have CLASS pointer parameters",
+	},
+	{
+		.key  = 'e',
+		.name = "externals",
+		.doc  = "show just external functions",
+	},
+	{
+		.key  = 'g',
+		.name = "goto_labels",
+		.doc  = "show number of goto labels",
+	},
+	{
+		.key  = 'G',
+		.name = "cc_uninlined",
+		.doc  = "declared inline, uninlined by compiler",
+	},
+	{
+		.key  = 'H',
+		.name = "cc_inlined",
+		.doc  = "not declared inline, inlined by compiler",
+	},
+	{
+		.key  = 'i',
+		.name = "inline_expansions",
+		.doc  = "show inline expansions",
+	},
+	{
+		.key  = 'I',
+		.name = "inline_expansions_stats",
+		.doc  = "show inline expansions stats",
+	},
+	{
+		.key  = 't',
+		.name = "total_inline_stats",
+		.doc  = "show Multi-CU total inline expansions stats",
+	},
+	{
+		.key  = 's',
+		.name = "sizes",
+		.doc  = "show size of functions",
+	},
+	{
+		.key  = 'N',
+		.name = "function_name_len",
+		.doc  = "show size of functions names",
+	},
+	{
+		.key  = 'p',
+		.name = "nr_parms",
+		.doc  = "show number of parameters",
+	},
+	{
+		.key  = 'S',
+		.name = "nr_variables",
+		.doc  = "show number of variables",
+	},
+	{
+		.key  = 'T',
+		.name = "variables",
+		.doc  = "show variables",
+	},
+	{
+		.key  = 'V',
+		.name = "verbose",
+		.doc  = "be verbose",
+	},
+	{
+		.name = NULL,
+	}
 };
 
-static void usage(void)
+static void (*formatter)(const struct fn_stats *f) = fn_stats_fmtr;
+static char *class_name;
+static char *function_name;
+static int show_total_inline_expansion_stats;
+
+static error_t pfunct__options_parser(int key, char *arg,
+				      struct argp_state *state __unused)
 {
-	fprintf(stdout,
-		"usage: pfunct [options] <filename> {<function_name>}\n"
-		" where: \n"
-		"   -c, --class=<class>            functions that have "
-						  "<class> pointer "
-						  "parameters\n"
-		"   -e, --externals                show just external "
-						  "functions\n"
-		"   -g, --goto_labels              show number of goto "
-						  "labels\n"
-		"   -G, --cc_uninlined             declared inline, "
-						  "uninlined by compiler\n"
-		"   -H, --cc_inlined               not declared inline, "
-						  "inlined by compiler\n"
-		"   -i, --inline_expansions        show inline expansions\n"
-		"   -I, --inline_expansions_stats  show inline expansions "
-						  "stats\n"
-		"   -t, --total_inline_stats       show Multi-CU total "
-						  "inline expansions "
-						  "stats\n"
-		"   -s, --sizes                    show size of functions\n"
-		"   -N, --function_name_len        show size of functions "
-						  "names\n"
-		"   -p, --nr_parms                 show number of parameters\n"
-		"   -S, --nr_variables             show number of variables\n"
-		"   -T, --variables                show variables\n"
-		"   -V, --verbose                  be verbose\n");
+	switch (key) {
+	case 'c': class_name = arg;			 break;
+	case 'e': show_externals = 1;			 break;
+	case 's': formatter = fn_stats_size_fmtr;	 break;
+	case 'S': formatter = fn_stats_variables_fmtr;	 break;
+	case 'p': formatter = fn_stats_nr_parms_fmtr;	 break;
+	case 'g': formatter = fn_stats_labels_fmtr;	 break;
+	case 'G': show_cc_uninlined = 1;		 break;
+	case 'H': show_cc_inlined = 1;			 break;
+	case 'i': show_inline_expansions = verbose = 1;	 break;
+	case 'I': formatter = fn_stats_inline_exps_fmtr; break;
+	case 't': show_total_inline_expansion_stats = 1; break;
+	case 'T': show_variables = 1;			 break;
+	case 'N': formatter = fn_stats_name_len_fmtr;	 break;
+	case 'V': verbose = 1;				 break;
+	default:  return ARGP_ERR_UNKNOWN;
+	}
+
+	return 0;
 }
+
+static const char pfunct__args_doc[] = "[FILE] {[FUNCTION]}";
+
+static struct argp pfunct__argp = {
+	.options  = pfunct__options,
+	.parser	  = pfunct__options_parser,
+	.args_doc = pfunct__args_doc,
+};
 
 int main(int argc, char *argv[])
 {
-	int option, option_index, err;
+	int remaining, err;
 	const char *filename;
 	struct cus *cus;
-	char *class_name = NULL;
-	char *function_name = NULL;
-	int show_total_inline_expansion_stats = 0;
-	void (*formatter)(const struct fn_stats *f) = fn_stats_fmtr;
 
-	while ((option = getopt_long(argc, argv, "c:egGHiINpsStTV",
-				     long_options, &option_index)) >= 0)
-		switch (option) {
-		case 'c': class_name = optarg;			break;
-		case 'e': show_externals = 1;			break;
-		case 's': formatter = fn_stats_size_fmtr;	break;
-		case 'S': formatter = fn_stats_variables_fmtr;	break;
-		case 'p': formatter = fn_stats_nr_parms_fmtr;	break;
-		case 'g': formatter = fn_stats_labels_fmtr;	break;
-		case 'G': show_cc_uninlined = 1;		break;
-		case 'H': show_cc_inlined = 1;			break;
-		case 'i': show_inline_expansions = verbose = 1;	break;
-		case 'I': formatter = fn_stats_inline_exps_fmtr; break;
-		case 't': show_total_inline_expansion_stats = 1; break;
-		case 'T': show_variables = 1;			break;
-		case 'N': formatter = fn_stats_name_len_fmtr;	break;
-		case 'V': verbose = 1;				break;
-		case 'h': usage(); return EXIT_SUCCESS;
-		default:  usage(); return EXIT_FAILURE;
-		}
+	argp_parse(&pfunct__argp, argc, argv, 0, &remaining, NULL);
 
-	if (optind < argc) {
-		switch (argc - optind) {
-		case 1:	 filename = argv[optind++];	 break;
-		case 2:	 filename = argv[optind++];
-			 function_name = argv[optind++]; break;
-		default: usage();			 return EXIT_FAILURE;
+	if (remaining < argc) {
+		switch (argc - remaining) {
+		case 1:	 filename = argv[remaining++];	 break;
+		case 2:	 filename = argv[remaining++];
+			 function_name = argv[remaining++]; break;
+		default: goto failure;
 		}
 	} else {
-		usage();
+failure:
+		argp_help(&pfunct__argp, stderr, ARGP_HELP_SEE, "pfunct");
 		return EXIT_FAILURE;
 	}
 
