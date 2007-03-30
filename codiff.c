@@ -7,23 +7,14 @@
   published by the Free Software Foundation.
 */
 
+#include <argp.h>
 #include <assert.h>
 #include <dwarf.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "dwarves.h"
-
-static struct option long_options[] = {
-	{ "help",			no_argument,		NULL, 'h' },
-	{ "terse_type_changes",		no_argument,		NULL, 't' },
-	{ "structs",			no_argument,		NULL, 's' },
-	{ "functions",			no_argument,		NULL, 'f' },
-	{ "verbose",			no_argument,		NULL, 'V' },
-	{ NULL, 0, NULL, 0, }
-};
 
 static int show_struct_diffs;
 static int show_function_diffs;
@@ -43,19 +34,6 @@ static uint32_t total_cus_changed;
 static uint32_t total_nr_functions_changed;
 static uint32_t total_function_bytes_added;
 static uint32_t total_function_bytes_removed;
-
-static void usage(void)
-{
-	fprintf(stderr,
-		"usage: codiff [options] <old_file> <new_file>\n"
-		" where: \n"
-		"   -h, --help                usage options\n"
-		"   -s, --structs             show struct diffs\n"
-		"   -f, --functions           show function diffs\n"
-		"   -t, --terse_type_changes  show terse type changes\n"
-		"   -V, --verbose             show diffs details\n"
-		" without options all diffs are shown\n");
-}
 
 struct diff_info {
 	const struct tag *tag;
@@ -591,32 +569,71 @@ static void print_total_function_diff(const char *filename)
 	putchar('\n');
 }
 
+static const struct argp_option codiff__options[] = {
+	{
+		.key  = 's',
+		.name = "structs",
+		.doc  = "show struct diffs",
+	},
+	{
+		.key  = 'f',
+		.name = "functions",
+		.doc  = "show function diffs",
+	},
+	{
+		.key  = 't',
+		.name = "terse_type_changes",
+		.doc  = "show terse type changes",
+	},
+	{
+		.key  = 'V',
+		.name = "verbose",
+		.doc  = "show diffs details",
+	},
+	{
+		.name = NULL,
+	}
+};
+
+static error_t codiff__options_parser(int key, char *arg __unused,
+				      struct argp_state *state __unused)
+{
+	switch (key) {
+	case 'f': show_function_diffs = 1;	break;
+	case 's': show_struct_diffs = 1;	break;
+	case 't': show_terse_type_changes = 1;	break;
+	case 'V': verbose = 1;			break;
+	default:  return ARGP_ERR_UNKNOWN;
+	}
+	return 0;
+}
+
+static const char codiff__args_doc[] = "[OLD_FILE] [NEW_FILE]";
+
+static struct argp codiff__argp = {
+	.options  = codiff__options,
+	.parser	  = codiff__options_parser,
+	.args_doc = codiff__args_doc,
+};
+
 int main(int argc, char *argv[])
 {
-	int option, option_index, err;
+	int remaining, err;
 	struct cus *old_cus, *new_cus;
 	const char *old_filename, *new_filename;
 
-	while ((option = getopt_long(argc, argv, "fhstV",
-				     long_options, &option_index)) >= 0)
-		switch (option) {
-		case 'f': show_function_diffs = 1;	break;
-		case 's': show_struct_diffs = 1;	break;
-		case 't': show_terse_type_changes = 1;	break;
-		case 'V': verbose = 1;			break;
-		case 'h': usage(); return EXIT_SUCCESS;
-		default:  usage(); return EXIT_FAILURE;
-		}
+	argp_parse(&codiff__argp, argc, argv, 0, &remaining, NULL);
 
-	if (optind < argc) {
-		switch (argc - optind) {
-		case 2:	 old_filename = argv[optind++];
-			 new_filename = argv[optind++]; break;
+	if (remaining < argc) {
+		switch (argc - remaining) {
+		case 2:	 old_filename = argv[remaining++];
+			 new_filename = argv[remaining++]; break;
 		case 1:
-		default: usage();			 return EXIT_FAILURE;
+		default: goto failure;
 		}
 	} else {
-		usage();
+failure:
+		argp_help(&codiff__argp, stderr, ARGP_HELP_SEE, "codiff");
 		return EXIT_FAILURE;
 	}
 
