@@ -179,7 +179,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 			struct cu *cu)
 {
 	struct tag *new_tag;
-	struct class *new_structure;
+	struct class *new_structure = NULL;
 	size_t len;
 	int32_t diff;
 
