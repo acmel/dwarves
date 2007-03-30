@@ -13,6 +13,8 @@
 #include <assert.h>
 #include <dirent.h>
 #include <dwarf.h>
+#include <argp.h>
+#include <elfutils/libdwfl.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
@@ -3304,6 +3306,40 @@ out_close:
 	close(fd);
 out:
 	return err;
+}
+
+int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[],
+		int *remaining)
+{
+	Dwfl *dwfl = NULL;
+	Dwarf_Die *cu_die = NULL;
+	Dwarf_Addr dwbias;
+	const struct argp_child argp_children[] = {
+		{ .argp = dwfl_standard_argp(), },
+		{ .argp = NULL }
+	};
+
+	argp->children = argp_children;
+	argp_parse(argp, argc, argv, 0, remaining, &dwfl);
+	if (dwfl == NULL)
+		return -1;
+
+	while ((cu_die = dwfl_nextcu(dwfl, cu_die, &dwbias)) != NULL) {
+		Dwarf_Die tmp;
+		struct cu *cu;
+		uint8_t pointer_size, offset_size;
+
+		dwarf_diecu(cu_die, &tmp, &pointer_size, &offset_size);
+
+		cu = cu__new(attr_string(cu_die, DW_AT_name), pointer_size);
+		if (cu == NULL)
+			oom("cu__new");
+		die__process(cu_die, cu);
+		cus__add(self, cu);
+	}
+
+	dwfl_end(dwfl);
+	return 0;
 }
 
 void cus__print_error_msg(const char *progname, const char *filename,
