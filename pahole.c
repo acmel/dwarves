@@ -172,22 +172,21 @@ static struct cu *cu__filter(struct cu *cu)
 	return cu;
 }
 
-static int class__packable(const struct class *self)
+static int class__packable(const struct class *self, const struct cu *cu)
 {
-	struct class_member *pos;
+ 	struct class *clone;
+	size_t savings;
 
 	if (self->nr_holes == 0 && self->nr_bit_holes == 0)
 		return 0;
 
-	list_for_each_entry(pos, &self->type.members, tag.node)
-		if (pos->hole != 0 &&
-		    class__find_bit_hole(self, pos, pos->hole * 8) != NULL)
-			return 1;
-		else if (pos->bit_hole != 0 &&
-			 class__find_bit_hole(self, pos, pos->bit_hole) != NULL)
-			return 1;
-
-	return 0;
+ 	clone = class__clone(self, NULL);
+ 	if (clone == NULL)
+		return 0;
+ 	class__reorganize(clone, cu, 0, stdout);
+	savings = class__size(self) - class__size(clone);
+	class__delete(clone);
+	return savings != 0;
 }
 
 static void class__dupmsg(const struct class *self, const struct cu *cu,
@@ -287,7 +286,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 		return NULL;
 	}
 
-	if (show_packable && !class__packable(class))
+	if (show_packable && !class__packable(class, cu))
 		return NULL;
 
 	return tag;
