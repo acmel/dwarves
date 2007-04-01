@@ -1892,9 +1892,43 @@ static struct class_member *
 				bitfield_head = member;
 		} else
 			bitfield_head = NULL;
-		if (member->hole != 0 &&
-		    class_member__size(member, cu) <= size)
-		    return bitfield_head ? : member;
+		if (member->hole != 0) {
+			const size_t member_size = class_member__size(member, cu);
+			
+			if (member_size != 0 && member_size <= size)
+				return bitfield_head ? : member;
+		}
+	}
+
+	return NULL;
+}
+
+static struct class_member *
+	class__find_last_member_of_size(struct class *class,
+					struct class_member *to,
+					const struct cu *cu, size_t size)
+{
+	struct class_member *member;
+
+	list_for_each_entry_reverse(member, &class->type.members, tag.node) {
+		size_t member_size;
+
+		if (member == to)
+			break;
+
+		if (member->bit_size != 0) {
+			struct class_member *prev =
+					list_entry(member->tag.node.prev,
+						   struct class_member,
+						   tag.node);
+			if (member->bit_size != 0)
+				continue;
+
+		}
+
+		member_size = class_member__size(member, cu);
+		if (member_size != 0 && member_size <= size)
+			return member;
 	}
 
 	return NULL;
@@ -2429,8 +2463,11 @@ struct class *class__reorganize(struct class *self, const struct cu *cu,
 	size_t last_member_size;
 
 	class__fixup_member_types(self, cu, verbose, fp);
+
 	while (class__demote_bitfields(self, cu, verbose, fp))
 		class__reorganize_bitfields(self, cu, verbose, fp);
+	
+	/* Now try to combine holes */
 restart:
 	class__find_holes(self, cu);
 	last_member = list_entry(self->type.members.prev,
@@ -2482,6 +2519,37 @@ restart:
 		}
 	}
 
+	/* Now try to move members at the tail to after holes */
+	if (self->nr_holes == 0)
+		goto out;
+
+	list_for_each_entry(member, &self->type.members, tag.node) {
+		/* See if we have a hole after this member */
+		if (member->hole != 0) {
+			brother = class__find_last_member_of_size(self, member,
+								  cu,
+								  member->hole);
+			if (brother != NULL) {
+				struct class_member *brother_prev =
+					    list_entry(brother->tag.node.prev,
+						       struct class_member,
+						       tag.node);
+				/*
+				 * If it the next member, avoid moving it closer,
+				 * it could be a explicit alignment rule, like
+				 * ____cacheline_aligned_in_smp in the Linux
+				 * kernel.
+				 */
+				if (brother_prev != member) {
+					class__move_member(self, member,
+							   brother, cu, 0,
+							   verbose, fp);
+					goto restart;
+				}
+			}
+		}
+	}
+out:
 	return self;
 }
 
