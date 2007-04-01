@@ -2164,6 +2164,12 @@ static struct tag *cu__find_base_type_of_size(const struct cu *cu,
 		type_name = "short unsigned int"; break;
 	case sizeof(unsigned int):
 		type_name = "unsigned int"; break;
+	case sizeof(unsigned long long):
+		if (cu->addr_size == 8)
+			type_name = "long unsigned int";
+		else
+			type_name = "long long unsigned int";
+		break;
 	default:
 		return NULL;
 	}
