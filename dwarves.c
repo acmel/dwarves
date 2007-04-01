@@ -2011,8 +2011,10 @@ static void class__move_member(struct class *class, struct class_member *dest,
 			 * No, so just add from_size to the padding:
 			 */
 			class->padding += from_size;
-			fprintf(fp, "/* adding %zd bytes from %s to "
-				"the padding */\n", from_size, from->name);
+			if (verbose)
+				fprintf(fp, "/* adding %zd bytes from %s to "
+					"the padding */\n",
+					from_size, from->name);
 		}
 	} else {
 		/*
