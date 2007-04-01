@@ -1939,7 +1939,8 @@ static void class__move_member(struct class *class, struct class_member *dest,
 	/*
 	 * Align 'from' after 'dest':
 	 */
-	const uint16_t offset = dest->hole % from_size;
+	const uint16_t offset = dest->hole % (from_size > cu->addr_size ?
+						cu->addr_size : from_size);
 	/*
 	 * Set new 'from' offset, after 'dest->offset', aligned
 	 */
