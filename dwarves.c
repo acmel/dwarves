@@ -2463,6 +2463,7 @@ restart:
 		}
 	}
 
+	class__find_holes(self, cu);
 	return self;
 }
 
