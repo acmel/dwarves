@@ -2448,9 +2448,22 @@ restart:
 								cu,
 								member->hole);
 			if (brother != NULL) {
-				class__move_member(self, member, brother,
-						   cu, 0, verbose, fp);
-				goto restart;
+				struct class_member *brother_prev =
+					    list_entry(brother->tag.node.prev,
+						       struct class_member,
+						       tag.node);
+				/*
+				 * If it the next member, avoid moving it closer,
+				 * it could be a explicit alignment rule, like
+				 * ____cacheline_aligned_in_smp in the Linux
+				 * kernel.
+				 */
+				if (brother_prev != member) {
+					class__move_member(self, member,
+							   brother, cu, 0,
+							   verbose, fp);
+					goto restart;
+				}
 			}
 			/*
 			 * OK, but is there padding? If so the last member
