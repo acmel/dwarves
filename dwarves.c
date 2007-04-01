@@ -2050,6 +2050,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 	dest->hole = offset;
 
 	if (verbose > 1) {
+		class__find_holes(class, cu);
 		class__fprintf(class, cu, NULL, NULL, 0, 0, 26, 23, 1, fp);
 		fputc('\n', fp);
 	}
@@ -2125,6 +2126,7 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 	from->hole = dest->hole;
 	dest->hole = 0;
 	if (verbose > 1) {
+		class__find_holes(class, cu);
 		class__fprintf(class, cu, NULL, NULL, 0, 0, 26, 23, 1, fp);
 		fputc('\n', fp);
 	}
@@ -2235,6 +2237,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		if (member->bit_hole == 0)
 			--class->nr_bit_holes;
 		if (verbose > 1) {
+			class__find_holes(class, cu);
 			class__fprintf(class, cu, NULL, NULL, 0, 0,
 				       26, 23, 1, fp);
 			fputc('\n', fp);
@@ -2286,6 +2289,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			}
 			some_was_demoted = 1;
 			if (verbose > 1) {
+				class__find_holes(class, cu);
 				class__fprintf(class, cu, NULL, NULL, 0, 0,
 					       26, 23, 1, fp);
 				fputc('\n', fp);
@@ -2361,8 +2365,7 @@ static void class__fixup_bitfield_types(const struct class *self,
  * the reorganizing routines we just do the demotion ourselves, fixing up the
  * sizes.
 */
-static void class__fixup_member_types(const struct class *self,
-				      const struct cu *cu,
+static void class__fixup_member_types(struct class *self, const struct cu *cu,
 				      const uint8_t verbose, FILE *fp)
 {
 	struct class_member *pos, *bitfield_head = NULL;
@@ -2410,6 +2413,7 @@ static void class__fixup_member_types(const struct class *self,
 	if (verbose && fixup_was_done) {
 		fprintf(fp, "/* bitfield types were fixed */\n");
 		if (verbose > 1) {
+			class__find_holes(self, cu);
 			class__fprintf(self, cu, NULL, NULL, 0, 0,
 				       26, 23, 1, fp);
 			fputc('\n', fp);
@@ -2427,6 +2431,7 @@ struct class *class__reorganize(struct class *self, const struct cu *cu,
 	while (class__demote_bitfields(self, cu, verbose, fp))
 		class__reorganize_bitfields(self, cu, verbose, fp);
 restart:
+	class__find_holes(self, cu);
 	last_member = list_entry(self->type.members.prev,
 				 struct class_member, tag.node);
 	last_member_size = class_member__size(last_member, cu);
@@ -2463,7 +2468,6 @@ restart:
 		}
 	}
 
-	class__find_holes(self, cu);
 	return self;
 }
 
