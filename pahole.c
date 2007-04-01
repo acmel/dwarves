@@ -158,7 +158,13 @@ static void print_classes(void (*formatter)(const struct structure *s))
 	struct structure *pos;
 
 	list_for_each_entry(pos, &structures__list, node)
-		formatter(pos);
+		if (show_packable && !global_verbose) {
+			const struct class *c = pos->class;
+			const size_t savings = (class__size(c) -
+						class__size(c->priv));
+			printf("%s: %zd\n", class__name(c), savings);
+		} else
+			formatter(pos);
 }
 
 static struct cu *cu__filter(struct cu *cu)
@@ -172,7 +178,7 @@ static struct cu *cu__filter(struct cu *cu)
 	return cu;
 }
 
-static int class__packable(const struct class *self, const struct cu *cu)
+static int class__packable(struct class *self, const struct cu *cu)
 {
  	struct class *clone;
 	size_t savings;
@@ -185,8 +191,12 @@ static int class__packable(const struct class *self, const struct cu *cu)
 		return 0;
  	class__reorganize(clone, cu, 0, stdout);
 	savings = class__size(self) - class__size(clone);
+	if (savings != 0) {
+		self->priv = clone;
+		return 1;
+	}
 	class__delete(clone);
-	return savings != 0;
+	return 0;
 }
 
 static void class__dupmsg(const struct class *self, const struct cu *cu,
