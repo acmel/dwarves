@@ -132,7 +132,7 @@ static inline struct array_type *tag__array_type(const struct tag *self)
 struct class_member {
 	struct tag	 tag;
 	char		 *name;
-	uint16_t	 offset;
+	uint32_t	 offset;
 	uint8_t		 bit_offset;
 	uint8_t		 bit_size;
 	uint8_t		 bit_hole;	/* If there is a bit hole before the next
