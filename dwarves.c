@@ -2220,7 +2220,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 	struct class_member *member;
 	struct class_member *bitfield_head;
 	const struct tag *old_type_tag, *new_type_tag;
-	size_t current_bitfield_size, size, bytes_needed, new_size;
+	size_t current_bitfield_size = 0, size, bytes_needed, new_size;
 	int some_was_demoted = 0;
 
 	list_for_each_entry(member, &class->type.members, tag.node) {
@@ -2511,6 +2511,7 @@ restart:
 			 */
 			if (self->padding > 0 &&
 			    member != last_member &&
+			    last_member_size != 0 &&
 			    last_member_size <= member->hole) {
 				class__move_member(self, member, last_member,
 						   cu, 1, verbose, fp);
