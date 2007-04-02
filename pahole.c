@@ -160,9 +160,11 @@ static void print_classes(void (*formatter)(const struct structure *s))
 	list_for_each_entry(pos, &structures__list, node)
 		if (show_packable && !global_verbose) {
 			const struct class *c = pos->class;
-			const size_t savings = (class__size(c) -
-						class__size(c->priv));
-			printf("%s: %zd\n", class__name(c), savings);
+			const size_t orig_size = class__size(c);
+			const size_t new_size = class__size(c->priv);
+			const size_t savings = orig_size - new_size;
+			printf("%s: %zd -> %zd: %zd\n", class__name(c),
+			       orig_size, new_size, savings);
 		} else
 			formatter(pos);
 }
