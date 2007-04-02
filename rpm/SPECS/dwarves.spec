@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 16
+Release: 17
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -91,6 +91,12 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Mon Apr  2 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- 1ec66565a12ce7f197cd40e3901ed6be84935781
+- --reorganize improvements
+- --packable uses --reorganize code to show structs that can be packed by
+  reorganization done with --reorganize.
+
 * Fri Mar 30 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - fd3542317508d04e8178c5d391385d2aa50d6fb7
 - Use libdwfl in all tools that handle just one file, codiff and ctracer
