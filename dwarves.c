@@ -2218,7 +2218,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 				   const int verbose, FILE *fp)
 {
 	struct class_member *member;
-	struct class_member *bitfield_head;
+	struct class_member *bitfield_head = NULL;
 	const struct tag *old_type_tag, *new_type_tag;
 	size_t current_bitfield_size = 0, size, bytes_needed, new_size;
 	int some_was_demoted = 0;
