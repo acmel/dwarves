@@ -163,8 +163,8 @@ static void print_classes(void (*formatter)(const struct structure *s))
 			const size_t orig_size = class__size(c);
 			const size_t new_size = class__size(c->priv);
 			const size_t savings = orig_size - new_size;
-			printf("%s: %zd -> %zd: %zd\n", class__name(c),
-			       orig_size, new_size, savings);
+			printf("%-32s %5zd %5zd %5zd\n",
+			       class__name(c), orig_size, new_size, savings);
 		} else
 			formatter(pos);
 }
