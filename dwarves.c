@@ -2239,9 +2239,22 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			current_bitfield_size = 0;
 			bitfield_head = NULL;
 		} else {
-			if (bitfield_head == NULL)
+			if (bitfield_head == NULL) {
 				bitfield_head = member;
-			current_bitfield_size += member->bit_size;
+				current_bitfield_size = member->bit_size;
+			} else if (bitfield_head->offset != member->offset) {
+				/*
+				 * We moved from one bitfield to another, for
+				 * now don't handle this case, just move on to
+				 * the next bitfield, we may well move it to
+				 * another place and then the first bitfield will
+				 * be isolated and will be handled in the next
+				 * pass.
+				 */
+				bitfield_head = member;
+				current_bitfield_size = member->bit_size;
+			} else
+				current_bitfield_size += member->bit_size;
 		}
 
 		/*
