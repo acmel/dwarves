@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 17
+Release: 18
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -91,6 +91,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}.so
 
 %changelog
+* Tue Apr  3 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- f3c4f527f70053e39b402005107ead6cb10e0b4a
+- Fix some --reorganize bugs
+
 * Mon Apr  2 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - 1ec66565a12ce7f197cd40e3901ed6be84935781
 - --reorganize improvements
