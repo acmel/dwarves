@@ -1946,7 +1946,15 @@ static struct class_member *
 		if (member->bit_hole != 0 &&
 		    member->bit_size <= size)
 		    return member;
-
+#if 0
+	/*
+	 * FIXME: Handle the case where the bit padding is on the same bitfield
+	 * that we're looking, i.e. we can't combine a bitfield with itself,
+	 * perhaps we should tag bitfields with a sequential, clearly marking
+	 * each of the bitfields in advance, so that all the algoriths that
+	 * have to deal with bitfields, moving them around, demoting, etc, can
+	 * be simplified.
+	 */
 	/*
 	 * Now look if the last member is a one member bitfield,
 	 * i.e. if we have bit_padding
@@ -1954,7 +1962,7 @@ static struct class_member *
 	if (class->bit_padding != 0)
 		return list_entry(class->type.members.prev,
 				  struct class_member, tag.node);
-
+#endif
 	return NULL;
 }
 
