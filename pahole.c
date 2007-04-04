@@ -160,6 +160,7 @@ static void print_classes(void (*formatter)(const struct structure *s))
 	list_for_each_entry(pos, &structures__list, node)
 		if (show_packable && !global_verbose) {
 			const struct class *c = pos->class;
+			const struct tag *t = class__tag(c);
 			const size_t orig_size = class__size(c);
 			const size_t new_size = class__size(c->priv);
 			const size_t savings = orig_size - new_size;
@@ -169,12 +170,17 @@ static void print_classes(void (*formatter)(const struct structure *s))
 			if (name == NULL) {
 				const struct tag *tdef =
 				      cu__find_first_typedef_of_type(pos->cu,
-						     class__tag(pos->class)->id);
+				      				     t->id);
 				if (tdef != NULL)
 					name = class__name(tag__class(tdef));
 			}
-			printf("%-32s %5zd %5zd %5zd\n",
-			       name, orig_size, new_size, savings);
+			if (name != NULL)
+				printf("%-32s %5zd %5zd %5zd\n",
+				       name, orig_size, new_size, savings);
+			else
+				printf("%s:%d %5zd %5zd %5zd\n",
+				       t->decl_file, t->decl_line,
+				       orig_size, new_size, savings);
 		} else
 			formatter(pos);
 }
