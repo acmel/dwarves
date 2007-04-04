@@ -289,10 +289,18 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 	if (!class__include_anonymous && name == NULL)
 		return NULL;
 
-	if (class__exclude_prefix != NULL && name &&
-	    strncmp(class__exclude_prefix, name,
-		    class__exclude_prefix_len) == 0)
-		return NULL;
+	if (class__exclude_prefix != NULL) {
+		if (name == NULL) {
+			const struct tag *tdef =
+				cu__find_first_typedef_of_type(cu, tag->id);
+			if (tdef != NULL)
+				name = class__name(tag__class(tdef));
+		}
+
+		if (name != NULL && strncmp(class__exclude_prefix, name,
+					    class__exclude_prefix_len) == 0)
+			return NULL;
+	}
 
 	if (decl_exclude_prefix != NULL &&
 	    (tag->decl_file == NULL ||
