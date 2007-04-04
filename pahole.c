@@ -503,7 +503,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	return 0;
 }
 
-static const char pahole__args_doc[] = "[FILE] {[CLASS]}";
+static const char pahole__args_doc[] = "-e [FILE] {[CLASS]}";
 
 static struct argp pahole__argp = {
 	.options  = pahole__options,

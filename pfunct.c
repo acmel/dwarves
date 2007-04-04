@@ -424,7 +424,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 	return 0;
 }
 
-static const char pfunct__args_doc[] = "[FILE] {[FUNCTION]}";
+static const char pfunct__args_doc[] = "-e [FILE] {[FUNCTION]}";
 
 static struct argp pfunct__argp = {
 	.options  = pfunct__options,
