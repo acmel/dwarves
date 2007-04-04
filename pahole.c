@@ -71,10 +71,25 @@ static struct structure *structures__find(const char *name)
 		return NULL;
 
 	list_for_each_entry(pos, &structures__list, node) {
-		const char *class_name = class__name(pos->class);
+		const struct class *c = pos->class;
+		const char *class_name = class__name(c);
 
-		if (class_name != NULL &&
-		    strcmp(class__name(pos->class), name) == 0)
+		if (class_name == NULL) {
+			if (class__include_anonymous) {
+				const struct tag *tdef =
+				      cu__find_first_typedef_of_type(pos->cu,
+							   class__tag(c)->id);
+				if (tdef == NULL)
+					continue;
+
+				class_name = class__name(tag__class(tdef));
+				if (class_name == NULL)
+					continue;
+			} else
+				continue;
+		}
+
+		if (strcmp(class_name, name) == 0)
 			return pos;
 	}
 
