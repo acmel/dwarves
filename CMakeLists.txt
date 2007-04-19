@@ -21,7 +21,7 @@ set(CMAKE_BUILD_TYPE debug)
 
 find_package(DWARF REQUIRED)
 
-_set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}/usr/${__LIB}" "libdir")
+_set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${__LIB}" "libdir")
 
 set(dwarves_LIB_SRCS dwarves.c)
 add_library(dwarves SHARED ${dwarves_LIB_SRCS})
@@ -61,10 +61,11 @@ add_executable(prefcnt ${prefcnt_SRCS})
 target_link_libraries(prefcnt dwarves)
 
 install(TARGETS codiff ctracer dtagnames pahole pdwtags
-		pfunct pglobal prefcnt RUNTIME DESTINATION /usr/bin)
+		pfunct pglobal prefcnt RUNTIME DESTINATION
+		${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
-install(FILES dwarves.h DESTINATION /usr/include)
-install(FILES ostra/ostra-cg DESTINATION /usr/bin)
+install(FILES dwarves.h DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+install(FILES ostra/ostra-cg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(FILES ostra/python/ostra.py DESTINATION ${LIB_INSTALL_DIR}/ctracer/python)
 install(FILES lib/Makefile lib/ctracer_jprobe.c
 	      lib/ctracer_relay.c lib/ctracer_relay.h

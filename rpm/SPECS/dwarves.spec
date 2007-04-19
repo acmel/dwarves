@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 18
+Release: 19
 License: GPL
 Summary: Dwarf Tools
 Group: Base
@@ -48,7 +48,7 @@ DWARF processing library development files
 %setup -q -c -n %{name}-%{version}
 
 %build
-cmake -D __LIB=%{_lib} .
+cmake -D__LIB=%{_lib} -DCMAKE_INSTALL_PREFIX=/usr .
 make
 
 %install
