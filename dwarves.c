@@ -3425,12 +3425,68 @@ out:
 	return err;
 }
 
-int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[],
-		int *remaining)
+static const struct argp_option cus__check_executable_options[] = {
+	{
+		.key = 'e',
+	},
+	{
+		.key = '?',
+		.name = "help",
+	},
+	{
+		.key = '?',
+		.name = "usage",
+	},
+	{
+		.name = NULL,
+	}
+};
+
+static error_t cus__check_executable_parser(int key, char *arg __unused,
+					    struct argp_state *state)
+{
+	if (key == 'e' || key == '?')
+		*(int *)state->input = 1;
+
+	return 0;
+}
+
+static const struct argp cus__check_executable_argp = {
+	.options = cus__check_executable_options,
+	.parser	 = cus__check_executable_parser,
+};
+
+int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
 {
 	Dwfl *dwfl = NULL;
 	Dwarf_Die *cu_die = NULL;
 	Dwarf_Addr dwbias;
+	int found_executable_option = 0;
+	char **new_argv = NULL;
+	int err = -1;
+
+	if (argc == 1) {
+		argp_help(argp ? : dwfl_standard_argp(), stderr,
+			  ARGP_HELP_SEE, argv[0]);
+		return -1;
+	}
+
+	argp_parse(&cus__check_executable_argp, argc, argv, ARGP_SILENT,
+		   NULL, &found_executable_option);
+
+	if (!found_executable_option) {
+		new_argv = malloc((argc + 2) * sizeof(char *));
+		if (new_argv == NULL) {
+			fprintf(stderr, "%s: not enough memory!\n", __func__);
+			return -1;
+		}
+		memcpy(new_argv, argv, (argc - 1) * sizeof(char *));
+		new_argv[argc - 1] = "-e";
+		new_argv[argc] = argv[argc - 1];
+		new_argv[argc + 1] = NULL;
+		argv = new_argv;
+		argc++;
+	}
 
 	if (argp != NULL) {
 		const struct argp_child argp_children[] = {
@@ -3438,12 +3494,12 @@ int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[],
 			{ .argp = NULL }
 		};
 		argp->children = argp_children;
-		argp_parse(argp, argc, argv, 0, remaining, &dwfl);
+		argp_parse(argp, argc, argv, 0, NULL, &dwfl);
 	} else
-		argp_parse(dwfl_standard_argp(), argc, argv, 0, remaining, &dwfl);
+		argp_parse(dwfl_standard_argp(), argc, argv, 0, NULL, &dwfl);
 
 	if (dwfl == NULL)
-		return -1;
+		goto out;
 
 	while ((cu_die = dwfl_nextcu(dwfl, cu_die, &dwbias)) != NULL) {
 		Dwarf_Die tmp;
@@ -3460,7 +3516,10 @@ int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[],
 	}
 
 	dwfl_end(dwfl);
-	return 0;
+	err = 0;
+out:
+	free(new_argv);
+	return err;
 }
 
 void cus__print_error_msg(const char *progname, const char *filename,

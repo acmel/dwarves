@@ -140,7 +140,7 @@ static int cu_lost_iterator(struct cu *cu, void *cookie)
 
 int main(int argc, char *argv[])
 {
-	int err, remaining;
+	int err;
 	struct cus *cus = cus__new(NULL, NULL);
 
 	if (cus == NULL) {
@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, NULL, argc, argv, &remaining);
+	err = cus__loadfl(cus, NULL, argc, argv);
 	if (err != 0)
 		return EXIT_FAILURE;
 

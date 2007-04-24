@@ -37,6 +37,7 @@ static uint8_t expand_types;
 static size_t cacheline_size;
 static int reorganize;
 static int show_reorg_steps;
+static char *class_name;
 
 struct structure {
 	struct list_head   node;
@@ -72,9 +73,9 @@ static struct structure *structures__find(const char *name)
 
 	list_for_each_entry(pos, &structures__list, node) {
 		const struct class *c = pos->class;
-		const char *class_name = class__name(c);
+		const char *cname = class__name(c);
 
-		if (class_name == NULL) {
+		if (cname == NULL) {
 			if (class__include_anonymous) {
 				const struct tag *tdef =
 				      cu__find_first_typedef_of_type(pos->cu,
@@ -82,14 +83,14 @@ static struct structure *structures__find(const char *name)
 				if (tdef == NULL)
 					continue;
 
-				class_name = class__name(tag__class(tdef));
-				if (class_name == NULL)
+				cname = class__name(tag__class(tdef));
+				if (cname == NULL)
 					continue;
 			} else
 				continue;
 		}
 
-		if (strcmp(class_name, name) == 0)
+		if (strcmp(cname, name) == 0)
 			return pos;
 	}
 
@@ -417,6 +418,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "set cacheline size to SIZE"
 	},
 	{
+		.name = "class_name",
+		.key  = 'C',
+		.arg  = "CLASS_NAME",
+		.doc  = "Show just this class"
+	},
+	{
 		.name = "holes",
 		.key  = 'H',
 		.arg  = "NR_HOLES",
@@ -513,6 +520,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	switch (key) {
 	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
 	case 'c': cacheline_size = atoi(arg);		break;
+	case 'C': class_name = arg;			break;
 	case 'H': nr_holes = atoi(arg);			break;
 	case 'B': nr_bit_holes = atoi(arg);		break;
 	case 'E': expand_types = 1;			break;
@@ -542,7 +550,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	return 0;
 }
 
-static const char pahole__args_doc[] = "-e [FILE] {[CLASS]}";
+static const char pahole__args_doc[] = "[FILE]";
 
 static struct argp pahole__argp = {
 	.options  = pahole__options,
@@ -554,8 +562,6 @@ int main(int argc, char *argv[])
 {
 	int err;
 	struct cus *cus;
-	char *class_name = NULL;
-	int remaining;
 
 	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
@@ -563,17 +569,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, &pahole__argp, argc, argv, &remaining);
+	err = cus__loadfl(cus, &pahole__argp, argc, argv);
 	if (err != 0)
 		return EXIT_FAILURE;
-
-	switch (argc - remaining) {
-	case 0: break;
-	case 1:	class_name = argv[remaining++];	break;
-	default:
-		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, "pahole");
-		return EXIT_FAILURE;
-	}
 
 	dwarves__init(cacheline_size);
 

@@ -330,6 +330,12 @@ static const struct argp_option pfunct__options[] = {
 		.doc  = "show just external functions",
 	},
 	{
+		.key  = 'f',
+		.name = "function",
+		.arg  = "FUNCTION",
+		.doc  = "show just FUNCTION",
+	},
+	{
 		.key  = 'g',
 		.name = "goto_labels",
 		.doc  = "show number of goto labels",
@@ -405,6 +411,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 	switch (key) {
 	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
 	case 'c': class_name = arg;			 break;
+	case 'f': function_name = arg;			 break;
 	case 'E': show_externals = 1;			 break;
 	case 's': formatter = fn_stats_size_fmtr;	 break;
 	case 'S': formatter = fn_stats_variables_fmtr;	 break;
@@ -434,7 +441,7 @@ static struct argp pfunct__argp = {
 
 int main(int argc, char *argv[])
 {
-	int remaining, err;
+	int err;
 	struct cus *cus = cus__new(NULL, NULL);
 
 	if (cus == NULL) {
@@ -442,16 +449,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, &pfunct__argp, argc, argv, &remaining);
+	err = cus__loadfl(cus, &pfunct__argp, argc, argv);
 	if (err != 0)
 		return EXIT_FAILURE;
-
-	switch (argc - remaining) {
-	case 0:  break;
-	case 1:	 function_name = argv[remaining++]; break;
-	default: argp_help(&pfunct__argp, stderr, ARGP_HELP_SEE, "pfunct");
-		 return EXIT_FAILURE;
-	}
 
 	dwarves__init(0);
 
