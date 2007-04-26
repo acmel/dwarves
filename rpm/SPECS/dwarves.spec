@@ -3,19 +3,15 @@
 
 Name: dwarves
 Version: 0
-Release: 19
+Release: 20
 License: GPL
 Summary: Dwarf Tools
-Group: Base
+Group: Development/Tools
 URL: http://oops.ghostprotocols.net:81/blog
 Source: pahole-%{version}.tar.bz2
 BuildRequires: cmake
-BuildRequires: binutils
 BuildRequires: elfutils-devel
-BuildRequires: gcc
-BuildRequires: glibc-devel
-BuildRequires: make
-BuildRoot: %{_tmppath}/%{name}-%{version}-acme
+BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 %description
 dwarves is a set of tools that use the DWARF debugging information inserted in
@@ -32,14 +28,14 @@ functions, inlines, decisions made by the compiler about inlining, etc.
 
 %package -n %{libname}%{libver}
 Summary: DWARF processing library
-Group: Libraries
+Group: Development/Libraries
 
 %description -n %{libname}%{libver}
 DWARF processing library
 
 %package -n %{libname}-devel
 Summary: DWARF processing library development files
-Group: Development
+Group: Development/Libraries
 
 %description -n %{libname}-devel
 DWARF processing library development files
@@ -48,14 +44,18 @@ DWARF processing library development files
 %setup -q -c -n %{name}-%{version}
 
 %build
-cmake -D__LIB=%{_lib} -DCMAKE_INSTALL_PREFIX=/usr .
-make
+cmake -D__LIB=%{_lib} -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE="MinSizeRel" .
+make %{?_smp_mflags}
 
 %install
 rm -Rf %{buildroot}
 mkdir -p %{buildroot}{%{_libdir},%{_bindir},%{_includedir},%{_libdir}/ctracer}
 
 make DESTDIR=%{buildroot} install
+
+%post -n %{libname}%{libver} -p /sbin/ldconfig
+
+%postun -n %{libname}%{libver} -p /sbin/ldconfig
 
 %clean
 rm -rf %{buildroot}
@@ -74,12 +74,13 @@ rm -rf %{buildroot}
 %{_bindir}/prefcnt
 %{_bindir}/ostra-cg
 %dir %{_libdir}/ctracer
+%dir %{_libdir}/ctracer/python
+%defattr(0644,root,root,0755)
 %{_libdir}/ctracer/Makefile
 %{_libdir}/ctracer/ctracer_jprobe.c
 %{_libdir}/ctracer/ctracer_relay.c
 %{_libdir}/ctracer/ctracer_relay.h
-%dir %{_libdir}/ctracer/python
-%{_libdir}/ctracer/python/ostra.py*
+%attr(0755,root,root) %{_libdir}/ctracer/python/ostra.py*
 
 %files -n %{libname}%{libver}
 %defattr(0644,root,root,0755)
@@ -87,6 +88,7 @@ rm -rf %{buildroot}
 
 %files -n %{libname}-devel
 %defattr(0644,root,root,0755)
+%doc MANIFEST README
 %{_includedir}/dwarves.h
 %{_libdir}/%{libname}.so
 
