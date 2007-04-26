@@ -33,11 +33,12 @@ Group: Development/Libraries
 %description -n %{libname}%{libver}
 DWARF processing library
 
-%package -n %{libname}-devel
+%package -n %{libname}%{libver}-devel
 Summary: DWARF processing library development files
 Group: Development/Libraries
+Requires: %{libname}%{libver} = %{version}-%{release}
 
-%description -n %{libname}-devel
+%description -n %{libname}%{libver}-devel
 DWARF processing library development files
 
 %prep
@@ -86,7 +87,7 @@ rm -rf %{buildroot}
 %defattr(0644,root,root,0755)
 %{_libdir}/%{libname}.so.*
 
-%files -n %{libname}-devel
+%files -n %{libname}%{libver}-devel
 %defattr(0644,root,root,0755)
 %doc MANIFEST README
 %{_includedir}/dwarves.h
