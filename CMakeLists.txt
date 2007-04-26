@@ -17,7 +17,11 @@ endmacro(_set_fancy)
 # before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
-set(CMAKE_BUILD_TYPE debug)
+if (NOT CMAKE_BUILD_TYPE)
+	set (CMAKE_BUILD_TYPE Debug CACHE STRING
+	     "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel."
+	     FORCE)
+endif (NOT CMAKE_BUILD_TYPE)
 
 find_package(DWARF REQUIRED)
 
