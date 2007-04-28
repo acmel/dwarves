@@ -1145,12 +1145,13 @@ static size_t type__fprintf(struct tag *type, const char *name,
 	char tbf[128];
 	struct type *ctype;
 	size_t printed = 0;
-	int typedef_expanded = 0;
 
 	if (type == NULL)
 		goto out_type_not_found;
 
 	if (expand_types) {
+		int typedef_expanded = 0;
+
 		while (type->tag == DW_TAG_typedef) {
 			ctype = tag__type(type);
 			if (typedef_expanded)
