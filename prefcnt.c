@@ -71,10 +71,27 @@ static void refcnt_tag(struct tag *tag, const struct cu *cu)
 			refcnt_member(member, cu);
 }
 
+static void refcnt_lexblock(const struct lexblock *lexblock, const struct cu *cu)
+{
+	struct tag *pos;
+
+	list_for_each_entry(pos, &lexblock->tags, node)
+		switch (pos->tag) {
+		case DW_TAG_variable:
+			refcnt_variable(tag__variable(pos), cu);
+			break;
+		case DW_TAG_inlined_subroutine:
+			refcnt_inline_expansion(tag__inline_expansion(pos), cu);
+			break;
+		case DW_TAG_lexical_block:
+			refcnt_lexblock(tag__lexblock(pos), cu);
+			break;
+		}
+}
+
 static void refcnt_function(struct function *function, const struct cu *cu)
 {
 	struct parameter *parameter;
-	struct tag *pos;
 
 	function->proto.tag.refcnt++;
 
@@ -88,15 +105,7 @@ static void refcnt_function(struct function *function, const struct cu *cu)
 	list_for_each_entry(parameter, &function->proto.parms, tag.node)
 		refcnt_parameter(parameter, cu);
 
-	list_for_each_entry(pos, &function->lexblock.tags, node)
-		switch (pos->tag) {
-		case DW_TAG_variable:
-			refcnt_variable(tag__variable(pos), cu);
-			break;
-		case DW_TAG_inlined_subroutine:
-			refcnt_inline_expansion(tag__inline_expansion(pos), cu);
-			break;
-		}
+	refcnt_lexblock(&function->lexblock, cu);
 }
 
 static int refcnt_function_iterator(struct function *function,
@@ -111,7 +120,7 @@ static int refcnt_tag_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
 	if (tag->tag == DW_TAG_structure_type)
 		class__find_holes(tag__class(tag), cu);
-	else if (tag->tag == DW_TAG_structure_type)
+	else if (tag->tag == DW_TAG_subprogram)
 		refcnt_function_iterator(tag__function(tag), cu, cookie);
 
 	return 0;
