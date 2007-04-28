@@ -138,6 +138,10 @@ static void class_formatter(const struct structure *self)
 	struct tag *typedef_alias = NULL;
 	struct tag *tag = class__tag(self->class);
 	const char *name = class__name(self->class);
+	struct conf_fprintf conf = {
+		.expand_types = expand_types,
+		.emit_stats   = 1,
+	};
 
 	if (name == NULL) {
 		/*
@@ -160,11 +164,12 @@ static void class_formatter(const struct structure *self)
 
 	if (typedef_alias != NULL) {
 		const struct type *tdef = tag__type(typedef_alias);
-		tag__fprintf(tag, self->cu, "typedef", tdef->name, 0,
-			     expand_types, stdout);
-	} else
-		tag__fprintf(tag, self->cu, NULL, NULL, 0,
-			     expand_types, stdout);
+
+		conf.prefix = "typedef";
+		conf.suffix = tdef->name;
+	}
+
+	tag__fprintf(tag, self->cu, &conf, stdout);
 
 	printf("   /* definitions: %u */\n", self->nr_files);
 	putchar('\n');
@@ -582,6 +587,10 @@ int main(int argc, char *argv[])
 
 	if (class_name != NULL) {
 		struct structure *s = structures__find(class_name);
+		struct conf_fprintf conf = {
+			.expand_types = expand_types,
+			.emit_stats   = 1,
+		};
 
 		if (s == NULL) {
 			fprintf(stderr, "struct %s not found!\n", class_name);
@@ -603,8 +612,7 @@ int main(int argc, char *argv[])
 				if (show_reorg_steps)
 					puts("/* Final reorganized struct: */");
 			}
- 			tag__fprintf(class__tag(clone), s->cu, NULL, NULL, 0,
-				     0, stdout);
+ 			tag__fprintf(class__tag(clone), s->cu, &conf, stdout);
 			if (savings != 0) {
 				const size_t cacheline_savings =
 				      (tag__nr_cachelines(class__tag(s->class),
@@ -622,8 +630,7 @@ int main(int argc, char *argv[])
 				puts("! */");
 			}
  		} else
- 			tag__fprintf(class__tag(s->class), s->cu, NULL, NULL,
-				     0, expand_types, stdout);
+ 			tag__fprintf(class__tag(s->class), s->cu, &conf, stdout);
 	} else
 		print_classes(formatter);
 

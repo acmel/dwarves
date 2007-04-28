@@ -96,6 +96,12 @@ const char *dwarf_tag_name(const uint32_t tag)
 	return "INVALID";
 }
 
+static const struct conf_fprintf conf_fprintf__defaults = {
+	.name_spacing = 23,
+	.type_spacing = 26,
+	.emit_stats   = 1,
+};
+
 static const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
 static size_t cacheline_size;
@@ -425,22 +431,23 @@ static size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 }
 
 static size_t enumeration__fprintf(const struct tag *tag_self,
-				   const char *suffix, uint8_t indent,
-				   FILE *fp)
+				   const struct conf_fprintf *conf, FILE *fp)
 {
 	const struct type *self = tag__type(tag_self);
 	struct enumerator *pos;
 	size_t printed = fprintf(fp, "enum%s%s {\n", self->name ? " " : "",
 				 self->name ?: "");
+	size_t indent = conf->indent;
 
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
+
 	list_for_each_entry(pos, &self->members, tag.node)
 		printed += fprintf(fp, "%.*s\t%s = %u,\n", indent, tabs,
 				   pos->name, pos->value);
 
 	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
-				 suffix ? " " : "", suffix ?: "");
+				 conf->suffix ? " " : "", conf->suffix ?: "");
 }
 
 static struct enumerator *enumerator__new(Dwarf_Die *die)
@@ -1132,24 +1139,21 @@ static struct label *label__new(Dwarf_Die *die)
 }
 
 static size_t union__fprintf(const struct type *self, const struct cu *cu,
-			     const char *prefix, const char *suffix,
-			     uint32_t base_offset, uint8_t expand_types,
-			     uint8_t indent, size_t type_spacing,
-			     size_t name_spacing, FILE *fp);
+			     const struct conf_fprintf *conf, FILE *fp);
 
-static size_t type__fprintf(struct tag *type, const char *name,
-			    const struct cu *cu, uint32_t base_offset,
-			    uint8_t expand_types, int indent,
-			    int type_spacing, int name_spacing, FILE *fp)
+static size_t type__fprintf(struct tag *type, const struct cu *cu,
+			    const char *name, const struct conf_fprintf *conf,
+			    FILE *fp)
 {
 	char tbf[128];
 	struct type *ctype;
+	struct conf_fprintf tconf;
 	size_t printed = 0;
 
 	if (type == NULL)
 		goto out_type_not_found;
 
-	if (expand_types) {
+	if (conf->expand_types) {
 		int typedef_expanded = 0;
 
 		while (type->tag == DW_TAG_typedef) {
@@ -1168,6 +1172,16 @@ static size_t type__fprintf(struct tag *type, const char *name,
 			printed += fprintf(fp, " */ ");
 	}
 
+	if (type->tag == DW_TAG_structure_type ||
+	    type->tag == DW_TAG_union_type ||
+	    type->tag == DW_TAG_enumeration_type) {
+		tconf = *conf;
+		tconf.type_spacing -= 8;
+		tconf.prefix	   = NULL;
+		tconf.suffix	   = name;
+		tconf.emit_stats   = 0;
+	}
+
 	switch (type->tag) {
 	case DW_TAG_pointer_type:
 		if (type->type != 0) {
@@ -1177,65 +1191,61 @@ static size_t type__fprintf(struct tag *type, const char *name,
 			if (ptype->tag == DW_TAG_subroutine_type)
 				return (printed +
 					ftype__fprintf(tag__ftype(ptype), cu,
-						      name, 0, 1, type_spacing,
+						      name, 0, 1, conf->type_spacing,
 						      fp));
 		}
 		break;
 	case DW_TAG_subroutine_type:
 		return printed + ftype__fprintf(tag__ftype(type), cu, name,
-						0, 0, type_spacing, fp);
+						0, 0, conf->type_spacing, fp);
 	case DW_TAG_array_type:
 		return printed + array_type__fprintf(type, cu, name,
-						     type_spacing, fp);
+						     conf->type_spacing, fp);
 	case DW_TAG_structure_type:
 		ctype = tag__type(type);
 
-		if (ctype->name != NULL && !expand_types)
+		if (ctype->name != NULL && !conf->expand_types)
 			return fprintf(fp, "struct %-*s %s",
-				       type_spacing - 7, ctype->name, name);
-		return (printed +
-			class__fprintf(tag__class(type), cu, NULL, name,
-				       base_offset, expand_types, indent,
-				       type_spacing - 8, name_spacing, 0, fp));
+				       conf->type_spacing - 7,
+				       ctype->name, name);
+		return printed + class__fprintf(tag__class(type), cu, &tconf, fp);
 	case DW_TAG_union_type:
 		ctype = tag__type(type);
 
-		if (ctype->name != NULL && !expand_types)
-			return fprintf(fp, "union %-*s %s", type_spacing - 6,
+		if (ctype->name != NULL && !conf->expand_types)
+			return fprintf(fp, "union %-*s %s",
+				       conf->type_spacing - 6,
 				       ctype->name, name);
-		return printed + union__fprintf(ctype, cu, NULL, name,
-						base_offset, expand_types,
-						indent, type_spacing - 8,
-						name_spacing, fp);
+		return printed + union__fprintf(ctype, cu, &tconf, fp);
 	case DW_TAG_enumeration_type:
 		ctype = tag__type(type);
 
 		if (ctype->name != NULL)
 			return printed + fprintf(fp, "enum %-*s %s",
-						 type_spacing - 5,
+						 conf->type_spacing - 5,
 						 ctype->name, name);
-		return printed + enumeration__fprintf(type, name, indent, fp);
+		return printed + enumeration__fprintf(type, &tconf, fp);
 	}
 
-	return printed + fprintf(fp, "%-*s %s", type_spacing,
+	return printed + fprintf(fp, "%-*s %s", conf->type_spacing,
 				 tag__name(type, cu, tbf, sizeof(tbf)), name);
 out_type_not_found:
-	return fprintf(fp, "%-*s %s", type_spacing, "<ERROR>", name);
+	return fprintf(fp, "%-*s %s", conf->type_spacing, "<ERROR>", name);
 }
 
 static size_t struct_member__fprintf(struct class_member *self,
 				     struct tag *type, const struct cu *cu,
-				     uint32_t base_offset,
-				     uint8_t expand_types, int indent,
-				     int type_spacing, int name_spacing,
-				     FILE *fp)
+				     const struct conf_fprintf *conf, FILE *fp)
 {
 	int spacing;
 	const int size = tag__size(type, cu);
-	size_t printed = type__fprintf(type, self->name, cu, base_offset + self->offset,
-				       expand_types,
-				       indent, type_spacing, name_spacing, fp);
+	struct conf_fprintf sconf = *conf;
+	size_t printed;
+
+	sconf.base_offset += self->offset;
 	
+	printed = type__fprintf(type, cu, self->name, &sconf, fp);
+
 	if (self->bit_size != 0)
 		printed += fprintf(fp, ":%u;", self->bit_size);
 	else {
@@ -1252,27 +1262,23 @@ static size_t struct_member__fprintf(struct class_member *self,
 		const int slen = self->name != NULL ?
 					(int)strlen(self->name) : -1;
 		return printed + fprintf(fp, "%*s/* %5u %5u */",
-					 type_spacing + name_spacing - slen - 3,
-					 " ", base_offset + self->offset,
-					 size);
+					 (sconf.type_spacing +
+					  sconf.name_spacing - slen - 3),
+					 " ", sconf.base_offset, size);
 	}
-	spacing = type_spacing + name_spacing - printed;
+	spacing = sconf.type_spacing + sconf.name_spacing - printed;
 	return printed + fprintf(fp, "%*s/* %5u %5u */",
 				 spacing > 0 ? spacing : 0, " ",
-				 base_offset + self->offset, size);
+				 sconf.base_offset, size);
 }
 
 static size_t union_member__fprintf(struct class_member *self,
 				    struct tag *type, const struct cu *cu,
-				    uint32_t base_offset, uint8_t expand_types,
-				    int indent, int type_spacing,
-				    int name_spacing, FILE *fp)
+				    const struct conf_fprintf *conf, FILE *fp)
 {
 	int spacing;
 	const size_t size = tag__size(type, cu);
-	size_t printed = type__fprintf(type, self->name, cu, base_offset,
-				       expand_types, indent, type_spacing,
-				       name_spacing, fp);
+	size_t printed = type__fprintf(type, cu, self->name, conf, fp);
 	
 	if ((type->tag == DW_TAG_union_type ||
 	     type->tag == DW_TAG_enumeration_type ||
@@ -1287,44 +1293,44 @@ static size_t union_member__fprintf(struct class_member *self,
 		 * above call to type__fprintf.
 		 */
 		return printed + fprintf(fp, ";%*s/* %11zd */",
-					 type_spacing + name_spacing - slen - 3,
+					 (conf->type_spacing +
+					  conf->name_spacing - slen - 3),
 					 " ", size);
 	}
-	spacing = type_spacing + name_spacing - (printed + 1);
+	spacing = conf->type_spacing + conf->name_spacing - (printed + 1);
 	return printed + fprintf(fp, ";%*s/* %11zd */",
 				 spacing > 0 ? spacing : 0, " ", size);
 }
 
 static size_t union__fprintf(const struct type *self, const struct cu *cu,
-			     const char *prefix, const char *suffix,
-			     uint32_t base_offset, uint8_t expand_types,
-			     uint8_t indent, size_t type_spacing,
-			     size_t name_spacing, FILE *fp)
+			     const struct conf_fprintf *conf, FILE *fp)
 {
 	struct class_member *pos;
 	size_t printed = 0;
+	size_t indent = conf->indent;
+	struct conf_fprintf uconf;
 
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 
-	if (prefix != NULL)
-		printed += fprintf(fp, "%s ", prefix);
+	if (conf->prefix != NULL)
+		printed += fprintf(fp, "%s ", conf->prefix);
 	printed += fprintf(fp, "union%s%s {\n", self->name ? " " : "",
 			   self->name ?: "");
+
+	uconf = *conf;
+	uconf.indent = indent + 1;
 	list_for_each_entry(pos, &self->members, tag.node) {
 		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
 
-		printed += fprintf(fp, "%.*s", indent + 1, tabs);
-		printed += union_member__fprintf(pos, type, cu, base_offset,
-						 expand_types, indent + 1,
-						 type_spacing,
-						 name_spacing, fp);
+		printed += fprintf(fp, "%.*s", uconf.indent, tabs);
+		printed += union_member__fprintf(pos, type, cu, &uconf, fp);
 		fputc('\n', fp);
 		++printed;
 	}
 
 	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
-				 suffix ? " " : "", suffix ?: "");
+				 conf->suffix ? " " : "", conf->suffix ?: "");
 }
 
 static struct class *class__new(Dwarf_Die *die)
@@ -2100,7 +2106,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 
 	if (verbose > 1) {
 		class__find_holes(class, cu);
-		class__fprintf(class, cu, NULL, NULL, 0, 0, 0, 26, 23, 1, fp);
+		class__fprintf(class, cu, NULL, fp);
 		fputc('\n', fp);
 	}
 }
@@ -2176,7 +2182,7 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 	dest->hole = 0;
 	if (verbose > 1) {
 		class__find_holes(class, cu);
-		class__fprintf(class, cu, NULL, NULL, 0, 0, 0, 26, 23, 1, fp);
+		class__fprintf(class, cu, NULL, fp);
 		fputc('\n', fp);
 	}
 }
@@ -2299,9 +2305,14 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		if (member->bit_hole == 0)
 			--class->nr_bit_holes;
 		if (verbose > 1) {
+			const struct conf_fprintf conf = {
+				.type_spacing = 26,
+				.name_spacing = 23,
+				.emit_stats   = 1,
+			};
+
 			class__find_holes(class, cu);
-			class__fprintf(class, cu, NULL, NULL, 0, 0, 0,
-				       26, 23, 1, fp);
+			class__fprintf(class, cu, NULL, fp);
 			fputc('\n', fp);
 		}
 	}
@@ -2352,8 +2363,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			some_was_demoted = 1;
 			if (verbose > 1) {
 				class__find_holes(class, cu);
-				class__fprintf(class, cu, NULL, NULL, 0, 0, 0,
-					       26, 23, 1, fp);
+				class__fprintf(class, cu, NULL, fp);
 				fputc('\n', fp);
 			}
 		}
@@ -2476,8 +2486,7 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 		fprintf(fp, "/* bitfield types were fixed */\n");
 		if (verbose > 1) {
 			class__find_holes(self, cu);
-			class__fprintf(self, cu, NULL, NULL, 0, 0, 0,
-				       26, 23, 1, fp);
+			class__fprintf(self, cu, NULL, fp);
 			fputc('\n', fp);
 		}
 	}
@@ -2618,10 +2627,7 @@ static size_t class__fprintf_cacheline_boundary(uint32_t last_cacheline,
 }
 
 size_t class__fprintf(const struct class *self, const struct cu *cu,
-		      const char *prefix, const char *suffix,
-		      uint32_t base_offset, uint8_t expand_types,
-		      uint8_t indent, int type_spacing, int name_spacing,
-		      int emit_stats, FILE *fp)
+		      const struct conf_fprintf *conf, FILE *fp)
 {
 	const struct type *tself = &self->type;
 	size_t last_size = 0, size;
@@ -2635,12 +2641,16 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 	uint32_t last_cacheline = 0;
 	int last_offset = -1;
 	struct class_member *pos;
+	struct conf_fprintf cconf = conf ? *conf : conf_fprintf__defaults;
 	size_t printed = fprintf(fp, "%s%sstruct%s%s {\n",
-				 prefix ?: "", prefix ? " " : "",
+				 cconf.prefix ?: "", cconf.prefix ? " " : "",
 				 tself->name ? " " : "", tself->name ?: "");
+	size_t indent = cconf.indent;
 
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
+
+	cconf.indent = indent + 1;
 
 	list_for_each_entry(pos, &tself->members, tag.node) {
 		struct tag *type;
@@ -2651,7 +2661,8 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 							      sum, sum_holes,
 							      &newline,
 							      &last_cacheline,
-							      indent + 1, fp);
+							      cconf.indent,
+							      fp);
 		if (last_offset != -1) {
 			const ssize_t cc_last_size = pos->offset - last_offset;
 
@@ -2663,7 +2674,7 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 				printed += fprintf(fp, "%.*s/* WARNING: DWARF"
 						   " offset=%zd, real offset="
 						   "%zd */\n",
-						   indent + 1, tabs,
+						   cconf.indent, tabs,
 						   pos->offset,
 						   last_offset + last_size);
 			} else if (cc_last_size > 0 &&
@@ -2675,7 +2686,7 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 				printed += fprintf(fp, "%.*s/* Bitfield "
 						   "WARNING: DWARF size=%zd, "
 						   "real size=%zd */\n",
-						   indent + 1, tabs,
+						   cconf.indent, tabs,
 						   last_size, cc_last_size);
 				sum -= last_size - cc_last_size;
 				/*
@@ -2712,16 +2723,13 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 		if (type == NULL) {
 			tag__type_not_found(&pos->tag);
 			printed += fprintf(fp, "%.*s>>>ERROR: type for %s not "
-				     "found!\n", indent + 1, tabs, pos->name);
+				     "found!\n", cconf.indent, tabs, pos->name);
 			continue;
 		}
 
 		size = tag__size(type, cu);
-		printed += fprintf(fp, "%.*s", indent + 1, tabs);
-		printed += struct_member__fprintf(pos, type, cu, base_offset,
-						  expand_types, indent + 1,
-						  type_spacing,
-						  name_spacing, fp);
+		printed += fprintf(fp, "%.*s", cconf.indent, tabs);
+		printed += struct_member__fprintf(pos, type, cu, &cconf, fp);
 
 		if (type->tag == DW_TAG_structure_type) {
 			const uint16_t padding = tag__class(type)->padding;
@@ -2735,7 +2743,7 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 
 				printed += fprintf(fp, "\n%.*s/* XXX last "
 						   "struct has %d byte%s of "
-						   "padding */", indent + 1,
+						   "padding */", cconf.indent,
 						   tabs, padding,
 						   padding != 1 ? "s" : "");
 			}
@@ -2747,7 +2755,7 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 				++printed;
 			}
 			printed += fprintf(fp, "\n%.*s/* XXX %d bit%s hole, "
-					   "try to pack */", indent + 1, tabs,
+					   "try to pack */", cconf.indent, tabs,
 					   pos->bit_hole,
 					   pos->bit_hole != 1 ? "s" : "");
 			sum_bit_holes += pos->bit_hole;
@@ -2760,7 +2768,7 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 			}
 			printed += fprintf(fp, "\n%.*s/* XXX %d byte%s hole, "
 					   "try to pack */",
-					   indent + 1, tabs, pos->hole,
+					   cconf.indent, tabs, pos->hole,
 					   pos->hole != 1 ? "s" : "");
 			sum_holes += pos->hole;
 		}
@@ -2787,10 +2795,10 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 	printed += class__fprintf_cacheline_boundary(last_cacheline, sum,
 						     sum_holes, &newline,
 						     &last_cacheline,
-						     indent + 1, fp);
-	printed += fprintf(fp, "%.*s}%s%s", indent, tabs, suffix ? " ": "",
-			   suffix ?: "");
-	if (!emit_stats)
+						     cconf.indent, fp);
+	printed += fprintf(fp, "%.*s}%s%s", indent, tabs,
+			   cconf.suffix ? " ": "", cconf.suffix ?: "");
+	if (!cconf.emit_stats)
 		goto out;
 
 	printed += fprintf(fp, "; /* size: %zd, cachelines: %zd */\n",
@@ -2829,7 +2837,7 @@ out:
 }
 
 static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
-				uint8_t expand_types, FILE *fp)
+				const struct conf_fprintf *conf, FILE *fp)
 {
 	const struct variable *var = tag__variable(tag);
 	const char *name = variable__name(var, cu);
@@ -2842,41 +2850,60 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 
 			if (varprefix != NULL)
 				printed += fprintf(fp, "%s", varprefix);
-			printed += type__fprintf(type, name, cu, 0, expand_types,
-						 0, 0, 0, fp);
+			printed += type__fprintf(type, cu, name, conf, fp);
 		}
 	}
 	return printed;
 }
 
 size_t tag__fprintf(const struct tag *self, const struct cu *cu,
-		    const char *prefix, const char *suffix,
-		    uint32_t base_offset, uint8_t expand_types, FILE *fp)
+		    const struct conf_fprintf *conf, FILE *fp)
 {
 	size_t printed = tag__fprintf_decl_info(self, fp);
+	struct conf_fprintf tconf;
+	const struct conf_fprintf *pconf = conf;
+
+	if (conf == NULL) {
+		tconf = conf_fprintf__defaults;
+		pconf = &tconf; 
+
+		if (tconf.expand_types)
+			tconf.name_spacing = 55;
+		else if (self->tag == DW_TAG_union_type)
+			tconf.name_spacing = 21;
+	} else if (conf->name_spacing == 0 || conf->type_spacing == 0) {
+		tconf = *conf;
+		pconf = &tconf; 
+
+		if (tconf.name_spacing == 0) {
+			if (tconf.expand_types)
+				tconf.name_spacing = 55;
+			else
+				tconf.name_spacing =
+				     self->tag == DW_TAG_union_type ? 21 : 23;
+		}
+		if (tconf.type_spacing == 0)
+			tconf.type_spacing = 26;
+	}
 
 	switch (self->tag) {
 	case DW_TAG_enumeration_type:
-		printed += enumeration__fprintf(self, suffix, 0, fp);
+		printed += enumeration__fprintf(self, pconf, fp);
 		break;
 	case DW_TAG_typedef:
 		printed += typedef__fprintf(self, cu, fp);
 		break;
 	case DW_TAG_structure_type:
-		printed += class__fprintf(tag__class(self), cu, prefix, suffix,
-					  base_offset, expand_types, 0, 26,
-					  expand_types ? 55 : 23, 1, fp);
+		printed += class__fprintf(tag__class(self), cu, pconf, fp);
 		break;
 	case DW_TAG_subprogram:
 		printed += function__fprintf(self, cu, fp);
 		break;
 	case DW_TAG_union_type:
-		printed += union__fprintf(tag__type(self), cu, prefix, suffix,
-					  base_offset, expand_types, 0, 26,
-					  expand_types ? 55 : 21, fp);
+		printed += union__fprintf(tag__type(self), cu, pconf, fp);
 		break;
 	case DW_TAG_variable:
-		printed += variable__fprintf(self, cu, expand_types, fp);
+		printed += variable__fprintf(self, cu, pconf, fp);
 		break;
 	default:
 		printed += fprintf(fp, "%s: %s tag not supported!\n", __func__,
@@ -3556,7 +3583,8 @@ struct cus *cus__new(struct list_head *definitions,
 }
 
 static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag,
-					     const char *suffix, FILE *fp)
+					     const struct conf_fprintf *conf,
+					     FILE *fp)
 {
 	struct type *etype = tag__type(tag);
 
@@ -3574,7 +3602,7 @@ static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag,
 		return 0;
 	}
 
-	enumeration__fprintf(tag, suffix, 0, fp);
+	enumeration__fprintf(tag, conf, fp);
 	fputs(";", fp);
 	cus__add_definition(self, etype);
 	return 1;
@@ -3625,16 +3653,18 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 		break;
 	case DW_TAG_enumeration_type: {
 		const struct type *ctype = tag__type(type);
+		struct conf_fprintf conf = {
+			.suffix = NULL,
+		};
 
 		tag__fprintf_decl_info(type, fp);
 		if (ctype->name == NULL) {
 			fputs("typedef ", fp);
-			cus__emit_enumeration_definitions(self, type,
-							  def->name, fp);
+			conf.suffix = def->name;
+			cus__emit_enumeration_definitions(self, type, &conf, fp);
 			goto out;
 		} else 
-			cus__emit_enumeration_definitions(self, type,
-							  NULL, fp);
+			cus__emit_enumeration_definitions(self, type, &conf, fp);
 	}
 		break;
 	case DW_TAG_structure_type:
@@ -3788,7 +3818,11 @@ void type__emit(struct tag *tag_self, struct cu *cu,
 		class__find_holes(tag__class(tag_self), cu);
 
 	if (ctype->name != NULL || suffix != NULL || prefix != NULL) {
-		tag__fprintf(tag_self, cu, prefix, suffix, 0, 0, fp);
+		struct conf_fprintf conf = {
+			.prefix = prefix,
+			.suffix = suffix,
+		};
+		tag__fprintf(tag_self, cu, &conf, fp);
 
 		if (tag_self->tag != DW_TAG_structure_type)
 			fputc(';', fp);

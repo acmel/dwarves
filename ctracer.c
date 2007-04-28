@@ -281,8 +281,7 @@ static int class__emit_ostra_converter(const struct tag *tag_self,
 	fputs("#include <stdio.h>\n"
 	      "#include <string.h>\n"
 	      "#include \"ctracer_relay.h\"\n\n", fp_converter);
-	class__fprintf(mini_class, cu, NULL, NULL, 0, 0, 0, 26, 23, 1,
-		       fp_converter);
+	class__fprintf(mini_class, cu, NULL, fp_converter);
 	emit_struct_member_table_entry(fp_fields, field++, "action", 0,
 				       "entry,exit");
 	emit_struct_member_table_entry(fp_fields, field++, "function_id", 0,
@@ -354,8 +353,7 @@ static int class__emit_subset(const struct tag *tag_self, const struct cu *cu)
 	if (mini_class == NULL)
 		goto out;
 
-	class__fprintf(mini_class, cu, NULL, NULL, 0, 0, 0, 26, 23, 1,
-		       fp_methods);
+	class__fprintf(mini_class, cu, NULL, fp_methods);
 	fputc('\n', fp_methods);
 	class__emit_class_state_collector(self, mini_class);
 	err = 0;
@@ -539,7 +537,7 @@ static void emit_function_defs(const char *fn)
 		cus__emit_ftype_definitions(kprobes_cus, cu,
 					    &tag__function(f)->proto,
 					    fp_methods);
-		tag__fprintf(f, cu, NULL, NULL, 0, 0, fp_methods);
+		tag__fprintf(f, cu, NULL, fp_methods);
 		fputs(";\n", fp_methods);
 	}
 }

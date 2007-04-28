@@ -258,6 +258,17 @@ struct enumerator {
 	uint32_t	 value;
 };
 
+struct conf_fprintf {
+	const char *prefix;
+	const char *suffix;
+	uint32_t   base_offset;
+	uint8_t	   expand_types;
+	uint8_t	   emit_stats;
+	uint8_t	   indent;
+	int32_t	   type_spacing;
+	int32_t	   name_spacing;
+};
+
 extern void dwarves__init(size_t user_cacheline_size);
 
 extern void class__find_holes(struct class *self, const struct cu *cu);
@@ -269,14 +280,9 @@ extern struct class *class__reorganize(struct class *self,
 				       const struct cu *cu,
 				       const int verbose, FILE *fp);
 extern size_t class__fprintf(const struct class *self, const struct cu *cu,
-			     const char *prefix, const char *suffix,
-			     uint32_t base_offset, uint8_t expand_types,
-			     uint8_t indent, int type_spacing,
-			     int name_spacing, int emit_stats, FILE *fp);
+			     const struct conf_fprintf *conf, FILE *fp);
 extern size_t tag__fprintf(const struct tag *self, const struct cu *cu,
-			   const char *prefix, const char *suffix,
-			   uint32_t base_offset, uint8_t expand_types,
-			   FILE *fp);
+			   const struct conf_fprintf *conf, FILE *fp);
 
 extern const char *function__name(struct function *self, const struct cu *cu);
 extern size_t function__fprintf_stats(const struct tag *tag_self,

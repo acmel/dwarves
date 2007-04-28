@@ -220,7 +220,7 @@ static void declaration_action__walk(const void *nodep, const VISIT which,
 
 	tag = extvar__tag(gvar);
 
-	tag__fprintf(tag, gvar->cu, NULL, NULL, 0, 0, stdout);
+	tag__fprintf(tag, gvar->cu, NULL, stdout);
 
 	for (pos = gvar->next; pos; pos = pos->next)
 		count++;
@@ -252,7 +252,7 @@ static void function_action__walk(const void *nodep, const VISIT which,
 
 	tag = extfun__tag(gfun);
 
-	tag__fprintf(tag, gfun->cu, NULL, NULL, 0, 0, stdout);
+	tag__fprintf(tag, gfun->cu, NULL, stdout);
 
 	fputs("\n\n", stdout);
 }

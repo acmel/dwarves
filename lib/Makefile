@@ -31,4 +31,4 @@ $(obj)/ctracer_methods.o: ctracer_methods.c
 
 # ctracer /home/acme/git/OUTPUT/qemu/linux-2.6/vmlinux --src_dir $(src) $(CLASS)
 $(src)/ctracer_methods.c:
-	ctracer /usr/lib/debug/lib/modules/$(shell uname -r)/vmlinux --src_dir $(src) $(CLASS)
+	ctracer --src_dir $(src) /usr/lib/debug/lib/modules/$(shell uname -r)/vmlinux $(CLASS)
