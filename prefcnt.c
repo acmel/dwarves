@@ -127,7 +127,7 @@ static int lost_iterator(struct tag *tag, struct cu *cu,
 			 void *cookie __unused)
 {
 	if (tag->refcnt == 0 && tag->decl_file != NULL) {
-		tag__fprintf(tag, cu, NULL, NULL, 0, stdout);
+		tag__fprintf(tag, cu, NULL, NULL, 0, 0, stdout);
 		puts(";\n");
 	}
 	return 0;

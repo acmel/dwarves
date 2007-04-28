@@ -120,7 +120,7 @@ static void fn_stats_size_fmtr(const struct fn_stats *self)
 static void fn_stats_fmtr(const struct fn_stats *self)
 {
 	if (verbose) {
-		tag__fprintf(self->tag, self->cu, NULL, NULL, 0, stdout);
+		tag__fprintf(self->tag, self->cu, NULL, NULL, 0, 0, stdout);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
 			function__fprintf_stats(self->tag, self->cu, stdout);
@@ -276,7 +276,7 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	if (ftype__has_parm_of_type(&function->proto, cookie, cu)) {
 		if (verbose)
-			tag__fprintf(tag, cu, NULL, NULL, 0, stdout);
+			tag__fprintf(tag, cu, NULL, NULL, 0, 0, stdout);
 		else
 			fputs(function__name(function, cu), stdout);
 		putchar('\n');
@@ -303,7 +303,7 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	function = tag__function(tag);
 	if (strcmp(function__name(function, cu), cookie) == 0) {
-		tag__fprintf(tag, cu, NULL, NULL, 0, stdout);
+		tag__fprintf(tag, cu, NULL, NULL, 0, 0, stdout);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
 			function__fprintf_stats(tag, cu, stdout);

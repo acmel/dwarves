@@ -270,12 +270,13 @@ extern struct class *class__reorganize(struct class *self,
 				       const int verbose, FILE *fp);
 extern size_t class__fprintf(const struct class *self, const struct cu *cu,
 			     const char *prefix, const char *suffix,
-			     uint8_t expand_types, uint8_t indent,
-			     int type_spacing, int name_spacing,
-			     int emit_stats, FILE *fp);
+			     uint32_t base_offset, uint8_t expand_types,
+			     uint8_t indent, int type_spacing,
+			     int name_spacing, int emit_stats, FILE *fp);
 extern size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 			   const char *prefix, const char *suffix,
-			   uint8_t expand_types, FILE *fp);
+			   uint32_t base_offset, uint8_t expand_types,
+			   FILE *fp);
 
 extern const char *function__name(struct function *self, const struct cu *cu);
 extern size_t function__fprintf_stats(const struct tag *tag_self,

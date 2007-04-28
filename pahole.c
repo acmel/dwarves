@@ -160,10 +160,11 @@ static void class_formatter(const struct structure *self)
 
 	if (typedef_alias != NULL) {
 		const struct type *tdef = tag__type(typedef_alias);
-		tag__fprintf(tag, self->cu, "typedef", tdef->name,
+		tag__fprintf(tag, self->cu, "typedef", tdef->name, 0,
 			     expand_types, stdout);
 	} else
-		tag__fprintf(tag, self->cu, NULL, NULL, expand_types, stdout);
+		tag__fprintf(tag, self->cu, NULL, NULL, 0,
+			     expand_types, stdout);
 
 	printf("   /* definitions: %u */\n", self->nr_files);
 	putchar('\n');
@@ -603,7 +604,7 @@ int main(int argc, char *argv[])
 					puts("/* Final reorganized struct: */");
 			}
  			tag__fprintf(class__tag(clone), s->cu, NULL, NULL, 0,
-				     stdout);
+				     0, stdout);
 			if (savings != 0) {
 				const size_t cacheline_savings =
 				      (tag__nr_cachelines(class__tag(s->class),
@@ -622,7 +623,7 @@ int main(int argc, char *argv[])
 			}
  		} else
  			tag__fprintf(class__tag(s->class), s->cu, NULL, NULL,
-				     expand_types, stdout);
+				     0, expand_types, stdout);
 	} else
 		print_classes(formatter);
 
