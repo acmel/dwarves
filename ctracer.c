@@ -590,21 +590,25 @@ static const struct argp_option ctracer__options[] = {
 	{
 		.key  = 'd',
 		.name = "src_dir",
+		.arg  = "SRC_DIR",
 		.doc  = "generate source files in this directory",
 	},
 	{
 		.key  = 'D',
 		.name = "dir",
+		.arg  = "DIR",
 		.doc  = "load files in this directory",
 	},
 	{
 		.key  = 'g',
 		.name = "glob",
+		.arg  = "GLOB",
 		.doc  = "file mask to load",
 	},
 	{
 		.key  = 'k',
 		.name = "kprobes",
+		.arg  = "FILE",
 		.doc  = "kprobes object file",
 	},
 	{
