@@ -3819,8 +3819,9 @@ void type__emit(struct tag *tag_self, struct cu *cu,
 
 	if (ctype->name != NULL || suffix != NULL || prefix != NULL) {
 		struct conf_fprintf conf = {
-			.prefix = prefix,
-			.suffix = suffix,
+			.prefix	    = prefix,
+			.suffix	    = suffix,
+			.emit_stats = 1,
 		};
 		tag__fprintf(tag_self, cu, &conf, fp);
 
