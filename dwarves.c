@@ -3690,7 +3690,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	 */
 	if (!def->definition_emitted) {
 		typedef__fprintf(tdef, cu, fp);
-		fputs(";", fp);
+		fputs(";\n", fp);
 	}
 out:
 	cus__add_definition(self, def);
