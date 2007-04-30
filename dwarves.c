@@ -1688,7 +1688,8 @@ void cu__account_inline_expansions(struct cu *self)
 }
 
 static size_t ftype__fprintf_parms(const struct ftype *self,
-				   const struct cu *cu, FILE *fp)
+				   const struct cu *cu, size_t indent,
+				   FILE *fp)
 {
 	struct parameter *pos;
 	int first_parm = 1;
@@ -1698,9 +1699,13 @@ static size_t ftype__fprintf_parms(const struct ftype *self,
 	size_t printed = fprintf(fp, "(");
 
 	list_for_each_entry(pos, &self->parms, tag.node) {
-		if (!first_parm)
-			printed += fprintf(fp, ", ");
-		else
+		if (!first_parm) {
+			if (indent == 0)
+				printed += fprintf(fp, ", ");
+			else
+				printed += fprintf(fp, ",\n%.*s",
+						   indent, tabs);
+		} else
 			first_parm = 0;
 		name = parameter__name(pos, cu);
 		type = cu__find_tag_by_id(cu, parameter__type(pos, cu));
@@ -1765,14 +1770,18 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 		const struct tag *talias =
 				cu__find_tag_by_id(cu, exp->tag.type);
 		struct function *alias = tag__function(talias);
+		const char *name;
 
 		if (alias == NULL) {
 			tag__type_not_found(&exp->tag);
 			break;
 		}
 		printed = fprintf(fp, "%.*s", indent, tabs);
-		n = fprintf(fp, "%s", function__name(alias, cu));
-		n += ftype__fprintf_parms(&alias->proto, cu, fp);
+		name = function__name(alias, cu);
+		n = fprintf(fp, "%s", name);
+		n += ftype__fprintf_parms(&alias->proto, cu,
+					  indent + (strlen(name) + 7) / 8,
+					  fp);
 		n += fprintf(fp, "; /* size=%zd, low_pc=%#llx */",
 			     exp->size, (unsigned long long)exp->low_pc);
 #if 0
@@ -1780,7 +1789,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 			    function__name(alias, cu), exp->size,
 			    (unsigned long long)exp->low_pc);
 #endif
-		c += n;
+		c = 69;
 		printed += n;
 	}
 		break;
@@ -1848,7 +1857,7 @@ size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 				 self->tag.tag == DW_TAG_subroutine_type ?
 				 	")" : "");
 
-	return printed + ftype__fprintf_parms(self, cu, fp);
+	return printed + ftype__fprintf_parms(self, cu, 0, fp);
 }
 
 static size_t function__fprintf(const struct tag *tag_self,
