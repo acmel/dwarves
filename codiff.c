@@ -620,7 +620,8 @@ int main(int argc, char *argv[])
 {
 	int remaining, err;
 	struct cus *old_cus, *new_cus;
-	const char *old_filename, *new_filename;
+	char *old_filename, *new_filename;
+	char *dwfl_argv[4];
 
 	argp_parse(&codiff__argp, argc, argv, 0, &remaining, NULL);
 
@@ -650,13 +651,18 @@ failure:
 		return EXIT_FAILURE;
 	}
 
-	err = cus__load(old_cus, old_filename);
+	dwfl_argv[0] = argv[0];
+	dwfl_argv[1] = "-e";
+	dwfl_argv[2] = old_filename;
+	dwfl_argv[3] = NULL;
+	err = cus__loadfl(old_cus, NULL, 3, dwfl_argv);
 	if (err != 0) {
 		cus__print_error_msg("codiff", old_filename, err);
 		return EXIT_FAILURE;
 	}
 
-	err = cus__load(new_cus, new_filename);
+	dwfl_argv[2] = new_filename;
+	err = cus__loadfl(new_cus, NULL, 3, dwfl_argv);
 	if (err != 0) {
 		cus__print_error_msg("codiff", new_filename, err);
 		return EXIT_FAILURE;
