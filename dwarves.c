@@ -1711,8 +1711,8 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 			break;
 		}
 		printed = fprintf(fp, "%.*s", indent, tabs);
-		n = fprintf(fp, "%s(); /* low_pc=%#llx */",
-			    function__name(alias, cu),
+		n = fprintf(fp, "%s(); /* size=%zd, low_pc=%#llx */",
+			    function__name(alias, cu), exp->size,
 			    (unsigned long long)exp->low_pc);
 		c += n;
 		printed += n;
