@@ -1687,6 +1687,66 @@ void cu__account_inline_expansions(struct cu *self)
 	}
 }
 
+static size_t ftype__fprintf_parms(const struct ftype *self,
+				   const struct cu *cu, FILE *fp)
+{
+	struct parameter *pos;
+	int first_parm = 1;
+	char sbf[128];
+	struct tag *type;
+	const char *name, *stype;
+	size_t printed = fprintf(fp, "(");
+
+	list_for_each_entry(pos, &self->parms, tag.node) {
+		if (!first_parm)
+			printed += fprintf(fp, ", ");
+		else
+			first_parm = 0;
+		name = parameter__name(pos, cu);
+		type = cu__find_tag_by_id(cu, parameter__type(pos, cu));
+		if (type == NULL) {
+			stype = "<ERROR>";
+			goto print_it;
+		}
+		if (type->tag == DW_TAG_pointer_type) {
+			if (type->type != 0) {
+				struct tag *ptype =
+					cu__find_tag_by_id(cu, type->type);
+				if (ptype == NULL) {
+					printed += fprintf(fp, ">>>ERROR: type "
+							   "for %s not found!",
+							   name);
+					continue;
+				}
+				if (ptype->tag == DW_TAG_subroutine_type) {
+					printed +=
+					     ftype__fprintf(tag__ftype(ptype),
+							    cu, name, 0, 1, 0,
+							    fp);
+					continue;
+				}
+			}
+		} else if (type->tag == DW_TAG_subroutine_type) {
+			printed += ftype__fprintf(tag__ftype(type), cu, name,
+						  0, 0, 0, fp);
+			continue;
+		}
+print_it:
+		stype = tag__name(type, cu, sbf, sizeof(sbf));
+		printed += fprintf(fp, "%s%s%s", stype, name ? " " : "",
+				   name ?: "");
+	}
+
+	/* No parameters? */
+	if (first_parm)
+		printed += fprintf(fp, "void)");
+	else if (self->unspec_parms)
+		printed += fprintf(fp, ", ...)");
+	else
+		printed += fprintf(fp, ")");
+	return printed;
+}
+
 static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 				    uint16_t indent, FILE *fp)
 {
@@ -1711,9 +1771,15 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 			break;
 		}
 		printed = fprintf(fp, "%.*s", indent, tabs);
+		n = fprintf(fp, "%s", function__name(alias, cu));
+		n += ftype__fprintf_parms(&alias->proto, cu, fp);
+		n += fprintf(fp, "; /* size=%zd, low_pc=%#llx */",
+			     exp->size, (unsigned long long)exp->low_pc);
+#if 0
 		n = fprintf(fp, "%s(); /* size=%zd, low_pc=%#llx */",
 			    function__name(alias, cu), exp->size,
 			    (unsigned long long)exp->low_pc);
+#endif
 		c += n;
 		printed += n;
 	}
@@ -1773,7 +1839,7 @@ size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 	int first_parm = 1;
 	char sbf[128];
 	const char *stype = tag__name(type, cu, sbf, sizeof(sbf));
-	size_t printed = fprintf(fp, "%s%-*s %s%s%s%s(",
+	size_t printed = fprintf(fp, "%s%-*s %s%s%s%s",
 				 inlined ? "inline " : "",
 				 type_spacing, stype,
 				 self->tag.tag == DW_TAG_subroutine_type ?
@@ -1782,56 +1848,7 @@ size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 				 self->tag.tag == DW_TAG_subroutine_type ?
 				 	")" : "");
 
-	list_for_each_entry(pos, &self->parms, tag.node) {
-		const char *name;
-
-		if (!first_parm)
-			printed += fprintf(fp, ", ");
-		else
-			first_parm = 0;
-		name = parameter__name(pos, cu);
-		type = cu__find_tag_by_id(cu, parameter__type(pos, cu));
-		if (type == NULL) {
-			stype = "<ERROR>";
-			goto print_it;
-		}
-		if (type->tag == DW_TAG_pointer_type) {
-			if (type->type != 0) {
-				struct tag *ptype =
-					cu__find_tag_by_id(cu, type->type);
-				if (ptype == NULL) {
-					printed += fprintf(fp, ">>>ERROR: type "
-							   "for %s not found!",
-							   name);
-					continue;
-				}
-				if (ptype->tag == DW_TAG_subroutine_type) {
-					printed +=
-					     ftype__fprintf(tag__ftype(ptype),
-							    cu, name, 0, 1, 0,
-							    fp);
-					continue;
-				}
-			}
-		} else if (type->tag == DW_TAG_subroutine_type) {
-			printed += ftype__fprintf(tag__ftype(type), cu, name,
-						  0, 0, 0, fp);
-			continue;
-		}
-print_it:
-		stype = tag__name(type, cu, sbf, sizeof(sbf));
-		printed += fprintf(fp, "%s%s%s", stype, name ? " " : "",
-				   name ?: "");
-	}
-
-	/* No parameters? */
-	if (first_parm)
-		printed += fprintf(fp, "void)");
-	else if (self->unspec_parms)
-		printed += fprintf(fp, ", ...)");
-	else
-		printed += fprintf(fp, ")");
-	return printed;
+	return printed + ftype__fprintf_parms(self, cu, fp);
 }
 
 static size_t function__fprintf(const struct tag *tag_self,
