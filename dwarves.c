@@ -1240,9 +1240,13 @@ static size_t struct_member__fprintf(struct class_member *self,
 	int spacing;
 	const int size = tag__size(type, cu);
 	struct conf_fprintf sconf = *conf;
+	uint32_t offset = self->offset;
 	size_t printed;
-
-	sconf.base_offset += self->offset;
+	
+	if (!sconf.rel_offset) {
+		sconf.base_offset += self->offset;
+		offset = sconf.base_offset;
+	}
 	
 	printed = type__fprintf(type, cu, self->name, &sconf, fp);
 
@@ -1264,12 +1268,12 @@ static size_t struct_member__fprintf(struct class_member *self,
 		return printed + fprintf(fp, "%*s/* %5u %5u */",
 					 (sconf.type_spacing +
 					  sconf.name_spacing - slen - 3),
-					 " ", sconf.base_offset, size);
+					 " ", offset, size);
 	}
 	spacing = sconf.type_spacing + sconf.name_spacing - printed;
 	return printed + fprintf(fp, "%*s/* %5u %5u */",
 				 spacing > 0 ? spacing : 0, " ",
-				 sconf.base_offset, size);
+				 offset, size);
 }
 
 static size_t union_member__fprintf(struct class_member *self,

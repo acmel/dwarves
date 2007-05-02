@@ -34,6 +34,7 @@ static uint16_t nr_bit_holes;
 static uint8_t show_packable;
 static uint8_t global_verbose;
 static uint8_t expand_types;
+static uint8_t rel_offset;
 static size_t cacheline_size;
 static int reorganize;
 static int show_reorg_steps;
@@ -140,6 +141,7 @@ static void class_formatter(const struct structure *self)
 	const char *name = class__name(self->class);
 	struct conf_fprintf conf = {
 		.expand_types = expand_types,
+		.rel_offset   = rel_offset,
 		.emit_stats   = 1,
 	};
 
@@ -451,6 +453,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "show number of members",
 	},
 	{
+		.name = "rel_offset",
+		.key  = 'r',
+		.doc  = "show relative offsets of members in inner structs"
+	},
+	{
 		.name = "reorganize",
 		.key  = 'R',
 		.doc  = "reorg struct trying to kill holes",
@@ -530,6 +537,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'H': nr_holes = atoi(arg);			break;
 	case 'B': nr_bit_holes = atoi(arg);		break;
 	case 'E': expand_types = 1;			break;
+	case 'r': rel_offset = 1;			break;
 	case 'R': reorganize = 1;			break;
 	case 'S': show_reorg_steps = 1;			break;
 	case 's': formatter = size_formatter;		break;
@@ -589,6 +597,7 @@ int main(int argc, char *argv[])
 		struct structure *s = structures__find(class_name);
 		struct conf_fprintf conf = {
 			.expand_types = expand_types,
+			.rel_offset   = rel_offset,
 			.emit_stats   = 1,
 		};
 

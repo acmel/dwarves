@@ -263,6 +263,7 @@ struct conf_fprintf {
 	const char *suffix;
 	uint32_t   base_offset;
 	uint8_t	   expand_types;
+	uint8_t    rel_offset;
 	uint8_t	   emit_stats;
 	uint8_t	   indent;
 	int32_t	   type_spacing;
