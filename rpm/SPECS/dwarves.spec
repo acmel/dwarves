@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 20
+Release: 21
 License: GPL
 Summary: Dwarf Tools
 Group: Development/Tools
@@ -97,6 +97,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_emit.so
 
 %changelog
+* Sun May  6 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+- 05351ece16e5203717dd21a6fc1ad2e6ff87c203
+- libdwarves_emit
+
 * Tue Apr  3 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - f3c4f527f70053e39b402005107ead6cb10e0b4a
 - Fix some --reorganize bugs
