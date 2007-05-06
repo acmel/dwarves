@@ -282,6 +282,11 @@ extern struct class *class__reorganize(struct class *self,
 				       const int verbose, FILE *fp);
 extern size_t class__fprintf(const struct class *self, const struct cu *cu,
 			     const struct conf_fprintf *conf, FILE *fp);
+extern size_t enumeration__fprintf(const struct tag *tag_self,
+				   const struct conf_fprintf *conf, FILE *fp);
+extern size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
+			       FILE *fp);
+extern size_t tag__fprintf_decl_info(const struct tag *self, FILE *fp);
 extern size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 			   const struct conf_fprintf *conf, FILE *fp);
 
@@ -312,13 +317,6 @@ extern struct tag *cus__find_struct_by_name(const struct cus *self,
 extern struct tag *cus__find_function_by_name(const struct cus *self,
 					      struct cu **cu,
 					      const char *name);
-extern int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
-				       struct ftype *ftype, FILE *fp);
-extern int cus__emit_type_definitions(struct cus *self, struct cu *cu,
-				      struct tag *tag, FILE *fp);
-extern int cus__emit_fwd_decl(struct cus *self, struct type *ctype, FILE *fp);
-extern void type__emit(struct tag *tag_self, struct cu *cu,
-		       const char *prefix, const char *suffix, FILE *fp);
 
 extern struct tag *cu__find_tag_by_id(const struct cu *self,
 				      const Dwarf_Off id);

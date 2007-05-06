@@ -1,5 +1,7 @@
 dwarves.c
 dwarves.h
+dwarves_emit.c
+dwarves_emit.h
 cmake/modules/FindDWARF.cmake
 CMakeLists.txt
 codiff.c

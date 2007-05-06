@@ -15,6 +15,7 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "dwarves_emit.h"
 #include "dwarves.h"
 
 /*

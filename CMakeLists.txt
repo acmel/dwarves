@@ -32,13 +32,18 @@ add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 target_link_libraries(dwarves ${DWARF_LIBRARIES})
 
+set(dwarves_emit_LIB_SRCS dwarves_emit.c)
+add_library(dwarves_emit SHARED ${dwarves_emit_LIB_SRCS})
+set_target_properties(dwarves_emit PROPERTIES VERSION 1.0.0 SOVERSION 1)
+target_link_libraries(dwarves_emit ${DWARF_LIBRARIES} dwarves)
+
 set(codiff_SRCS codiff.c)
 add_executable(codiff ${codiff_SRCS})
 target_link_libraries(codiff dwarves)
 
 set(ctracer_SRCS ctracer.c)
 add_executable(ctracer ${ctracer_SRCS})
-target_link_libraries(ctracer dwarves)
+target_link_libraries(ctracer dwarves dwarves_emit)
 
 set(dtagnames_SRCS dtagnames.c)
 add_executable(dtagnames ${dtagnames_SRCS})
@@ -68,7 +73,8 @@ install(TARGETS codiff ctracer dtagnames pahole pdwtags
 		pfunct pglobal prefcnt RUNTIME DESTINATION
 		${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
-install(FILES dwarves.h DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+install(TARGETS dwarves dwarves_emit LIBRARY DESTINATION ${LIB_INSTALL_DIR})
+install(FILES dwarves.h dwarves_emit.h DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
 install(FILES ostra/ostra-cg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(FILES ostra/python/ostra.py DESTINATION ${LIB_INSTALL_DIR}/ctracer/python)
 install(FILES lib/Makefile lib/ctracer_jprobe.c
