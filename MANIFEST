@@ -2,6 +2,8 @@ dwarves.c
 dwarves.h
 dwarves_emit.c
 dwarves_emit.h
+dwarves_reorganize.c
+dwarves_reorganize.h
 cmake/modules/FindDWARF.cmake
 CMakeLists.txt
 codiff.c

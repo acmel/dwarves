@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 21
+Release: 22
 License: GPL
 Summary: Dwarf Tools
 Group: Development/Tools
@@ -87,14 +87,17 @@ rm -rf %{buildroot}
 %defattr(0644,root,root,0755)
 %{_libdir}/%{libname}.so.*
 %{_libdir}/%{libname}_emit.so.*
+%{_libdir}/%{libname}_reorganize.so.*
 
 %files -n %{libname}%{libver}-devel
 %defattr(0644,root,root,0755)
 %doc MANIFEST README
 %{_includedir}/dwarves.h
 %{_includedir}/dwarves_emit.h
+%{_includedir}/dwarves_reorganize.h
 %{_libdir}/%{libname}.so
 %{_libdir}/%{libname}_emit.so
+%{_libdir}/%{libname}_reorganize.so
 
 %changelog
 * Sun May  6 2007 Arnaldo Carvalho de Melo <acme@redhat.com>

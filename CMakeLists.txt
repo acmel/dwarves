@@ -37,13 +37,18 @@ add_library(dwarves_emit SHARED ${dwarves_emit_LIB_SRCS})
 set_target_properties(dwarves_emit PROPERTIES VERSION 1.0.0 SOVERSION 1)
 target_link_libraries(dwarves_emit ${DWARF_LIBRARIES} dwarves)
 
+set(dwarves_reorganize_LIB_SRCS dwarves_reorganize.c)
+add_library(dwarves_reorganize SHARED ${dwarves_reorganize_LIB_SRCS})
+set_target_properties(dwarves_reorganize PROPERTIES VERSION 1.0.0 SOVERSION 1)
+target_link_libraries(dwarves_reorganize ${DWARF_LIBRARIES} dwarves)
+
 set(codiff_SRCS codiff.c)
 add_executable(codiff ${codiff_SRCS})
 target_link_libraries(codiff dwarves)
 
 set(ctracer_SRCS ctracer.c)
 add_executable(ctracer ${ctracer_SRCS})
-target_link_libraries(ctracer dwarves dwarves_emit)
+target_link_libraries(ctracer dwarves dwarves_emit dwarves_reorganize)
 
 set(dtagnames_SRCS dtagnames.c)
 add_executable(dtagnames ${dtagnames_SRCS})
@@ -51,7 +56,7 @@ target_link_libraries(dtagnames dwarves)
 
 set(pahole_SRCS pahole.c)
 add_executable(pahole ${pahole_SRCS})
-target_link_libraries(pahole dwarves)
+target_link_libraries(pahole dwarves dwarves_reorganize)
 
 set(pdwtags_SRCS pdwtags.c)
 add_executable(pdwtags ${pdwtags_SRCS})
@@ -73,8 +78,8 @@ install(TARGETS codiff ctracer dtagnames pahole pdwtags
 		pfunct pglobal prefcnt RUNTIME DESTINATION
 		${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
-install(TARGETS dwarves dwarves_emit LIBRARY DESTINATION ${LIB_INSTALL_DIR})
-install(FILES dwarves.h dwarves_emit.h DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+install(TARGETS dwarves dwarves_emit dwarves_reorganize LIBRARY DESTINATION ${LIB_INSTALL_DIR})
+install(FILES dwarves.h dwarves_emit.h dwarves_reorganize.h DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
 install(FILES ostra/ostra-cg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(FILES ostra/python/ostra.py DESTINATION ${LIB_INSTALL_DIR}/ctracer/python)
 install(FILES lib/Makefile lib/ctracer_jprobe.c

@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "dwarves_reorganize.h"
 #include "dwarves.h"
 
 static uint8_t class__include_anonymous;
