@@ -2723,7 +2723,11 @@ out:
 static int with_executable_option(int argc, char *argv[])
 {
 	while (--argc != 0)
-		if (strcmp(argv[argc], "--executable") == 0 ||
+		if (strcmp(argv[argc], "--help") == 0 ||
+		    strcmp(argv[argc], "-?") == 0 ||
+		    strcmp(argv[argc], "-h") == 0 ||
+		    strcmp(argv[argc], "--usage") == 0 ||
+		    strcmp(argv[argc], "--executable") == 0 ||
 		    (argv[argc][0] == '-' && argv[argc][1] != '-' &&
 		     strchr(argv[argc] + 1, 'e') != NULL))
 			return 1;
