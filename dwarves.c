@@ -2720,43 +2720,19 @@ out:
 	return err;
 }
 
-static const struct argp_option cus__check_executable_options[] = {
-	{
-		.key = 'e',
-	},
-	{
-		.key = '?',
-		.name = "help",
-	},
-	{
-		.key = '?',
-		.name = "usage",
-	},
-	{
-		.name = NULL,
-	}
-};
-
-static error_t cus__check_executable_parser(int key, char *arg __unused,
-					    struct argp_state *state)
+static int with_executable_option(int argc, char *argv[])
 {
-	if (key == 'e' || key == '?')
-		*(int *)state->input = 1;
-
+	while (--argc != 0)
+		if (strcmp(argv[argc], "-e") == 0)
+			return 1;
 	return 0;
 }
-
-static const struct argp cus__check_executable_argp = {
-	.options = cus__check_executable_options,
-	.parser	 = cus__check_executable_parser,
-};
 
 int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
 {
 	Dwfl *dwfl = NULL;
 	Dwarf_Die *cu_die = NULL;
 	Dwarf_Addr dwbias;
-	int found_executable_option = 0;
 	char **new_argv = NULL;
 	int err = -1;
 
@@ -2766,10 +2742,7 @@ int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
 		return -1;
 	}
 
-	argp_parse(&cus__check_executable_argp, argc, argv, ARGP_SILENT,
-		   NULL, &found_executable_option);
-
-	if (!found_executable_option) {
+	if (!with_executable_option(argc, argv)) {
 		new_argv = malloc((argc + 2) * sizeof(char *));
 		if (new_argv == NULL) {
 			fprintf(stderr, "%s: not enough memory!\n", __func__);
