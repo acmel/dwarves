@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 23
+Release: 24
 License: GPL
 Summary: Dwarf Tools
 Group: Development/Tools
@@ -100,6 +100,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Tue May  8 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+* 161c6712f4ae1b7e2ea50df3a0d5c28310905cec
+- handle --help, -? --usage on with_executable_option()
+
 * Tue May  8 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 * b8eb5eb214f3897ea6faa3272879baa8bf2573c0
 - Fix cus__loadfl detection of --executable
