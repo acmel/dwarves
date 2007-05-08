@@ -2723,7 +2723,9 @@ out:
 static int with_executable_option(int argc, char *argv[])
 {
 	while (--argc != 0)
-		if (strcmp(argv[argc], "-e") == 0)
+		if (strcmp(argv[argc], "--executable") == 0 ||
+		    (argv[argc][0] == '-' && argv[argc][1] != '-' &&
+		     strchr(argv[argc] + 1, 'e') != NULL))
 			return 1;
 	return 0;
 }
