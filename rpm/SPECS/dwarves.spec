@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 0
-Release: 22
+Release: 23
 License: GPL
 Summary: Dwarf Tools
 Group: Development/Tools
@@ -100,6 +100,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Tue May  8 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+* b8eb5eb214f3897ea6faa3272879baa8bf2573c0
+- Fix cus__loadfl detection of --executable
+
 * Sun May  6 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 - 05351ece16e5203717dd21a6fc1ad2e6ff87c203
 - libdwarves_emit
