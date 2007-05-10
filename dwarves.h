@@ -372,6 +372,8 @@ extern size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu);
 
 extern struct class_member *type__find_member_by_name(const struct type *self,
 						      const char *name);
+extern uint32_t type__nr_members_of_type(const struct type *self,
+					 const Dwarf_Off type);
 
 static inline struct class_member *
 	class__find_member_by_name(const struct class *self, const char *name)

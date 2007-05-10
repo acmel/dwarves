@@ -37,6 +37,7 @@ static uint8_t global_verbose;
 static uint8_t expand_types;
 static uint8_t rel_offset;
 static size_t cacheline_size;
+static uint8_t find_containers;
 static int reorganize;
 static int show_reorg_steps;
 static char *class_name;
@@ -413,6 +414,24 @@ static int cu_nr_methods_iterator(struct cu *cu, void *cookie)
 				nr_methods__filter);
 }
 
+static void print_containers(const struct structure *s)
+{
+	struct structure *pos;
+	const Dwarf_Off type = s->class->type.tag.id;
+
+	list_for_each_entry(pos, &structures__list, node) {
+		const struct class *c = pos->class;
+		const uint32_t n = type__nr_members_of_type(&c->type, type);
+
+		if (n != 0) {
+			fputs(class__name(c), stdout);
+			if (global_verbose)
+				printf(": %u", n);
+			putchar('\n');
+		}
+	}
+}
+
 static const struct argp_option pahole__options[] = {
 	{
 		.name = "bit_holes",
@@ -431,6 +450,12 @@ static const struct argp_option pahole__options[] = {
 		.key  = 'C',
 		.arg  = "CLASS_NAME",
 		.doc  = "Show just this class"
+	},
+	{
+		.name = "contains",
+		.key  = 'i',
+		.arg  = "CLASS_NAME",
+		.doc  = "Show classes that contains CLASS_NAME"
 	},
 	{
 		.name = "holes",
@@ -535,6 +560,8 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
 	case 'c': cacheline_size = atoi(arg);		break;
 	case 'C': class_name = arg;			break;
+	case 'i': find_containers = 1;
+		  class_name = arg;			break;
 	case 'H': nr_holes = atoi(arg);			break;
 	case 'B': nr_bit_holes = atoi(arg);		break;
 	case 'E': expand_types = 1;			break;
@@ -639,7 +666,9 @@ int main(int argc, char *argv[])
 					       		"s" : "");
 				puts("! */");
 			}
- 		} else
+ 		} else if (find_containers)
+			print_containers(s);
+		else
  			tag__fprintf(class__tag(s->class), s->cu, &conf, stdout);
 	} else
 		print_classes(formatter);
