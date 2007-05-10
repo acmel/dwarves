@@ -36,6 +36,7 @@ static uint8_t show_packable;
 static uint8_t global_verbose;
 static uint8_t expand_types;
 static uint8_t rel_offset;
+static uint8_t recursive;
 static size_t cacheline_size;
 static uint8_t find_containers;
 static int reorganize;
@@ -414,7 +415,9 @@ static int cu_nr_methods_iterator(struct cu *cu, void *cookie)
 				nr_methods__filter);
 }
 
-static void print_containers(const struct structure *s)
+static char tab[128];
+
+static void print_containers(const struct structure *s, int ident)
 {
 	struct structure *pos;
 	const Dwarf_Off type = s->class->type.tag.id;
@@ -424,10 +427,12 @@ static void print_containers(const struct structure *s)
 		const uint32_t n = type__nr_members_of_type(&c->type, type);
 
 		if (n != 0) {
-			fputs(class__name(c), stdout);
+			printf("%.*s%s", ident * 2, tab, class__name(c));
 			if (global_verbose)
 				printf(": %u", n);
 			putchar('\n');
+			if (recursive)
+				print_containers(pos, ident + 1);
 		}
 	}
 }
@@ -482,6 +487,11 @@ static const struct argp_option pahole__options[] = {
 		.name = "rel_offset",
 		.key  = 'r',
 		.doc  = "show relative offsets of members in inner structs"
+	},
+	{
+		.name = "recursive",
+		.key  = 'd',
+		.doc  = "recursive mode, affects several other flags",
 	},
 	{
 		.name = "reorganize",
@@ -560,6 +570,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
 	case 'c': cacheline_size = atoi(arg);		break;
 	case 'C': class_name = arg;			break;
+	case 'd': recursive = 1;			break;
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
 	case 'H': nr_holes = atoi(arg);			break;
@@ -602,8 +613,8 @@ static struct argp pahole__argp = {
 
 int main(int argc, char *argv[])
 {
-	int err;
 	struct cus *cus;
+	int err;
 
 	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
@@ -620,6 +631,8 @@ int main(int argc, char *argv[])
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, cu__filter);
 	if (formatter == nr_methods_formatter)
 		cus__for_each_cu(cus, cu_nr_methods_iterator, NULL, cu__filter);
+
+	memset(tab, ' ', sizeof(tab) - 1);
 
 	if (class_name != NULL) {
 		struct structure *s = structures__find(class_name);
@@ -667,7 +680,7 @@ int main(int argc, char *argv[])
 				puts("! */");
 			}
  		} else if (find_containers)
-			print_containers(s);
+			print_containers(s, 0);
 		else
  			tag__fprintf(class__tag(s->class), s->cu, &conf, stdout);
 	} else
