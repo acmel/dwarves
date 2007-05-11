@@ -32,6 +32,7 @@ static size_t decl_exclude_prefix_len;
 
 static uint16_t nr_holes;
 static uint16_t nr_bit_holes;
+static uint16_t hole_size_ge;
 static uint8_t show_packable;
 static uint8_t global_verbose;
 static uint8_t expand_types;
@@ -135,6 +136,11 @@ static void class_name_len_formatter(const struct structure *self)
 {
 	const char *name = class__name(self->class);
 	printf("%s: %zd\n", name, strlen(name));
+}
+
+static void class_name_formatter(const struct structure *self)
+{
+	puts(class__name(self->class));
 }
 
 static void class_formatter(const struct structure *self)
@@ -338,7 +344,8 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 	class__find_holes(class, cu);
 
 	if (class->nr_holes < nr_holes ||
-	    class->nr_bit_holes < nr_bit_holes)
+	    class->nr_bit_holes < nr_bit_holes ||
+	    (hole_size_ge != 0 && !class__has_hole_ge(class, hole_size_ge)))
 		return NULL;
 
 	str = structures__find(name);
@@ -466,7 +473,14 @@ static const struct argp_option pahole__options[] = {
 		.name = "holes",
 		.key  = 'H',
 		.arg  = "NR_HOLES",
-		.doc  = "show only structs at least NR_HOLES holes",
+		.doc  = "show only structs with at least NR_HOLES holes",
+	},
+	{
+		.name = "hole_size_ge",
+		.key  = 'z',
+		.arg  = "HOLE_SIZE",
+		.doc  = "show only structs with at least one hole greater "
+			"or equal to HOLE_SIZE",
 	},
 	{
 		.name = "packable",
@@ -574,6 +588,11 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
 	case 'H': nr_holes = atoi(arg);			break;
+	case 'z':
+		hole_size_ge = atoi(arg);
+		if (!global_verbose)
+			formatter = class_name_formatter;
+		break;
 	case 'B': nr_bit_holes = atoi(arg);		break;
 	case 'E': expand_types = 1;			break;
 	case 'r': rel_offset = 1;			break;

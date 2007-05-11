@@ -1595,6 +1595,24 @@ void class__find_holes(struct class *self, const struct cu *cu)
 	}
 }
 
+/** class__has_hole_ge - check if class has a hole greater or equal to @size
+ * @self - class instance
+ * @size - hole size to check
+ */
+int class__has_hole_ge(const struct class *self, const uint16_t size)
+{
+	struct class_member *pos;
+
+	if (self->nr_holes == 0)
+		return 0;
+
+	list_for_each_entry(pos, &self->type.members, tag.node)
+		if (pos->hole >= size)
+			return 1;
+
+	return 0;
+}
+
 struct class_member *type__find_member_by_name(const struct type *self,
 					       const char *name)
 {
