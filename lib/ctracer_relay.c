@@ -110,7 +110,7 @@ void ctracer__method_exit(unsigned long long function_id)
 int ctracer__relay_init(void)
 {
 	ctracer__rchan = relay_open("ctracer", NULL, 256 * 1024, 64,
-				    &ctracer__relay_callbacks);
+				    &ctracer__relay_callbacks, NULL);
 	if (ctracer__rchan == NULL) {
 		pr_info("ctracer: couldn't create the relay\n");
 		return -1;

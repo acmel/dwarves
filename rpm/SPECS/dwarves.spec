@@ -2,20 +2,20 @@
 %define libver 1
 
 Name: dwarves
-Version: 0
-Release: 24
+Version: 1.0
+Release: 1
 License: GPL
 Summary: Dwarf Tools
 Group: Development/Tools
 URL: http://oops.ghostprotocols.net:81/blog
-Source: pahole-%{version}.tar.bz2
+Source: http://http://userweb.kernel.org/~acme/dwarves/%{name}-%{version}.tar.bz2
 BuildRequires: cmake
 BuildRequires: elfutils-devel
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 %description
 dwarves is a set of tools that use the DWARF debugging information inserted in
-ELF binaries by compilers such as GCC , used by well known debuggers such as
+ELF binaries by compilers such as GCC, used by well known debuggers such as
 GDB, and more recent ones such as systemtap.
 
 Utilities in the dwarves suite include pahole, that can be used to find
@@ -50,7 +50,6 @@ make %{?_smp_mflags}
 
 %install
 rm -Rf %{buildroot}
-mkdir -p %{buildroot}{%{_libdir},%{_bindir},%{_includedir},%{_libdir}/ctracer}
 
 make DESTDIR=%{buildroot} install
 
@@ -74,14 +73,14 @@ rm -rf %{buildroot}
 %{_bindir}/pglobal
 %{_bindir}/prefcnt
 %{_bindir}/ostra-cg
-%dir %{_libdir}/ctracer
-%dir %{_libdir}/ctracer/python
+%dir %{_datadir}/dwarves/runtime/
+%dir %{_datadir}/dwarves/runtime/python/
 %defattr(0644,root,root,0755)
-%{_libdir}/ctracer/Makefile
-%{_libdir}/ctracer/ctracer_jprobe.c
-%{_libdir}/ctracer/ctracer_relay.c
-%{_libdir}/ctracer/ctracer_relay.h
-%attr(0755,root,root) %{_libdir}/ctracer/python/ostra.py*
+%{_datadir}/dwarves/runtime/Makefile
+%{_datadir}/dwarves/runtime/ctracer_jprobe.c
+%{_datadir}/dwarves/runtime/ctracer_relay.c
+%{_datadir}/dwarves/runtime/ctracer_relay.h
+%attr(0755,root,root) %{_datadir}/dwarves/runtime/python/ostra.py*
 
 %files -n %{libname}%{libver}
 %defattr(0644,root,root,0755)
@@ -100,7 +99,7 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
-* Tue May  8 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+* Tue May  8 2007 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.0-1
 * 161c6712f4ae1b7e2ea50df3a0d5c28310905cec
 - handle --help, -? --usage on with_executable_option()
 

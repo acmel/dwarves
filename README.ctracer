@@ -19,7 +19,7 @@ Basic instructions to use ctracer:
 
 mkdir foo
 cd foo
-ln -s /usr/lib/ctracer/* .
+ln -s /usr/share/dwarves/runtime/* .
 make CLASS=sock # to trace struct sock methods, this one is safe, try others
                 # and tell me your horror (or success :-) ) story.
 
