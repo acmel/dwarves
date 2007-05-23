@@ -63,6 +63,7 @@ rm -rf %{buildroot}
 %files
 %defattr(0644,root,root,0755)
 %doc README.ctracer
+%doc NEWS
 %defattr(0755,root,root,0755)
 %{_bindir}/codiff
 %{_bindir}/ctracer

@@ -16,6 +16,7 @@ pdwtags.c
 pfunct.c
 pglobal.c
 prefcnt.c
+NEWS
 README
 README.ctracer
 rpm/SPECS/dwarves.spec

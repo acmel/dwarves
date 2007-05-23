@@ -43,6 +43,7 @@ static uint8_t find_containers;
 static int reorganize;
 static int show_reorg_steps;
 static char *class_name;
+static char separator = '\t';
 
 struct structure {
 	struct list_head   node;
@@ -112,30 +113,33 @@ static void structures__add(const struct class *class, const struct cu *cu)
 
 static void nr_definitions_formatter(const struct structure *self)
 {
-	printf("%s: %u\n", class__name(self->class), self->nr_files);
+	printf("%s%c%u\n", class__name(self->class), separator,
+	       self->nr_files);
 }
 
 static void nr_members_formatter(const struct structure *self)
 {
-	printf("%s: %u\n", class__name(self->class),
+	printf("%s%c%u\n", class__name(self->class), separator,
 	       class__nr_members(self->class));
 }
 
 static void nr_methods_formatter(const struct structure *self)
 {
-	printf("%s: %u\n", class__name(self->class), self->nr_methods);
+	printf("%s%c%u\n", class__name(self->class), separator,
+	       self->nr_methods);
 }
 
 static void size_formatter(const struct structure *self)
 {
-	printf("%s: %zd %u\n", class__name(self->class),
-	       class__size(self->class), self->class->nr_holes);
+	printf("%s%c%zd%c%u\n", class__name(self->class), separator,
+	       class__size(self->class), separator,
+	       self->class->nr_holes);
 }
 
 static void class_name_len_formatter(const struct structure *self)
 {
 	const char *name = class__name(self->class);
-	printf("%s: %zd\n", name, strlen(name));
+	printf("%s%c%zd\n", name, separator, strlen(name));
 }
 
 static void class_name_formatter(const struct structure *self)
@@ -208,12 +212,17 @@ static void print_classes(void (*formatter)(const struct structure *s))
 					name = class__name(tag__class(tdef));
 			}
 			if (name != NULL)
-				printf("%-32s %5zd %5zd %5zd\n",
-				       name, orig_size, new_size, savings);
+				printf("%s%c%zd%c%zd%c%zd\n",
+				       name, separator,
+				       orig_size, separator,
+				       new_size, separator,
+				       savings);
 			else
-				printf("%s:%d %5zd %5zd %5zd\n",
-				       t->decl_file, t->decl_line,
-				       orig_size, new_size, savings);
+				printf("%s(%d)%c%zd%c%zd%c%zd\n",
+				       t->decl_file, t->decl_line, separator,
+				       orig_size, separator,
+				       new_size, separator,
+				       savings);
 		} else
 			formatter(pos);
 }

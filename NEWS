@@ -1,0 +1,7 @@
+This file contains changes that will appear in the next release.
+
+After 1.0:
+
+pahole:
+
+The summary modes (--sizes, etc) now uses a common field separator, that defaults to a tab.
