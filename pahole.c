@@ -542,8 +542,14 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "show size of classes",
 	},
 	{
-		.name = "nr_definitions",
+		.name = "separator",
 		.key  = 't',
+		.arg  = "SEP",
+		.doc  = "use SEP as the field separator",
+	},
+	{
+		.name = "nr_definitions",
+		.key  = 'T',
 		.doc  = "show how many times struct was defined",
 	},
 	{
@@ -612,7 +618,8 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'N': formatter = class_name_len_formatter;	break;
 	case 'm': formatter = nr_methods_formatter;	break;
 	case 'P': show_packable	= 1;			break;
-	case 't': formatter = nr_definitions_formatter;	break;
+	case 't': separator = arg[0];			break;
+	case 'T': formatter = nr_definitions_formatter;	break;
 	case 'a': class__include_anonymous = 1;		break;
 	case 'A': class__include_nested_anonymous = 1;	break;
 	case 'D': decl_exclude_prefix = arg;
