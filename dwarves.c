@@ -1650,6 +1650,11 @@ void class__find_holes(struct class *self, const struct cu *cu)
 	self->nr_bit_holes = 0;
 
 	type__for_each_member(ctype, pos) {
+		/* XXX for now just skip these */
+		if (pos->tag.tag == DW_TAG_inheritance &&
+		    pos->virtuality == DW_VIRTUALITY_virtual)
+			continue;
+
 		if (last != NULL) {
 			const ssize_t cc_last_size = pos->offset - last->offset;
 
@@ -1706,7 +1711,8 @@ void class__find_holes(struct class *self, const struct cu *cu)
 					(last->offset + last_size);
 		if (last->bit_size != 0)
 			self->bit_padding = (last_size * 8) - bit_sum;
-	}
+	} else
+		self->padding = ctype->size;
 }
 
 /** class__has_hole_ge - check if class has a hole greater or equal to @size
@@ -2113,7 +2119,12 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 							      &last_cacheline,
 							      cconf.indent,
 							      fp);
-		if (last_offset != -1) {
+		/*
+		 * These paranoid checks doesn't make much sense on
+		 * DW_TAG_inheritance, have to understand why virtual public
+		 * ancestors make the offset go backwards...
+		 */
+		if (last_offset != -1 && tag_pos->tag == DW_TAG_member) {
 			const ssize_t cc_last_size = pos->offset - last_offset;
 
 			if ((int)pos->offset < last_offset) {
@@ -2225,6 +2236,11 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 
 		fputc('\n', fp);
 		++printed;
+
+		/* XXX for now just skip these */
+		if (tag_pos->tag == DW_TAG_inheritance &&
+		    pos->virtuality == DW_VIRTUALITY_virtual)
+			continue;
 		/*
 		 * check for bitfields, accounting for only the biggest
 		 * of the byte_size in the fields in each bitfield set.

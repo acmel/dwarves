@@ -117,7 +117,8 @@ struct type {
  */
 #define type__for_each_member(self, pos) \
 	list_for_each_entry(pos, &(self)->namespace.tags, tag.node) \
-		if (pos->tag.tag != DW_TAG_member) \
+		if (!(pos->tag.tag == DW_TAG_member || \
+		      pos->tag.tag == DW_TAG_inheritance)) \
 			continue; \
 		else
 
