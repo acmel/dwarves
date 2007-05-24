@@ -18,9 +18,9 @@ void class__subtract_offsets_from(struct class *self, const struct cu *cu,
 				  const uint16_t size)
 {
 	struct class_member *member =
-		list_prepare_entry(from, &self->type.tags, tag.node);
+		list_prepare_entry(from, class__tags(self), tag.node);
 
-	list_for_each_entry_continue(member, &self->type.tags, tag.node)
+	list_for_each_entry_continue(member, class__tags(self), tag.node)
 		if (member->tag.tag == DW_TAG_member)
 			member->offset -= size;
 
@@ -45,10 +45,10 @@ static struct class_member *
 				      const struct cu *cu, size_t size)
 {
 	struct class_member *member =
-		list_prepare_entry(from, &class->type.tags, tag.node);
+		list_prepare_entry(from, class__tags(class), tag.node);
 	struct class_member *bitfield_head = NULL;
 
-	list_for_each_entry_continue(member, &class->type.tags, tag.node) {
+	list_for_each_entry_continue(member, class__tags(class), tag.node) {
 		if (member->tag.tag != DW_TAG_member)
 			continue;
 		if (member->bit_size != 0) {
@@ -74,7 +74,7 @@ static struct class_member *
 {
 	struct class_member *member;
 
-	list_for_each_entry_reverse(member, &class->type.tags, tag.node) {
+	list_for_each_entry_reverse(member, class__tags(class), tag.node) {
 		size_t member_size;
 
 		if (member->tag.tag != DW_TAG_member)
@@ -107,9 +107,9 @@ static struct class_member *
 					  size_t size)
 {
 	struct class_member *member =
-		list_prepare_entry(from, &class->type.tags, tag.node);
+		list_prepare_entry(from, class__tags(class), tag.node);
 
-	list_for_each_entry_continue(member, &class->type.tags, tag.node) {
+	list_for_each_entry_continue(member, class__tags(class), tag.node) {
 		if (member->tag.tag != DW_TAG_member)
 			continue;
 		if (member->bit_hole != 0 &&
@@ -162,7 +162,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 
 	if (from->bit_size != 0) {
 		struct class_member *pos =
-				list_prepare_entry(from, &class->type.tags,
+				list_prepare_entry(from, class__tags(class),
 						   tag.node);
 		struct class_member *tmp;
 		uint8_t orig_tail_from_bit_hole;
@@ -170,7 +170,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 
 		if (verbose)
 			fprintf(fp, " bitfield('%s' ... ", from->name);
-		list_for_each_entry_safe_from(pos, tmp, &class->type.tags,
+		list_for_each_entry_safe_from(pos, tmp, class__tags(class),
 					      tag.node) {
 			if (pos->tag.tag != DW_TAG_member)
 				continue;
@@ -279,7 +279,7 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 						    struct class_member,
 						    tag.node);
 	const uint8_t is_last_member = (from->tag.node.next ==
-					&class->type.tags);
+					class__tags(class));
 
 	if (verbose)
 		fprintf(fp, "/* Moving '%s:%u' from after '%s' to "
@@ -354,9 +354,9 @@ static void class__demote_bitfield_members(struct class *class,
 {
 	const uint8_t bit_diff = (old_type->size - new_type->size) * 8;
 	struct class_member *member =
-		list_prepare_entry(from, &class->type.tags, tag.node);
+		list_prepare_entry(from, class__tags(class), tag.node);
 
-	list_for_each_entry_from(member, &class->type.tags, tag.node) {
+	list_for_each_entry_from(member, class__tags(class), tag.node) {
 		if (member->tag.tag != DW_TAG_member)
 			continue;
 		/*
@@ -564,9 +564,9 @@ static void class__fixup_bitfield_types(const struct class *self,
 					Dwarf_Off type)
 {
 	struct class_member *member =
-		list_prepare_entry(from, &self->type.tags, tag.node);
+		list_prepare_entry(from, class__tags(self), tag.node);
 
-	list_for_each_entry_from(member, &self->type.tags, tag.node) {
+	list_for_each_entry_from(member, class__tags(self), tag.node) {
 		if (member->tag.tag != DW_TAG_member)
 			continue;
 		if (member == to_before)

@@ -154,7 +154,7 @@ static void class__remove_member(struct class *self, const struct cu *cu,
 	/*
 	 * Is this the first member?
 	 */
-	if (member->tag.node.prev == &self->type.tags) {
+	if (member->tag.node.prev == class__tags(self)) {
 		self->type.size -= size;
 		class__subtract_offsets_from(self, cu, member, size);
 	} else {
