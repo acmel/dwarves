@@ -569,23 +569,24 @@ static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
 	return "";
 }
 
-static struct tag *type__find_tag_by_id(const struct type *self,
-					const Dwarf_Off id)
+static struct tag *namespace__find_tag_by_id(const struct namespace *self,
+					     const Dwarf_Off id)
 {
 	struct tag *pos;
 
 	if (id == 0)
 		return NULL;
 
-	type__for_each_tag(self, pos) {
+	namespace__for_each_tag(self, pos) {
 		if (pos->id == id)
 			return pos;
 
-		/* Look if we have types within types */
+		/* Look for nested namespaces */
 		if (pos->tag == DW_TAG_structure_type ||
-		    pos->tag == DW_TAG_union_type) {
+		    pos->tag == DW_TAG_union_type ||
+		    pos->tag == DW_TAG_namespace) {
 			 struct tag *tag =
-			 	type__find_tag_by_id(tag__type(pos), id);
+			    namespace__find_tag_by_id(tag__namespace(pos), id);
 			if (tag != NULL)
 				return tag;
 		}
@@ -605,11 +606,12 @@ struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 		if (pos->id == id)
 			return pos;
 
-		/* Look if we have types within types */
+		/* Look for nested namespaces */
 		if (pos->tag == DW_TAG_structure_type ||
-		    pos->tag == DW_TAG_union_type) {
+		    pos->tag == DW_TAG_union_type ||
+		    pos->tag == DW_TAG_namespace) {
 			 struct tag *tag =
-			 	type__find_tag_by_id(tag__type(pos), id);
+			    namespace__find_tag_by_id(tag__namespace(pos), id);
 			if (tag != NULL)
 				return tag;
 		}

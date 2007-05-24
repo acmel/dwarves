@@ -69,6 +69,14 @@ static inline struct namespace *tag__namespace(const struct tag *self)
 	return (struct namespace *)self;
 }
 
+/** 
+ * namespace__for_each_tag - iterate thru all the tags
+ * @self: struct namespace instance to iterate
+ * @pos: struct tag iterator
+ */
+#define namespace__for_each_tag(self, pos) \
+	list_for_each_entry(pos, &(self)->tags, node)
+
 /**
  * struct type - base type for enumerations, structs and unions
  *
