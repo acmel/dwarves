@@ -1323,6 +1323,13 @@ static void type__add_member(struct type *self, struct class_member *member)
 	list_add_tail(&member->tag.node, &self->members);
 }
 
+struct class_member *type__last_member(struct type *self)
+{
+	if (list_empty(&self->members))
+		return NULL;
+	return list_entry(self->members.prev, struct class_member, tag.node);
+}
+
 static int type__clone_members(struct type *self, const struct type *from)
 {
 	struct class_member *pos;

@@ -378,6 +378,7 @@ extern struct class_member *type__find_member_by_name(const struct type *self,
 						      const char *name);
 extern uint32_t type__nr_members_of_type(const struct type *self,
 					 const Dwarf_Off type);
+extern struct class_member *type__last_member(struct type *self);
 
 static inline struct class_member *
 	class__find_member_by_name(const struct class *self, const char *name)

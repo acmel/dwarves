@@ -25,8 +25,7 @@ void class__subtract_offsets_from(struct class *self, const struct cu *cu,
 
 	if (self->padding != 0) {
 		struct class_member *last_member =
-			list_entry(self->type.members.prev,
-				   struct class_member, tag.node);
+					type__last_member(&self->type);
 		const size_t last_member_size =
 			class_member__size(last_member, cu);
 		const ssize_t new_padding =
@@ -122,8 +121,7 @@ static struct class_member *
 	 * i.e. if we have bit_padding
 	 */
 	if (class->bit_padding != 0)
-		return list_entry(class->type.members.prev,
-				  struct class_member, tag.node);
+		return type__last_member(&class->type);
 #endif
 	return NULL;
 }
@@ -472,8 +470,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 	 * if it wasn't already demoted as part of a bitfield of more than
 	 * one member:
 	 */
-	member = list_entry(class->type.members.prev,
-			    struct class_member, tag.node);
+	member = type__last_member(&class->type);
 	if (class->bit_padding != 0 && bitfield_head == member) {
 		size = class_member__size(member, cu);
 	    	bytes_needed = (member->bit_size + 7) / 8;
@@ -656,8 +653,7 @@ struct class *class__reorganize(struct class *self, const struct cu *cu,
 	/* Now try to combine holes */
 restart:
 	class__find_holes(self, cu);
-	last_member = list_entry(self->type.members.prev,
-				 struct class_member, tag.node);
+	last_member = type__last_member(&self->type);
 	last_member_size = class_member__size(last_member, cu);
 
 	type__for_each_member(&self->type, member) {
