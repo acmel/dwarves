@@ -2018,7 +2018,9 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 
 		if (tag_pos->tag != DW_TAG_member) {
 			printed += tag__fprintf(tag_pos, cu, &cconf, fp);
-			printed += fprintf(fp, ";\n\n");
+			if (tag_pos->tag != DW_TAG_structure_type)
+				printed += fprintf(fp, ";\n");
+			printed += fprintf(fp, "\n");
 			continue;
 		}
 		pos = tag__class_member(tag_pos);
@@ -2224,6 +2226,26 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 	return printed;
 }
 
+static size_t namespace__fprintf(const struct tag *tself, const struct cu *cu,
+				 const struct conf_fprintf *conf, FILE *fp)
+{
+	struct namespace *self = tag__namespace(tself);
+	struct conf_fprintf cconf = *conf;
+	size_t printed = fprintf(fp, "namespace %s {\n", self->name);
+	struct tag *pos;
+
+	++cconf.indent;
+
+	namespace__for_each_tag(self, pos) {
+		printed += tag__fprintf(pos, cu, &cconf, fp);
+		if (pos->tag != DW_TAG_structure_type)
+			printed += fprintf(fp, ";\n");
+		printed += fprintf(fp, "\n");
+	}
+
+	return printed + fprintf(fp, "};\n");
+}
+
 size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 		    const struct conf_fprintf *conf, FILE *fp)
 {
@@ -2269,6 +2291,9 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 		break;
 	case DW_TAG_structure_type:
 		printed += class__fprintf(tag__class(self), cu, pconf, fp);
+		break;
+	case DW_TAG_namespace:
+		printed += namespace__fprintf(self, cu, pconf, fp);
 		break;
 	case DW_TAG_subprogram:
 		printed += function__fprintf(self, cu, fp);
