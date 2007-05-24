@@ -56,6 +56,13 @@ struct tag {
 	uint16_t	 tag;
 	uint32_t	 refcnt;
 };
+ 
+struct namespace {
+	struct tag	 tag;
+	const char	 *name;
+	struct list_head tags;
+	uint16_t	 nr_tags;
+};
 
 /**
  * struct type - base type for enumerations, structs and unions
@@ -64,12 +71,9 @@ struct tag {
  * @nr_tags: number of tags
  */
 struct type {
-	struct tag	 tag;
+	struct namespace namespace;
 	struct list_head node;
-	const char	 *name;
 	size_t		 size;
-	struct list_head tags;
-	uint16_t	 nr_tags;
 	uint16_t	 nr_members;
 	uint8_t		 declaration; /* only one bit used */
 	uint8_t		 definition_emitted:1;
@@ -82,7 +86,7 @@ struct type {
  * @pos: struct tag iterator
  */
 #define type__for_each_tag(self, pos) \
-	list_for_each_entry(pos, &(self)->tags, node)
+	list_for_each_entry(pos, &(self)->namespace.tags, node)
 
 /** 
  * type__for_each_enumerator - iterate thru the enumerator entries
@@ -90,7 +94,7 @@ struct type {
  * @pos: struct enumerator iterator
  */
 #define type__for_each_enumerator(self, pos) \
-	list_for_each_entry(pos, &(self)->tags, tag.node)
+	list_for_each_entry(pos, &(self)->namespace.tags, tag.node)
 
 /** 
  * type__for_each_member - iterate thru the DW_TAG_member entries
@@ -98,7 +102,7 @@ struct type {
  * @pos: struct class_member iterator
  */
 #define type__for_each_member(self, pos) \
-	list_for_each_entry(pos, &(self)->tags, tag.node) \
+	list_for_each_entry(pos, &(self)->namespace.tags, tag.node) \
 		if (pos->tag.tag != DW_TAG_member) \
 			continue; \
 		else
@@ -110,7 +114,7 @@ struct type {
  * @n: struct class_member temp iterator
  */
 #define type__for_each_member_safe(self, pos, n) \
-	list_for_each_entry_safe(pos, n, &(self)->tags, tag.node) \
+	list_for_each_entry_safe(pos, n, &(self)->namespace.tags, tag.node) \
 		if (pos->tag.tag != DW_TAG_member) \
 			continue; \
 		else
@@ -145,12 +149,12 @@ extern void class__delete(struct class *self);
 
 static inline struct list_head *class__tags(struct class *self)
 {
-	return &self->type.tags;
+	return &self->type.namespace.tags;
 }
 
 static inline const char *type__name(const struct type *self)
 {
-	return self->name;
+	return self->namespace.name;
 }
 
 static inline const char *class__name(const struct class *self)
@@ -160,7 +164,7 @@ static inline const char *class__name(const struct class *self)
 
 static inline uint16_t class__tag_type(const struct class *self)
 {
-	return self->type.tag.tag;
+	return self->type.namespace.tag.tag;
 }
 
 struct base_type {

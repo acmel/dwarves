@@ -356,18 +356,23 @@ static size_t array_type__fprintf(const struct tag *tag_self,
 	return printed;
 }
 
-static void type__init(struct type *self, Dwarf_Die *die)
+static void namespace__init(struct namespace *self, Dwarf_Die *die)
 {
 	tag__init(&self->tag, die);
-	INIT_LIST_HEAD(&self->node);
 	INIT_LIST_HEAD(&self->tags);
-	self->name		 = strings__add(attr_string(die, DW_AT_name));
+	self->name    = strings__add(attr_string(die, DW_AT_name));
+	self->nr_tags = 0;
+}
+
+static void type__init(struct type *self, Dwarf_Die *die)
+{
+	namespace__init(&self->namespace, die);
+	INIT_LIST_HEAD(&self->node);
 	self->size		 = attr_numeric(die, DW_AT_byte_size);
 	self->declaration	 = attr_numeric(die, DW_AT_declaration);
 	self->definition_emitted = 0;
 	self->fwd_decl_emitted	 = 0;
 	self->nr_members	 = 0;
-	self->nr_tags		 = 0;
 }
 
 static struct type *type__new(Dwarf_Die *die)
@@ -1353,7 +1358,7 @@ void class__delete(struct class *self)
 	free(self);
 }
 
-static void type__add_tag(struct type *self, struct tag *tag)
+static void namespace__add_tag(struct namespace *self, struct tag *tag)
 {
 	++self->nr_tags;
 	list_add_tail(&tag->node, &self->tags);
@@ -1362,14 +1367,14 @@ static void type__add_tag(struct type *self, struct tag *tag)
 static void type__add_member(struct type *self, struct class_member *member)
 {
 	++self->nr_members;
-	type__add_tag(self, &member->tag);
+	namespace__add_tag(&self->namespace, &member->tag);
 }
 
 struct class_member *type__last_member(struct type *self)
 {
 	struct class_member *pos;
 
-	list_for_each_entry_reverse(pos, &self->tags, tag.node)
+	list_for_each_entry_reverse(pos, &self->namespace.tags, tag.node)
 		if (pos->tag.tag == DW_TAG_member)
 			return pos;
 	return NULL;
@@ -1380,7 +1385,7 @@ static int type__clone_members(struct type *self, const struct type *from)
 	struct class_member *pos;
 
 	self->nr_members = 0;
-	INIT_LIST_HEAD(&self->tags);
+	INIT_LIST_HEAD(&self->namespace.tags);
 
 	type__for_each_member(from, pos) {
 		struct class_member *member_clone = class_member__clone(pos);
@@ -1405,7 +1410,7 @@ struct class *class__clone(const struct class *from,
 			self = NULL;
 		}
 		if (new_class_name != NULL)
-			self->type.name = strings__add(new_class_name);
+			self->type.namespace.name = strings__add(new_class_name);
 	}
 
 	return self;
@@ -1414,7 +1419,7 @@ struct class *class__clone(const struct class *from,
 static void enumeration__add(struct type *self, struct enumerator *enumerator)
 {
 	++self->nr_members;
-	type__add_tag(self, &enumerator->tag);
+	namespace__add_tag(&self->namespace, &enumerator->tag);
 }
 
 static void lexblock__init(struct lexblock *self, Dwarf_Die *die)
@@ -2373,7 +2378,7 @@ static struct tag *die__create_new_class(Dwarf_Die *die, struct cu *cu)
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
 		die__process_class(&child, &class->type, cu);
 
-	return &class->type.tag;
+	return &class->type.namespace.tag;
 }
 
 static struct tag *die__create_new_union(Dwarf_Die *die, struct cu *cu)
@@ -2387,7 +2392,7 @@ static struct tag *die__create_new_union(Dwarf_Die *die, struct cu *cu)
 	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
 		die__process_class(&child, utype, cu);
 
-	return &utype->tag;
+	return &utype->namespace.tag;
 }
 
 static struct tag *die__create_new_base_type(Dwarf_Die *die)
@@ -2415,7 +2420,7 @@ static struct tag *die__create_new_typedef(Dwarf_Die *die)
 		fprintf(stderr, "%s: DW_TAG_typedef WITH children!\n",
 			__FUNCTION__);
 
-	return &tdef->tag;
+	return &tdef->namespace.tag;
 }
 
 static struct tag *die__create_new_array(Dwarf_Die *die)
@@ -2560,7 +2565,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die)
 		enumeration__add(enumeration, enumerator);
 	} while (dwarf_siblingof(die, die) == 0);
 
-	return &enumeration->tag;
+	return &enumeration->namespace.tag;
 }
 
 static void die__process_class(Dwarf_Die *die, struct type *class,
@@ -2582,7 +2587,7 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 			struct tag *tag = die__process_tag(die, cu);
 
 			if (tag != NULL)
-				type__add_tag(class, tag);
+				namespace__add_tag(&class->namespace, tag);
 			continue;
 		}
 		}

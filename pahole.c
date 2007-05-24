@@ -436,7 +436,7 @@ static char tab[128];
 static void print_containers(const struct structure *s, int ident)
 {
 	struct structure *pos;
-	const Dwarf_Off type = s->class->type.tag.id;
+	const Dwarf_Off type = s->class->type.namespace.tag.id;
 
 	list_for_each_entry(pos, &structures__list, node) {
 		const struct class *c = pos->class;
