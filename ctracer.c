@@ -154,7 +154,7 @@ static void class__remove_member(struct class *self, const struct cu *cu,
 	/*
 	 * Is this the first member?
 	 */
-	if (member->tag.node.prev == &self->type.members) {
+	if (member->tag.node.prev == &self->type.tags) {
 		self->type.size -= size;
 		class__subtract_offsets_from(self, cu, member, size);
 	} else {
@@ -220,7 +220,7 @@ static struct class *class__clone_base_types(const struct tag *tag_self,
 
 	class__find_holes(clone, cu);
 
-	list_for_each_entry_safe(pos, next, &clone->type.members, tag.node) {
+	type__for_each_member_safe(&clone->type, pos, next) {
 		struct tag *member_type = cu__find_tag_by_id(cu, pos->tag.type);
 
 		if (member_type->tag != DW_TAG_base_type)

@@ -57,20 +57,63 @@ struct tag {
 	uint32_t	 refcnt;
 };
 
+/**
+ * struct type - base type for enumerations, structs and unions
+ *
+ * @nr_members: number of DW_TAG_member entries
+ * @nr_tags: number of tags
+ */
 struct type {
 	struct tag	 tag;
 	struct list_head node;
 	const char	 *name;
 	size_t		 size;
-	struct list_head members;
+	struct list_head tags;
+	uint16_t	 nr_tags;
 	uint16_t	 nr_members;
 	uint8_t		 declaration; /* only one bit used */
 	uint8_t		 definition_emitted:1;
 	uint8_t		 fwd_decl_emitted:1;
 };
 
+/** 
+ * type__for_each_tag - iterate thru all the tags
+ * @self: struct type instance to iterate
+ * @pos: struct tag iterator
+ */
+#define type__for_each_tag(self, pos) \
+	list_for_each_entry(pos, &(self)->tags, node)
+
+/** 
+ * type__for_each_enumerator - iterate thru the enumerator entries
+ * @self: struct type instance to iterate
+ * @pos: struct enumerator iterator
+ */
+#define type__for_each_enumerator(self, pos) \
+	list_for_each_entry(pos, &(self)->tags, tag.node)
+
+/** 
+ * type__for_each_member - iterate thru the DW_TAG_member entries
+ * @self: struct type instance to iterate
+ * @pos: struct class_member iterator
+ */
 #define type__for_each_member(self, pos) \
-	list_for_each_entry(pos, &(self)->members, tag.node)
+	list_for_each_entry(pos, &(self)->tags, tag.node) \
+		if (pos->tag.tag != DW_TAG_member) \
+			continue; \
+		else
+
+/** 
+ * type__for_each_member_safe - safely iterate thru the DW_TAG_member entries
+ * @self: struct type instance to iterate
+ * @pos: struct class_member iterator
+ * @n: struct class_member temp iterator
+ */
+#define type__for_each_member_safe(self, pos, n) \
+	list_for_each_entry_safe(pos, n, &(self)->tags, tag.node) \
+		if (pos->tag.tag != DW_TAG_member) \
+			continue; \
+		else
 
 static inline struct type *tag__type(const struct tag *self)
 {

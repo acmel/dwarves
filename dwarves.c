@@ -360,13 +360,14 @@ static void type__init(struct type *self, Dwarf_Die *die)
 {
 	tag__init(&self->tag, die);
 	INIT_LIST_HEAD(&self->node);
-	INIT_LIST_HEAD(&self->members);
+	INIT_LIST_HEAD(&self->tags);
 	self->name		 = strings__add(attr_string(die, DW_AT_name));
 	self->size		 = attr_numeric(die, DW_AT_byte_size);
 	self->declaration	 = attr_numeric(die, DW_AT_declaration);
 	self->definition_emitted = 0;
 	self->fwd_decl_emitted	 = 0;
 	self->nr_members	 = 0;
+	self->nr_tags		 = 0;
 }
 
 static struct type *type__new(Dwarf_Die *die)
@@ -442,7 +443,7 @@ size_t enumeration__fprintf(const struct tag *tag_self,
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 
-	list_for_each_entry(pos, &self->members, tag.node)
+	type__for_each_enumerator(self, pos)
 		printed += fprintf(fp, "%.*s\t%s = %u,\n", indent, tabs,
 				   pos->name, pos->value);
 
@@ -1311,23 +1312,32 @@ void class__delete(struct class *self)
 {
 	struct class_member *pos, *next;
 
-	list_for_each_entry_safe(pos, next, &self->type.members, tag.node)
+	type__for_each_member_safe(&self->type, pos, next)
 		class_member__delete(pos);
 
 	free(self);
 }
 
+static void type__add_tag(struct type *self, struct tag *tag)
+{
+	++self->nr_tags;
+	list_add_tail(&tag->node, &self->tags);
+}
+
 static void type__add_member(struct type *self, struct class_member *member)
 {
 	++self->nr_members;
-	list_add_tail(&member->tag.node, &self->members);
+	type__add_tag(self, &member->tag);
 }
 
 struct class_member *type__last_member(struct type *self)
 {
-	if (list_empty(&self->members))
-		return NULL;
-	return list_entry(self->members.prev, struct class_member, tag.node);
+	struct class_member *pos;
+
+	list_for_each_entry_reverse(pos, &self->tags, tag.node)
+		if (pos->tag.tag == DW_TAG_member)
+			return pos;
+	return NULL;
 }
 
 static int type__clone_members(struct type *self, const struct type *from)
@@ -1335,7 +1345,7 @@ static int type__clone_members(struct type *self, const struct type *from)
 	struct class_member *pos;
 
 	self->nr_members = 0;
-	INIT_LIST_HEAD(&self->members);
+	INIT_LIST_HEAD(&self->tags);
 
 	type__for_each_member(from, pos) {
 		struct class_member *member_clone = class_member__clone(pos);
@@ -1369,7 +1379,7 @@ struct class *class__clone(const struct class *from,
 static void enumeration__add(struct type *self, struct enumerator *enumerator)
 {
 	++self->nr_members;
-	list_add_tail(&enumerator->tag.node, &self->members);
+	type__add_tag(self, &enumerator->tag);
 }
 
 static void lexblock__init(struct lexblock *self, Dwarf_Die *die)
