@@ -35,8 +35,6 @@ static uint16_t nr_bit_holes;
 static uint16_t hole_size_ge;
 static uint8_t show_packable;
 static uint8_t global_verbose;
-static uint8_t expand_types;
-static uint8_t rel_offset;
 static uint8_t recursive;
 static size_t cacheline_size;
 static uint8_t find_containers;
@@ -44,6 +42,10 @@ static int reorganize;
 static int show_reorg_steps;
 static char *class_name;
 static char separator = '\t';
+
+struct conf_fprintf conf = {
+	.emit_stats = 1,
+};
 
 struct structure {
 	struct list_head   node;
@@ -152,11 +154,6 @@ static void class_formatter(const struct structure *self)
 	struct tag *typedef_alias = NULL;
 	struct tag *tag = class__tag(self->class);
 	const char *name = class__name(self->class);
-	struct conf_fprintf conf = {
-		.expand_types = expand_types,
-		.rel_offset   = rel_offset,
-		.emit_stats   = 1,
-	};
 
 	if (name == NULL) {
 		/*
@@ -182,7 +179,8 @@ static void class_formatter(const struct structure *self)
 
 		conf.prefix = "typedef";
 		conf.suffix = type__name(tdef);
-	}
+	} else
+		conf.prefix = conf.suffix = NULL;
 
 	tag__fprintf(tag, self->cu, &conf, stdout);
 
@@ -609,8 +607,8 @@ static error_t pahole__options_parser(int key, char *arg,
 			formatter = class_name_formatter;
 		break;
 	case 'B': nr_bit_holes = atoi(arg);		break;
-	case 'E': expand_types = 1;			break;
-	case 'r': rel_offset = 1;			break;
+	case 'E': conf.expand_types = 1;		break;
+	case 'r': conf.rel_offset = 1;			break;
 	case 'R': reorganize = 1;			break;
 	case 'S': show_reorg_steps = 1;			break;
 	case 's': formatter = size_formatter;		break;
@@ -631,7 +629,8 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'X': cu__exclude_prefix = arg;
 		  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
 							break;
-	case 'V': global_verbose = 1;			break;
+	case 'V': global_verbose = 1;
+		  conf.show_decl_info = 1;		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -671,12 +670,6 @@ int main(int argc, char *argv[])
 
 	if (class_name != NULL) {
 		struct structure *s = structures__find(class_name);
-		struct conf_fprintf conf = {
-			.expand_types	= expand_types,
-			.rel_offset	= rel_offset,
-			.show_decl_info	= global_verbose,
-			.emit_stats	= 1,
-		};
 
 		if (s == NULL) {
 			fprintf(stderr, "struct %s not found!\n", class_name);
