@@ -393,7 +393,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 	size_t current_bitfield_size = 0, size, bytes_needed, new_size;
 	int some_was_demoted = 0;
 
-	list_for_each_entry(member, &class->type.members, tag.node) {
+	type__for_each_member(&class->type, member) {
 		/*
 		 * Check if we are moving away from a bitfield
 		 */
@@ -528,7 +528,7 @@ static void class__reorganize_bitfields(struct class *class,
 {
 	struct class_member *member, *brother;
 restart:
-	list_for_each_entry(member, &class->type.members, tag.node) {
+	type__for_each_member(&class->type, member) {
 		/* See if we have a hole after this member */
 		if (member->bit_hole != 0) {
 			/*
@@ -593,7 +593,7 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 	struct class_member *pos, *bitfield_head = NULL;
 	uint8_t fixup_was_done = 0;
 
-	list_for_each_entry(pos, &self->type.members, tag.node) {
+	type__for_each_member(&self->type, pos) {
 		/*
 		 * Is this bitfield member?
 		 */
@@ -660,7 +660,7 @@ restart:
 				 struct class_member, tag.node);
 	last_member_size = class_member__size(last_member, cu);
 
-	list_for_each_entry(member, &self->type.members, tag.node) {
+	type__for_each_member(&self->type, member) {
 		/* See if we have a hole after this member */
 		if (member->hole != 0) {
 			/*
@@ -710,7 +710,7 @@ restart:
 	if (self->nr_holes == 0)
 		goto out;
 
-	list_for_each_entry(member, &self->type.members, tag.node) {
+	type__for_each_member(&self->type, member) {
 		/* See if we have a hole after this member */
 		if (member->hole != 0) {
 			brother = class__find_last_member_of_size(self, member,

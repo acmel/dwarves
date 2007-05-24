@@ -69,6 +69,9 @@ struct type {
 	uint8_t		 fwd_decl_emitted:1;
 };
 
+#define type__for_each_member(self, pos) \
+	list_for_each_entry(pos, &(self)->members, tag.node)
+
 static inline struct type *tag__type(const struct tag *self)
 {
 	return (struct type *)self;

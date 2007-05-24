@@ -179,7 +179,7 @@ static size_t class__find_biggest_member_name(const struct class *self)
 	struct class_member *pos;
 	size_t biggest_name_len = 0;
 
-	list_for_each_entry(pos, &self->type.members, tag.node) {
+	type__for_each_member(&self->type, pos) {
 		const size_t len = strlen(pos->name);
 
 		if (len > biggest_name_len)
@@ -201,10 +201,9 @@ static void class__emit_class_state_collector(const struct class *self,
 		"\tconst struct %s *obj = from;\n"
 		"\tstruct %s *mini_obj = to;\n\n",
 		class__name(self), class__name(clone));
-	list_for_each_entry(pos, &clone->type.members, tag.node) {
+	type__for_each_member(&clone->type, pos)
 		fprintf(fp_methods, "\tmini_obj->%-*s = obj->%s;\n",
 			len, pos->name, pos->name);
-	}
 	fputs("}\n\n", fp_methods);
 }
 
@@ -318,7 +317,7 @@ static int class__emit_ostra_converter(const struct tag *tag_self,
 	      "\t\t\t\":",
 	      fp_converter);
 
-	list_for_each_entry(pos, &type->members, tag.node) {
+	type__for_each_member(type, pos) {
 		if (first)
 			first = 0;
 		else {

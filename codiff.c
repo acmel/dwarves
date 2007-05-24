@@ -165,7 +165,7 @@ static int check_print_members_changes(const struct class *structure,
 	int changes = 0;
 	struct class_member *member;
 
-	list_for_each_entry(member, &structure->type.members, tag.node) {
+	type__for_each_member(&structure->type, member) {
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member->name);
 		if (twin != NULL)
@@ -371,7 +371,7 @@ static void show_nr_members_changes(const struct class *structure,
 	struct class_member *member;
 
 	/* Find the removed ones */
-	list_for_each_entry(member, &structure->type.members, tag.node) {
+	type__for_each_member(&structure->type, member) {
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member->name);
 		if (twin == NULL)
@@ -379,7 +379,7 @@ static void show_nr_members_changes(const struct class *structure,
 	}
 
 	/* Find the new ones */
-	list_for_each_entry(member, &new_structure->type.members, tag.node) {
+	type__for_each_member(&new_structure->type, member) {
 		struct class_member *twin =
 			class__find_member_by_name(structure, member->name);
 		if (twin == NULL)

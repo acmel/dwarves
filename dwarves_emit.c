@@ -275,7 +275,7 @@ int cus__emit_type_definitions(struct cus *self, struct cu *cu,
 
 	cus__add_definition(self, ctype);
 
-	list_for_each_entry(pos, &ctype->members, tag.node)
+	type__for_each_member(ctype, pos)
 		if (cus__emit_tag_definitions(self, cu, &pos->tag, fp))
 			printed = 1;
 

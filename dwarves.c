@@ -1284,7 +1284,7 @@ static size_t union__fprintf(const struct type *self, const struct cu *cu,
 
 	uconf = *conf;
 	uconf.indent = indent + 1;
-	list_for_each_entry(pos, &self->members, tag.node) {
+	type__for_each_member(self, pos) {
 		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
 
 		printed += fprintf(fp, "%.*s", uconf.indent, tabs);
@@ -1330,7 +1330,7 @@ static int type__clone_members(struct type *self, const struct type *from)
 	self->nr_members = 0;
 	INIT_LIST_HEAD(&self->members);
 
-	list_for_each_entry(pos, &from->members, tag.node) {
+	type__for_each_member(from, pos) {
 		struct class_member *member_clone = class_member__clone(pos);
 
 		if (member_clone == NULL)
@@ -1515,7 +1515,7 @@ const struct class_member *class__find_bit_hole(const struct class *self,
 	struct class_member *pos;
 	const size_t byte_hole_size = bit_hole_size / 8;
 
-	list_for_each_entry(pos, &self->type.members, tag.node)
+	type__for_each_member(&self->type, pos)
 		if (pos == trailer)
 			break;
 		else if (pos->hole >= byte_hole_size ||
@@ -1535,7 +1535,7 @@ void class__find_holes(struct class *self, const struct cu *cu)
 	self->nr_holes = 0;
 	self->nr_bit_holes = 0;
 
-	list_for_each_entry(pos, &ctype->members, tag.node) {
+	type__for_each_member(ctype, pos) {
 		if (last != NULL) {
 			const ssize_t cc_last_size = pos->offset - last->offset;
 
@@ -1606,7 +1606,7 @@ int class__has_hole_ge(const struct class *self, const uint16_t size)
 	if (self->nr_holes == 0)
 		return 0;
 
-	list_for_each_entry(pos, &self->type.members, tag.node)
+	type__for_each_member(&self->type, pos)
 		if (pos->hole >= size)
 			return 1;
 
@@ -1618,7 +1618,7 @@ struct class_member *type__find_member_by_name(const struct type *self,
 {
 	if (name != NULL) {
 		struct class_member *pos;
-		list_for_each_entry(pos, &self->members, tag.node)
+		type__for_each_member(self, pos)
 			if (pos->name != NULL && strcmp(pos->name, name) == 0)
 				return pos;
 	}
@@ -1631,7 +1631,7 @@ uint32_t type__nr_members_of_type(const struct type *self, const Dwarf_Off type)
 	struct class_member *pos;
 	uint32_t nr_members_of_type = 0;
 
-	list_for_each_entry(pos, &self->members, tag.node)
+	type__for_each_member(self, pos)
 		if (pos->tag.type == type)
 			++nr_members_of_type;
 
@@ -1943,7 +1943,7 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 
 	cconf.indent = indent + 1;
 
-	list_for_each_entry(pos, &tself->members, tag.node) {
+	type__for_each_member(tself, pos) {
 		struct tag *type;
 
 		if ((int)pos->offset != last_offset)
