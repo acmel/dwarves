@@ -364,6 +364,16 @@ static void namespace__init(struct namespace *self, Dwarf_Die *die)
 	self->nr_tags = 0;
 }
 
+static struct namespace *namespace__new(Dwarf_Die *die)
+{
+	struct namespace *self = malloc(sizeof(*self));
+
+	if (self != NULL)
+		namespace__init(self, die);
+
+	return self;
+}
+
 static void type__init(struct type *self, Dwarf_Die *die)
 {
 	namespace__init(&self->namespace, die);
@@ -2381,6 +2391,23 @@ static struct tag *die__create_new_class(Dwarf_Die *die, struct cu *cu)
 	return &class->type.namespace.tag;
 }
 
+static void die__process_namespace(Dwarf_Die *die,
+				   struct namespace *namespace, struct cu *cu);
+
+static struct tag *die__create_new_namespace(Dwarf_Die *die, struct cu *cu)
+{
+	Dwarf_Die child;
+	struct namespace *namespace = namespace__new(die);
+
+	if (namespace == NULL)
+		oom("namespace__new");
+
+	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
+		die__process_namespace(&child, namespace, cu);
+
+	return &namespace->tag;
+}
+
 static struct tag *die__create_new_union(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
@@ -2594,6 +2621,17 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 	} while (dwarf_siblingof(die, die) == 0);
 }
 
+static void die__process_namespace(Dwarf_Die *die,
+				   struct namespace *namespace, struct cu *cu)
+{
+	do {
+		struct tag *tag = die__process_tag(die, cu);
+
+		if (tag != NULL)
+			namespace__add_tag(namespace, tag);
+	} while (dwarf_siblingof(die, die) == 0);
+}
+
 static void die__process_function(Dwarf_Die *die, struct ftype *ftype,
 				  struct lexblock *lexblock, struct cu *cu);
 
@@ -2685,6 +2723,8 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 		return die__create_new_tag(die);
 	case DW_TAG_enumeration_type:
 		return die__create_new_enumeration(die);
+	case DW_TAG_namespace:
+		return die__create_new_namespace(die, cu);
 	case DW_TAG_structure_type:
 		return die__create_new_class(die, cu);
 	case DW_TAG_subprogram:
