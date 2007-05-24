@@ -1984,6 +1984,7 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 	uint32_t last_cacheline = 0;
 	int last_offset = -1;
 	struct class_member *pos;
+	struct tag *tag_pos;
 	struct conf_fprintf cconf = conf ? *conf : conf_fprintf__defaults;
 	size_t printed = fprintf(fp, "%s%sstruct%s%s {\n",
 				 cconf.prefix ?: "", cconf.prefix ? " " : "",
@@ -1995,8 +1996,15 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 
 	cconf.indent = indent + 1;
 
-	type__for_each_member(tself, pos) {
+	type__for_each_tag(tself, tag_pos) {
 		struct tag *type;
+
+		if (tag_pos->tag != DW_TAG_member) {
+			printed += tag__fprintf(tag_pos, cu, &cconf, fp);
+			printed += fprintf(fp, ";\n\n");
+			continue;
+		}
+		pos = tag__class_member(tag_pos);
 
 		if ((int)pos->offset != last_offset)
 			printed +=
@@ -2202,7 +2210,7 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 		    const struct conf_fprintf *conf, FILE *fp)
 {
-	size_t printed = tag__fprintf_decl_info(self, fp);
+	size_t printed;
 	struct conf_fprintf tconf;
 	const struct conf_fprintf *pconf = conf;
 
@@ -2229,6 +2237,10 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 			tconf.type_spacing = 26;
 	}
 
+	printed = fprintf(fp, "%.*s", pconf->indent, tabs);
+	printed += tag__fprintf_decl_info(self, fp);
+	printed += fprintf(fp, "%.*s", pconf->indent, tabs);
+
 	switch (self->tag) {
 	case DW_TAG_enumeration_type:
 		printed += enumeration__fprintf(self, pconf, fp);
@@ -2249,7 +2261,7 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 		printed += variable__fprintf(self, cu, pconf, fp);
 		break;
 	default:
-		printed += fprintf(fp, "%s: %s tag not supported!\n", __func__,
+		printed += fprintf(fp, "/* %s: %s tag not supported! */", __func__,
 				   dwarf_tag_name(self->tag));
 		break;
 	}

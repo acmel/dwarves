@@ -188,6 +188,11 @@ struct class_member {
 					   one (or the end of the struct) */
 };
 
+static inline struct class_member *tag__class_member(const struct tag *self)
+{
+	return (struct class_member *)self;
+}
+
 extern size_t class_member__size(const struct class_member *self,
 				 const struct cu *cu);
 extern void class_member__delete(struct class_member *self);
