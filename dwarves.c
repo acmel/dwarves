@@ -1016,6 +1016,8 @@ static struct class_member *class_member__new(Dwarf_Die *die)
 		self->offset	 = attr_offset(die);
 		self->bit_size	 = attr_numeric(die, DW_AT_bit_size);
 		self->bit_offset = attr_numeric(die, DW_AT_bit_offset);
+		self->accessibility = attr_numeric(die, DW_AT_accessibility);
+		self->virtuality    = attr_numeric(die, DW_AT_virtuality);
 		self->name = strings__add(attr_string(die, DW_AT_name));
 	}
 
@@ -2016,6 +2018,7 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 	/* First look if we have DW_TAG_inheritance */
 	type__for_each_tag(tself, tag_pos) {
 		struct tag *type;
+
 		if (tag_pos->tag != DW_TAG_inheritance)
 			continue;
 
@@ -2024,6 +2027,20 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 			first = 0;
 		} else
 			printed += fprintf(fp, ",");
+
+		pos = tag__class_member(tag_pos);
+
+		if (pos->virtuality == DW_VIRTUALITY_virtual)
+			printed += fprintf(fp, " virtual");
+
+		switch (pos->accessibility) {
+		case DW_ACCESS_public:
+			printed += fprintf(fp, " public"); break;
+		case DW_ACCESS_private:
+			printed += fprintf(fp, " private"); break;
+		case DW_ACCESS_protected:
+			printed += fprintf(fp, " protected"); break;
+		}
 
 		type = cu__find_tag_by_id(cu, tag_pos->type);
 		printed += fprintf(fp, " %s", type__name(tag__type(type)));
