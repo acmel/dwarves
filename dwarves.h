@@ -64,6 +64,11 @@ struct namespace {
 	uint16_t	 nr_tags;
 };
 
+static inline struct namespace *tag__namespace(const struct tag *self)
+{
+	return (struct namespace *)self;
+}
+
 /**
  * struct type - base type for enumerations, structs and unions
  *
