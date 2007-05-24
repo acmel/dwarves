@@ -672,9 +672,10 @@ int main(int argc, char *argv[])
 	if (class_name != NULL) {
 		struct structure *s = structures__find(class_name);
 		struct conf_fprintf conf = {
-			.expand_types = expand_types,
-			.rel_offset   = rel_offset,
-			.emit_stats   = 1,
+			.expand_types	= expand_types,
+			.rel_offset	= rel_offset,
+			.show_decl_info	= global_verbose,
+			.emit_stats	= 1,
 		};
 
 		if (s == NULL) {
