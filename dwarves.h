@@ -343,6 +343,7 @@ struct conf_fprintf {
 	uint8_t	   expand_types;
 	uint8_t    rel_offset;
 	uint8_t	   emit_stats;
+	uint8_t	   show_decl_info;
 	uint8_t	   indent;
 	int32_t	   type_spacing;
 	int32_t	   name_spacing;

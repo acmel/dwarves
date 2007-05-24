@@ -2227,7 +2227,7 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 		    const struct conf_fprintf *conf, FILE *fp)
 {
-	size_t printed;
+	size_t printed = 0;
 	struct conf_fprintf tconf;
 	const struct conf_fprintf *pconf = conf;
 
@@ -2254,8 +2254,10 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 			tconf.type_spacing = 26;
 	}
 
-	printed = fprintf(fp, "%.*s", pconf->indent, tabs);
-	printed += tag__fprintf_decl_info(self, fp);
+	if (pconf->show_decl_info) {
+		printed += fprintf(fp, "%.*s", pconf->indent, tabs);
+		printed += tag__fprintf_decl_info(self, fp);
+	}
 	printed += fprintf(fp, "%.*s", pconf->indent, tabs);
 
 	switch (self->tag) {
