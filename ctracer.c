@@ -189,8 +189,9 @@ static size_t class__find_biggest_member_name(const struct class *self)
 	return biggest_name_len;
 }
 
-static void class__emit_class_state_collector(const struct class *self,
-					      const struct class *clone)
+static void class__emit_class_state_collector(struct class *self,
+					      struct class *clone,
+					      const struct cu *cu)
 {
 	struct class_member *pos;
 	int len = class__find_biggest_member_name(clone);
@@ -200,7 +201,7 @@ static void class__emit_class_state_collector(const struct class *self,
 	        "{\n"
 		"\tconst struct %s *obj = from;\n"
 		"\tstruct %s *mini_obj = to;\n\n",
-		class__name(self), class__name(clone));
+		class__name(self, cu), class__name(clone, cu));
 	type__for_each_member(&clone->type, pos)
 		fprintf(fp_methods, "\tmini_obj->%-*s = obj->%s;\n",
 			len, pos->name, pos->name);
@@ -249,10 +250,10 @@ static void emit_struct_member_table_entry(FILE *fp,
  * ostra-cg to preprocess the raw data collected from the debugfs/relay
  * channel.
  */
-static int class__emit_ostra_converter(const struct tag *tag_self,
+static int class__emit_ostra_converter(struct tag *tag_self,
 				       const struct cu *cu)
 {
-	const struct class *self = tag__class(tag_self);
+	struct class *self = tag__class(tag_self);
 	struct class_member *pos;
 	struct type *type = &mini_class->type;
 	int field = 0, first = 1;
@@ -264,7 +265,7 @@ static int class__emit_ostra_converter(const struct tag *tag_self,
 	FILE *fp_fields, *fp_converter;
 
 	snprintf(filename, sizeof(filename), "%s/%s.fields",
-		 src_dir, class__name(self));
+		 src_dir, class__name(self, cu));
 	fp_fields = fopen(filename, "w");
 	if (fp_fields == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n", filename);
@@ -341,14 +342,14 @@ static int class__emit_ostra_converter(const struct tag *tag_self,
 	return 0;
 }
 
-static int class__emit_subset(const struct tag *tag_self, const struct cu *cu)
+static int class__emit_subset(struct tag *tag_self, const struct cu *cu)
 {
 	struct class *self = tag__class(tag_self);
 	int err = -1;
 	char mini_class_name[128];
 
 	snprintf(mini_class_name, sizeof(mini_class_name), "ctracer__mini_%s",
-		 class__name(self));
+		 class__name(self, cu));
 
 	mini_class = class__clone_base_types(tag_self, cu, mini_class_name);
 	if (mini_class == NULL)
@@ -356,7 +357,7 @@ static int class__emit_subset(const struct tag *tag_self, const struct cu *cu)
 
 	class__fprintf(mini_class, cu, NULL, fp_methods);
 	fputc('\n', fp_methods);
-	class__emit_class_state_collector(self, mini_class);
+	class__emit_class_state_collector(self, mini_class, cu);
 	err = 0;
 out:
 	return err;
@@ -565,7 +566,7 @@ static void emit_class_fwd_decl(const char *name)
 	struct cu *cu;
 	struct tag *c = cus__find_struct_by_name(kprobes_cus, &cu, name);
 	if (c != NULL)
-		cus__emit_fwd_decl(kprobes_cus, tag__type(c), fp_methods);
+		cus__emit_fwd_decl(kprobes_cus, tag__type(c), cu, fp_methods);
 }
 
 /*
@@ -752,7 +753,8 @@ out_dwarf_err:
 	}
 
 	snprintf(functions_filename, sizeof(functions_filename),
-		 "%s/%s.functions", src_dir, class__name(tag__class(class)));
+		 "%s/%s.functions", src_dir,
+		 class__name(tag__class(class), cu));
 	fp = fopen(functions_filename, "w");
 	if (fp == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n",

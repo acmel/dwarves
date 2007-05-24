@@ -22,7 +22,8 @@ extern int cus__emit_ftype_definitions(struct cus *self, struct cu *cu,
 				       struct ftype *ftype, FILE *fp);
 extern int cus__emit_type_definitions(struct cus *self, struct cu *cu,
 				      struct tag *tag, FILE *fp);
-extern int cus__emit_fwd_decl(struct cus *self, struct type *ctype, FILE *fp);
+extern int cus__emit_fwd_decl(struct cus *self, struct type *ctype,
+			      const struct cu *cu, FILE *fp);
 extern void type__emit(struct tag *tag_self, struct cu *cu,
 		       const char *prefix, const char *suffix, FILE *fp);
 

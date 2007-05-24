@@ -102,7 +102,7 @@ static struct class_member *
 }
 
 static struct class_member *
-	class__find_next_bit_hole_of_size(const struct class *class,
+	class__find_next_bit_hole_of_size(struct class *class,
 					  struct class_member *from,
 					  size_t size)
 {
@@ -558,7 +558,7 @@ restart:
 	}
 }
 
-static void class__fixup_bitfield_types(const struct class *self,
+static void class__fixup_bitfield_types(struct class *self,
 					struct class_member *from,
 					struct class_member *to_before,
 					Dwarf_Off type)

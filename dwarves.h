@@ -86,6 +86,7 @@ static inline struct namespace *tag__namespace(const struct tag *self)
 struct type {
 	struct namespace namespace;
 	struct list_head node;
+	Dwarf_Off	 specification;
 	size_t		 size;
 	uint16_t	 nr_members;
 	uint8_t		 declaration; /* only one bit used */
@@ -165,14 +166,12 @@ static inline struct list_head *class__tags(struct class *self)
 	return &self->type.namespace.tags;
 }
 
-static inline const char *type__name(const struct type *self)
-{
-	return self->namespace.name;
-}
+extern const char *type__name(struct type *self, const struct cu *cu);
 
-static inline const char *class__name(const struct class *self)
+static inline const char *class__name(struct class *self,
+				      const struct cu *cu)
 {
-	return type__name(&self->type);
+	return type__name(&self->type, cu);
 }
 
 static inline uint16_t class__tag_type(const struct class *self)
@@ -355,9 +354,10 @@ extern void dwarves__init(size_t user_cacheline_size);
 
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern int class__has_hole_ge(const struct class *self, const uint16_t size);
-extern size_t class__fprintf(const struct class *self, const struct cu *cu,
+extern size_t class__fprintf(struct class *self, const struct cu *cu,
 			     const struct conf_fprintf *conf, FILE *fp);
 extern size_t enumeration__fprintf(const struct tag *tag_self,
+				   const struct cu *cu,
 				   const struct conf_fprintf *conf, FILE *fp);
 extern size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 			       FILE *fp);
