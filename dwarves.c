@@ -1999,11 +1999,11 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 	uint32_t sum_paddings = 0;
 	uint32_t sum_bit_holes = 0;
 	uint32_t last_cacheline = 0;
-	int last_offset = -1;
+	int last_offset = -1, first = 1;
 	struct class_member *pos;
 	struct tag *tag_pos;
 	struct conf_fprintf cconf = conf ? *conf : conf_fprintf__defaults;
-	size_t printed = fprintf(fp, "%s%sstruct%s%s {\n",
+	size_t printed = fprintf(fp, "%s%sstruct%s%s",
 				 cconf.prefix ?: "", cconf.prefix ? " " : "",
 				 type__name(tself) ? " " : "", type__name(tself) ?: "");
 	size_t indent = cconf.indent;
@@ -2012,6 +2012,24 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 		indent = sizeof(tabs) - 1;
 
 	cconf.indent = indent + 1;
+
+	/* First look if we have DW_TAG_inheritance */
+	type__for_each_tag(tself, tag_pos) {
+		struct tag *type;
+		if (tag_pos->tag != DW_TAG_inheritance)
+			continue;
+
+		if (first) {
+			printed += fprintf(fp, " :");
+			first = 0;
+		} else
+			printed += fprintf(fp, ",");
+
+		type = cu__find_tag_by_id(cu, tag_pos->type);
+		printed += fprintf(fp, " %s", type__name(tag__type(type)));
+	}
+
+	printed += fprintf(fp, " {\n");
 
 	type__for_each_tag(tself, tag_pos) {
 		struct tag *type;
