@@ -143,9 +143,14 @@ extern struct class *class__clone(const struct class *from,
 				  const char *new_class_name);
 extern void class__delete(struct class *self);
 
+static inline const char *type__name(const struct type *self)
+{
+	return self->name;
+}
+
 static inline const char *class__name(const struct class *self)
 {
-	return self->type.name;
+	return type__name(&self->type);
 }
 
 static inline uint16_t class__tag_type(const struct class *self)

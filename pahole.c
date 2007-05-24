@@ -181,7 +181,7 @@ static void class_formatter(const struct structure *self)
 		const struct type *tdef = tag__type(typedef_alias);
 
 		conf.prefix = "typedef";
-		conf.suffix = tdef->name;
+		conf.suffix = type__name(tdef);
 	}
 
 	tag__fprintf(tag, self->cu, &conf, stdout);
@@ -414,10 +414,10 @@ static int nr_methods_iterator(struct tag *tag, struct cu *cu,
 			continue;
 
 		ctype = tag__type(type);
-		if (ctype->name == NULL)
+		if (type__name(ctype) == NULL)
 			continue;
 
-		str = structures__find(ctype->name);
+		str = structures__find(type__name(ctype));
 		if (str != NULL)
 			++str->nr_methods;
 	}
