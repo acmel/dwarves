@@ -42,6 +42,7 @@ static int reorganize;
 static int show_reorg_steps;
 static char *class_name;
 static char separator = '\t';
+static Dwarf_Off class_dwarf_offset;
 
 struct conf_fprintf conf = {
 	.emit_stats = 1,
@@ -551,6 +552,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "show how many times struct was defined",
 	},
 	{
+		.name = "dwarf_offset",
+		.key  = 'O',
+		.arg  = "OFFSET",
+		.doc  = "Show tag with DWARF OFFSET",
+	},
+	{
 		.name = "decl_exclude",
 		.key  = 'D',
 		.arg  = "PREFIX",
@@ -615,6 +622,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'n': formatter = nr_members_formatter;	break;
 	case 'N': formatter = class_name_len_formatter;	break;
 	case 'm': formatter = nr_methods_formatter;	break;
+	case 'O': class_dwarf_offset = strtoul(arg, NULL, 0);	break;
 	case 'P': show_packable	= 1;			break;
 	case 't': separator = arg[0];			break;
 	case 'T': formatter = nr_definitions_formatter;	break;
@@ -661,6 +669,20 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 
 	dwarves__init(cacheline_size);
+
+	if (class_dwarf_offset != 0) {
+		struct cu *cu;
+		struct tag *tag = cus__find_tag_by_id(cus, &cu,
+						      class_dwarf_offset);
+		if (tag == NULL) {
+			fprintf(stderr, "id %llx not found!\n",
+			class_dwarf_offset);
+			return EXIT_FAILURE;
+		}
+
+ 		tag__fprintf(tag, cu, &conf, stdout);
+		return EXIT_SUCCESS;
+	}
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, cu__filter);
 	if (formatter == nr_methods_formatter)

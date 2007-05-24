@@ -710,6 +710,24 @@ struct tag *cus__find_function_by_name(const struct cus *self,
 	return NULL;
 }
 
+struct tag *cus__find_tag_by_id(const struct cus *self,
+				struct cu **cu, const Dwarf_Off id)
+{
+	struct cu *pos;
+
+	list_for_each_entry(pos, &self->cus, node) {
+		struct tag *tag = cu__find_tag_by_id(pos, id);
+
+		if (tag != NULL) {
+			if (cu != NULL)
+				*cu = pos;
+			return tag;
+		}
+	}
+
+	return NULL;
+}
+
 struct cu *cus__find_cu_by_name(const struct cus *self, const char *name)
 {
 	struct cu *pos;

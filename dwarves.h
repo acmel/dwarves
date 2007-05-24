@@ -392,6 +392,8 @@ extern struct tag *cus__find_struct_by_name(const struct cus *self,
 extern struct tag *cus__find_function_by_name(const struct cus *self,
 					      struct cu **cu,
 					      const char *name);
+extern struct tag *cus__find_tag_by_id(const struct cus *self,
+				       struct cu **cu, const Dwarf_Off id);
 
 extern struct tag *cu__find_tag_by_id(const struct cu *self,
 				      const Dwarf_Off id);
