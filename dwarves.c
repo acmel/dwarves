@@ -2051,7 +2051,8 @@ size_t class__fprintf(const struct class *self, const struct cu *cu,
 	type__for_each_tag(tself, tag_pos) {
 		struct tag *type;
 
-		if (tag_pos->tag != DW_TAG_member) {
+		if (tag_pos->tag != DW_TAG_member &&
+		    tag_pos->tag != DW_TAG_inheritance) {
 			printed += tag__fprintf(tag_pos, cu, &cconf, fp);
 			if (tag_pos->tag != DW_TAG_structure_type)
 				printed += fprintf(fp, ";\n");
