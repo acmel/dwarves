@@ -12,6 +12,11 @@
 
 #include "dwarves.h"
 
+static const struct conf_fprintf conf = {
+	.emit_stats	= 1,
+	.show_decl_info = 1,
+};
+
 static int emit_tag(struct tag *self, struct cu *cu, void *cookie __unused)
 {
 	if (self->tag != DW_TAG_array_type &&
@@ -25,7 +30,7 @@ static int emit_tag(struct tag *self, struct cu *cu, void *cookie __unused)
 		if (self->tag == DW_TAG_structure_type)
 			class__find_holes(tag__class(self), cu);
 
-		tag__fprintf(self, cu, NULL, stdout);
+		tag__fprintf(self, cu, &conf, stdout);
 
 		if (self->tag == DW_TAG_subprogram) {
 			const struct function *fn = tag__function(self);
