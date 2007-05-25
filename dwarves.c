@@ -2080,6 +2080,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 	int last_offset = -1, first = 1;
 	struct class_member *pos;
 	struct tag *tag_pos;
+	const char *current_accessibility = NULL;
 	struct conf_fprintf cconf = conf ? *conf : conf_fprintf__defaults;
 	size_t printed = fprintf(fp, "%s%sstruct%s%s",
 				 cconf.prefix ?: "", cconf.prefix ? " " : "",
@@ -2123,6 +2124,15 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 
 	type__for_each_tag(tself, tag_pos) {
 		struct tag *type;
+		const char *accessibility = tag__accessibility(tag_pos);
+
+		if (accessibility != NULL &&
+		    accessibility != current_accessibility) {
+			current_accessibility = accessibility;
+			printed += fprintf(fp, "%.*s%s:\n\n",
+					   cconf.indent - 1, tabs,
+					   accessibility);
+		}
 
 		if (tag_pos->tag != DW_TAG_member &&
 		    tag_pos->tag != DW_TAG_inheritance) {
