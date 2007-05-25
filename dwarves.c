@@ -296,6 +296,31 @@ static struct tag *tag__new(Dwarf_Die *die)
 	return self;
 }
 
+static const char *tag__accessibility(const struct tag *self)
+{
+	int a;
+
+	switch (self->tag) {
+	case DW_TAG_inheritance:
+	case DW_TAG_member:
+		a = tag__class_member(self)->accessibility;
+		break;
+	case DW_TAG_subprogram:
+		a = tag__function(self)->accessibility;
+		break;
+	default:
+		return NULL;
+	}
+
+	switch (a) {
+	case DW_ACCESS_public:	  return "public";
+	case DW_ACCESS_private:	  return "private";
+	case DW_ACCESS_protected: return "protected";
+	}
+
+	return NULL;
+}
+
 size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu)
 {
 	return (tag__size(self, cu) + cacheline_size - 1) / cacheline_size;
@@ -2070,6 +2095,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 	/* First look if we have DW_TAG_inheritance */
 	type__for_each_tag(tself, tag_pos) {
 		struct tag *type;
+		const char *accessibility;
 
 		if (tag_pos->tag != DW_TAG_inheritance)
 			continue;
@@ -2085,14 +2111,9 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		if (pos->virtuality == DW_VIRTUALITY_virtual)
 			printed += fprintf(fp, " virtual");
 
-		switch (pos->accessibility) {
-		case DW_ACCESS_public:
-			printed += fprintf(fp, " public"); break;
-		case DW_ACCESS_private:
-			printed += fprintf(fp, " private"); break;
-		case DW_ACCESS_protected:
-			printed += fprintf(fp, " protected"); break;
-		}
+		accessibility = tag__accessibility(tag_pos);
+		if (accessibility != NULL)
+			printed += fprintf(fp, " %s", accessibility);
 
 		type = cu__find_tag_by_id(cu, tag_pos->type);
 		printed += fprintf(fp, " %s", type__name(tag__type(type), cu));
