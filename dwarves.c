@@ -1546,6 +1546,8 @@ static struct function *function__new(Dwarf_Die *die)
 		self->external = dwarf_hasattr(die, DW_AT_external);
 		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
 		self->specification   = attr_type(die, DW_AT_specification);
+		self->accessibility   = attr_numeric(die, DW_AT_accessibility);
+		self->virtuality      = attr_numeric(die, DW_AT_virtuality);
 	}
 
 	return self;

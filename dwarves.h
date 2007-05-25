@@ -266,8 +266,10 @@ struct function {
 	Dwarf_Off	 specification;
 	size_t		 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;
-	uint8_t		 inlined;	/* two bits used */
-	uint8_t		 external;	/* one bit used */
+	uint8_t		 inlined:2;
+	uint8_t		 external:1;
+	uint8_t		 accessibility:2; /* DW_ACCESS_{public,protected,private} */
+	uint8_t		 virtuality:2; /* DW_VIRTUALITY_{none,virtual,pure_virtual} */
 	/* fields used by tools */
 	struct list_head tool_node;
 	void		 *priv;
