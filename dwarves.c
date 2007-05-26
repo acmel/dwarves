@@ -278,9 +278,14 @@ static void tag__init(struct tag *self, Dwarf_Die *die)
 {
 	int32_t decl_line;
 
-	self->tag	= dwarf_tag(die);
-	self->id	= dwarf_dieoffset(die);
-	self->type	= attr_type(die, DW_AT_type);
+	self->tag = dwarf_tag(die);
+	self->id  = dwarf_dieoffset(die);
+
+	if (self->tag == DW_TAG_imported_module)
+		self->type = attr_type(die, DW_AT_import);
+	else
+		self->type = attr_type(die, DW_AT_type);
+
 	self->decl_file = strings__add(dwarf_decl_file(die));
 	dwarf_decl_line(die, &decl_line);
 	self->decl_line = decl_line;
@@ -491,6 +496,18 @@ size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 	return fprintf(fp, "typedef %s %s",
 		       tag__name(type, cu, bf, sizeof(bf)),
 		       		 type__name(self, cu));
+}
+
+static size_t imported_module__fprintf(const struct tag *self,
+				       const struct cu *cu, FILE *fp)
+{
+	const struct tag *module = cu__find_tag_by_id(cu, self->type);
+	const char *name = "<IMPORTED MODULE ERROR!>";
+
+	if (module->tag == DW_TAG_namespace)
+		name = tag__namespace(module)->name;
+
+	return fprintf(fp, "using namespace %s", name);
 }
 
 size_t enumeration__fprintf(const struct tag *tag_self, const struct cu *cu,
@@ -2444,6 +2461,9 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 	case DW_TAG_variable:
 		printed += variable__fprintf(self, cu, pconf, fp);
 		break;
+	case DW_TAG_imported_module:
+		printed += imported_module__fprintf(self, cu, fp);
+		break;
 	default:
 		printed += fprintf(fp, "/* %s: %s tag not supported! */", __func__,
 				   dwarf_tag_name(self->tag));
@@ -2886,6 +2906,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	case DW_TAG_base_type:
 		return die__create_new_base_type(die);
 	case DW_TAG_const_type:
+	case DW_TAG_imported_module:
 	case DW_TAG_pointer_type:
 	case DW_TAG_reference_type:
 	case DW_TAG_volatile_type:
