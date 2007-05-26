@@ -332,15 +332,17 @@ size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu)
 	return (tag__size(self, cu) + cacheline_size - 1) / cacheline_size;
 }
 
-static void __tag__type_not_found(const struct tag *self, const char *fn)
+static void __tag__id_not_found(const struct tag *self,
+				unsigned long long id, const char *fn)
 {
-	fprintf(stderr, "%s: %#llx type not found for %s (id=%#llx)\n",
-		fn, (unsigned long long)self->type, dwarf_tag_name(self->tag),
-		(unsigned long long)self->id);
+	fprintf(stderr, "%s: %#llx id not found for %s (id=%#llx)\n",
+		fn, (unsigned long long)id, dwarf_tag_name(self->tag), self->id);
 	fflush(stderr);
 }
 
-#define tag__type_not_found(self) __tag__type_not_found(self, __func__)
+#define tag__id_not_found(self, id) __tag__id_not_found(self, id, __func__)
+
+#define tag__type_not_found(self) __tag__id_not_found(self, (self)->type, __func__)
 
 size_t tag__fprintf_decl_info(const struct tag *self, FILE *fp)
 {
@@ -434,7 +436,7 @@ const char *type__name(struct type *self, const struct cu *cu)
 		/* No? So it must have a DW_TAG_specification... */
 		struct tag *tag = cu__find_tag_by_id(cu, self->specification);
 		if (tag == NULL) {
-			tag__type_not_found(&self->namespace.tag);
+			tag__id_not_found(&self->namespace.tag, self->specification);
 			return NULL;
 		}
 		/* ... and now we cache the result in this tag ->name field */
@@ -1173,7 +1175,7 @@ const char *parameter__name(struct parameter *self, const struct cu *cu)
 		struct parameter *alias =
 			cu__find_parameter_by_id(cu, self->abstract_origin);
 		if (alias == NULL) {
-			tag__type_not_found(&self->tag);
+			tag__id_not_found(&self->tag, self->abstract_origin);
 			return NULL;
 		}
 		/* Now cache the result in this tag ->name field */
@@ -1191,7 +1193,7 @@ Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu)
 		struct parameter *alias =
 			cu__find_parameter_by_id(cu, self->abstract_origin);
 		if (alias == NULL) {
-			tag__type_not_found(&self->tag);
+			tag__id_not_found(&self->tag, self->abstract_origin);
 			return 0;
 		}
 		/* Now cache the result in this tag ->name and type fields */
@@ -1635,7 +1637,8 @@ const char *function__name(struct function *self, const struct cu *cu)
 			/* ... or a DW_TAG_specification... */
 			tag = cu__find_tag_by_id(cu, self->specification);
 			if (tag == NULL) {
-				tag__type_not_found(&self->proto.tag);
+				tag__id_not_found(&self->proto.tag,
+						  self->specification);
 				return NULL;
 			}
 		}
