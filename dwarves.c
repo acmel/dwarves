@@ -894,43 +894,39 @@ static struct variable *cu__find_variable_by_id(const struct cu *self,
 	return NULL;
 }
 
-static struct tag *ftype__find_parm_by_id(const struct ftype *self,
-					  const Dwarf_Off id)
+static struct tag *list__find_tag_by_id(const struct list_head *self,
+					const Dwarf_Off id)
 {
-	struct tag *pos;
+	struct tag *pos, *tag;
 
-	list_for_each_entry(pos, &self->parms, node)
+	list_for_each_entry(pos, self, node) {
 		if (pos->id == id)
 			return pos;
-	return 0;
+
+		switch (pos->tag) {
+		case DW_TAG_namespace:
+			tag = list__find_tag_by_id(&tag__namespace(pos)->tags, id);
+			break;
+		case DW_TAG_subprogram:
+			tag = list__find_tag_by_id(&tag__ftype(pos)->parms, id);
+			if (tag == NULL)
+				tag = list__find_tag_by_id(&tag__function(pos)->lexblock.tags, id);
+			break;
+		default:
+			continue;
+		}
+
+		if (tag != NULL)
+			return tag;
+	}
+
+	return NULL;
 }
 
 static struct tag *cu__find_parameter_by_id(const struct cu *self,
 					    const Dwarf_Off id)
 {
-	struct tag *pos;
-
-	list_for_each_entry(pos, &self->tags, node) {
-		/*
-		 * There can't be any at the top level CU tags list,
-		 * it'll be in the ftype->parms list or in the lexblock->tags
-		 * list, see comment in die__create_new_parameter to see why
-		 * the later is possible.
-		 */
-		if (pos->tag == DW_TAG_subprogram) {
-			struct function *fn = tag__function(pos);
-			struct tag *tag = ftype__find_parm_by_id(&fn->proto,
-								 id);
-			if (tag != NULL) {
-				tag = lexblock__find_tag_by_id(&fn->lexblock,
-							       id);
-				if (tag != NULL)
-					return tag;
-			}
-		}
-	}
-
-	return NULL;
+	return list__find_tag_by_id(&self->tags, id);
 }
 
 static size_t array_type__nr_entries(const struct array_type *self)
