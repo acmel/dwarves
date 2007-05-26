@@ -6,15 +6,15 @@
   published by the Free Software Foundation.
 */
 
+#include <argp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
 
 #include "dwarves.h"
 
-static const struct conf_fprintf conf = {
+static struct conf_fprintf conf = {
 	.emit_stats	= 1,
-	.show_decl_info = 1,
 };
 
 static int emit_tag(struct tag *self, struct cu *cu, void *cookie __unused)
@@ -54,6 +54,36 @@ static void cus__emit_tags(struct cus *self)
 	cus__for_each_cu(self, cu__emit_tags, NULL, NULL);
 }
 
+static const struct argp_option pdwtags__options[] = {
+	{
+		.key  = 'V',
+		.name = "verbose",
+		.doc  = "show details",
+	},
+	{
+		.name = NULL,
+	}
+};
+
+static error_t pdwtags__options_parser(int key, char *arg __unused,
+				      struct argp_state *state)
+{
+	switch (key) {
+	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
+	case 'V': conf.show_decl_info = 1;		break;
+	default:  return ARGP_ERR_UNKNOWN;
+	}
+	return 0;
+}
+
+static const char pdwtags__args_doc[] = "[FILE]";
+
+static struct argp pdwtags__argp = {
+	.options  = pdwtags__options,
+	.parser	  = pdwtags__options_parser,
+	.args_doc = pdwtags__args_doc,
+};
+
 int main(int argc, char *argv[])
 {
 	int err;
@@ -64,7 +94,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, NULL, argc, argv);
+	err = cus__loadfl(cus, &pdwtags__argp, argc, argv);
 	if (err != 0)
 		return EXIT_FAILURE;
 
