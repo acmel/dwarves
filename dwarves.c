@@ -448,12 +448,20 @@ size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 			FILE *fp)
 {
 	struct type *self = tag__type(tag_self);
-	const struct tag *type = cu__find_tag_by_id(cu, tag_self->type);
+	const struct tag *type;
 	const struct tag *ptr_type;
 	char bf[512];
 	int is_pointer = 0;
 	size_t printed;
 
+	/*
+	 * Check for void (humm, perhaps we should have a fake void tag instance
+	 * to avoid all these checks?
+	 */
+	if (tag_self->type == 0)
+		return fprintf(fp, "typedef void %s", type__name(self, cu));
+
+	type = cu__find_tag_by_id(cu, tag_self->type);
 	if (type == NULL) {
 		tag__type_not_found(tag_self);
 		return 0;
