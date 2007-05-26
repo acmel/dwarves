@@ -432,8 +432,10 @@ static struct type *type__new(Dwarf_Die *die)
 const char *type__name(struct type *self, const struct cu *cu)
 {
 	/* Check if the tag doesn't comes with a DW_AT_name attribute... */
-	if (self->namespace.name == NULL && cu != NULL) {
-		/* No? So it must have a DW_TAG_specification... */
+	if (self->namespace.name == NULL &&
+	    /* No? So it can have a DW_TAG_specification... */
+	    self->specification != 0 &&
+	    cu != NULL) {
 		struct tag *tag = cu__find_tag_by_id(cu, self->specification);
 		if (tag == NULL) {
 			tag__id_not_found(&self->namespace.tag, self->specification);
