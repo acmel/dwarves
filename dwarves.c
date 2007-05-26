@@ -905,8 +905,8 @@ static struct tag *ftype__find_parm_by_id(const struct ftype *self,
 	return 0;
 }
 
-static struct parameter *cu__find_parameter_by_id(const struct cu *self,
-						  const Dwarf_Off id)
+static struct tag *cu__find_parameter_by_id(const struct cu *self,
+					    const Dwarf_Off id)
 {
 	struct tag *pos;
 
@@ -925,7 +925,7 @@ static struct parameter *cu__find_parameter_by_id(const struct cu *self,
 				tag = lexblock__find_tag_by_id(&fn->lexblock,
 							       id);
 				if (tag != NULL)
-					return tag__parameter(tag);
+					return tag;
 			}
 		}
 	}
@@ -1174,14 +1174,14 @@ const char *parameter__name(struct parameter *self, const struct cu *cu)
 	/* Check if the tag doesn't comes with a DW_AT_name attribute... */
 	if (self->name == NULL && self->abstract_origin != 0) {
 		/* No? Does it have a DW_AT_abstract_origin? */
-		struct parameter *alias =
+		struct tag *alias =
 			cu__find_parameter_by_id(cu, self->abstract_origin);
 		if (alias == NULL) {
 			tag__id_not_found(&self->tag, self->abstract_origin);
 			return NULL;
 		}
 		/* Now cache the result in this tag ->name field */
-		self->name = alias->name;
+		self->name = tag__parameter(alias)->name;
 	}
 
 	return self->name;
@@ -1192,15 +1192,15 @@ Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu)
 	/* Check if the tag doesn't comes with a DW_AT_type attribute... */
 	if (self->tag.type == 0 && self->abstract_origin != 0) {
 		/* No? Does it have a DW_AT_abstract_origin? */
-		struct parameter *alias =
+		struct tag *alias =
 			cu__find_parameter_by_id(cu, self->abstract_origin);
 		if (alias == NULL) {
 			tag__id_not_found(&self->tag, self->abstract_origin);
 			return 0;
 		}
 		/* Now cache the result in this tag ->name and type fields */
-		self->name = alias->name;
-		self->tag.type = alias->tag.type;
+		self->name = tag__parameter(alias)->name;
+		self->tag.type = tag__parameter(alias)->tag.type;
 	}
 
 	return self->tag.type;
