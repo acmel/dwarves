@@ -682,6 +682,8 @@ int main(int argc, char *argv[])
 		}
 
  		tag__fprintf(tag, cu, &conf, stdout);
+		if (tag->tag != DW_TAG_structure_type)
+			puts(";");
 		return EXIT_SUCCESS;
 	}
 
