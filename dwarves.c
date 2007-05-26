@@ -1324,14 +1324,20 @@ static size_t struct_member__fprintf(struct class_member *self,
 	const int size = tag__size(type, cu);
 	struct conf_fprintf sconf = *conf;
 	uint32_t offset = self->offset;
-	size_t printed;
+	size_t printed = 0;
+	const char *name = self->name;
 	
 	if (!sconf.rel_offset) {
 		sconf.base_offset += self->offset;
 		offset = sconf.base_offset;
 	}
-	
-	printed = type__fprintf(type, cu, self->name, &sconf, fp);
+
+	if (self->tag.tag == DW_TAG_inheritance) {
+		name = "<ancestor>";
+		printed += fprintf(fp, "/* ");
+	}
+
+	printed += type__fprintf(type, cu, name, &sconf, fp);
 
 	if (self->bit_size != 0)
 		printed += fprintf(fp, ":%u;", self->bit_size);
@@ -1354,6 +1360,11 @@ static size_t struct_member__fprintf(struct class_member *self,
 					 " ", offset, size);
 	}
 	spacing = sconf.type_spacing + sconf.name_spacing - printed;
+	if (self->tag.tag == DW_TAG_inheritance) {
+		const size_t p = fprintf(fp, " */");
+		printed += p;
+		spacing -= p;
+	}
 	return printed + fprintf(fp, "%*s/* %5u %5u */",
 				 spacing > 0 ? spacing : 0, " ",
 				 offset, size);
