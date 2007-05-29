@@ -668,7 +668,14 @@ struct class *class__reorganize(struct class *self, const struct cu *cu,
 	/* Now try to combine holes */
 restart:
 	class__find_holes(self, cu);
+	/*
+	 * It can be NULL if this class doesn't have any data members,
+	 * just inheritance entries
+	 */
 	last_member = type__last_member(&self->type);
+	if (last_member == NULL)
+		return self;
+
 	last_member_size = class_member__size(last_member, cu);
 
 	type__for_each_member(&self->type, member) {
