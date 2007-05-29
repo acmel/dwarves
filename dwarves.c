@@ -1705,7 +1705,7 @@ const struct class_member *class__find_bit_hole(const struct class *self,
 	struct class_member *pos;
 	const size_t byte_hole_size = bit_hole_size / 8;
 
-	type__for_each_member(&self->type, pos)
+	type__for_each_data_member(&self->type, pos)
 		if (pos == trailer)
 			break;
 		else if (pos->hole >= byte_hole_size ||
@@ -1725,7 +1725,7 @@ void class__find_holes(struct class *self, const struct cu *cu)
 	self->nr_holes = 0;
 	self->nr_bit_holes = 0;
 
-	type__for_each_member(ctype, pos) {
+	type__for_each_data_member(ctype, pos) {
 		/* XXX for now just skip these */
 		if (pos->tag.tag == DW_TAG_inheritance &&
 		    pos->virtuality == DW_VIRTUALITY_virtual)
@@ -1802,7 +1802,7 @@ int class__has_hole_ge(const struct class *self, const uint16_t size)
 	if (self->nr_holes == 0)
 		return 0;
 
-	type__for_each_member(&self->type, pos)
+	type__for_each_data_member(&self->type, pos)
 		if (pos->hole >= size)
 			return 1;
 
@@ -1814,7 +1814,7 @@ struct class_member *type__find_member_by_name(const struct type *self,
 {
 	if (name != NULL) {
 		struct class_member *pos;
-		type__for_each_member(self, pos)
+		type__for_each_data_member(self, pos)
 			if (pos->name != NULL && strcmp(pos->name, name) == 0)
 				return pos;
 	}

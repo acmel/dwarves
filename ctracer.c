@@ -179,7 +179,7 @@ static size_t class__find_biggest_member_name(const struct class *self)
 	struct class_member *pos;
 	size_t biggest_name_len = 0;
 
-	type__for_each_member(&self->type, pos) {
+	type__for_each_data_member(&self->type, pos) {
 		const size_t len = strlen(pos->name);
 
 		if (len > biggest_name_len)
@@ -202,7 +202,7 @@ static void class__emit_class_state_collector(struct class *self,
 		"\tconst struct %s *obj = from;\n"
 		"\tstruct %s *mini_obj = to;\n\n",
 		class__name(self, cu), class__name(clone, cu));
-	type__for_each_member(&clone->type, pos)
+	type__for_each_data_member(&clone->type, pos)
 		fprintf(fp_methods, "\tmini_obj->%-*s = obj->%s;\n",
 			len, pos->name, pos->name);
 	fputs("}\n\n", fp_methods);
@@ -221,7 +221,7 @@ static struct class *class__clone_base_types(const struct tag *tag_self,
 
 	class__find_holes(clone, cu);
 
-	type__for_each_member_safe(&clone->type, pos, next) {
+	type__for_each_data_member_safe(&clone->type, pos, next) {
 		struct tag *member_type = cu__find_tag_by_id(cu, pos->tag.type);
 
 		if (member_type->tag != DW_TAG_base_type)
@@ -318,7 +318,7 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	      "\t\t\t\":",
 	      fp_converter);
 
-	type__for_each_member(type, pos) {
+	type__for_each_data_member(type, pos) {
 		if (first)
 			first = 0;
 		else {

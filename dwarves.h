@@ -111,7 +111,8 @@ struct type {
 	list_for_each_entry(pos, &(self)->namespace.tags, tag.node)
 
 /** 
- * type__for_each_member - iterate thru the DW_TAG_member entries
+ * type__for_each_member - iterate thru the entries that use space
+ *                         (data members and inheritance entries)
  * @self: struct type instance to iterate
  * @pos: struct class_member iterator
  */
@@ -123,12 +124,36 @@ struct type {
 		else
 
 /** 
- * type__for_each_member_safe - safely iterate thru the DW_TAG_member entries
+ * type__for_each_data_member - iterate thru the data member entries
+ * @self: struct type instance to iterate
+ * @pos: struct class_member iterator
+ */
+#define type__for_each_data_member(self, pos) \
+	list_for_each_entry(pos, &(self)->namespace.tags, tag.node) \
+		if (pos->tag.tag != DW_TAG_member) \
+			continue; \
+		else
+
+/** 
+ * type__for_each_member_safe - safely iterate thru the entries that use space
+ *                              (data members and inheritance entries)
  * @self: struct type instance to iterate
  * @pos: struct class_member iterator
  * @n: struct class_member temp iterator
  */
 #define type__for_each_member_safe(self, pos, n) \
+	list_for_each_entry_safe(pos, n, &(self)->namespace.tags, tag.node) \
+		if (pos->tag.tag != DW_TAG_member) \
+			continue; \
+		else
+
+/** 
+ * type__for_each_data_member_safe - safely iterate thru the data member entries
+ * @self: struct type instance to iterate
+ * @pos: struct class_member iterator
+ * @n: struct class_member temp iterator
+ */
+#define type__for_each_data_member_safe(self, pos, n) \
 	list_for_each_entry_safe(pos, n, &(self)->namespace.tags, tag.node) \
 		if (pos->tag.tag != DW_TAG_member) \
 			continue; \
