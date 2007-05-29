@@ -654,8 +654,8 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 	}
 }
 
-struct class *class__reorganize(struct class *self, const struct cu *cu,
-				const int verbose, FILE *fp)
+void class__reorganize(struct class *self, const struct cu *cu,
+		       const int verbose, FILE *fp)
 {
 	struct class_member *member, *brother, *last_member;
 	size_t last_member_size;
@@ -674,7 +674,7 @@ restart:
 	 */
 	last_member = type__last_member(&self->type);
 	if (last_member == NULL)
-		return self;
+		return;
 
 	last_member_size = class_member__size(last_member, cu);
 
@@ -726,7 +726,7 @@ restart:
 
 	/* Now try to move members at the tail to after holes */
 	if (self->nr_holes == 0)
-		goto out;
+		return;
 
 	type__for_each_member(&self->type, member) {
 		/* See if we have a hole after this member */
@@ -754,6 +754,4 @@ restart:
 			}
 		}
 	}
-out:
-	return self;
 }

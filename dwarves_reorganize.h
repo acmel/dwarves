@@ -22,8 +22,7 @@ extern void class__subtract_offsets_from(struct class *self,
 					 const struct cu *cu,
 					 struct class_member *from,
 					 const uint16_t size);
-extern struct class *class__reorganize(struct class *self,
-				       const struct cu *cu,
-				       const int verbose, FILE *fp);
+extern void class__reorganize(struct class *self, const struct cu *cu,
+			      const int verbose, FILE *fp);
 
 #endif /* _DWARVES_REORGANIZE_H_ */
