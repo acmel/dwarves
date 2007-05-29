@@ -1725,7 +1725,7 @@ void class__find_holes(struct class *self, const struct cu *cu)
 	self->nr_holes = 0;
 	self->nr_bit_holes = 0;
 
-	type__for_each_data_member(ctype, pos) {
+	type__for_each_member(ctype, pos) {
 		/* XXX for now just skip these */
 		if (pos->tag.tag == DW_TAG_inheritance &&
 		    pos->virtuality == DW_VIRTUALITY_virtual)
