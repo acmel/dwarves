@@ -905,6 +905,8 @@ static struct tag *list__find_tag_by_id(const struct list_head *self,
 
 		switch (pos->tag) {
 		case DW_TAG_namespace:
+		case DW_TAG_structure_type:
+		case DW_TAG_union_type:
 			tag = list__find_tag_by_id(&tag__namespace(pos)->tags, id);
 			break;
 		case DW_TAG_subprogram:
