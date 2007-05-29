@@ -225,20 +225,29 @@ static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 	return 0;
 }
 
+static uint64_t dwarf_expr(const uint8_t *expr, uint32_t len __unused)
+{
+	/* Common case: offset from start of the class */
+	if (expr[0] == DW_OP_plus_uconst) {
+		uint64_t result;
+		++expr;
+		get_uleb128(result, expr);
+		return result;
+	}
+
+	fprintf(stderr, "%s: unhandled %#x DW_OP_ operation\n",
+		__func__, *expr);
+	return UINT64_MAX;
+}
+
 static Dwarf_Off attr_offset(Dwarf_Die *die)
 {
 	Dwarf_Attribute attr;
+	Dwarf_Block block;
 
-	if (dwarf_attr(die, DW_AT_data_member_location, &attr) != NULL) {
-		Dwarf_Block block;
-
-		if (dwarf_formblock(&attr, &block) == 0) {
-			uint64_t uleb;
-			const uint8_t *data = block.data + 1;
-			get_uleb128(uleb, data);
-			return uleb;
-		}
-	}
+	if (dwarf_attr(die, DW_AT_data_member_location, &attr) != NULL &&
+	    dwarf_formblock(&attr, &block) == 0)
+		return dwarf_expr(block.data, block.length);
 
 	return 0;
 }
