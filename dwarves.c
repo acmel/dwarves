@@ -2194,10 +2194,12 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 
 		if (tag_pos->tag != DW_TAG_member &&
 		    tag_pos->tag != DW_TAG_inheritance) {
-			printed += tag__fprintf(tag_pos, cu, &cconf, fp);
-			if (tag_pos->tag != DW_TAG_structure_type)
-				printed += fprintf(fp, ";\n");
-			printed += fprintf(fp, "\n");
+		    	if (!cconf.show_only_data_members) {
+				printed += tag__fprintf(tag_pos, cu, &cconf, fp);
+				if (tag_pos->tag != DW_TAG_structure_type)
+					printed += fprintf(fp, ";\n");
+				printed += fprintf(fp, "\n");
+			}
 			continue;
 		}
 		pos = tag__class_member(tag_pos);

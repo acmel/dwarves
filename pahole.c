@@ -542,6 +542,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "show number of methods",
 	},
 	{
+		.name = "show_only_data_members",
+		.key  = 'M',
+		.doc  = "show only the members that use space in the class layout",
+	},
+	{
 		.name = "sizes",
 		.key  = 's',
 		.doc  = "show size of classes",
@@ -629,6 +634,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'n': formatter = nr_members_formatter;	break;
 	case 'N': formatter = class_name_len_formatter;	break;
 	case 'm': formatter = nr_methods_formatter;	break;
+	case 'M': conf.show_only_data_members = 1;	break;
 	case 'O': class_dwarf_offset = strtoul(arg, NULL, 0);	break;
 	case 'P': show_packable	= 1;			break;
 	case 't': separator = arg[0];			break;
