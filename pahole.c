@@ -479,6 +479,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Show classes that contains CLASS_NAME"
 	},
 	{
+		.name = "show_decl_info",
+		.key  = 'I',
+		.doc  = "Show the file and line number where the tags were defined"
+	},
+	{
 		.name = "holes",
 		.key  = 'H',
 		.arg  = "NR_HOLES",
@@ -608,6 +613,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'd': recursive = 1;			break;
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
+	case 'I': conf.show_decl_info = 1;		break;
 	case 'H': nr_holes = atoi(arg);			break;
 	case 'z':
 		hole_size_ge = atoi(arg);
@@ -638,8 +644,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'X': cu__exclude_prefix = arg;
 		  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
 							break;
-	case 'V': global_verbose = 1;
-		  conf.show_decl_info = 1;		break;
+	case 'V': global_verbose = 1;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
