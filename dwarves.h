@@ -57,7 +57,22 @@ struct tag {
 	uint32_t	 refcnt;
 };
 
+static inline int tag__is_enumeration(const struct tag *self)
+{
+	return self->tag == DW_TAG_enumeration_type;
+}
+
+static inline int tag__is_namespace(const struct tag *self)
+{
+	return self->tag == DW_TAG_namespace;
+}
+
 static inline int tag__is_struct(const struct tag *self)
+{
+	return self->tag == DW_TAG_structure_type;
+}
+
+static inline int tag__is_union(const struct tag *self)
 {
 	return self->tag == DW_TAG_structure_type;
 }

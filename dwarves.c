@@ -535,7 +535,7 @@ static size_t imported_module__fprintf(const struct tag *self,
 	const struct tag *module = cu__find_tag_by_id(cu, self->type);
 	const char *name = "<IMPORTED MODULE ERROR!>";
 
-	if (module->tag == DW_TAG_namespace)
+	if (tag__is_namespace(module))
 		name = tag__namespace(module)->name;
 
 	return fprintf(fp, "using namespace %s", name);
@@ -678,9 +678,8 @@ static struct tag *namespace__find_tag_by_id(const struct namespace *self,
 			return pos;
 
 		/* Look for nested namespaces */
-		if (tag__is_struct(pos) ||
-		    pos->tag == DW_TAG_union_type ||
-		    pos->tag == DW_TAG_namespace) {
+		if (tag__is_struct(pos) || tag__is_union(pos) ||
+		    tag__is_namespace(pos)) {
 			 struct tag *tag =
 			    namespace__find_tag_by_id(tag__namespace(pos), id);
 			if (tag != NULL)
@@ -703,9 +702,8 @@ struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 			return pos;
 
 		/* Look for nested namespaces */
-		if (tag__is_struct(pos) ||
-		    pos->tag == DW_TAG_union_type ||
-		    pos->tag == DW_TAG_namespace) {
+		if (tag__is_struct(pos) || tag__is_union(pos) ||
+		    tag__is_namespace(pos)) {
 			 struct tag *tag =
 			    namespace__find_tag_by_id(tag__namespace(pos), id);
 			if (tag != NULL)
@@ -1301,9 +1299,8 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			printed += fprintf(fp, " */ ");
 	}
 
-	if (tag__is_struct(type) ||
-	    type->tag == DW_TAG_union_type ||
-	    type->tag == DW_TAG_enumeration_type) {
+	if (tag__is_struct(type) || tag__is_union(type) ||
+	    tag__is_enumeration(type)) {
 		tconf = *conf;
 		tconf.type_spacing -= 8;
 		tconf.prefix	   = NULL;
@@ -1392,9 +1389,8 @@ static size_t struct_member__fprintf(struct class_member *self,
 		++printed;
 	}
 
-	if ((type->tag == DW_TAG_union_type ||
-	     type->tag == DW_TAG_enumeration_type ||
-	     tag__is_struct(type)) &&
+	if ((tag__is_union(type) || tag__is_struct(type) ||
+	     tag__is_enumeration(type)) &&
 		/* Look if is a type defined inline */
 	    type__name(tag__type(type), cu) == NULL) {
 		/* Check if this is a anonymous union */
@@ -1424,9 +1420,8 @@ static size_t union_member__fprintf(struct class_member *self,
 	const size_t size = tag__size(type, cu);
 	size_t printed = type__fprintf(type, cu, self->name, conf, fp);
 	
-	if ((type->tag == DW_TAG_union_type ||
-	     type->tag == DW_TAG_enumeration_type ||
-	     tag__is_struct(type)) &&
+	if ((tag__is_union(type) || tag__is_struct(type) ||
+	     tag__is_enumeration(type)) &&
 		/* Look if is a type defined inline */
 	    type__name(tag__type(type), cu) == NULL) {
 		/* Check if this is a anonymous union */
@@ -2455,7 +2450,7 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 
 		if (tconf.expand_types)
 			tconf.name_spacing = 55;
-		else if (self->tag == DW_TAG_union_type)
+		else if (tag__is_union(self))
 			tconf.name_spacing = 21;
 	} else if (conf->name_spacing == 0 || conf->type_spacing == 0) {
 		tconf = *conf;
@@ -2466,7 +2461,7 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 				tconf.name_spacing = 55;
 			else
 				tconf.name_spacing =
-				     self->tag == DW_TAG_union_type ? 21 : 23;
+						tag__is_union(self) ? 21 : 23;
 		}
 		if (tconf.type_spacing == 0)
 			tconf.type_spacing = 26;

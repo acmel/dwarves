@@ -65,8 +65,7 @@ static void refcnt_tag(struct tag *tag, const struct cu *cu)
 
 	tag->refcnt++;
 
-	if (tag__is_struct(tag) ||
-	    tag->tag == DW_TAG_union_type)
+	if (tag__is_struct(tag) || tag__is_union(tag))
 		type__for_each_member(tag__type(tag), member)
 			refcnt_member(member, cu);
 }

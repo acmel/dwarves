@@ -193,7 +193,7 @@ int cus__emit_fwd_decl(struct cus *self, struct type *ctype,
 	}
 
 	fprintf(fp, "%s %s;\n",
-		ctype->namespace.tag.tag == DW_TAG_union_type ? "union" : "struct",
+		tag__is_union(&ctype->namespace.tag) ? "union" : "struct",
 		type__name(ctype, cu));
 	cus__add_fwd_decl(self, ctype);
 	return 1;
