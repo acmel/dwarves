@@ -377,6 +377,7 @@ struct conf_fprintf {
 	uint8_t	   show_decl_info:1;
 	uint8_t	   indent:1;
 	uint8_t	   show_only_data_members:1;
+	uint8_t	   no_semicolon:1;
 };
 
 extern void dwarves__init(size_t user_cacheline_size);

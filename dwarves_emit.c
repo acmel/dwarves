@@ -305,9 +305,6 @@ void type__emit(struct tag *tag_self, struct cu *cu,
 			.emit_stats = 1,
 		};
 		tag__fprintf(tag_self, cu, &conf, fp);
-
-		if (tag_self->tag != DW_TAG_structure_type)
-			fputc(';', fp);
 		fputc('\n', fp);
 	}
 }

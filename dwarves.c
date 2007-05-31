@@ -1436,7 +1436,7 @@ static size_t union_member__fprintf(struct class_member *self,
 		 * '} member_name;' last line of the type printed in the
 		 * above call to type__fprintf.
 		 */
-		return printed + fprintf(fp, ";%*s/* %11zd */",
+		return printed + fprintf(fp, "%*s/* %11zd */",
 					 (conf->type_spacing +
 					  conf->name_spacing - slen - 3),
 					 " ", size);
@@ -2010,7 +2010,9 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 	}
 		break;
 	case DW_TAG_lexical_block:
-		return lexblock__fprintf(vtag, cu, indent, fp);
+		printed = lexblock__fprintf(vtag, cu, indent, fp);
+		fputc('\n', fp);
+		return printed + 1;
 	default:
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		n = fprintf(fp, "%s <%llx>", dwarf_tag_name(tag->tag),
@@ -2035,7 +2037,7 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 	printed = fprintf(fp, "%.*s{\n", indent, tabs);
 	list_for_each_entry(pos, &self->tags, node)
 		printed += function__tag_fprintf(pos, cu, indent + 1, fp);
-	return printed + fprintf(fp, "%.*s}\n", indent, tabs);
+	return printed + fprintf(fp, "%.*s}", indent, tabs);
 }
 
 size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
@@ -2150,6 +2152,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		indent = sizeof(tabs) - 1;
 
 	cconf.indent = indent + 1;
+	cconf.no_semicolon = 0;
 
 	/* First look if we have DW_TAG_inheritance */
 	type__for_each_tag(tself, tag_pos) {
@@ -2196,9 +2199,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		    tag_pos->tag != DW_TAG_inheritance) {
 		    	if (!cconf.show_only_data_members) {
 				printed += tag__fprintf(tag_pos, cu, &cconf, fp);
-				if (tag_pos->tag != DW_TAG_structure_type)
-					printed += fprintf(fp, ";\n");
-				printed += fprintf(fp, "\n");
+				printed += fprintf(fp, "\n\n");
 			}
 			continue;
 		}
@@ -2355,44 +2356,51 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 						     sum_holes, &newline,
 						     &last_cacheline,
 						     cconf.indent, fp);
-	printed += fprintf(fp, "%.*s}%s%s", indent, tabs,
-			   cconf.suffix ? " ": "", cconf.suffix ?: "");
 	if (!cconf.emit_stats)
 		goto out;
 
-	printed += fprintf(fp, "; /* size: %zd, cachelines: %zd */\n",
+	printed += fprintf(fp, "\n%.*s/* size: %zd, cachelines: %zd */",
+			   cconf.indent, tabs,
 			   tself->size, tag__nr_cachelines(class__tag(self),
 			   cu));
 	if (sum_holes > 0)
-		printed += fprintf(fp, "%.*s   /* sum members: %u, holes: %d, "
-				   "sum holes: %u */\n", indent, tabs, sum,
-				   self->nr_holes, sum_holes);
+		printed += fprintf(fp, "\n%.*s/* sum members: %u, holes: %d, "
+				   "sum holes: %u */",
+				   cconf.indent, tabs,
+				   sum, self->nr_holes, sum_holes);
 	if (sum_bit_holes > 0)
-		printed += fprintf(fp, "%.*s   /* bit holes: %d, sum bit "
-				   "holes: %u bits */\n", indent, tabs,
+		printed += fprintf(fp, "\n%.*s/* bit holes: %d, sum bit "
+				   "holes: %u bits */",
+				   cconf.indent, tabs,
 				   self->nr_bit_holes, sum_bit_holes);
 	if (self->padding > 0)
-		printed += fprintf(fp, "%.*s   /* padding: %u */\n", indent,
+		printed += fprintf(fp, "\n%.*s/* padding: %u */",
+				   cconf.indent,
 				   tabs, self->padding);
 	if (nr_paddings > 0)
-		printed += fprintf(fp, "%.*s   /* paddings: %u, sum paddings: "
-				   "%u */\n", indent, tabs, nr_paddings,
-				   sum_paddings);
+		printed += fprintf(fp, "\n%.*s/* paddings: %u, sum paddings: "
+				   "%u */",
+				   cconf.indent, tabs,
+				   nr_paddings, sum_paddings);
 	if (self->bit_padding > 0)
-		printed += fprintf(fp, "%.*s   /* bit_padding: %u bits */\n",
-				   indent, tabs, self->bit_padding);
+		printed += fprintf(fp, "\n%.*s/* bit_padding: %u bits */",
+				   cconf.indent, tabs,
+				   self->bit_padding);
 	last_cacheline = tself->size % cacheline_size;
 	if (last_cacheline != 0)
-		printed += fprintf(fp, "%.*s   /* last cacheline: %u bytes "
-				   "*/\n", indent, tabs, last_cacheline);
+		printed += fprintf(fp, "\n%.*s/* last cacheline: %u bytes */",
+				   cconf.indent, tabs,
+				   last_cacheline);
 
 	if (sum + sum_holes != tself->size - self->padding)
-		printed += fprintf(fp, "\n%.*s/* BRAIN FART ALERT! %zd != %u "
-				   "+ %u(holes), diff = %zd */\n\n",
-				   indent, tabs, tself->size, sum, sum_holes,
+		printed += fprintf(fp, "\n\n%.*s/* BRAIN FART ALERT! %zd != %u "
+				   "+ %u(holes), diff = %zd */\n",
+				   cconf.indent, tabs,
+				   tself->size, sum, sum_holes,
 				   tself->size - (sum + sum_holes));
 out:
-	return printed;
+	return printed + fprintf(fp, "\n%.*s}%s%s", indent, tabs,
+				 cconf.suffix ? " ": "", cconf.suffix ?: "");
 }
 
 static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
@@ -2424,15 +2432,14 @@ static size_t namespace__fprintf(const struct tag *tself, const struct cu *cu,
 	struct tag *pos;
 
 	++cconf.indent;
+	cconf.no_semicolon = 0;
 
 	namespace__for_each_tag(self, pos) {
 		printed += tag__fprintf(pos, cu, &cconf, fp);
-		if (pos->tag != DW_TAG_structure_type)
-			printed += fprintf(fp, ";\n");
-		printed += fprintf(fp, "\n");
+		printed += fprintf(fp, "\n\n");
 	}
 
-	return printed + fprintf(fp, "};\n");
+	return printed + fprintf(fp, "}");
 }
 
 size_t tag__fprintf(const struct tag *self, const struct cu *cu,
@@ -2503,6 +2510,11 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 		printed += fprintf(fp, "/* %s: %s tag not supported! */", __func__,
 				   dwarf_tag_name(self->tag));
 		break;
+	}
+
+	if (!pconf->no_semicolon) {
+		fputc(';', fp);
+		++printed;
 	}
 
 	return printed;

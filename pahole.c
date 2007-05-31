@@ -185,7 +185,7 @@ static void class_formatter(struct structure *self)
 
 	tag__fprintf(tag, self->cu, &conf, stdout);
 
-	printf("   /* definitions: %u */\n", self->nr_files);
+	printf("\t/* definitions: %u */\n", self->nr_files);
 	putchar('\n');
 }
 
@@ -693,8 +693,6 @@ int main(int argc, char *argv[])
 		}
 
  		tag__fprintf(tag, cu, &conf, stdout);
-		if (tag->tag != DW_TAG_structure_type)
-			puts(";");
 		return EXIT_SUCCESS;
 	}
 
