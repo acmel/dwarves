@@ -678,7 +678,7 @@ static struct tag *namespace__find_tag_by_id(const struct namespace *self,
 			return pos;
 
 		/* Look for nested namespaces */
-		if (pos->tag == DW_TAG_structure_type ||
+		if (tag__is_struct(pos) ||
 		    pos->tag == DW_TAG_union_type ||
 		    pos->tag == DW_TAG_namespace) {
 			 struct tag *tag =
@@ -703,7 +703,7 @@ struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 			return pos;
 
 		/* Look for nested namespaces */
-		if (pos->tag == DW_TAG_structure_type ||
+		if (tag__is_struct(pos) ||
 		    pos->tag == DW_TAG_union_type ||
 		    pos->tag == DW_TAG_namespace) {
 			 struct tag *tag =
@@ -757,7 +757,7 @@ struct tag *cu__find_struct_by_name(const struct cu *self, const char *name)
 	list_for_each_entry(pos, &self->tags, node) {
 		struct type *type;
 
-		if (pos->tag != DW_TAG_structure_type)
+		if (!tag__is_struct(pos))
 			continue;
 
 		type = tag__type(pos);
@@ -1301,7 +1301,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			printed += fprintf(fp, " */ ");
 	}
 
-	if (type->tag == DW_TAG_structure_type ||
+	if (tag__is_struct(type) ||
 	    type->tag == DW_TAG_union_type ||
 	    type->tag == DW_TAG_enumeration_type) {
 		tconf = *conf;
@@ -1394,7 +1394,7 @@ static size_t struct_member__fprintf(struct class_member *self,
 
 	if ((type->tag == DW_TAG_union_type ||
 	     type->tag == DW_TAG_enumeration_type ||
-	     type->tag == DW_TAG_structure_type) &&
+	     tag__is_struct(type)) &&
 		/* Look if is a type defined inline */
 	    type__name(tag__type(type), cu) == NULL) {
 		/* Check if this is a anonymous union */
@@ -1426,7 +1426,7 @@ static size_t union_member__fprintf(struct class_member *self,
 	
 	if ((type->tag == DW_TAG_union_type ||
 	     type->tag == DW_TAG_enumeration_type ||
-	     type->tag == DW_TAG_structure_type) &&
+	     tag__is_struct(type)) &&
 		/* Look if is a type defined inline */
 	    type__name(tag__type(type), cu) == NULL) {
 		/* Check if this is a anonymous union */
@@ -2286,7 +2286,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 		printed += struct_member__fprintf(pos, type, cu, &cconf, fp);
 
-		if (type->tag == DW_TAG_structure_type) {
+		if (tag__is_struct(type)) {
 			const uint16_t padding = tag__class(type)->padding;
 			if (padding > 0) {
 				++nr_paddings;

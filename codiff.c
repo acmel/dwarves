@@ -183,7 +183,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 	size_t len;
 	int32_t diff;
 
-	assert(class__tag_type(structure) == DW_TAG_structure_type);
+	assert(class__is_struct(structure));
 
 	if (class__size(structure) == 0 || class__name(structure, cu) == NULL)
 		return;
@@ -198,7 +198,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 	if (class__size(new_structure) == 0)
 		return;
 
-	assert(class__tag_type(new_structure) == DW_TAG_structure_type);
+	assert(class__is_struct(new_structure));
 
 	diff = class__size(structure) != class__size(new_structure) ||
 	       class__nr_members(structure) != class__nr_members(new_structure) ||
@@ -217,7 +217,7 @@ out:
 
 static int diff_tag_iterator(struct tag *tag, struct cu *cu, void *new_cu)
 {
-	if (tag->tag == DW_TAG_structure_type)
+	if (tag__is_struct(tag))
 		diff_struct(new_cu, tag__class(tag), cu);
 	else if (tag->tag == DW_TAG_subprogram)
 		diff_function(new_cu, tag__function(tag), cu);
@@ -256,7 +256,7 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 	struct class *class;
 	size_t len;
 
-	if (tag->tag != DW_TAG_structure_type)
+	if (!tag__is_struct(tag))
 		return 0;
 
 	class = tag__class(tag);
@@ -478,7 +478,7 @@ static int show_structure_diffs_iterator(struct tag *tag, struct cu *cu,
 {
 	struct class *class;
 
-	if (tag->tag != DW_TAG_structure_type)
+	if (!tag__is_struct(tag))
 		return 0;
 
 	class = tag__class(tag);

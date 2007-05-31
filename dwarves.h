@@ -56,6 +56,11 @@ struct tag {
 	uint16_t	 tag;
 	uint32_t	 refcnt;
 };
+
+static inline int tag__is_struct(const struct tag *self)
+{
+	return self->tag == DW_TAG_structure_type;
+}
  
 struct namespace {
 	struct tag	 tag;
@@ -200,9 +205,9 @@ static inline const char *class__name(struct class *self,
 	return type__name(&self->type, cu);
 }
 
-static inline uint16_t class__tag_type(const struct class *self)
+static inline int class__is_struct(const struct class *self)
 {
-	return self->type.namespace.tag.tag;
+	return tag__is_struct(&self->type.namespace.tag);
 }
 
 struct base_type {

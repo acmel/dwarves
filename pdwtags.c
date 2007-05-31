@@ -27,7 +27,7 @@ static int emit_tag(struct tag *self, struct cu *cu, void *cookie __unused)
 	    self->tag != DW_TAG_reference_type &&
 	    self->tag != DW_TAG_subroutine_type &&
 	    self->tag != DW_TAG_volatile_type) {
-		if (self->tag == DW_TAG_structure_type)
+		if (tag__is_struct(self))
 			class__find_holes(tag__class(self), cu);
 
 		conf.no_semicolon = self->tag == DW_TAG_subprogram;

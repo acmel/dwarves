@@ -319,7 +319,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 	struct class *class;
 	const char *name;
 
-	if (tag->tag != DW_TAG_structure_type)
+	if (!tag__is_struct(tag))
 		return NULL;
 
 	class = tag__class(tag);
@@ -410,7 +410,7 @@ static int nr_methods_iterator(struct tag *tag, struct cu *cu,
 			continue;
 
 		type = cu__find_tag_by_id(cu, type->type);
-		if (type == NULL || type->tag != DW_TAG_structure_type)
+		if (type == NULL || !tag__is_struct(type))
 			continue;
 
 		ctype = tag__type(type);

@@ -294,7 +294,7 @@ void type__emit(struct tag *tag_self, struct cu *cu,
 {
 	struct type *ctype = tag__type(tag_self);
 
-	if (tag_self->tag == DW_TAG_structure_type)
+	if (tag__is_struct(tag_self))
 		class__find_holes(tag__class(tag_self), cu);
 
 	if (type__name(ctype, cu) != NULL ||
