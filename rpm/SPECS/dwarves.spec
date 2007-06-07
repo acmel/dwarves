@@ -8,7 +8,7 @@ License: GPL
 Summary: Dwarf Tools
 Group: Development/Tools
 URL: http://oops.ghostprotocols.net:81/blog
-Source: http://http://userweb.kernel.org/~acme/dwarves/%{name}-%{version}.tar.bz2
+Source: http://userweb.kernel.org/~acme/dwarves/%{name}-%{version}.tar.bz2
 BuildRequires: cmake
 BuildRequires: elfutils-devel
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
