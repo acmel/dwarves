@@ -391,11 +391,11 @@ struct conf_fprintf {
 	int32_t	   type_spacing;
 	int32_t	   name_spacing;
 	uint32_t   base_offset;
+	uint8_t	   indent;
 	uint8_t	   expand_types:1;
 	uint8_t    rel_offset:1;
 	uint8_t	   emit_stats:1;
 	uint8_t	   show_decl_info:1;
-	uint8_t	   indent:1;
 	uint8_t	   show_only_data_members:1;
 	uint8_t	   no_semicolon:1;
 };
