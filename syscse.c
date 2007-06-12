@@ -119,9 +119,15 @@ static const struct argp_option options[] = {
 static error_t options_parser(int key, char *arg, struct argp_state *state)
 {
 	switch (key) {
-	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
-	case 'p': prefix = arg;	break;
-	default:  return ARGP_ERR_UNKNOWN;
+	case ARGP_KEY_INIT:
+		state->child_inputs[0] = state->input;
+		break;
+	case 'p':
+		prefix = arg;
+		prefix_len = strlen(prefix);
+		break;
+	default:
+		return ARGP_ERR_UNKNOWN;
 	}
 	return 0;
 }
