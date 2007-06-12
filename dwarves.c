@@ -1658,7 +1658,7 @@ int ftype__has_parm_of_type(const struct ftype *self, const struct tag *target,
 {
 	struct parameter *pos;
 
-	list_for_each_entry(pos, &self->parms, tag.node) {
+	ftype__for_each_parameter(self, pos) {
 		struct tag *type =
 			cu__find_tag_by_id(cu, parameter__type(pos, cu));
 
@@ -1892,7 +1892,7 @@ static size_t ftype__fprintf_parms(const struct ftype *self,
 	const char *name, *stype;
 	size_t printed = fprintf(fp, "(");
 
-	list_for_each_entry(pos, &self->parms, tag.node) {
+	ftype__for_each_parameter(self, pos) {
 		if (!first_parm) {
 			if (indent == 0)
 				printed += fprintf(fp, ", ");

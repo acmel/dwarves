@@ -303,6 +303,14 @@ static inline struct ftype *tag__ftype(const struct tag *self)
 	return (struct ftype *)self;
 }
 
+/** 
+ * ftype__for_each_parameter - iterate thru all the parameters
+ * @self: struct ftype instance to iterate
+ * @pos: struct parameter iterator
+ */
+#define ftype__for_each_parameter(self, pos) \
+	list_for_each_entry(pos, &(self)->parms, tag.node)
+
 struct function {
 	struct ftype	 proto;
 	struct lexblock	 lexblock;
@@ -324,6 +332,14 @@ static inline struct function *tag__function(const struct tag *self)
 {
 	return (struct function *)self;
 }
+
+/** 
+ * function__for_each_parameter - iterate thru all the parameters
+ * @self: struct function instance to iterate
+ * @pos: struct parameter iterator
+ */
+#define function__for_each_parameter(self, pos) \
+	ftype__for_each_parameter(&self->proto, pos)
 
 struct parameter {
 	struct tag	 tag;
