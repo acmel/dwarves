@@ -353,6 +353,7 @@ static inline struct parameter *tag__parameter(const struct tag *self)
 }
 
 extern Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu);
+extern const char *parameter__name(struct parameter *self, const struct cu *cu);
 
 enum vlocation {
 	LOCATION_UNKNOWN,
