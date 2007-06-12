@@ -73,6 +73,7 @@ rm -rf %{buildroot}
 %{_bindir}/pfunct
 %{_bindir}/pglobal
 %{_bindir}/prefcnt
+%{_bindir}/syscse
 %{_bindir}/ostra-cg
 %dir %{_datadir}/dwarves/runtime/
 %dir %{_datadir}/dwarves/runtime/python/

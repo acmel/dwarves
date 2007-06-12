@@ -24,6 +24,7 @@ if (NOT CMAKE_BUILD_TYPE)
 endif (NOT CMAKE_BUILD_TYPE)
 
 find_package(DWARF REQUIRED)
+find_package(Sqlite REQUIRED)
 
 _set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${__LIB}" "libdir")
 
@@ -74,8 +75,12 @@ set(prefcnt_SRCS prefcnt.c)
 add_executable(prefcnt ${prefcnt_SRCS})
 target_link_libraries(prefcnt dwarves)
 
+set(syscse_SRCS syscse.c)
+add_executable(syscse ${syscse_SRCS})
+target_link_libraries(syscse dwarves)
+
 install(TARGETS codiff ctracer dtagnames pahole pdwtags
-		pfunct pglobal prefcnt RUNTIME DESTINATION
+		pfunct pglobal prefcnt syscse RUNTIME DESTINATION
 		${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 install(TARGETS dwarves dwarves_emit dwarves_reorganize LIBRARY DESTINATION ${LIB_INSTALL_DIR})
