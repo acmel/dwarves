@@ -2393,8 +2393,9 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 				   cconf.indent, tabs,
 				   tself->size, sum, sum_holes,
 				   tself->size - (sum + sum_holes));
+	putchar('\n');
 out:
-	return printed + fprintf(fp, "\n%.*s}%s%s", indent, tabs,
+	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
 				 cconf.suffix ? " ": "", cconf.suffix ?: "");
 }
 

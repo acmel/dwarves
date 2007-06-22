@@ -35,6 +35,7 @@ static uint16_t nr_bit_holes;
 static uint16_t hole_size_ge;
 static uint8_t show_packable;
 static uint8_t global_verbose;
+static uint8_t quiet;
 static uint8_t recursive;
 static size_t cacheline_size;
 static uint8_t find_containers;
@@ -44,7 +45,7 @@ static char *class_name;
 static char separator = '\t';
 static Dwarf_Off class_dwarf_offset;
 
-struct conf_fprintf conf = {
+static struct conf_fprintf conf = {
 	.emit_stats = 1,
 };
 
@@ -185,7 +186,9 @@ static void class_formatter(struct structure *self)
 
 	tag__fprintf(tag, self->cu, &conf, stdout);
 
-	printf("\t/* definitions: %u */\n", self->nr_files);
+	if (conf.emit_stats)
+		printf("\t/* definitions: %u */\n", self->nr_files);
+
 	putchar('\n');
 }
 
@@ -597,6 +600,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "include nested (inside other structs) anonymous classes",
 	},
 	{
+		.name = "quiet",
+		.key  = 'q',
+		.doc  = "be quieter",
+	},
+	{
 		.name = "verbose",
 		.key  = 'V',
 		.doc  = "be verbose",
@@ -650,6 +658,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'X': cu__exclude_prefix = arg;
 		  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
 							break;
+	case 'q': conf.emit_stats = 0;			break;
 	case 'V': global_verbose = 1;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
