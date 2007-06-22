@@ -2200,7 +2200,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		}
 		pos = tag__class_member(tag_pos);
 
-		if ((int)pos->offset != last_offset)
+		if ((int)pos->offset != last_offset && !cconf.suppress_comments)
 			printed +=
 			    class__fprintf_cacheline_boundary(last_cacheline,
 							      sum, sum_holes,
@@ -2213,7 +2213,8 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		 * DW_TAG_inheritance, have to understand why virtual public
 		 * ancestors make the offset go backwards...
 		 */
-		if (last_offset != -1 && tag_pos->tag == DW_TAG_member) {
+		if (!cconf.suppress_comments &&
+		    last_offset != -1 && tag_pos->tag == DW_TAG_member) {
 			const ssize_t cc_last_size = pos->offset - last_offset;
 
 			if ((int)pos->offset < last_offset) {
@@ -2281,7 +2282,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 		printed += struct_member__fprintf(pos, type, cu, &cconf, fp);
 
-		if (tag__is_struct(type)) {
+		if (tag__is_struct(type) && !cconf.suppress_comments) {
 			const uint16_t padding = tag__class(type)->padding;
 			if (padding > 0) {
 				++nr_paddings;
@@ -2299,7 +2300,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 			}
 		}
 
-		if (pos->bit_hole != 0) {
+		if (pos->bit_hole != 0 && !cconf.suppress_comments) {
 			if (!newline++) {
 				fputc('\n', fp);
 				++printed;
@@ -2311,7 +2312,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 			sum_bit_holes += pos->bit_hole;
 		}
 
-		if (pos->hole > 0) {
+		if (pos->hole > 0 && !cconf.suppress_comments) {
 			if (!newline++) {
 				fputc('\n', fp);
 				++printed;
