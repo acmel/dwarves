@@ -143,7 +143,7 @@ static void print_fn_stats(void (*formatter)(const struct fn_stats *f))
 static void fn_stats_inline_stats_fmtr(const struct fn_stats *self)
 {
 	if (self->nr_expansions > 1)
-		printf("%-31.31s %6u %7ul  %6u %6u\n",
+		printf("%-31.31s %6u %7lu  %6u %6u\n",
 		       function__name(tag__function(self->tag), self->cu),
 		       self->size_expansions, self->nr_expansions,
 		       self->size_expansions / self->nr_expansions,
