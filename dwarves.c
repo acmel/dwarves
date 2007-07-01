@@ -383,16 +383,20 @@ static struct array_type *array_type__new(Dwarf_Die *die)
 	return self;
 }
 
+static size_t type__fprintf(struct tag *type, const struct cu *cu,
+			    const char *name, const struct conf_fprintf *conf,
+			    FILE *fp);
+
 static size_t array_type__fprintf(const struct tag *tag_self,
 				  const struct cu *cu, const char *name,
-				  int type_spacing, FILE *fp)
+				  const struct conf_fprintf *conf,
+				  FILE *fp)
 {
 	struct array_type *self = tag__array_type(tag_self);
-	char tbf[128];
+	struct tag *type = cu__find_tag_by_id(cu, tag_self->type);
+	size_t printed = type__fprintf(type, cu, name, conf, fp);
 	int i;
-	size_t printed = fprintf(fp, "%-*s %s", type_spacing,
-				 tag__name(tag_self, cu, tbf, sizeof(tbf)),
-				 name);
+
 	for (i = 0; i < self->dimensions; ++i)
 		printed += fprintf(fp, "[%u]", self->nr_entries[i]);
 	return printed;
@@ -458,9 +462,10 @@ const char *type__name(struct type *self, const struct cu *cu)
 }
 
 size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
-			FILE *fp)
+			const struct conf_fprintf *conf, FILE *fp)
 {
 	struct type *self = tag__type(tag_self);
+	const struct conf_fprintf *pconf = conf ?: &conf_fprintf__defaults;
 	const struct tag *type;
 	const struct tag *ptr_type;
 	char bf[512];
@@ -485,7 +490,7 @@ size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 		printed = fprintf(fp, "typedef ");
 		return printed + array_type__fprintf(type, cu,
 						     type__name(self, cu),
-						     0, fp);
+						     pconf, fp);
 	case DW_TAG_pointer_type:
 		if (type->type == 0) /* void pointer */
 			break;
@@ -1325,8 +1330,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		return printed + ftype__fprintf(tag__ftype(type), cu, name,
 						0, 0, conf->type_spacing, fp);
 	case DW_TAG_array_type:
-		return printed + array_type__fprintf(type, cu, name,
-						     conf->type_spacing, fp);
+		return printed + array_type__fprintf(type, cu, name, conf, fp);
 	case DW_TAG_structure_type:
 		ctype = tag__type(type);
 
@@ -2480,7 +2484,7 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 		printed += enumeration__fprintf(self, cu, pconf, fp);
 		break;
 	case DW_TAG_typedef:
-		printed += typedef__fprintf(self, cu, fp);
+		printed += typedef__fprintf(self, cu, pconf, fp);
 		break;
 	case DW_TAG_structure_type:
 		printed += class__fprintf(tag__class(self), cu, pconf, fp);

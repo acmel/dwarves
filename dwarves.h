@@ -428,7 +428,7 @@ extern size_t enumeration__fprintf(const struct tag *tag_self,
 				   const struct cu *cu,
 				   const struct conf_fprintf *conf, FILE *fp);
 extern size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
-			       FILE *fp);
+			       const struct conf_fprintf *conf, FILE *fp);
 extern size_t tag__fprintf_decl_info(const struct tag *self, FILE *fp);
 extern size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 			   const struct conf_fprintf *conf, FILE *fp);
