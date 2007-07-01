@@ -1319,48 +1319,63 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			struct tag *ptype = cu__find_tag_by_id(cu, type->type);
 			if (ptype == NULL)
 				goto out_type_not_found;
-			if (ptype->tag == DW_TAG_subroutine_type)
-				return (printed +
-					ftype__fprintf(tag__ftype(ptype), cu,
-						      name, 0, 1, conf->type_spacing,
-						      fp));
+			if (ptype->tag == DW_TAG_subroutine_type) {
+				printed += ftype__fprintf(tag__ftype(ptype),
+							  cu, name, 0, 1,
+							  conf->type_spacing,
+							  fp);
+				break;
+			}
 		}
+		/* Fall Thru */
+	default:
+		printed += fprintf(fp, "%-*s %s", conf->type_spacing,
+				   tag__name(type, cu, tbf, sizeof(tbf)), name);
 		break;
 	case DW_TAG_subroutine_type:
-		return printed + ftype__fprintf(tag__ftype(type), cu, name,
-						0, 0, conf->type_spacing, fp);
+		printed += ftype__fprintf(tag__ftype(type), cu, name, 0, 0,
+					  conf->type_spacing, fp);
+		break;
 	case DW_TAG_array_type:
-		return printed + array_type__fprintf(type, cu, name, conf, fp);
+		printed += array_type__fprintf(type, cu, name, conf, fp);
+		break;
 	case DW_TAG_structure_type:
 		ctype = tag__type(type);
 
 		if (type__name(ctype, cu) != NULL && !conf->expand_types)
-			return fprintf(fp, "struct %-*s %s",
-				       conf->type_spacing - 7,
-				       type__name(ctype, cu), name);
-		return printed + class__fprintf(tag__class(type), cu, &tconf, fp);
+			printed += fprintf(fp, "struct %-*s %s",
+					   conf->type_spacing - 7,
+					   type__name(ctype, cu), name);
+		else
+			printed += class__fprintf(tag__class(type), cu,
+						  &tconf, fp);
+		break;
 	case DW_TAG_union_type:
 		ctype = tag__type(type);
 
 		if (type__name(ctype, cu) != NULL && !conf->expand_types)
-			return fprintf(fp, "union %-*s %s",
-				       conf->type_spacing - 6,
-				       type__name(ctype, cu), name);
-		return printed + union__fprintf(ctype, cu, &tconf, fp);
+			printed += fprintf(fp, "union %-*s %s",
+					   conf->type_spacing - 6,
+					   type__name(ctype, cu), name);
+		else
+			printed += union__fprintf(ctype, cu, &tconf, fp);
+		break;
 	case DW_TAG_enumeration_type:
 		ctype = tag__type(type);
 
 		if (type__name(ctype, cu) != NULL)
-			return printed + fprintf(fp, "enum %-*s %s",
-						 conf->type_spacing - 5,
-						 type__name(ctype, cu), name);
-		return printed + enumeration__fprintf(type, cu, &tconf, fp);
+			printed += fprintf(fp, "enum %-*s %s",
+					   conf->type_spacing - 5,
+					   type__name(ctype, cu), name);
+		else
+			printed += enumeration__fprintf(type, cu, &tconf, fp);
+		break;
 	}
-
-	return printed + fprintf(fp, "%-*s %s", conf->type_spacing,
-				 tag__name(type, cu, tbf, sizeof(tbf)), name);
+out:
+	return printed;
 out_type_not_found:
-	return fprintf(fp, "%-*s %s", conf->type_spacing, "<ERROR>", name);
+	printed = fprintf(fp, "%-*s %s", conf->type_spacing, "<ERROR>", name);
+	goto out;
 }
 
 static size_t struct_member__fprintf(struct class_member *self,
