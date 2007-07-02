@@ -185,21 +185,21 @@ static inline const struct extfun *node__function(const void *nodep)
 	return *((const struct extfun **)nodep);
 }
 
-static inline const struct tag *extvar__tag(const struct extvar *gvar)
+static inline struct tag *extvar__tag(const struct extvar *gvar)
 {
-	return (const struct tag *)gvar->var;
+	return (struct tag *)gvar->var;
 }
 
-static inline const struct tag *extfun__tag(const struct extfun *gfun)
+static inline struct tag *extfun__tag(const struct extfun *gfun)
 {
-	return (const struct tag *)gfun->fun;
+	return (struct tag *)gfun->fun;
 }
 
 static void declaration_action__walk(const void *nodep, const VISIT which,
 				     const int depth __unused)
 {
 	uint32_t count = 0;
-	const struct tag *tag;
+	struct tag *tag;
 	const struct extvar *pos, *gvar = NULL;
 
 	switch(which) {
@@ -231,7 +231,7 @@ static void declaration_action__walk(const void *nodep, const VISIT which,
 static void function_action__walk(const void *nodep, const VISIT which,
 				  const int depth __unused)
 {
-	const struct tag *tag;
+	struct tag *tag;
 	const struct extfun *gfun = NULL;
 
 	switch(which) {
