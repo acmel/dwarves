@@ -299,6 +299,7 @@ static void tag__init(struct tag *self, Dwarf_Die *die)
 	self->decl_file = strings__add(dwarf_decl_file(die));
 	dwarf_decl_line(die, &decl_line);
 	self->decl_line = decl_line;
+	self->recursivity_level = 0;
 }
 
 static struct tag *tag__new(Dwarf_Die *die)
@@ -1276,14 +1277,44 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			    FILE *fp)
 {
 	char tbf[128];
+	char namebf[256];
 	struct type *ctype;
 	struct conf_fprintf tconf;
 	size_t printed = 0;
+	int expand_types = conf->expand_types;
 
 	if (type == NULL)
 		goto out_type_not_found;
 
-	if (conf->expand_types) {
+	if (conf->expand_pointers) {
+		int nr_indirections = 0;
+
+		while (type->tag == DW_TAG_pointer_type && type->type != 0) {
+			type = cu__find_tag_by_id(cu, type->type);
+			if (type == NULL)
+				goto out_type_not_found;
+			++nr_indirections;
+		}
+
+		if (nr_indirections > 0) {
+			const size_t len = strlen(name);
+			if (len + nr_indirections >= sizeof(namebf))
+				goto out_type_not_found;
+			memset(namebf, '*', nr_indirections);
+			memcpy(namebf + nr_indirections, name, len);
+			namebf[len + nr_indirections] = '\0';
+			name = namebf;
+		}
+
+		expand_types = nr_indirections;
+
+		/* Avoid loops */
+		if (type->recursivity_level != 0)
+			expand_types = 0;
+		++type->recursivity_level;
+	}
+
+	if (expand_types) {
 		int typedef_expanded = 0;
 
 		while (type->tag == DW_TAG_typedef) {
@@ -1342,7 +1373,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	case DW_TAG_structure_type:
 		ctype = tag__type(type);
 
-		if (type__name(ctype, cu) != NULL && !conf->expand_types)
+		if (type__name(ctype, cu) != NULL && !expand_types)
 			printed += fprintf(fp, "struct %-*s %s",
 					   conf->type_spacing - 7,
 					   type__name(ctype, cu), name);
@@ -1353,7 +1384,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	case DW_TAG_union_type:
 		ctype = tag__type(type);
 
-		if (type__name(ctype, cu) != NULL && !conf->expand_types)
+		if (type__name(ctype, cu) != NULL && !expand_types)
 			printed += fprintf(fp, "union %-*s %s",
 					   conf->type_spacing - 6,
 					   type__name(ctype, cu), name);
@@ -1372,6 +1403,9 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		break;
 	}
 out:
+	if (conf->expand_types)
+		--type->recursivity_level;
+
 	return printed;
 out_type_not_found:
 	printed = fprintf(fp, "%-*s %s", conf->type_spacing, "<ERROR>", name);
@@ -2458,7 +2492,7 @@ static size_t namespace__fprintf(const struct tag *tself, const struct cu *cu,
 	return printed + fprintf(fp, "}");
 }
 
-size_t tag__fprintf(const struct tag *self, const struct cu *cu,
+size_t tag__fprintf(struct tag *self, const struct cu *cu,
 		    const struct conf_fprintf *conf, FILE *fp)
 {
 	size_t printed = 0;
@@ -2487,6 +2521,9 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 		if (tconf.type_spacing == 0)
 			tconf.type_spacing = 26;
 	}
+
+	if (pconf->expand_types)
+		++self->recursivity_level;
 
 	if (pconf->show_decl_info) {
 		printed += fprintf(fp, "%.*s", pconf->indent, tabs);
@@ -2532,6 +2569,9 @@ size_t tag__fprintf(const struct tag *self, const struct cu *cu,
 		fputc(';', fp);
 		++printed;
 	}
+
+	if (pconf->expand_types)
+		--self->recursivity_level;
 
 	return printed;
 }

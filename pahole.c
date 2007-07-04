@@ -549,6 +549,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "show only the members that use space in the class layout",
 	},
 	{
+		.name = "expand_pointers",
+		.key  = 'p',
+		.doc  = "expand class pointer members",
+	},
+	{
 		.name = "sizes",
 		.key  = 's',
 		.doc  = "show size of classes",
@@ -634,6 +639,7 @@ static error_t pahole__options_parser(int key, char *arg,
 		break;
 	case 'B': nr_bit_holes = atoi(arg);		break;
 	case 'E': conf.expand_types = 1;		break;
+	case 'p': conf.expand_pointers = 1;		break;
 	case 'r': conf.rel_offset = 1;			break;
 	case 'R': reorganize = 1;			break;
 	case 'S': show_reorg_steps = 1;			break;

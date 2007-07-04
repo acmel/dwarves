@@ -54,7 +54,8 @@ struct tag {
 	const char	 *decl_file;
 	uint16_t	 decl_line;
 	uint16_t	 tag;
-	uint32_t	 refcnt;
+	uint16_t	 refcnt;
+	uint16_t	 recursivity_level;
 };
 
 static inline int tag__is_enumeration(const struct tag *self)
@@ -410,6 +411,7 @@ struct conf_fprintf {
 	uint32_t   base_offset;
 	uint8_t	   indent;
 	uint8_t	   expand_types:1;
+	uint8_t	   expand_pointers:1;
 	uint8_t    rel_offset:1;
 	uint8_t	   emit_stats:1;
 	uint8_t	   suppress_comments:1;
@@ -430,7 +432,7 @@ extern size_t enumeration__fprintf(const struct tag *tag_self,
 extern size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 			       const struct conf_fprintf *conf, FILE *fp);
 extern size_t tag__fprintf_decl_info(const struct tag *self, FILE *fp);
-extern size_t tag__fprintf(const struct tag *self, const struct cu *cu,
+extern size_t tag__fprintf(struct tag *self, const struct cu *cu,
 			   const struct conf_fprintf *conf, FILE *fp);
 
 extern const char *function__name(struct function *self, const struct cu *cu);
