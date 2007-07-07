@@ -2417,10 +2417,12 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		last_bit_size = pos->bit_size;
 	}
 
-	printed += class__fprintf_cacheline_boundary(last_cacheline, sum,
-						     sum_holes, &newline,
-						     &last_cacheline,
-						     cconf.indent, fp);
+	if (!cconf.suppress_comments)
+		printed += class__fprintf_cacheline_boundary(last_cacheline,
+							     sum, sum_holes,
+							     &newline,
+							     &last_cacheline,
+							     cconf.indent, fp);
 	if (!cconf.emit_stats)
 		goto out;
 
