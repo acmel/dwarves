@@ -760,8 +760,10 @@ int main(int argc, char *argv[])
 			}
  		} else if (find_containers)
 			print_containers(s, 0);
-		else
+		else {
  			tag__fprintf(class__tag(s->class), s->cu, &conf, stdout);
+			putchar('\n');
+		}
 	} else
 		print_classes(formatter);
 
