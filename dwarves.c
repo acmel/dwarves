@@ -1282,6 +1282,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	struct conf_fprintf tconf;
 	size_t printed = 0;
 	int expand_types = conf->expand_types;
+	int suppress_offset_comment = conf->suppress_offset_comment;
 
 	if (type == NULL)
 		goto out_type_not_found;
@@ -1307,6 +1308,8 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		}
 
 		expand_types = nr_indirections;
+		if (!suppress_offset_comment)
+			suppress_offset_comment = !!nr_indirections;
 
 		/* Avoid loops */
 		if (type->recursivity_level != 0)
@@ -1342,6 +1345,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		tconf.prefix	   = NULL;
 		tconf.suffix	   = name;
 		tconf.emit_stats   = 0;
+		tconf.suppress_offset_comment = suppress_offset_comment;
 	}
 
 	switch (type->tag) {
@@ -1416,7 +1420,6 @@ static size_t struct_member__fprintf(struct class_member *self,
 				     struct tag *type, const struct cu *cu,
 				     const struct conf_fprintf *conf, FILE *fp)
 {
-	int spacing;
 	const int size = tag__size(type, cu);
 	struct conf_fprintf sconf = *conf;
 	uint32_t offset = self->offset;
@@ -1446,30 +1449,35 @@ static size_t struct_member__fprintf(struct class_member *self,
 	     tag__is_enumeration(type)) &&
 		/* Look if is a type defined inline */
 	    type__name(tag__type(type), cu) == NULL) {
-		/* Check if this is a anonymous union */
-		const int slen = self->name != NULL ?
-					(int)strlen(self->name) : -1;
-		return printed + fprintf(fp, "%*s/* %5u %5u */",
-					 (sconf.type_spacing +
-					  sconf.name_spacing - slen - 3),
-					 " ", offset, size);
+		if (!sconf.suppress_offset_comment) {
+			/* Check if this is a anonymous union */
+			const int slen = self->name != NULL ?
+						(int)strlen(self->name) : -1;
+			printed += fprintf(fp, "%*s/* %5u %5u */",
+					   (sconf.type_spacing +
+					    sconf.name_spacing - slen - 3),
+					   " ", offset, size);
+		}
+	} else {
+		int spacing = sconf.type_spacing + sconf.name_spacing - printed;
+
+		if (self->tag.tag == DW_TAG_inheritance) {
+			const size_t p = fprintf(fp, " */");
+			printed += p;
+			spacing -= p;
+		}
+		if (!sconf.suppress_offset_comment)
+			printed += fprintf(fp, "%*s/* %5u %5u */",
+					   spacing > 0 ? spacing : 0, " ",
+					   offset, size);
 	}
-	spacing = sconf.type_spacing + sconf.name_spacing - printed;
-	if (self->tag.tag == DW_TAG_inheritance) {
-		const size_t p = fprintf(fp, " */");
-		printed += p;
-		spacing -= p;
-	}
-	return printed + fprintf(fp, "%*s/* %5u %5u */",
-				 spacing > 0 ? spacing : 0, " ",
-				 offset, size);
+	return printed;
 }
 
 static size_t union_member__fprintf(struct class_member *self,
 				    struct tag *type, const struct cu *cu,
 				    const struct conf_fprintf *conf, FILE *fp)
 {
-	int spacing;
 	const size_t size = tag__size(type, cu);
 	size_t printed = type__fprintf(type, cu, self->name, conf, fp);
 	
@@ -1477,21 +1485,29 @@ static size_t union_member__fprintf(struct class_member *self,
 	     tag__is_enumeration(type)) &&
 		/* Look if is a type defined inline */
 	    type__name(tag__type(type), cu) == NULL) {
-		/* Check if this is a anonymous union */
-		const int slen = self->name != NULL ? (int)strlen(self->name) : -1;
-		/*
-		 * Add the comment with the union size after padding the
-		 * '} member_name;' last line of the type printed in the
-		 * above call to type__fprintf.
-		 */
-		return printed + fprintf(fp, "%*s/* %11zd */",
-					 (conf->type_spacing +
-					  conf->name_spacing - slen - 3),
-					 " ", size);
+		if (!conf->suppress_offset_comment) {
+			/* Check if this is a anonymous union */
+			const int slen = self->name != NULL ? (int)strlen(self->name) : -1;
+			/*
+			 * Add the comment with the union size after padding the
+			 * '} member_name;' last line of the type printed in the
+			 * above call to type__fprintf.
+			 */
+			printed += fprintf(fp, "%*s/* %11zd */",
+					   (conf->type_spacing +
+					    conf->name_spacing - slen - 3), " ", size);
+		}
+	} else {
+		printed += fprintf(fp, ";");
+		
+		if (!conf->suppress_offset_comment) {
+			const int spacing = conf->type_spacing + conf->name_spacing - printed;
+			printed += fprintf(fp, "%*s/* %11zd */",
+					   spacing > 0 ? spacing : 0, " ", size);
+		}
 	}
-	spacing = conf->type_spacing + conf->name_spacing - (printed + 1);
-	return printed + fprintf(fp, ";%*s/* %11zd */",
-				 spacing > 0 ? spacing : 0, " ", size);
+
+	return printed;
 }
 
 static size_t union__fprintf(struct type *self, const struct cu *cu,
