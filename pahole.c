@@ -664,7 +664,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
 							break;
 	case 'q': conf.emit_stats = 0;
-		  conf.suppress_comments = 1;		break;
+		  conf.suppress_comments = 1;
+		  conf.suppress_offset_comment = 1;	break;
 	case 'V': global_verbose = 1;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
