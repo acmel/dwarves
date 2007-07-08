@@ -1546,8 +1546,10 @@ static struct class *class__new(Dwarf_Die *die)
 {
 	struct class *self = zalloc(sizeof(*self));
 
-	if (self != NULL)
+	if (self != NULL) {
 		type__init(&self->type, die);
+		INIT_LIST_HEAD(&self->vtable);
+	}
 
 	return self;
 }
@@ -1560,6 +1562,12 @@ void class__delete(struct class *self)
 		class_member__delete(pos);
 
 	free(self);
+}
+
+static void class__add_vtable_entry(struct class *self, struct function *vtable_entry)
+{
+	++self->nr_vtable_entries;
+	list_add_tail(&vtable_entry->vtable_node, &self->vtable);
 }
 
 static void namespace__add_tag(struct namespace *self, struct tag *tag)
@@ -1696,6 +1704,7 @@ static struct function *function__new(Dwarf_Die *die)
 		self->specification   = attr_type(die, DW_AT_specification);
 		self->accessibility   = attr_numeric(die, DW_AT_accessibility);
 		self->virtuality      = attr_numeric(die, DW_AT_virtuality);
+		INIT_LIST_HEAD(&self->vtable_node);
 		self->vtable_entry    = -1;
 		if (dwarf_hasattr(die, DW_AT_vtable_elem_location))
 			self->vtable_entry = attr_offset(die, DW_AT_vtable_elem_location);
@@ -2203,6 +2212,29 @@ static size_t class__fprintf_cacheline_boundary(uint32_t last_cacheline,
 	return printed;
 }
 
+static size_t class__vtable_fprintf(struct class *self,
+				    const struct conf_fprintf *conf, FILE *fp)
+{
+	struct function *pos;
+	size_t printed = 0;
+
+	if (self->nr_vtable_entries == 0)
+		goto out;
+
+	printed += fprintf(fp, "%.*s/* vtable has %u entries: {\n",
+			   conf->indent, tabs, self->nr_vtable_entries);
+
+	list_for_each_entry(pos, &self->vtable, vtable_node) {
+		printed += fprintf(fp, "%.*s   [%d] = %s(%s), \n",
+				   conf->indent, tabs, pos->vtable_entry,
+				   pos->name, pos->linkage_name);
+	}
+
+	printed += fprintf(fp, "%.*s} */", conf->indent, tabs);
+out:
+	return printed;
+}
+
 size_t class__fprintf(struct class *self, const struct cu *cu,
 		      const struct conf_fprintf *conf, FILE *fp)
 {
@@ -2438,6 +2470,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 							     &newline,
 							     &last_cacheline,
 							     cconf.indent, fp);
+	class__vtable_fprintf(self, &cconf, fp);
 	if (!cconf.emit_stats)
 		goto out;
 
@@ -2946,8 +2979,15 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 		default: {
 			struct tag *tag = die__process_tag(die, cu);
 
-			if (tag != NULL)
+			if (tag != NULL) {
 				namespace__add_tag(&class->namespace, tag);
+				if (tag->tag == DW_TAG_subprogram) {
+					struct function *fself = tag__function(tag);
+
+					if (fself->vtable_entry != -1)
+						class__add_vtable_entry(type__class(class), fself);
+				}
+			}
 			continue;
 		}
 		}

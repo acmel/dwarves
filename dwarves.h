@@ -115,6 +115,11 @@ struct type {
 	uint8_t		 fwd_decl_emitted:1;
 };
 
+static inline struct class *type__class(const struct type *self)
+{
+	return (struct class *)self;
+}
+
 /** 
  * type__for_each_tag - iterate thru all the tags
  * @self: struct type instance to iterate
@@ -187,6 +192,8 @@ static inline struct type *tag__type(const struct tag *self)
 
 struct class {
 	struct type	 type;
+	struct list_head vtable;
+	uint16_t	 nr_vtable_entries;
 	uint8_t		 nr_holes;
 	uint8_t		 nr_bit_holes;
 	uint16_t	 padding;
@@ -326,6 +333,7 @@ struct function {
 	uint8_t		 accessibility:2; /* DW_ACCESS_{public,protected,private} */
 	uint8_t		 virtuality:2; /* DW_VIRTUALITY_{none,virtual,pure_virtual} */
 	int16_t		 vtable_entry;
+	struct list_head vtable_node;
 	/* fields used by tools */
 	struct list_head tool_node;
 	void		 *priv;
