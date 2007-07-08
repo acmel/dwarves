@@ -241,12 +241,12 @@ static uint64_t dwarf_expr(const uint8_t *expr, uint32_t len __unused)
 	return UINT64_MAX;
 }
 
-static Dwarf_Off attr_offset(Dwarf_Die *die)
+static Dwarf_Off attr_offset(Dwarf_Die *die, const uint32_t name)
 {
 	Dwarf_Attribute attr;
 	Dwarf_Block block;
 
-	if (dwarf_attr(die, DW_AT_data_member_location, &attr) != NULL &&
+	if (dwarf_attr(die, name, &attr) != NULL &&
 	    dwarf_formblock(&attr, &block) == 0)
 		return dwarf_expr(block.data, block.length);
 
@@ -1130,7 +1130,7 @@ static struct class_member *class_member__new(Dwarf_Die *die)
 
 	if (self != NULL) {
 		tag__init(&self->tag, die);
-		self->offset	 = attr_offset(die);
+		self->offset	 = attr_offset(die, DW_AT_data_member_location);
 		self->bit_size	 = attr_numeric(die, DW_AT_bit_size);
 		self->bit_offset = attr_numeric(die, DW_AT_bit_offset);
 		self->accessibility = attr_numeric(die, DW_AT_accessibility);
