@@ -2127,9 +2127,19 @@ static size_t function__fprintf(const struct tag *tag_self,
 				const struct cu *cu, FILE *fp)
 {
 	struct function *self = tag__function(tag_self);
+	size_t printed = 0;
 
-	return ftype__fprintf(&self->proto, cu, function__name(self, cu),
-			      function__declared_inline(self), 0, 0, fp);
+	if (self->virtuality == DW_VIRTUALITY_virtual ||
+	    self->virtuality == DW_VIRTUALITY_pure_virtual)
+		printed += fprintf(fp, "virtual ");
+
+	printed += ftype__fprintf(&self->proto, cu, function__name(self, cu),
+				  function__declared_inline(self), 0, 0, fp);
+
+	if (self->virtuality == DW_VIRTUALITY_pure_virtual)
+		printed += fprintf(fp, " = 0");
+
+	return printed;
 }
 
 size_t function__fprintf_stats(const struct tag *tag_self,
