@@ -228,7 +228,8 @@ static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 static uint64_t dwarf_expr(const uint8_t *expr, uint32_t len __unused)
 {
 	/* Common case: offset from start of the class */
-	if (expr[0] == DW_OP_plus_uconst) {
+	if (expr[0] == DW_OP_plus_uconst ||
+	    expr[0] == DW_OP_constu) {
 		uint64_t result;
 		++expr;
 		get_uleb128(result, expr);
