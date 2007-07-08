@@ -325,6 +325,7 @@ struct function {
 	uint8_t		 external:1;
 	uint8_t		 accessibility:2; /* DW_ACCESS_{public,protected,private} */
 	uint8_t		 virtuality:2; /* DW_VIRTUALITY_{none,virtual,pure_virtual} */
+	int16_t		 vtable_entry;
 	/* fields used by tools */
 	struct list_head tool_node;
 	void		 *priv;
