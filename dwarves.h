@@ -316,6 +316,7 @@ struct function {
 	struct ftype	 proto;
 	struct lexblock	 lexblock;
 	const char	 *name;
+	char		 *linkage_name;
 	Dwarf_Off	 abstract_origin;
 	Dwarf_Off	 specification;
 	size_t		 cu_total_size_inline_expansions;

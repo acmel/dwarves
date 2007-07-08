@@ -1688,6 +1688,7 @@ static struct function *function__new(Dwarf_Die *die)
 		ftype__init(&self->proto, die);
 		lexblock__init(&self->lexblock, die);
 		self->name     = strings__add(attr_string(die, DW_AT_name));
+		self->linkage_name = strings__add(attr_string(die, DW_AT_MIPS_linkage_name));
 		self->inlined  = attr_numeric(die, DW_AT_inline);
 		self->external = dwarf_hasattr(die, DW_AT_external);
 		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
@@ -2596,6 +2597,14 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 	if (!pconf->no_semicolon) {
 		fputc(';', fp);
 		++printed;
+	}
+
+	if (self->tag == DW_TAG_subprogram &&
+	    !pconf->suppress_comments) {
+		const struct function *fself = tag__function(self);
+
+		if (fself->linkage_name != NULL)
+			printed += fprintf(fp, " /* linkage=%s */", fself->linkage_name);
 	}
 
 	if (pconf->expand_types)
