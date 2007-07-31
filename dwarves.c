@@ -2112,10 +2112,16 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
-	printed = fprintf(fp, "%.*s{\n", indent, tabs);
+	printed = fprintf(fp, "%.*s{", indent, tabs);
+	if (self->low_pc != 0)
+		printed += fprintf(fp, " /* low_pc=%#llx */", self->low_pc);
+	printed += fprintf(fp, "\n");
 	list_for_each_entry(pos, &self->tags, node)
 		printed += function__tag_fprintf(pos, cu, indent + 1, fp);
-	return printed + fprintf(fp, "%.*s}", indent, tabs);
+	printed += fprintf(fp, "%.*s}", indent, tabs);
+	if (self->high_pc != 0)
+		printed += fprintf(fp, " /* high_pc=%#llx */", self->high_pc);
+	return printed;
 }
 
 size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
