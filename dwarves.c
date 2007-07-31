@@ -2030,6 +2030,7 @@ print_it:
 }
 
 static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
+				    struct function *function,
 				    uint16_t indent, FILE *fp)
 {
 	char bf[512];
@@ -2088,7 +2089,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 	}
 		break;
 	case DW_TAG_lexical_block:
-		printed = lexblock__fprintf(vtag, cu, indent, fp);
+		printed = lexblock__fprintf(vtag, cu, function, indent, fp);
 		fputc('\n', fp);
 		return printed + 1;
 	default:
@@ -2105,7 +2106,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 }
 
 size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
-			 uint16_t indent, FILE *fp)
+			 struct function *function, uint16_t indent, FILE *fp)
 {
 	struct tag *pos;
 	size_t printed;
@@ -2113,14 +2114,25 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 	printed = fprintf(fp, "%.*s{", indent, tabs);
-	if (self->low_pc != 0)
-		printed += fprintf(fp, " /* low_pc=%#llx */", self->low_pc);
+	if (self->low_pc != 0) {
+		Dwarf_Off offset = self->low_pc - function->lexblock.low_pc;
+
+		if (offset == 0)
+			printed += fprintf(fp, " /* low_pc=%#llx */", self->low_pc);
+		else
+			printed += fprintf(fp, " /* %s+%#llx */",
+					   function__name(function, cu),
+					   offset);
+	}
 	printed += fprintf(fp, "\n");
 	list_for_each_entry(pos, &self->tags, node)
-		printed += function__tag_fprintf(pos, cu, indent + 1, fp);
+		printed += function__tag_fprintf(pos, cu, function, indent + 1, fp);
 	printed += fprintf(fp, "%.*s}", indent, tabs);
-	if (self->high_pc != 0)
-		printed += fprintf(fp, " /* high_pc=%#llx */", self->high_pc);
+
+	if (function->lexblock.low_pc != self->low_pc) {
+		const size_t size = self->high_pc - self->low_pc;
+		printed += fprintf(fp, " /* lexblock size=%zd */", size);
+	}
 	return printed;
 }
 
@@ -2166,7 +2178,7 @@ size_t function__fprintf_stats(const struct tag *tag_self,
 			       const struct cu *cu, FILE *fp)
 {
 	struct function *self = tag__function(tag_self);
-	size_t printed = lexblock__fprintf(&self->lexblock, cu, 0, fp);
+	size_t printed = lexblock__fprintf(&self->lexblock, cu, self, 0, fp);
 
 	printed += fprintf(fp, "/* size: %zd", function__size(self));
 	if (self->lexblock.nr_variables > 0)

@@ -35,9 +35,9 @@ static int emit_tag(struct tag *self, struct cu *cu, void *cookie __unused)
 		tag__fprintf(self, cu, &conf, stdout);
 
 		if (self->tag == DW_TAG_subprogram) {
-			const struct function *fn = tag__function(self);
+			struct function *fn = tag__function(self);
 			putchar('\n');
-			lexblock__fprintf(&fn->lexblock, cu, 0, stdout);
+			lexblock__fprintf(&fn->lexblock, cu, fn, 0, stdout);
 		}
 		puts("\n");
 	}

@@ -448,10 +448,11 @@ extern size_t tag__fprintf(struct tag *self, const struct cu *cu,
 
 extern const char *function__name(struct function *self, const struct cu *cu);
 extern size_t function__fprintf_stats(const struct tag *tag_self,
-				      const struct cu *cu, FILE *fp);
+				      const struct cu *cu,
+				      FILE *fp);
 
 extern size_t lexblock__fprintf(const struct lexblock *self,
-				const struct cu *cu,
+				const struct cu *cu, struct function *function,
 				uint16_t indent, FILE *fp);
 
 extern struct cus *cus__new(struct list_head *definitions,
