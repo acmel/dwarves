@@ -84,7 +84,7 @@ install(TARGETS codiff ctracer dtagnames pahole pdwtags
 install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 install(TARGETS dwarves dwarves_emit dwarves_reorganize LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 install(FILES dwarves.h dwarves_emit.h dwarves_reorganize.h DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
-install(FILES ostra/ostra-cg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(PROGRAMS ostra/ostra-cg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(FILES ostra/python/ostra.py DESTINATION /usr/share/dwarves/runtime/python)
 install(FILES lib/Makefile lib/ctracer_jprobe.c
 	      lib/ctracer_relay.c lib/ctracer_relay.h
