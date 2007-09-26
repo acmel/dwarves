@@ -189,10 +189,8 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 		return;
 
 	new_tag = cu__find_struct_by_name(new_cu, class__name(structure, cu));
-	if (new_tag == NULL) {
-		diff = 1;
-		goto out;
-	}
+	if (new_tag == NULL)
+		return;
 
 	new_structure = tag__class(new_tag);
 	if (class__size(new_structure) == 0)
@@ -424,9 +422,18 @@ static void show_diffs_structure(struct class *structure,
 				 const struct cu *cu)
 {
 	const struct diff_info *di = structure->priv;
-	const struct class *new_structure = tag__class(di->tag);
-	int diff = (new_structure != NULL ? class__size(new_structure) : 0) -
-		   class__size(structure);
+	const struct class *new_structure;
+	int diff;
+	/*
+	 * This is when the struct was not present in the new object file.
+	 * Meaning that it either was not referenced or that it was completely
+	 * removed.
+	 */
+	if (di == NULL)
+		return;
+
+	new_structure = tag__class(di->tag);
+	diff = class__size(new_structure) - class__size(structure);
 
 	terse_type_changes = 0;
 
