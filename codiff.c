@@ -433,7 +433,14 @@ static void show_diffs_structure(struct class *structure,
 		return;
 
 	new_structure = tag__class(di->tag);
-	diff = class__size(new_structure) - class__size(structure);
+	/*
+	 * If there is a diff_info but its di->tag is NULL we have a new structure,
+	 * one that didn't appears in the old object. See find_new_classes_iterator.
+	 */
+	if (new_structure == NULL)
+		diff = class__size(structure);
+	else
+		diff = class__size(new_structure) - class__size(structure);
 
 	terse_type_changes = 0;
 
