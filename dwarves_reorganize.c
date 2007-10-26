@@ -82,13 +82,17 @@ static struct class_member *
 
 		if (member == to)
 			break;
-
-		if (member->bit_size != 0) {
+		/*
+		 * Check if this is the first member of a bitfield.  It either
+		 * has another member before it that is not part of the current
+		 * bitfield or it is the first member of the struct.
+		 */
+		if (member->bit_size != 0 && member->offset != 0) {
 			struct class_member *prev =
 					list_entry(member->tag.node.prev,
 						   struct class_member,
 						   tag.node);
-			if (member->bit_size != 0)
+			if (prev->bit_size != 0)
 				continue;
 
 		}
@@ -466,12 +470,6 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		if (member->bit_hole == 0)
 			--class->nr_bit_holes;
 		if (verbose > 1) {
-			const struct conf_fprintf conf = {
-				.type_spacing = 26,
-				.name_spacing = 23,
-				.emit_stats   = 1,
-			};
-
 			class__find_holes(class, cu);
 			class__fprintf(class, cu, NULL, fp);
 			fputc('\n', fp);
