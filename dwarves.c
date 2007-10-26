@@ -9,7 +9,6 @@
   published by the Free Software Foundation.
 */
 
-#define _GNU_SOURCE
 #include <assert.h>
 #include <dirent.h>
 #include <dwarf.h>

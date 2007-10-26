@@ -6,7 +6,6 @@
  * by the Free Software Foundation.
  */
 
-#define _GNU_SOURCE
 #include <argp.h>
 #include <malloc.h>
 #include <search.h>

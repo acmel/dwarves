@@ -8,7 +8,6 @@
   published by the Free Software Foundation.
 */
 
-#define _GNU_SOURCE
 #include <argp.h>
 #include <assert.h>
 #include <stdio.h>

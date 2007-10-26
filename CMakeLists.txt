@@ -23,6 +23,7 @@ if (NOT CMAKE_BUILD_TYPE)
 	     FORCE)
 endif (NOT CMAKE_BUILD_TYPE)
 
+add_definitions(-D_GNU_SOURCE)
 find_package(DWARF REQUIRED)
 
 _set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${__LIB}" "libdir")
