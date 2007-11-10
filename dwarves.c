@@ -346,7 +346,8 @@ static void __tag__id_not_found(const struct tag *self,
 				unsigned long long id, const char *fn)
 {
 	fprintf(stderr, "%s: %#llx id not found for %s (id=%#llx)\n",
-		fn, (unsigned long long)id, dwarf_tag_name(self->tag), self->id);
+		fn, (unsigned long long)id, dwarf_tag_name(self->tag),
+		(unsigned long long)self->id);
 	fflush(stderr);
 }
 
@@ -2117,11 +2118,12 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 		Dwarf_Off offset = self->low_pc - function->lexblock.low_pc;
 
 		if (offset == 0)
-			printed += fprintf(fp, " /* low_pc=%#llx */", self->low_pc);
+			printed += fprintf(fp, " /* low_pc=%#llx */",
+					   (unsigned long long)self->low_pc);
 		else
 			printed += fprintf(fp, " /* %s+%#llx */",
 					   function__name(function, cu),
-					   offset);
+					   (unsigned long long)offset);
 	}
 	printed += fprintf(fp, "\n");
 	list_for_each_entry(pos, &self->tags, node)
