@@ -1494,7 +1494,7 @@ static size_t union_member__fprintf(struct class_member *self,
 			 * '} member_name;' last line of the type printed in the
 			 * above call to type__fprintf.
 			 */
-			printed += fprintf(fp, "%*s/* %11zd */",
+			printed += fprintf(fp, ";%*s/* %11zd */",
 					   (conf->type_spacing +
 					    conf->name_spacing - slen - 3), " ", size);
 		}
