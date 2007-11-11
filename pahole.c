@@ -704,7 +704,7 @@ int main(int argc, char *argv[])
 						      class_dwarf_offset);
 		if (tag == NULL) {
 			fprintf(stderr, "id %llx not found!\n",
-			class_dwarf_offset);
+				(unsigned long long)class_dwarf_offset);
 			return EXIT_FAILURE;
 		}
 
