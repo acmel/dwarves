@@ -26,14 +26,6 @@
 static struct cus *methods_cus;
 
 /**
- * Compilation units with the definitions for the kprobes functions and struct
- * definitions for the, can point to methods_cus if those definitions are
- * available there (example: when using 'ctracer vmlinux sk_buff', vmlinux
- * will have the sk_buff "methods" and the kprobes "classes" and "methods".
- */
-static struct cus *kprobes_cus;
-
-/**
  * Mini class, the subset of the traced class that is collected at the probes
  */
 
@@ -45,26 +37,30 @@ static struct class *mini_class;
 static const char *src_dir = ".";
 
 /*
- * Where to print the ctracer_methods.c file
+ * Where to print the ctracer_methods.stp file
  */
 static FILE *fp_methods;
 
 /*
+ * Where to print the ctracer_collector.c file
+ */
+static FILE *fp_collector;
+
+/*
  * List of definitions and forward declarations already emitted for
- * methods_cus and kprobes_cus, to avoid duplication.
+ * methods_cus, to avoid duplication.
  */
 static LIST_HEAD(cus__definitions);
 static LIST_HEAD(cus__fwd_decls);
 
 /*
- * List of jprobes and kretprobes already emitted, this is a hack to cope with
+ * List of probes and kretprobes already emitted, this is a hack to cope with
  * name space collisions, a better solution would be to in these cases to use the
  * compilation unit name (net/ipv4/tcp.o, for instance) as a prefix when a
  * static function has the same name in multiple compilation units (aka object
  * files).
  */
-static void *jprobes_emitted;
-static void *kretprobes_emitted;
+static void *probes_emitted;
 
 static int methods__compare(const void *a, const void *b)
 {
@@ -72,7 +68,7 @@ static int methods__compare(const void *a, const void *b)
 }
 
 /*
- * Add a method to jprobes_emitted or kretprobes_emitted, see comment above.
+ * Add a method to probes_emitted, see comment above.
  */
 static int methods__add(void **table, const char *str)
 {
@@ -150,23 +146,37 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 static void class__remove_member(struct class *self, const struct cu *cu,
 				 struct class_member *member)
 {
-	const size_t size = class_member__size(member, cu);
+	size_t size = class_member__size(member, cu);
 	/*
 	 * Is this the first member?
 	 */
 	if (member->tag.node.prev == class__tags(self)) {
-		self->type.size -= size;
-		class__subtract_offsets_from(self, cu, member, size);
+		self->type.size -= size + member->hole;
+		class__subtract_offsets_from(self, cu, member,
+					     size + member->hole);
+	/*
+	 * Is this the last member?
+	 */
+	} else if (member->tag.node.next == class__tags(self)) {
+		if (size + self->padding >= cu->addr_size) {
+			self->type.size -= size + self->padding;
+			self->padding = 0;
+		} else
+			self->padding += size;
 	} else {
-		struct class_member *from_prev =
-				list_entry(member->tag.node.prev,
-					   struct class_member, tag.node);
-		if (member->hole + size >= cu->addr_size) {
+		if (size + member->hole >= cu->addr_size) {
 			self->type.size -= size + member->hole;
 			class__subtract_offsets_from(self, cu, member,
 						     size + member->hole);
-		} else
+		} else {
+			struct class_member *from_prev =
+					list_entry(member->tag.node.prev,
+						   struct class_member,
+						   tag.node);
+			if (from_prev->hole == 0)
+				self->nr_holes++;
 			from_prev->hole += size + member->hole;
+		}
 	}
 	if (member->hole != 0)
 		self->nr_holes--;
@@ -196,16 +206,68 @@ static void class__emit_class_state_collector(struct class *self,
 	struct class_member *pos;
 	int len = class__find_biggest_member_name(clone);
 
-	fprintf(fp_methods,
+	fprintf(fp_collector,
 		"void ctracer__class_state(const void *from, void *to)\n"
 	        "{\n"
 		"\tconst struct %s *obj = from;\n"
 		"\tstruct %s *mini_obj = to;\n\n",
 		class__name(self, cu), class__name(clone, cu));
 	type__for_each_data_member(&clone->type, pos)
-		fprintf(fp_methods, "\tmini_obj->%-*s = obj->%s;\n",
+		fprintf(fp_collector, "\tmini_obj->%-*s = obj->%s;\n",
 			len, pos->name, pos->name);
-	fputs("}\n\n", fp_methods);
+	fputs("}\n\n", fp_collector);
+}
+
+static void class__add_offsets_from(struct class *self, struct class_member *from,
+				    const uint16_t size)
+{
+	struct class_member *member =
+		list_prepare_entry(from, class__tags(self), tag.node);
+
+	list_for_each_entry_continue(member, class__tags(self), tag.node)
+		if (member->tag.tag == DW_TAG_member)
+			member->offset += size;
+}
+
+/*
+ * XXX: Check this more thoroughly. Right now it is used because I was
+ * to lazy to do class__remove_member properly, adjusting alignments and
+ * holes as we go removing fields. Ditto for class__add_offsets_from.
+ */
+static void class__fixup_alignment(struct class *self, const struct cu *cu)
+{
+	struct class_member *pos, *last_member = NULL;
+	size_t power2;
+
+	type__for_each_data_member(&self->type, pos) {
+		size_t member_size = class_member__size(pos, cu);
+
+		if (last_member == NULL && pos->offset != 0) { /* paranoid! */
+			class__subtract_offsets_from(self, cu, pos,
+						     pos->offset - member_size);
+			pos->offset = 0;
+		} else for (power2 = 2; power2 <= cu->addr_size; power2 *= 2) {
+			const size_t remainder = pos->offset % power2;
+
+			if (member_size == power2 && remainder != 0) {
+				if (last_member->hole >= remainder) {
+					last_member->hole -= remainder;
+					if (last_member->hole == 0)
+						--self->nr_holes;
+					pos->offset -= remainder;
+					class__subtract_offsets_from(self, cu, pos, remainder);
+				} else {
+					if (last_member->hole == 0)
+						++self->nr_holes;
+					last_member->hole += 2 - remainder;
+					pos->offset += 2 - remainder;
+					class__add_offsets_from(self, pos, 2 - remainder);
+				}
+			}
+		}
+		 	
+		last_member = pos;
+	}
 }
 
 static struct class *class__clone_base_types(const struct tag *tag_self,
@@ -227,6 +289,8 @@ static struct class *class__clone_base_types(const struct tag *tag_self,
 		if (member_type->tag != DW_TAG_base_type)
 			class__remove_member(clone, cu, pos);
 	}
+	class__find_holes(clone, cu);
+	class__fixup_alignment(clone, cu);
 	class__reorganize(clone, cu, 0, NULL);
 	return clone;
 }
@@ -284,6 +348,7 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	      "#include <string.h>\n"
 	      "#include \"ctracer_relay.h\"\n\n", fp_converter);
 	class__fprintf(mini_class, cu, NULL, fp_converter);
+	fputs(";\n\n", fp_converter);
 	emit_struct_member_table_entry(fp_fields, field++, "action", 0,
 				       "entry,exit");
 	emit_struct_member_table_entry(fp_fields, field++, "function_id", 0,
@@ -301,16 +366,11 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	      "\t\tif (read(0, &hdr, sizeof(hdr)) != sizeof(hdr))\n"
 	      "\t\t\tbreak;\n"
 	      "\n"
-	      "\t\tfprintf(stdout, \"%u.%06u %c:%llu:%p\",\n"
-	      "\t\t\thdr.sec, hdr.usec,\n"
+	      "\t\tfprintf(stdout, \"%llu %c:%llu:%p\",\n"
+	      "\t\t\thdr.nsec,\n"
 	      "\t\t\thdr.probe_type ? 'o' : 'i',\n"
 	      "\t\t\thdr.function_id,\n"
 	      "\t\t\thdr.object);\n"
-	      "\n"
-	      "\t\tif (hdr.probe_type) {\n"
-	      "\t\t\tfputc('\\n', stdout);\n"
-	      "\t\t\tcontinue;\n"
-	      "\t\t}\n"
 	      "\n"
 	      "\t\tif (read(0, &obj, sizeof(obj)) != sizeof(obj))\n"
 	      "\t\t\tbreak;\n"
@@ -330,7 +390,7 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 		n = snprintf(p, plen, "obj.%s", pos->name);
 		plen -= n; p += n;
 		emit_struct_member_table_entry(fp_fields, field++,
-					       pos->name, 1, "entry");
+					       pos->name, 1, "entry,exit");
 	}
 	fprintf(fp_converter,
 		"\\n\",\n\t\t\t %s);\n"
@@ -355,8 +415,8 @@ static int class__emit_subset(struct tag *tag_self, const struct cu *cu)
 	if (mini_class == NULL)
 		goto out;
 
-	class__fprintf(mini_class, cu, NULL, fp_methods);
-	fputc('\n', fp_methods);
+	class__fprintf(mini_class, cu, NULL, fp_collector);
+	fputs(";\n\n", fp_collector);
 	class__emit_class_state_collector(self, mini_class, cu);
 	err = 0;
 out:
@@ -370,17 +430,22 @@ out:
  * This marks the function entry, function__emit_kretprobes will emit the
  * probe for the function exit.
  */
-static int function__emit_kprobes(struct function *self, const struct cu *cu,
-				  const struct tag *target)
+static int function__emit_probes(struct function *self, const struct cu *cu,
+				 const struct tag *target, int probe_type)
 {
-	char jprobe_name[256];
 	struct parameter *pos;
 	const char *name = function__name(self, cu);
 
-	fputs("static ", fp_methods);
-	snprintf(jprobe_name, sizeof(jprobe_name), "jprobe_entry__%s", name);
-	ftype__fprintf(&self->proto, cu, jprobe_name, 0, 0, 0, fp_methods);
-	fputs("\n{\n", fp_methods);
+	fprintf(fp_methods, "probe %s%s = kernel.function(\"%s\")%s\n"
+			    "{\n"
+			    "}\n\n"
+			    "probe %s%s\n"
+			    "{\n", name,
+			    probe_type == 0 ? "" : "__return",
+			    name,
+			    probe_type == 0 ? "" : ".return",
+			    name,
+			    probe_type == 0 ? "" : "__return");
 
 	list_for_each_entry(pos, &self->proto.parms, tag.node) {
 		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
@@ -393,20 +458,15 @@ static int function__emit_kprobes(struct function *self, const struct cu *cu,
 			continue;
 
 		fprintf(fp_methods,
-			"\tctracer__method_entry(%#llx, %s, %zd);\n",
+			"\tctracer__method_hook(%d, %#llx, $%s, %zd);\n",
+			probe_type,
 			(unsigned long long)self->proto.tag.id, pos->name,
 			class__size(mini_class));
 		break;
 	}
 
-	fprintf(fp_methods, "\tjprobe_return();\n"
-		"\t/* NOTREACHED */%s\n}\n\n",
-		self->proto.tag.type != 0 ? "\n\treturn 0;" : "");
+	fputs("}\n\n", fp_methods);
 
-	fprintf(fp_methods, "static struct jprobe jprobe__%s = {\n"
-		"\t.kp = { .symbol_name = \"%s\", },\n"
-		"\t.entry = (kprobe_opcode_t *)jprobe_entry__%s,\n"
-		"};\n\n", name, name, name);
 	return 0;
 }
 
@@ -414,18 +474,17 @@ static int function__emit_kprobes(struct function *self, const struct cu *cu,
  * Iterate thru the list of methods previously collected by
  * cu_find_methods_iterator, emitting the probes for function entry.
  */
-static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
+static int cu_emit_probes_iterator(struct cu *cu, void *cookie)
 {
 	struct tag *target = cu__find_struct_by_name(cu, cookie);
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
-		if (methods__add(&jprobes_emitted, function__name(pos, cu)) != 0)
+		if (methods__add(&probes_emitted, function__name(pos, cu)) != 0)
 			continue;
 		pos->priv = (void *)1; /* Mark as visited, for the table iterator */
-		cus__emit_ftype_definitions(methods_cus, cu,
-					    &pos->proto, fp_methods);
-		function__emit_kprobes(pos, cu, target);
+		function__emit_probes(pos, cu, target, 0); /* entry */
+		function__emit_probes(pos, cu, target, 1); /* exit */ 
 	}
 
 	return 0;
@@ -433,159 +492,20 @@ static int cu_emit_kprobes_iterator(struct cu *cu, void *cookie)
 
 /*
  * Iterate thru the list of methods previously collected by
- * cu_find_methods_iterator, creating the 'kprobes' table, that will
- * be used at the module init routine to register the kprobes for function
- * entry, and at module exit time to unregister the kprobes.
+ * cu_find_methods_iterator, creating the functions table that will
+ * be used by ostra-cg
  */
-static int cu_emit_kprobes_table_iterator(struct cu *cu, void *cookie __unused)
+static int cu_emit_functions_table(struct cu *cu, void *fp)
 {
-	struct function *pos;
+       struct function *pos;
 
-	list_for_each_entry(pos, &cu->tool_list, tool_node)
-		if (pos->priv != NULL) {
-			const char *name = function__name(pos, cu);
-			fprintf(fp_methods, "\t&jprobe__%s,\n", name);
-			fprintf(cookie, "%llu:%s\n",
-				(unsigned long long)pos->proto.tag.id, name);
-		}
+       list_for_each_entry(pos, &cu->tool_list, tool_node)
+               if (pos->priv != NULL)
+                       fprintf(fp, "%llu:%s\n",
+                               (unsigned long long)pos->proto.tag.id,
+			       function__name(pos, cu));
 
-	return 0;
-}
-
-/*
- * Emit the kprobes routine for one of the selected "methods", later we'll
- * put this into the 'kprobes' table, in cu_emit_kprobes_table_iterator.
- *
- * This marks the function exit.
- *
- * We still need to get the pointer to the "class instance", i.e. the pointer
- * to the specified struct, this will be done using the "data pouch" mentioned
- * in the kprobes mailing list, where we at the entry kprobes we store the
- * pointer to be used here, or possibly using plain kprobes at the function
- * entry and using DW_AT_location to discover where in the stack or in a
- * processor register were the parameters for the function.
- */
-static void function__emit_kretprobes(struct function *self,
-				      const struct cu *cu)
-{
-	const char *name = function__name(self, cu);
-
-	fprintf(fp_methods,
-		"static int kretprobe_handler__%s(struct kretprobe_instance *ri, "
-		"struct pt_regs *regs)\n"
-		"{\n"
-		"\tctracer__method_exit(%#llx);\n"
-		"\treturn 0;\n"
-		"}\n\n", name, (unsigned long long)self->proto.tag.id);
-	fprintf(fp_methods,
-		"static struct kretprobe kretprobe__%s = {\n"
-		"\t.kp = { .symbol_name = \"%s\", },\n"
-		"\t.handler = (kretprobe_handler_t)kretprobe_handler__%s,\n"
-		"};\n\n", name, name, name);
-}
-
-/*
- * Iterate thru the list of methods previously collected by
- * cu_find_methods_iterator, emitting the probes for function exit.
- */
-static int cu_emit_kretprobes_iterator(struct cu *cu, void *cookie __unused)
-{
-	struct function *pos;
-
-	list_for_each_entry(pos, &cu->tool_list, tool_node) {
-		if (methods__add(&kretprobes_emitted,
-				 function__name(pos, cu)) != 0)
-			continue;
-		pos->priv = (void *)1; /* Mark as visited, for the table iterator */
-		function__emit_kretprobes(pos, cu);
-	}
-
-	return 0;
-}
-
-/*
- * Iterate thru the list of methods previously collected by
- * cu_find_methods_iterator, creating the 'kretprobes' table, that will
- * be used at the module init routine to register the kprobes for function
- * entry, and at module exit time to unregister the kretprobes.
- */
-static int cu_emit_kretprobes_table_iterator(struct cu *cu,
-					     void *cookie __unused)
-{
-	struct function *pos;
-
-	list_for_each_entry(pos, &cu->tool_list, tool_node)
-		if (pos->priv != NULL)
-			fprintf(fp_methods, "\t&kretprobe__%s,\n",
-				function__name(pos, cu));
-
-	return 0;
-}
-
-/*
- * Emit a definition for the specified function, looking for it in the
- * tags previously collected, cus__emit_ftype_definitions will look at the
- * function return type and recursively emit all the definitions needed,
- * ditto for all the function parameters, emitting just a forward declaration
- * if the parameter is just a pointer, or all of the enums, struct, unions,
- * etc that are required for the resulting C source code to be built.
- */
-static void emit_function_defs(const char *fn)
-{
-	struct cu *cu;
-	struct tag *f = cus__find_function_by_name(kprobes_cus, &cu, fn);
-
-	if (f != NULL) {
-		cus__emit_ftype_definitions(kprobes_cus, cu,
-					    &tag__function(f)->proto,
-					    fp_methods);
-		tag__fprintf(f, cu, NULL, fp_methods);
-		fputs(";\n", fp_methods);
-	}
-}
-
-/*
- * Emit a struct definition, looking at all the function members and recursively
- * emitting its type definitions (enums, structs, unions, etc).
- */
-static void emit_struct_defs(const char *name)
-{
-	struct cu *cu;
-	struct tag *c = cus__find_struct_by_name(kprobes_cus, &cu, name);
-	if (c != NULL) {
-		cus__emit_type_definitions(kprobes_cus, cu, c, fp_methods);
-		type__emit(c, cu, NULL, NULL, fp_methods);
-	}
-}
-
-/*
- * Emit a forward declaration ("struct foo;" or "union bar").
- */
-static void emit_class_fwd_decl(const char *name)
-{
-	struct cu *cu;
-	struct tag *c = cus__find_struct_by_name(kprobes_cus, &cu, name);
-	if (c != NULL)
-		cus__emit_fwd_decl(kprobes_cus, tag__type(c), cu, fp_methods);
-}
-
-/*
- * Emit the definitions used in the resulting kernel module C source code,
- * we do this to avoid using #includes, that would emit definitions for
- * things we emit, causing redefinitions.
- */
-static void emit_module_preamble(void)
-{
-	fputs("#include \"ctracer_relay.h\"\n", fp_methods);
-
-	emit_struct_defs("jprobe");
-	emit_struct_defs("kretprobe");
-
-	emit_class_fwd_decl("pt_regs");
-	emit_class_fwd_decl("kretprobe_instance");
-
-	emit_function_defs("printk");
-	emit_function_defs("jprobe_return");
+       return 0;
 }
 
 static const struct argp_option ctracer__options[] = {
@@ -608,12 +528,6 @@ static const struct argp_option ctracer__options[] = {
 		.doc  = "file mask to load",
 	},
 	{
-		.key  = 'k',
-		.name = "kprobes",
-		.arg  = "FILE",
-		.doc  = "kprobes object file",
-	},
-	{
 		.key  = 'r',
 		.name = "recursive",
 		.doc  = "recursively load files",
@@ -623,7 +537,7 @@ static const struct argp_option ctracer__options[] = {
 	}
 };
 
-static const char *dirname, *glob, *kprobes_filename;
+static const char *dirname, *glob;
 static char *class_name;
 static int recursive;
 
@@ -634,7 +548,6 @@ static error_t ctracer__options_parser(int key, char *arg,
 	case 'd': src_dir = arg;		break;
 	case 'D': dirname = arg;		break;
 	case 'g': glob = arg;			break;
-	case 'k': kprobes_filename = arg;	break;
 	case 'r': recursive = 1;		break;
 	default:  return ARGP_ERR_UNKNOWN;
 	}
@@ -657,15 +570,14 @@ int main(int argc, char *argv[])
 	const char *filename;
 	char functions_filename[PATH_MAX];
 	char methods_filename[PATH_MAX];
-	FILE *fp;
+	char collector_filename[PATH_MAX];
+	FILE *fp_functions;
 
 	argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL);
 
 	if (remaining < argc) {
 		switch (argc - remaining) {
-		case 1:	 if (kprobes_filename == NULL)
-				goto failure;
-			 class_name = argv[remaining++];	break;
+		case 1:	 goto failure;
 		case 2:	 filename  = argv[remaining++];
 			 class_name = argv[remaining++];	break;
 		default: goto failure;
@@ -690,33 +602,10 @@ failure:
          */
 	methods_cus = cus__new(&cus__definitions, &cus__fwd_decls);
 	if (methods_cus == NULL) {
-out_enomem:
 		fputs("ctracer: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
 	
-        /*
-         * If --kprobes was specified load the binary with the definitions
-         * for the kprobes structs and functions used in the generated kernel
-         * module C source file.
-         */
-	if (kprobes_filename != NULL) {
-		kprobes_cus = cus__new(&cus__definitions, &cus__fwd_decls);
-		if (kprobes_cus == NULL)
-			goto out_enomem;
-		err = cus__load(kprobes_cus, kprobes_filename);
-		if (err != 0) {
-			filename = kprobes_filename;
-			goto out_dwarf_err;
-		}
-	} else {
-		/*
-		 * Or use the methods_cus specified for the methods as the
-		 * source for the kprobes structs and functions definitions.
-		 */
-		kprobes_cus = methods_cus;
-	}
-
 	/*
          * if --dir/-D was specified, recursively traverse the path looking for
          * object files (compilation units) that match the glob specified (*.ko)
@@ -737,7 +626,6 @@ out_enomem:
 	if (filename != NULL) {
 		err = cus__load(methods_cus, filename);
 		if (err != 0) {
-out_dwarf_err:
 			cus__print_error_msg("ctracer", filename, err);
 			return EXIT_FAILURE;
 		}
@@ -755,15 +643,15 @@ out_dwarf_err:
 	snprintf(functions_filename, sizeof(functions_filename),
 		 "%s/%s.functions", src_dir,
 		 class__name(tag__class(class), cu));
-	fp = fopen(functions_filename, "w");
-	if (fp == NULL) {
+	fp_functions = fopen(functions_filename, "w");
+	if (fp_functions == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n",
 			functions_filename);
 		exit(EXIT_FAILURE);
 	}
 
 	snprintf(methods_filename, sizeof(methods_filename),
-		 "%s/ctracer_methods.c", src_dir);
+		 "%s/ctracer_methods.stp", src_dir);
 	fp_methods = fopen(methods_filename, "w");
 	if (fp_methods == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n",
@@ -771,30 +659,39 @@ out_dwarf_err:
 		exit(EXIT_FAILURE);
 	}
 
-	emit_module_preamble();
+	snprintf(collector_filename, sizeof(collector_filename),
+		 "%s/ctracer_collector.c", src_dir);
+	fp_collector = fopen(collector_filename, "w");
+	if (fp_collector == NULL) {
+		fprintf(stderr, "ctracer: couldn't create %s\n",
+			collector_filename);
+		exit(EXIT_FAILURE);
+	}
 
-	cus__emit_type_definitions(methods_cus, cu, class, fp_methods);
-	type__emit(class, cu, NULL, NULL, fp_methods);
+	fputs("%{\n"
+	      "#include </home/acme/git/pahole/lib/ctracer_relay.h>\n"
+	      "%}\n"
+	      "function ctracer__method_hook(probe_type, func, object, state_len)\n"
+	      "%{\n"
+	      "\tctracer__method_hook(_stp_gettimeofday_ns(), THIS->probe_type, THIS->func, (void *)THIS->object, THIS->state_len);\n"
+	      "%}\n\n", fp_methods);
+
+	cus__emit_type_definitions(methods_cus, cu, class, fp_collector);
+	type__emit(class, cu, NULL, NULL, fp_collector);
+	fputc('\n', fp_collector);
 	class__emit_subset(class, cu);
+
 	class__emit_ostra_converter(class, cu);
+
 	cus__for_each_cu(methods_cus, cu_find_methods_iterator,
 			 class_name, NULL);
-	cus__for_each_cu(methods_cus, cu_emit_kprobes_iterator,
+	cus__for_each_cu(methods_cus, cu_emit_probes_iterator,
 			 class_name, NULL);
-	cus__for_each_cu(methods_cus, cu_emit_kretprobes_iterator,
-			 NULL, NULL);
 
-	fputs("struct jprobe *ctracer__jprobes[] = {", fp_methods);
-	cus__for_each_cu(methods_cus, cu_emit_kprobes_table_iterator,
-			 fp, NULL);
-	/* Emit the sentinel */
-	fputs("\t(void *)0,\n};\n", fp_methods);
-	fclose(fp);
-	fputs("struct kretprobe *ctracer__kretprobes[] = {", fp_methods);
-	cus__for_each_cu(methods_cus, cu_emit_kretprobes_table_iterator,
-			 NULL, NULL);
-	/* Emit the sentinel */
-	fputs("\t(void *)0,\n};\n", fp_methods);
+	cus__for_each_cu(methods_cus, cu_emit_functions_table, fp_functions, NULL);
+	fclose(fp_methods);
+	fclose(fp_collector);
+	fclose(fp_functions);
 
 	return EXIT_SUCCESS;
 }

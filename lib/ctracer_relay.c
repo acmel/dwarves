@@ -5,6 +5,8 @@
 #include <linux/relay.h>
 #include <linux/sched.h>
 #include <linux/string.h>
+#include <linux/module.h>
+#include "ctracer_relay.h"
 
 static struct rchan *ctracer__rchan;
 
@@ -44,72 +46,32 @@ static struct rchan_callbacks ctracer__relay_callbacks = {
 	.remove_buf_file = ctracer__remove_buf_file_callback,
 };
 
-struct trace_entry {
-	unsigned int	   sec;
-	unsigned int	   usec:31;
-	unsigned int	   probe_type:1; /* Entry or exit */
-	const void	   *object;
-	unsigned long long function_id;
-};
-
 extern void ctracer__class_state(const void *from, void *to);
 
-void ctracer__method_entry(const unsigned long long function_id,
-			   const void *object, const int state_len)
+void ctracer__method_hook(const unsigned long long now,
+			  const int probe_type,
+			  const unsigned long long function_id,
+			  const void *object, const int state_len)
 {
-	struct timeval now;
-
-	do_gettimeofday(&now);
-{
-	unsigned long flags;
-	void *t;
-
-	local_irq_save(flags);
-	t = relay_reserve(ctracer__rchan,
-			  sizeof(struct trace_entry) + state_len);
+	void *t = relay_reserve(ctracer__rchan,
+				sizeof(struct trace_entry) + state_len);
 
 	if (t != NULL) {
 		struct trace_entry *entry = t;
-
-		entry->sec	   = now.tv_sec;
-		entry->usec	   = now.tv_usec;
-		entry->probe_type  = 0;
+		
+		entry->nsec	   = now;
+		entry->probe_type  = probe_type;
 		entry->object	   = object;
 		entry->function_id = function_id;
 		ctracer__class_state(object, t + sizeof(*entry));
 	}
-	local_irq_restore(flags);
-}
 }
 
-void ctracer__method_exit(unsigned long long function_id)
+EXPORT_SYMBOL_GPL(ctracer__method_hook);
+
+static int __init ctracer__relay_init(void)
 {
-	struct timeval now;
-
-	do_gettimeofday(&now);
-{
-	unsigned long flags;
-	void *t;
-
-	local_irq_save(flags);
-	t = relay_reserve(ctracer__rchan, sizeof(struct trace_entry));
-
-	if (t != NULL) {
-		struct trace_entry *entry = t;
-
-		entry->sec	   = now.tv_sec;
-		entry->usec	   = now.tv_usec;
-		entry->probe_type  = 1;
-		entry->object	   = NULL; /* need to find a way to get this */
-		entry->function_id = function_id;
-	}
-	local_irq_restore(flags);
-}
-}
-
-int ctracer__relay_init(void)
-{
-	ctracer__rchan = relay_open("ctracer", NULL, 256 * 1024, 64,
+	ctracer__rchan = relay_open("ctracer", NULL, 512 * 1024, 64,
 				    &ctracer__relay_callbacks, NULL);
 	if (ctracer__rchan == NULL) {
 		pr_info("ctracer: couldn't create the relay\n");
@@ -118,7 +80,13 @@ int ctracer__relay_init(void)
 	return 0;
 }
 
-void ctracer__relay_exit(void)
+module_init(ctracer__relay_init);
+
+static void __exit ctracer__relay_exit(void)
 {
 	relay_close(ctracer__rchan);
 }
+
+module_exit(ctracer__relay_exit);
+
+MODULE_LICENSE("GPL");

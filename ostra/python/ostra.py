@@ -167,11 +167,10 @@ class class_definition:
 		self.last_tstamp = self.tstamp
 
 	def parse_record(self, line):
-		tstamp, record = line[:-1].split(' ', 1)
+		nsec, record = line[:-1].split(' ', 1)
 		line_fields = record.split(':')
 
-		sec, usec = tstamp.split('.', 1)
-		self.tstamp = timedelta(seconds = int(sec), microseconds = int(usec))
+		self.tstamp = timedelta(microseconds = int(nsec) / 1000)
 		if self.epoch == None:
 			self.epoch = self.tstamp
 		self.tstamp -= self.epoch
