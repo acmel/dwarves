@@ -145,6 +145,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 {
 	const size_t from_size = class_member__size(from, cu);
 	const size_t dest_size = class_member__size(dest, cu);
+	const bool from_was_last = from->tag.node.next == class__tags(class);
 	struct class_member *tail_from = from;
 	struct class_member *from_prev = list_entry(from->tag.node.prev,
 						    struct class_member,
@@ -234,6 +235,9 @@ static void class__move_member(struct class *class, struct class_member *dest,
 					"the padding */\n",
 					from_size, from->name);
 		}
+	} else if (from_was_last) {
+		class->type.size -= from_size + class->padding;
+		class->padding = 0;
 	} else {
 		/*
 		 * See if we are adding a new hole that is bigger than
