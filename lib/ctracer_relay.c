@@ -53,17 +53,19 @@ void ctracer__method_hook(const unsigned long long now,
 			  const unsigned long long function_id,
 			  const void *object, const int state_len)
 {
-	void *t = relay_reserve(ctracer__rchan,
-				sizeof(struct trace_entry) + state_len);
+	if (object != NULL) {
+		void *t = relay_reserve(ctracer__rchan,
+					sizeof(struct trace_entry) + state_len);
 
-	if (t != NULL) {
-		struct trace_entry *entry = t;
-		
-		entry->nsec	   = now;
-		entry->probe_type  = probe_type;
-		entry->object	   = object;
-		entry->function_id = function_id;
-		ctracer__class_state(object, t + sizeof(*entry));
+		if (t != NULL) {
+			struct trace_entry *entry = t;
+			
+			entry->nsec	   = now;
+			entry->probe_type  = probe_type;
+			entry->object	   = object;
+			entry->function_id = function_id;
+			ctracer__class_state(object, t + sizeof(*entry));
+		}
 	}
 }
 
