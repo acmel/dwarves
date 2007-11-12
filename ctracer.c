@@ -327,9 +327,9 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	size_t n;
 	size_t plen = sizeof(parm_list);
 	FILE *fp_fields, *fp_converter;
+	const char *name = class__name(self, cu);
 
-	snprintf(filename, sizeof(filename), "%s/%s.fields",
-		 src_dir, class__name(self, cu));
+	snprintf(filename, sizeof(filename), "%s/%s.fields", src_dir, name);
 	fp_fields = fopen(filename, "w");
 	if (fp_fields == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n", filename);
@@ -356,12 +356,12 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	emit_struct_member_table_entry(fp_fields, field++, "object", 1,
 				       "entry,exit");
 
-	fputs("\n"
+	fprintf(fp_converter, "\n"
 	      "int main(void)\n"
 	      "{\n"
 	      "\twhile (1) {\n"
 	      "\t\tstruct trace_entry hdr;\n"
-	      "\t\tstruct ctracer__mini_sock obj;\n"
+	      "\t\tstruct ctracer__mini_%s obj;\n"
 	      "\n"
 	      "\t\tif (read(0, &hdr, sizeof(hdr)) != sizeof(hdr))\n"
 	      "\t\t\tbreak;\n"
@@ -375,8 +375,7 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	      "\t\tif (read(0, &obj, sizeof(obj)) != sizeof(obj))\n"
 	      "\t\t\tbreak;\n"
 	      "\t\tfprintf(stdout,\n"
-	      "\t\t\t\":",
-	      fp_converter);
+	      "\t\t\t\":", name);
 
 	type__for_each_data_member(type, pos) {
 		if (first)
