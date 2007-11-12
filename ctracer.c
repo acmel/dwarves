@@ -143,17 +143,44 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, find_methods_iterator, target, function__filter);
 }
 
-static void class__remove_member(struct class *self, const struct cu *cu,
-				 struct class_member *member)
+static struct class_member *class_member__bitfield_tail(struct class_member *head,
+							struct class *class)
+{
+        struct class_member *tail = head,
+			    *member = list_prepare_entry(head,
+							 class__tags(class),
+							 tag.node);
+        list_for_each_entry_continue(member, class__tags(class), tag.node)
+		if (member->offset == head->offset)
+			tail = member;
+		else
+			break;
+
+	return tail;
+}
+
+/*
+ * Bitfields are removed as one for simplification right now.
+ */
+static struct class_member *class__remove_member(struct class *self, const struct cu *cu,
+						 struct class_member *member)
 {
 	size_t size = class_member__size(member, cu);
+	struct class_member *bitfield_tail = NULL;
+	struct list_head *next;
+	uint16_t member_hole = member->hole;
+	 
+	if (member->bit_size != 0) {
+		bitfield_tail = class_member__bitfield_tail(member, self);
+		member_hole = bitfield_tail->hole;
+	}
 	/*
 	 * Is this the first member?
 	 */
 	if (member->tag.node.prev == class__tags(self)) {
-		self->type.size -= size + member->hole;
-		class__subtract_offsets_from(self, cu, member,
-					     size + member->hole);
+		self->type.size -= size + member_hole;
+		class__subtract_offsets_from(self, cu, bitfield_tail ?: member,
+					     size + member_hole);
 	/*
 	 * Is this the last member?
 	 */
@@ -164,10 +191,11 @@ static void class__remove_member(struct class *self, const struct cu *cu,
 		} else
 			self->padding += size;
 	} else {
-		if (size + member->hole >= cu->addr_size) {
-			self->type.size -= size + member->hole;
-			class__subtract_offsets_from(self, cu, member,
-						     size + member->hole);
+		if (size + member_hole >= cu->addr_size) {
+			self->type.size -= size + member_hole;
+			class__subtract_offsets_from(self, cu,
+						     bitfield_tail ?: member,
+						     size + member_hole);
 		} else {
 			struct class_member *from_prev =
 					list_entry(member->tag.node.prev,
@@ -175,13 +203,23 @@ static void class__remove_member(struct class *self, const struct cu *cu,
 						   tag.node);
 			if (from_prev->hole == 0)
 				self->nr_holes++;
-			from_prev->hole += size + member->hole;
+			from_prev->hole += size + member_hole;
 		}
 	}
-	if (member->hole != 0)
+	if (member_hole != 0)
 		self->nr_holes--;
-	list_del(&member->tag.node);
-	class_member__delete(member);
+
+	if (bitfield_tail != NULL) {
+		next = bitfield_tail->tag.node.next;
+		list_del_range(&member->tag.node, &bitfield_tail->tag.node);
+		if (bitfield_tail->bit_hole != 0)
+			self->nr_bit_holes--;
+	} else {
+		next = member->tag.node.next;
+		list_del(&member->tag.node);
+	}
+
+	return list_entry(next, struct class_member, tag.node);
 }
 
 static size_t class__find_biggest_member_name(const struct class *self)
@@ -286,8 +324,10 @@ static struct class *class__clone_base_types(const struct tag *tag_self,
 	type__for_each_data_member_safe(&clone->type, pos, next) {
 		struct tag *member_type = cu__find_tag_by_id(cu, pos->tag.type);
 
-		if (member_type->tag != DW_TAG_base_type)
-			class__remove_member(clone, cu, pos);
+		if (member_type->tag != DW_TAG_base_type) {
+			next = class__remove_member(clone, cu, pos);
+			class_member__delete(pos);
+		}
 	}
 	class__find_holes(clone, cu);
 	class__fixup_alignment(clone, cu);
