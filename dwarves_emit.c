@@ -224,9 +224,12 @@ next_indirection:
 		return cus__emit_typedef_definitions(self, cu, type, fp);
 	case DW_TAG_enumeration_type:
 		if (type__name(tag__type(type), cu) != NULL) {
+			struct conf_fprintf conf = {
+				.suffix = NULL,
+			};
 			tag__fprintf_decl_info(type, fp);
 			return cus__emit_enumeration_definitions(self, type,
-								 cu, NULL, fp);
+								 cu, &conf, fp);
 		}
 		break;
 	case DW_TAG_structure_type:
