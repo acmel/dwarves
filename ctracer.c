@@ -366,7 +366,7 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	      "\t\tif (read(0, &hdr, sizeof(hdr)) != sizeof(hdr))\n"
 	      "\t\t\tbreak;\n"
 	      "\n"
-	      "\t\tfprintf(stdout, \"%llu %c:%llu:%p\",\n"
+	      "\t\tfprintf(stdout, \"%%llu %%c:%%llu:%%p\",\n"
 	      "\t\t\thdr.nsec,\n"
 	      "\t\t\thdr.probe_type ? 'o' : 'i',\n"
 	      "\t\t\thdr.function_id,\n"
