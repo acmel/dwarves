@@ -284,7 +284,7 @@ static void class__fixup_alignment(struct class *self, const struct cu *cu)
 			class__subtract_offsets_from(self, cu, pos,
 						     pos->offset - member_size);
 			pos->offset = 0;
-		} else for (power2 = 2; power2 <= cu->addr_size; power2 *= 2) {
+		} else for (power2 = cu->addr_size; power2 >= 2; power2 /= 2) {
 			const size_t remainder = pos->offset % power2;
 
 			if (member_size == power2 && remainder != 0) {
@@ -295,11 +295,14 @@ static void class__fixup_alignment(struct class *self, const struct cu *cu)
 					pos->offset -= remainder;
 					class__subtract_offsets_from(self, cu, pos, remainder);
 				} else {
+					const size_t inc = power2 - remainder;
+
 					if (last_member->hole == 0)
 						++self->nr_holes;
-					last_member->hole += 2 - remainder;
-					pos->offset += 2 - remainder;
-					class__add_offsets_from(self, pos, 2 - remainder);
+					last_member->hole += inc;
+					pos->offset += inc;
+					self->type.size += inc;
+					class__add_offsets_from(self, pos, inc);
 				}
 			}
 		}
