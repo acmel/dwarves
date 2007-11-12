@@ -116,6 +116,20 @@ static inline void list_del(struct list_head *entry)
 }
 
 /**
+ * list_del_range - deletes range of entries from list.
+ * @beging: first element in the range to delete from the list.
+ * @beging: first element in the range to delete from the list.
+ * Note: list_empty on the range of entries does not return true after this,
+ * the entries is in an undefined state.
+ */
+static inline void list_del_range(struct list_head *begin,
+				  struct list_head *end)
+{
+	begin->prev->next = end->next;
+	end->next->prev = begin->prev;
+}
+
+/**
  * list_replace - replace old entry by new one
  * @old : the element to be replaced
  * @new : the new element to insert
