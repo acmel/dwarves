@@ -287,7 +287,9 @@ static void class__fixup_alignment(struct class *self, const struct cu *cu)
 		} else for (power2 = cu->addr_size; power2 >= 2; power2 /= 2) {
 			const size_t remainder = pos->offset % power2;
 
-			if (member_size == power2 && remainder != 0) {
+			if (member_size == power2) {
+				if (remainder == 0) /* perfectly aligned */
+					break;
 				if (last_member->hole >= remainder) {
 					last_member->hole -= remainder;
 					if (last_member->hole == 0)
