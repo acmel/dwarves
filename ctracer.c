@@ -47,6 +47,11 @@ static FILE *fp_methods;
 static FILE *fp_collector;
 
 /*
+ * Where to print the ctracer_classes.h file
+ */
+static FILE *fp_classes;
+
+/*
  * List of definitions and forward declarations already emitted for
  * methods_cus, to avoid duplication.
  */
@@ -389,7 +394,7 @@ static void emit_struct_member_table_entry(FILE *fp,
  * channel.
  */
 static int class__emit_ostra_converter(struct tag *tag_self,
-				       const struct cu *cu)
+				       struct cu *cu)
 {
 	struct class *self = tag__class(tag_self);
 	struct class_member *pos;
@@ -418,11 +423,10 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 		exit(EXIT_FAILURE);
 	}
 
-	fputs("#include <stdio.h>\n"
+	fputs("#include \"ctracer_classes.h\"\n"
+	      "#include <stdio.h>\n"
 	      "#include <string.h>\n"
 	      "#include \"ctracer_relay.h\"\n\n", fp_converter);
-	class__fprintf(mini_class, cu, NULL, fp_converter);
-	fputs(";\n\n", fp_converter);
 	emit_struct_member_table_entry(fp_fields, field++, "action", 0,
 				       "entry,exit");
 	emit_struct_member_table_entry(fp_fields, field++, "function_id", 0,
@@ -475,7 +479,7 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	return 0;
 }
 
-static int class__emit_subset(struct tag *tag_self, const struct cu *cu)
+static int class__emit_subset(struct tag *tag_self, struct cu *cu)
 {
 	struct class *self = tag__class(tag_self);
 	int err = -1;
@@ -488,8 +492,11 @@ static int class__emit_subset(struct tag *tag_self, const struct cu *cu)
 	if (mini_class == NULL)
 		goto out;
 
-	class__fprintf(mini_class, cu, NULL, fp_collector);
-	fputs(";\n\n", fp_collector);
+	cus__emit_type_definitions(methods_cus, cu, tag_self, fp_classes);
+	type__emit(tag_self, cu, NULL, NULL, fp_classes);
+	fputc('\n', fp_classes);
+	class__fprintf(mini_class, cu, NULL, fp_classes);
+	fputs(";\n\n", fp_classes);
 	class__emit_class_state_collector(self, mini_class, cu);
 	err = 0;
 out:
@@ -644,6 +651,7 @@ int main(int argc, char *argv[])
 	char functions_filename[PATH_MAX];
 	char methods_filename[PATH_MAX];
 	char collector_filename[PATH_MAX];
+	char classes_filename[PATH_MAX];
 	FILE *fp_functions;
 
 	argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL);
@@ -741,6 +749,15 @@ failure:
 		exit(EXIT_FAILURE);
 	}
 
+	snprintf(classes_filename, sizeof(classes_filename),
+		 "%s/ctracer_classes.h", src_dir);
+	fp_classes = fopen(classes_filename, "w");
+	if (fp_classes == NULL) {
+		fprintf(stderr, "ctracer: couldn't create %s\n",
+			classes_filename);
+		exit(EXIT_FAILURE);
+	}
+
 	fputs("%{\n"
 	      "#include </home/acme/git/pahole/lib/ctracer_relay.h>\n"
 	      "%}\n"
@@ -749,10 +766,9 @@ failure:
 	      "\tctracer__method_hook(_stp_gettimeofday_ns(), THIS->probe_type, THIS->func, (void *)THIS->object, THIS->state_len);\n"
 	      "%}\n\n", fp_methods);
 
-	cus__emit_type_definitions(methods_cus, cu, class, fp_collector);
-	type__emit(class, cu, NULL, NULL, fp_collector);
-	fputc('\n', fp_collector);
+	fputs("\n#include \"ctracer_classes.h\"\n\n", fp_collector);
 	class__emit_subset(class, cu);
+	fputc('\n', fp_collector);
 
 	class__emit_ostra_converter(class, cu);
 
@@ -765,6 +781,7 @@ failure:
 	fclose(fp_methods);
 	fclose(fp_collector);
 	fclose(fp_functions);
+	fclose(fp_classes);
 
 	return EXIT_SUCCESS;
 }

@@ -16,6 +16,7 @@ default:
 clean:
 	rm -rf .*.mod.c .*o.cmd *.mod.c *.ko *.o \
 	ctracer_collector.c ctracer_methods.stp \
+	ctracer_classes.h \
 	Module.symvers .tmp_versions/ \
 	$(CLASS).{fields,functions} ctracer2ostra*
 
