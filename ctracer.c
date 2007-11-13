@@ -228,7 +228,7 @@ static size_t class__find_biggest_member_name(const struct class *self)
 	size_t biggest_name_len = 0;
 
 	type__for_each_data_member(&self->type, pos) {
-		const size_t len = strlen(pos->name);
+		const size_t len = pos->name ? strlen(pos->name) : 0;
 
 		if (len > biggest_name_len)
 			biggest_name_len = len;
@@ -313,6 +313,23 @@ static void class__fixup_alignment(struct class *self, const struct cu *cu)
 	}
 }
 
+static int tag__is_base_type(const struct tag *self, const struct cu *cu)
+{
+	switch (self->tag) {
+	case DW_TAG_base_type:
+		return 1;
+
+	case DW_TAG_typedef: {
+		const struct tag *type = cu__find_tag_by_id(cu, self->type);
+
+		if (type == NULL)
+			return 0;
+		return tag__is_base_type(type, cu);
+	}
+	}
+	return 0;
+}
+
 static struct class *class__clone_base_types(const struct tag *tag_self,
 					     const struct cu *cu,
 					     const char *new_class_name)
@@ -329,7 +346,7 @@ static struct class *class__clone_base_types(const struct tag *tag_self,
 	type__for_each_data_member_safe(&clone->type, pos, next) {
 		struct tag *member_type = cu__find_tag_by_id(cu, pos->tag.type);
 
-		if (member_type->tag != DW_TAG_base_type) {
+		if (!tag__is_base_type(member_type, cu)) {
 			next = class__remove_member(clone, cu, pos);
 			class_member__delete(pos);
 		}
