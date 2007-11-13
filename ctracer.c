@@ -275,10 +275,11 @@ static void class__add_offsets_from(struct class *self, struct class_member *fro
 static void class__fixup_alignment(struct class *self, const struct cu *cu)
 {
 	struct class_member *pos, *last_member = NULL;
+	size_t member_size;
 	size_t power2;
 
 	type__for_each_data_member(&self->type, pos) {
-		size_t member_size = class_member__size(pos, cu);
+		member_size = class_member__size(pos, cu);
 
 		if (last_member == NULL && pos->offset != 0) { /* paranoid! */
 			class__subtract_offsets_from(self, cu, pos,
@@ -310,6 +311,17 @@ static void class__fixup_alignment(struct class *self, const struct cu *cu)
 		}
 		 	
 		last_member = pos;
+	}
+
+	if (last_member != NULL) {
+		size_t remainder;
+		/* Now check if previous steps left bogus padding on the struct */
+		member_size = class_member__size(last_member, cu);
+		remainder = (last_member->offset + member_size) % cu->addr_size;
+		if (remainder == cu->addr_size || remainder == 4) {
+			self->type.size = last_member->offset + member_size;
+			self->padding = 0;
+		}
 	}
 }
 
