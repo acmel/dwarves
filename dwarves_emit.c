@@ -80,7 +80,7 @@ static int cus__emit_enumeration_definitions(struct cus *self, struct tag *tag,
 	}
 
 	enumeration__fprintf(tag, cu, conf, fp);
-	fputs(";", fp);
+	fputs(";\n", fp);
 	cus__add_definition(self, etype);
 	return 1;
 }
@@ -270,7 +270,6 @@ int cus__emit_type_definitions(struct cus *self, struct cu *cu,
 {
 	struct type *ctype = tag__type(tag);
 	struct class_member *pos;
-	int printed = 0;
 
 	if (ctype->definition_emitted)
 		return 0;
@@ -285,10 +284,8 @@ int cus__emit_type_definitions(struct cus *self, struct cu *cu,
 
 	type__for_each_member(ctype, pos)
 		if (cus__emit_tag_definitions(self, cu, &pos->tag, fp))
-			printed = 1;
+			fputc('\n', fp);
 
-	if (printed)
-		fputc('\n', fp);
 	return 1;
 }
 
