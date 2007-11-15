@@ -763,7 +763,10 @@ failure:
 	      "%}\n"
 	      "function ctracer__method_hook(probe_type, func, object, state_len)\n"
 	      "%{\n"
-	      "\tctracer__method_hook(_stp_gettimeofday_ns(), THIS->probe_type, THIS->func, (void *)THIS->object, THIS->state_len);\n"
+	      "\tctracer__method_hook(_stp_gettimeofday_ns(), "
+				     "THIS->probe_type, THIS->func, "
+				     "(void *)(long)THIS->object, "
+				     "THIS->state_len);\n"
 	      "%}\n\n", fp_methods);
 
 	fputs("\n#include \"ctracer_classes.h\"\n\n", fp_collector);
