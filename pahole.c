@@ -38,6 +38,7 @@ static uint8_t global_verbose;
 static uint8_t recursive;
 static size_t cacheline_size;
 static uint8_t find_containers;
+static uint8_t find_pointers_in_structs;
 static int reorganize;
 static int show_reorg_steps;
 static char *class_name;
@@ -435,6 +436,36 @@ static int cu_nr_methods_iterator(struct cu *cu, void *cookie)
 
 static char tab[128];
 
+static void print_structs_with_pointer_to(const struct structure *s)
+{
+	struct structure *pos_structure;
+	Dwarf_Off type;
+	const char *class_name = class__name(s->class, s->cu);
+	const struct cu *current_cu = NULL;
+
+	list_for_each_entry(pos_structure, &structures__list, node) {
+		struct class *c = pos_structure->class;
+		struct class_member *pos_member;
+
+		if (pos_structure->cu != current_cu) {
+			struct tag *class;
+
+			class = cu__find_struct_by_name(pos_structure->cu, class_name, 1);
+			if (class == NULL)
+				continue;
+			current_cu = pos_structure->cu;
+			type = class->id;
+		}
+
+		type__for_each_member(&c->type, pos_member) {
+			struct tag *ctype = cu__find_tag_by_id(pos_structure->cu, pos_member->tag.type);
+
+			if (ctype->tag == DW_TAG_pointer_type && ctype->type == type)
+				printf("%s: %s\n", class__name(c, pos_structure->cu), pos_member->name);
+		}
+	}
+}
+
 static void print_containers(const struct structure *s, int ident)
 {
 	struct structure *pos;
@@ -473,6 +504,12 @@ static const struct argp_option pahole__options[] = {
 		.key  = 'C',
 		.arg  = "CLASS_NAME",
 		.doc  = "Show just this class"
+	},
+	{
+		.name = "find_pointers_to",
+		.key  = 'f',
+		.arg  = "CLASS_NAME",
+		.doc  = "Find pointers to CLASS_NAME"
 	},
 	{
 		.name = "contains",
@@ -635,6 +672,8 @@ static error_t pahole__options_parser(int key, char *arg,
 							break;
 	case 'd': recursive = 1;			break;
 	case 'E': conf.expand_types = 1;		break;
+	case 'f': find_pointers_in_structs = 1;
+		  class_name = arg;			break;
 	case 'H': nr_holes = atoi(arg);			break;
 	case 'I': conf.show_decl_info = 1;		break;
 	case 'i': find_containers = 1;
@@ -760,6 +799,8 @@ int main(int argc, char *argv[])
 			}
  		} else if (find_containers)
 			print_containers(s, 0);
+ 		else if (find_pointers_in_structs)
+			print_structs_with_pointer_to(s);
 		else {
  			tag__fprintf(class__tag(s->class), s->cu, &conf, stdout);
 			putchar('\n');
