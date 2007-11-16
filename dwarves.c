@@ -752,7 +752,8 @@ struct tag *cu__find_base_type_by_name(const struct cu *self, const char *name)
 	return NULL;
 }
 
-struct tag *cu__find_struct_by_name(const struct cu *self, const char *name)
+struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
+				    const int include_decls)
 {
 	struct tag *pos;
 
@@ -766,23 +767,28 @@ struct tag *cu__find_struct_by_name(const struct cu *self, const char *name)
 			continue;
 
 		type = tag__type(pos);
-		if (!type->declaration &&
-		    type__name(type, self) != NULL &&
-		    strcmp(type__name(type, self), name) == 0)
-			return pos;
+		if (type__name(type, self) != NULL &&
+		    strcmp(type__name(type, self), name) == 0) {
+			if (type->declaration) {
+				if (include_decls)
+					return pos;
+			} else
+				return pos;
+		}
 	}
 
 	return NULL;
 }
 
 struct tag *cus__find_struct_by_name(const struct cus *self,
-				     struct cu **cu, const char *name)
+				     struct cu **cu, const char *name,
+				     const int include_decls)
 {
 	struct cu *pos;
 
 	list_for_each_entry(pos, &self->cus, node) {
-		struct tag *tag = cu__find_struct_by_name(pos, name);
-
+		struct tag *tag = cu__find_struct_by_name(pos, name,
+							  include_decls);
 		if (tag != NULL) {
 			if (cu != NULL)
 				*cu = pos;

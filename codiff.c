@@ -188,7 +188,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 	if (class__size(structure) == 0 || class__name(structure, cu) == NULL)
 		return;
 
-	new_tag = cu__find_struct_by_name(new_cu, class__name(structure, cu));
+	new_tag = cu__find_struct_by_name(new_cu, class__name(structure, cu), 0);
 	if (new_tag == NULL)
 		return;
 
@@ -264,7 +264,7 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 	if (class__size(class) == 0)
 		return 0;
 
-	if (cu__find_struct_by_name(old_cu, class__name(class, cu)) != NULL)
+	if (cu__find_struct_by_name(old_cu, class__name(class, cu), 0) != NULL)
 		return 0;
 
 	class->priv = diff_info__new(NULL, NULL, 1);

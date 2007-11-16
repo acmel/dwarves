@@ -470,7 +470,8 @@ extern struct tag *cu__find_base_type_by_name(const struct cu *self,
 					      const char *name);
 extern struct tag *cus__find_struct_by_name(const struct cus *self,
 					    struct cu **cu,
-					    const char *name);
+					    const char *name,
+					    const int include_decls);
 extern struct tag *cus__find_function_by_name(const struct cus *self,
 					      struct cu **cu,
 					      const char *name);
@@ -482,7 +483,8 @@ extern struct tag *cu__find_tag_by_id(const struct cu *self,
 extern struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 						  const Dwarf_Off type);
 extern struct tag *cu__find_struct_by_name(const struct cu *cu,
-					   const char *name);
+					   const char *name,
+					   const int include_decls);
 extern void	    cu__account_inline_expansions(struct cu *self);
 extern int	    cu__for_each_tag(struct cu *self,
 				     int (*iterator)(struct tag *tag,

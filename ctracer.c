@@ -179,7 +179,7 @@ static int find_methods_iterator(struct tag *tag, struct cu *cu,
  */
 static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 {
-	struct tag *target = cu__find_struct_by_name(cu, cookie);
+	struct tag *target = cu__find_struct_by_name(cu, cookie, 0);
 
 	if (target == NULL)
 		return 0;
@@ -583,7 +583,7 @@ static int find_aliases_iterator(struct tag *tag, struct cu *cu,
  */
 static int cu_find_aliases_iterator(struct cu *cu, void *class_name)
 {
-	struct tag *target = cu__find_struct_by_name(cu, class_name);
+	struct tag *target = cu__find_struct_by_name(cu, class_name, 0);
 
 	if (target == NULL)
 		return 0;
@@ -696,7 +696,7 @@ static int function__emit_probes(struct function *self, const struct cu *cu,
  */
 static int cu_emit_probes_iterator(struct cu *cu, void *cookie)
 {
-	struct tag *target = cu__find_struct_by_name(cu, cookie);
+	struct tag *target = cu__find_struct_by_name(cu, cookie, 0);
 	struct function *pos;
 
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
@@ -858,7 +858,7 @@ failure:
 	/*
 	 * See if the specified struct exists:
 	 */
-	class = cus__find_struct_by_name(methods_cus, &cu, class_name);
+	class = cus__find_struct_by_name(methods_cus, &cu, class_name, 0);
 	if (class == NULL) {
 		fprintf(stderr, "ctracer: struct %s not found!\n", class_name);
 		return EXIT_FAILURE;
