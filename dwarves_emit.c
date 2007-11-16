@@ -30,8 +30,7 @@ static void cus__add_fwd_decl(struct cus *self, struct type *type)
 		list_add_tail(&type->node, self->fwd_decls);
 }
 
-static struct type *cus__find_definition(const struct cus *self,
-					 const char *name)
+struct type *cus__find_definition(const struct cus *self, const char *name)
 {
 	struct type *pos;
 
