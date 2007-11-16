@@ -23,6 +23,8 @@ static int show_externals;
 static int show_cc_inlined;
 static int show_cc_uninlined;
 
+static struct conf_fprintf conf;
+
 struct fn_stats {
 	struct list_head node;
 	struct tag	 *tag;
@@ -120,7 +122,7 @@ static void fn_stats_size_fmtr(const struct fn_stats *self)
 static void fn_stats_fmtr(const struct fn_stats *self)
 {
 	if (verbose) {
-		tag__fprintf(self->tag, self->cu, NULL, stdout);
+		tag__fprintf(self->tag, self->cu, &conf, stdout);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
 			function__fprintf_stats(self->tag, self->cu, stdout);
@@ -143,7 +145,7 @@ static void print_fn_stats(void (*formatter)(const struct fn_stats *f))
 static void fn_stats_inline_stats_fmtr(const struct fn_stats *self)
 {
 	if (self->nr_expansions > 1)
-		printf("%-31.31s %6u %7lu  %6u %6u\n",
+		printf("%-31.31s %6u %7u  %6u %6u\n",
 		       function__name(tag__function(self->tag), self->cu),
 		       self->size_expansions, self->nr_expansions,
 		       self->size_expansions / self->nr_expansions,
@@ -276,7 +278,7 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	if (ftype__has_parm_of_type(&function->proto, cookie, cu)) {
 		if (verbose)
-			tag__fprintf(tag, cu, NULL, stdout);
+			tag__fprintf(tag, cu, &conf, stdout);
 		else
 			fputs(function__name(function, cu), stdout);
 		putchar('\n');
@@ -303,7 +305,7 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	function = tag__function(tag);
 	if (strcmp(function__name(function, cu), cookie) == 0) {
-		tag__fprintf(tag, cu, NULL, stdout);
+		tag__fprintf(tag, cu, &conf, stdout);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
 			function__fprintf_stats(tag, cu, stdout);
@@ -359,6 +361,11 @@ static const struct argp_option pfunct__options[] = {
 		.key  = 'I',
 		.name = "inline_expansions_stats",
 		.doc  = "show inline expansions stats",
+	},
+	{
+		.key  = 'l',
+		.name = "decl_info",
+		.doc  = "show source code info",
 	},
 	{
 		.key  = 't',
@@ -421,6 +428,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 	case 'H': show_cc_inlined = 1;			 break;
 	case 'i': show_inline_expansions = verbose = 1;	 break;
 	case 'I': formatter = fn_stats_inline_exps_fmtr; break;
+	case 'l': conf.show_decl_info = 1;		 break;
 	case 't': show_total_inline_expansion_stats = 1; break;
 	case 'T': show_variables = 1;			 break;
 	case 'N': formatter = fn_stats_name_len_fmtr;	 break;
