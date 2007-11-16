@@ -67,14 +67,53 @@ static LIST_HEAD(cus__fwd_decls);
  */
 static void *probes_emitted;
 
+struct structure {
+	struct list_head  node;
+	struct tag	  *class;
+	struct cu	  *cu;
+};
+
+static struct structure *structure__new(struct tag *class, struct cu *cu)
+{
+	struct structure *self = malloc(sizeof(*self));
+
+	if (self != NULL) {
+		self->class = class;
+		self->cu    = cu;
+	}
+
+	return self;
+}
+
+static LIST_HEAD(aliases);
+
+static struct structure *structures__find(struct list_head *list, const char *name)
+{
+	struct structure *pos;
+
+	if (name == NULL)
+		return NULL;
+
+	list_for_each_entry(pos, list, node)
+		if (strcmp(class__name(tag__class(pos->class), pos->cu), name) == 0)
+			return pos;
+
+	return NULL;
+}
+
+static void structures__add(struct list_head *list, struct tag *class, struct cu *cu)
+{
+	struct structure *str = structure__new(class, cu);
+
+	if (str != NULL)
+		list_add(&str->node, list);
+}
+
 static int methods__compare(const void *a, const void *b)
 {
 	return strcmp(a, b);
 }
 
-/*
- * Add a method to probes_emitted, see comment above.
- */
 static int methods__add(void **table, const char *str)
 {
 	char **s = tsearch(str, table, methods__compare);
@@ -144,6 +183,8 @@ static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 
 	if (target == NULL)
 		return 0;
+
+	INIT_LIST_HEAD(&cu->tool_list);
 
 	return cu__for_each_tag(cu, find_methods_iterator, target, function__filter);
 }
@@ -479,11 +520,88 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	return 0;
 }
 
-static int class__emit_subset(struct tag *tag_self, struct cu *cu)
+/* 
+ * We want just the DW_TAG_structure_type tags that have as its first member
+ * a struct of type target.
+ */
+static struct tag *alias_filter(struct tag *tag, struct cu *cu, void *target_tag)
+{
+	struct type *type, *target_type;
+	struct class_member *first_member;
+
+	if (tag->tag != DW_TAG_structure_type)
+		return NULL;
+
+	type = tag__type(tag);
+	if (type->nr_members == 0)
+		return NULL;
+
+	first_member = list_entry(type->namespace.tags.next,
+				  struct class_member, tag.node);
+	target_type = tag__type(target_tag);
+	if (first_member->tag.type != target_type->namespace.tag.id)
+		return NULL;
+
+	if (structures__find(&aliases, class__name(tag__class(tag), cu)))
+		return NULL;
+
+	return tag;
+}
+
+static void class__find_aliases(const char *class_name);
+
+/*
+ * Add the struct to the list of aliases since it matches alias_filter
+ * criteria.
+ */
+static int find_aliases_iterator(struct tag *tag, struct cu *cu,
+				 void *cookie __unused)
+{
+	const char *alias_name = class__name(tag__class(tag), cu);
+
+	structures__add(&aliases, tag, cu);
+
+	/*
+	 * Now find aliases to this alias, e.g.:
+	 *
+	 * struct tcp_sock {
+	 * 	struct inet_connection_sock {
+	 * 		struct inet_sock {
+	 * 			struct sock {
+	 * 			}
+	 * 		}
+	 * 	}
+	 * }
+	 */
+	class__find_aliases(alias_name);
+	return 0;
+}
+
+/*
+ * Iterate thru all the tags in the compilation unit, looking for classes
+ * that have as its first member the specified "class" (struct).
+ */
+static int cu_find_aliases_iterator(struct cu *cu, void *class_name)
+{
+	struct tag *target = cu__find_struct_by_name(cu, class_name);
+
+	if (target == NULL)
+		return 0;
+
+	return cu__for_each_tag(cu, find_aliases_iterator, target, alias_filter);
+}
+
+static void class__find_aliases(const char *class_name)
+{
+	cus__for_each_cu(methods_cus, cu_find_aliases_iterator, (void *)class_name, NULL);
+}
+
+static int class__emit_classes(struct tag *tag_self, struct cu *cu)
 {
 	struct class *self = tag__class(tag_self);
 	int err = -1;
 	char mini_class_name[128];
+	struct structure *pos;
 
 	snprintf(mini_class_name, sizeof(mini_class_name), "ctracer__mini_%s",
 		 class__name(self, cu));
@@ -493,8 +611,30 @@ static int class__emit_subset(struct tag *tag_self, struct cu *cu)
 		goto out;
 
 	cus__emit_type_definitions(methods_cus, cu, tag_self, fp_classes);
+
 	type__emit(tag_self, cu, NULL, NULL, fp_classes);
 	fputc('\n', fp_classes);
+
+	list_for_each_entry(pos, &aliases, node) {
+		struct type *type = tag__type(pos->class);
+		/*
+		 * Lets look at the other CUs, perhaps we have already
+		 * emmited this one
+		 */
+		if (cus__find_definition(methods_cus,
+					 class__name(tag__class(pos->class),
+					 pos->cu))) {
+			type->definition_emitted = 1;
+			continue;
+		}
+		cus__emit_type_definitions(methods_cus, pos->cu, pos->class,
+					   fp_classes);
+		type->definition_emitted = 1;
+		type__emit(pos->class, pos->cu, NULL, NULL, fp_classes);
+		tag__type(pos->class)->definition_emitted = 1;
+		fputc('\n', fp_classes);
+	}
+
 	class__fprintf(mini_class, cu, NULL, fp_classes);
 	fputs(";\n\n", fp_classes);
 	class__emit_class_state_collector(self, mini_class, cu);
@@ -580,10 +720,12 @@ static int cu_emit_functions_table(struct cu *cu, void *fp)
        struct function *pos;
 
        list_for_each_entry(pos, &cu->tool_list, tool_node)
-               if (pos->priv != NULL)
+               if (pos->priv != NULL) {
                        fprintf(fp, "%llu:%s\n",
                                (unsigned long long)pos->proto.tag.id,
 			       function__name(pos, cu));
+			pos->priv = NULL;
+		}
 
        return 0;
 }
@@ -652,6 +794,7 @@ int main(int argc, char *argv[])
 	char methods_filename[PATH_MAX];
 	char collector_filename[PATH_MAX];
 	char classes_filename[PATH_MAX];
+	struct structure *pos;
 	FILE *fp_functions;
 
 	argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL);
@@ -770,7 +913,9 @@ failure:
 	      "%}\n\n", fp_methods);
 
 	fputs("\n#include \"ctracer_classes.h\"\n\n", fp_collector);
-	class__emit_subset(class, cu);
+	class__find_aliases(class_name);
+
+	class__emit_classes(class, cu);
 	fputc('\n', fp_collector);
 
 	class__emit_ostra_converter(class, cu);
@@ -779,8 +924,18 @@ failure:
 			 class_name, NULL);
 	cus__for_each_cu(methods_cus, cu_emit_probes_iterator,
 			 class_name, NULL);
-
 	cus__for_each_cu(methods_cus, cu_emit_functions_table, fp_functions, NULL);
+
+	list_for_each_entry(pos, &aliases, node) {
+		const char *alias_name = class__name(tag__class(pos->class), pos->cu);
+
+		cus__for_each_cu(methods_cus, cu_find_methods_iterator,
+				 (void *)alias_name, NULL);
+		cus__for_each_cu(methods_cus, cu_emit_probes_iterator,
+				 (void *)alias_name, NULL);
+		cus__for_each_cu(methods_cus, cu_emit_functions_table, fp_functions, NULL);
+	}
+
 	fclose(fp_methods);
 	fclose(fp_collector);
 	fclose(fp_functions);
