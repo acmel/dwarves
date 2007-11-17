@@ -1711,6 +1711,7 @@ static struct function *function__new(Dwarf_Die *die)
 		self->accessibility   = attr_numeric(die, DW_AT_accessibility);
 		self->virtuality      = attr_numeric(die, DW_AT_virtuality);
 		INIT_LIST_HEAD(&self->vtable_node);
+		INIT_LIST_HEAD(&self->tool_node);
 		self->vtable_entry    = -1;
 		if (dwarf_hasattr(die, DW_AT_vtable_elem_location))
 			self->vtable_entry = attr_offset(die, DW_AT_vtable_elem_location);
