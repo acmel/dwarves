@@ -745,13 +745,14 @@ static int function__emit_probes(struct function *self, const struct cu *cu,
 	struct parameter *pos;
 	const char *name = function__name(self, cu);
 
-	fprintf(fp_methods, "probe %s%s = kernel.function(\"%s\")%s\n"
+	fprintf(fp_methods, "probe %s%s = kernel.function(\"%s@%s\")%s\n"
 			    "{\n"
 			    "}\n\n"
 			    "probe %s%s\n"
 			    "{\n", name,
 			    probe_type == 0 ? "" : "__return",
 			    name,
+			    cu->name,
 			    probe_type == 0 ? "" : ".return",
 			    name,
 			    probe_type == 0 ? "" : "__return");
