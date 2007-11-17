@@ -47,7 +47,7 @@ set(codiff_SRCS codiff.c)
 add_executable(codiff ${codiff_SRCS})
 target_link_libraries(codiff dwarves)
 
-set(ctracer_SRCS ctracer.c)
+set(ctracer_SRCS ctracer.c dutil.c)
 add_executable(ctracer ${ctracer_SRCS})
 target_link_libraries(ctracer dwarves dwarves_emit dwarves_reorganize)
 

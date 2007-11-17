@@ -23,6 +23,8 @@ clean:
 $(src)/ctracer2ostra: ctracer_methods.stp
 	$(CC) $@.c -o $@
 
+cu_blacklist_file=/home/acme/git/pahole/lib/linux.blacklist.cu
+
 LOG=/tmp/ctracer.log
 callgraph:	ctracer2ostra
 	./ctracer2ostra < $(LOG) > $(LOG).ostra ; \
@@ -32,4 +34,5 @@ callgraph:	ctracer2ostra
 $(obj)/ctracer_collector.o: ctracer_collector.c
 
 $(src)/ctracer_collector.c:
-	ctracer --src_dir $(src) /usr/lib/debug/lib/modules/$(shell uname -r)/vmlinux $(CLASS)
+	ctracer --src_dir $(src) /usr/lib/debug/lib/modules/$(shell uname -r)/vmlinux \
+		--cu_blacklist $(cu_blacklist_file) $(CLASS)

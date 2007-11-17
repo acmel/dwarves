@@ -18,6 +18,7 @@
 #include "dwarves_reorganize.h"
 #include "dwarves_emit.h"
 #include "dwarves.h"
+#include "dutil.h"
 
 /*
  * target class name
@@ -62,6 +63,22 @@ static FILE *fp_classes;
  */
 static LIST_HEAD(cus__definitions);
 static LIST_HEAD(cus__fwd_decls);
+
+/*
+ * CU blacklist: if a "blacklist.cu" file is present, don't consider the
+ * CUs listed. Use a default of blacklist.cu.
+ */
+static const char *cu_blacklist_filename = "blacklist.cu";
+
+static struct fstrlist *cu_blacklist;
+
+static struct cu *cu_filter(struct cu *cu)
+{
+	if (cu_blacklist != NULL &&
+	    fstrlist__has_entry(cu_blacklist, cu->name))
+		return NULL;
+	return cu;
+}
 
 /*
  * List of probes and kretprobes already emitted, this is a hack to cope with
@@ -594,7 +611,7 @@ static int cu_find_pointers_iterator(struct cu *cu, void *class_name)
 
 static void class__find_pointers(const char *class_name)
 {
-	cus__for_each_cu(methods_cus, cu_find_pointers_iterator, (void *)class_name, NULL);
+	cus__for_each_cu(methods_cus, cu_find_pointers_iterator, (void *)class_name, cu_filter);
 }
 
 /* 
@@ -670,7 +687,7 @@ static int cu_find_aliases_iterator(struct cu *cu, void *class_name)
 
 static void class__find_aliases(const char *class_name)
 {
-	cus__for_each_cu(methods_cus, cu_find_aliases_iterator, (void *)class_name, NULL);
+	cus__for_each_cu(methods_cus, cu_find_aliases_iterator, (void *)class_name, cu_filter);
 }
 
 static void emit_list_of_types(struct list_head *list)
@@ -715,11 +732,11 @@ static int class__emit_classes(struct tag *tag_self, struct cu *cu)
 	cus__emit_type_definitions(methods_cus, cu, tag_self, fp_classes);
 
 	type__emit(tag_self, cu, NULL, NULL, fp_classes);
-	fputs("\n/* class aliases */", fp_classes);
+	fputs("\n/* class aliases */\n\n", fp_classes);
 
 	emit_list_of_types(&aliases);
 
-	fputs("\n/* class with pointers */", fp_classes);
+	fputs("\n/* class with pointers */\n\n", fp_classes);
 
 	emit_list_of_types(&pointers);
 
@@ -870,6 +887,12 @@ static const struct argp_option ctracer__options[] = {
 		.doc  = "generate source files in this directory",
 	},
 	{
+		.key  = 'C',
+		.name = "cu_blacklist",
+		.arg  = "FILE",
+		.doc  = "Blacklist the CUs in FILE",
+	},
+	{
 		.key  = 'D',
 		.name = "dir",
 		.arg  = "DIR",
@@ -899,6 +922,7 @@ static error_t ctracer__options_parser(int key, char *arg,
 {
 	switch (key) {
 	case 'd': src_dir = arg;		break;
+	case 'C': cu_blacklist_filename = arg;	break;
 	case 'D': dirname = arg;		break;
 	case 'g': glob = arg;			break;
 	case 'r': recursive = 1;		break;
@@ -1052,35 +1076,41 @@ failure:
 
 	class__emit_ostra_converter(class, cu);
 
+	cu_blacklist = fstrlist__new(cu_blacklist_filename);
+
 	cus__for_each_cu(methods_cus, cu_find_methods_iterator,
-			 class_name, NULL);
+			 class_name, cu_filter);
 	cus__for_each_cu(methods_cus, cu_emit_probes_iterator,
-			 class_name, NULL);
-	cus__for_each_cu(methods_cus, cu_emit_functions_table, fp_functions, NULL);
+			 class_name, cu_filter);
+	cus__for_each_cu(methods_cus, cu_emit_functions_table,
+			 fp_functions, cu_filter);
 
 	list_for_each_entry(pos, &aliases, node) {
 		const char *alias_name = class__name(tag__class(pos->class), pos->cu);
 
 		cus__for_each_cu(methods_cus, cu_find_methods_iterator,
-				 (void *)alias_name, NULL);
+				 (void *)alias_name, cu_filter);
 		cus__for_each_cu(methods_cus, cu_emit_probes_iterator,
-				 (void *)alias_name, NULL);
-		cus__for_each_cu(methods_cus, cu_emit_functions_table, fp_functions, NULL);
+				 (void *)alias_name, cu_filter);
+		cus__for_each_cu(methods_cus, cu_emit_functions_table,
+				 fp_functions, cu_filter);
 	}
 
 	list_for_each_entry(pos, &pointers, node) {
 		const char *pointer_name = class__name(tag__class(pos->class), pos->cu);
 		cus__for_each_cu(methods_cus, cu_find_methods_iterator,
-				 (void *)pointer_name, NULL);
+				 (void *)pointer_name, cu_filter);
 		cus__for_each_cu(methods_cus, cu_emit_pointer_probes_iterator,
-				 (void *)pointer_name, NULL);
-		cus__for_each_cu(methods_cus, cu_emit_functions_table, fp_functions, NULL);
+				 (void *)pointer_name, cu_filter);
+		cus__for_each_cu(methods_cus, cu_emit_functions_table, fp_functions,
+				 cu_filter);
 	}
 
 	fclose(fp_methods);
 	fclose(fp_collector);
 	fclose(fp_functions);
 	fclose(fp_classes);
+	fstrlist__delete(cu_blacklist);
 
 	return EXIT_SUCCESS;
 }
