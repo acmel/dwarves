@@ -451,6 +451,12 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 
 		old_type_tag = cu__find_tag_by_id(cu, member->tag.type);
 		new_type_tag = cu__find_base_type_of_size(cu, bytes_needed);
+
+		if (new_type_tag == NULL) {
+			fprintf(fp, "/* BRAIN FART ALERT! couldn't find a "
+				    "%zd bytes base type */\n\n", bytes_needed);
+			continue;
+		}
 		if (verbose)
 			fprintf(fp, "/* Demoting bitfield ('%s' ... '%s') "
 				"from '%s' to '%s' */\n",
