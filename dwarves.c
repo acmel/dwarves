@@ -629,9 +629,11 @@ static void cus__add(struct cus *self, struct cu *cu)
 	list_add_tail(&cu->node, &self->cus);
 }
 
-static struct cu *cu__new(const char *name, uint8_t addr_size)
+static struct cu *cu__new(const char *name, uint8_t addr_size,
+			  const unsigned char *build_id,
+			  int build_id_len)
 {
-	struct cu *self = malloc(sizeof(*self));
+	struct cu *self = malloc(sizeof(*self) + build_id_len);
 
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->tags);
@@ -647,6 +649,9 @@ static struct cu *cu__new(const char *name, uint8_t addr_size)
 		self->max_len_changed_item     = 0;
 		self->function_bytes_added     = 0;
 		self->function_bytes_removed   = 0;
+		self->build_id_len	       = build_id_len;
+		if (build_id_len > 0)
+			memcpy(self->build_id, build_id, build_id_len);
 	}
 
 	return self;
@@ -3250,7 +3255,7 @@ int cus__load(struct cus *self, const char *filename)
 
 		if (dwarf_offdie(dwarf, last_offset + hdr_size, &die) != NULL) {
 			struct cu *cu = cu__new(attr_string(&die, DW_AT_name),
-						addr_size);
+						addr_size, NULL, 0);
 			if (cu == NULL)
 				oom("cu__new");
 			die__process(&die, cu);
@@ -3282,12 +3287,41 @@ static int with_executable_option(int argc, char *argv[])
 	return 0;
 }
 
+static int cus__load_module(Dwfl_Module *mod, void **userdata __unused,
+			    const char *name __unused, Dwarf_Addr base __unused,
+			    Dwarf *dw, Dwarf_Addr bias __unused, void *self)
+{
+	Dwarf_Off off = 0, noff;
+	size_t cuhl;
+	GElf_Addr vaddr;
+	const unsigned char *build_id;
+	int build_id_len = dwfl_module_build_id(mod, &build_id, &vaddr);
+
+	while (dwarf_nextcu(dw, off, &noff, &cuhl, NULL, NULL, NULL) == 0) {
+		Dwarf_Die die_mem, tmp;
+		Dwarf_Die *cu_die = dwarf_offdie(dw, off + cuhl, &die_mem);
+		struct cu *cu;
+		uint8_t pointer_size, offset_size;
+
+		dwarf_diecu(cu_die, &tmp, &pointer_size, &offset_size);
+
+		cu = cu__new(attr_string(cu_die, DW_AT_name), pointer_size,
+			     build_id, build_id_len);
+		if (cu == NULL)
+			oom("cu__new");
+		die__process(cu_die, cu);
+		cus__add(self, cu);
+		off = noff;
+	}
+
+	return DWARF_CB_OK;
+}
+
 int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
 {
 	Dwfl *dwfl = NULL;
-	Dwarf_Die *cu_die = NULL;
-	Dwarf_Addr dwbias;
 	char **new_argv = NULL;
+	ptrdiff_t offset;
 	int err = -1;
 
 	if (argc == 1) {
@@ -3323,19 +3357,10 @@ int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
 	if (dwfl == NULL)
 		goto out;
 
-	while ((cu_die = dwfl_nextcu(dwfl, cu_die, &dwbias)) != NULL) {
-		Dwarf_Die tmp;
-		struct cu *cu;
-		uint8_t pointer_size, offset_size;
-
-		dwarf_diecu(cu_die, &tmp, &pointer_size, &offset_size);
-
-		cu = cu__new(attr_string(cu_die, DW_AT_name), pointer_size);
-		if (cu == NULL)
-			oom("cu__new");
-		die__process(cu_die, cu);
-		cus__add(self, cu);
-	}
+	offset = 0;
+	do {
+		offset = dwfl_getdwarf(dwfl, cus__load_module, self, offset);
+	} while (offset > 0);
 
 	dwfl_end(dwfl);
 	err = 0;
