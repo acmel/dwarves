@@ -54,7 +54,7 @@ static void zero_extend(const int regparm, const struct base_type *bt,
 	}
 
 	printf("\t%s\t$a%d, $a%d, 0"
-	       "\t/* zero extend $a%d(%s %s) from %d to 64-bit */\n",
+	       "\t/* zero extend $a%d(%s %s) from %zd to 64-bit */\n",
 	       instr, regparm, regparm, regparm, bt->name, parm, bt->size * 8);
 }
 
