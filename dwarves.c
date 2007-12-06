@@ -1831,7 +1831,15 @@ void class__find_holes(struct class *self, const struct cu *cu)
 			continue;
 
 		if (last != NULL) {
-			const ssize_t cc_last_size = pos->offset - last->offset;
+			/*
+			 * We have to cast both offsets to int64_t because
+			 * the current offset can be before the last offset
+			 * in some bitfield cases at least with gcc as
+			 * was the case with struct usb_bus field is_b_host in
+			 * the linux kernel circa 2.6.24-rc3.
+			 */
+			const ssize_t cc_last_size = ((int64_t)pos->offset -
+						      (int64_t)last->offset);
 
 			/*
 			 * If the offset is the same this better be a bitfield
