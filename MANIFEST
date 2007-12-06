@@ -17,13 +17,15 @@ pfunct.c
 pglobal.c
 prefcnt.c
 syscse.c
+dutil.c
+dutil.h
 NEWS
 README
 README.ctracer
 rpm/SPECS/dwarves.spec
 lib/Makefile
-lib/ctracer_jprobe.c
 lib/ctracer_relay.c
 lib/ctracer_relay.h
+lib/linux.blacklist.cu
 ostra/ostra-cg
 ostra/python/ostra.py

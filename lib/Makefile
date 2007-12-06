@@ -23,7 +23,7 @@ clean:
 $(src)/ctracer2ostra: ctracer_methods.stp
 	$(CC) $@.c -o $@
 
-cu_blacklist_file=/home/acme/git/pahole/lib/linux.blacklist.cu
+cu_blacklist_file=/usr/share/dwarves/runtime/linux.blacklist.cu
 
 LOG=/tmp/ctracer.log
 callgraph:	ctracer2ostra

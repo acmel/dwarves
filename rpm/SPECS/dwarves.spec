@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.0
+Version: 1.1
 Release: 1
 License: GPL
 Summary: Dwarf Tools
@@ -79,7 +79,7 @@ rm -rf %{buildroot}
 %dir %{_datadir}/dwarves/runtime/python/
 %defattr(0644,root,root,0755)
 %{_datadir}/dwarves/runtime/Makefile
-%{_datadir}/dwarves/runtime/ctracer_jprobe.c
+%{_datadir}/dwarves/runtime/linux.blacklist.cu
 %{_datadir}/dwarves/runtime/ctracer_relay.c
 %{_datadir}/dwarves/runtime/ctracer_relay.h
 %attr(0755,root,root) %{_datadir}/dwarves/runtime/python/ostra.py*
@@ -101,6 +101,11 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Thu Dec  6 2007 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.1-1
+* 023733eb392275f633c3fd20ed422781ef488d72
+- ctracer now generates systemtap scripts
+- Lots of other fixes, see git changelog.
+
 * Tue May  8 2007 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.0-1
 * 161c6712f4ae1b7e2ea50df3a0d5c28310905cec
 - handle --help, -? --usage on with_executable_option()
