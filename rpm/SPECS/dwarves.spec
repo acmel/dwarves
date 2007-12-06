@@ -102,7 +102,7 @@ rm -rf %{buildroot}
 
 %changelog
 * Thu Dec  6 2007 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.1-1
-* 023733eb392275f633c3fd20ed422781ef488d72
+* 2c01420b51e889196b42a204910b46811ab22f1a
 - ctracer now generates systemtap scripts
 - Lots of other fixes, see git changelog.
 
