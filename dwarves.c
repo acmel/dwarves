@@ -1881,6 +1881,7 @@ void class__find_holes(struct class *self, const struct cu *cu)
 					if (last->bit_hole != 0)
 						++self->nr_bit_holes;
 
+					last->bitfield_end = 1;
 					bit_sum = 0;
 				}
 			} else if (cc_last_size < 0 && bit_sum == 0)

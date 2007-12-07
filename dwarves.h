@@ -265,6 +265,7 @@ struct class_member {
 	uint8_t		 bit_size;
 	uint8_t		 bit_hole;	/* If there is a bit hole before the next
 					   one (or the end of the struct) */
+	uint8_t		 bitfield_end:1; /* Is this the last entry in a bitfield? */
 	uint8_t		 visited:1;
 	uint8_t		 accessibility:2; /* DW_ACCESS_{public,protected,private} */
 	uint8_t		 virtuality:2; /* DW_VIRTUALITY_{none,virtual,pure_virtual} */
