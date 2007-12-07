@@ -1830,6 +1830,7 @@ void class__find_holes(struct class *self, const struct cu *cu)
 	struct class_member *pos, *last = NULL;
 	size_t last_size = 0, size;
 	uint32_t bit_sum = 0;
+	uint32_t bitfield_real_offset = 0;
 
 	self->nr_holes = 0;
 	self->nr_bit_holes = 0;
@@ -1844,9 +1845,8 @@ void class__find_holes(struct class *self, const struct cu *cu)
 			/*
 			 * We have to cast both offsets to int64_t because
 			 * the current offset can be before the last offset
-			 * in some bitfield cases at least with gcc as
-			 * was the case with struct usb_bus field is_b_host in
-			 * the linux kernel circa 2.6.24-rc3.
+			 * when we are starting a bitfield that combines with
+			 * the previous, small size fields.
 			 */
 			const ssize_t cc_last_size = ((int64_t)pos->offset -
 						      (int64_t)last->offset);
@@ -1871,6 +1871,11 @@ void class__find_holes(struct class *self, const struct cu *cu)
 					++self->nr_holes;
 
 				if (bit_sum != 0) {
+					if (bitfield_real_offset != 0) {
+						last_size = bitfield_real_offset - last->offset;
+						bitfield_real_offset = 0;
+					}
+
 					last->bit_hole = (last_size * 8) -
 							 bit_sum;
 					if (last->bit_hole != 0)
@@ -1878,7 +1883,8 @@ void class__find_holes(struct class *self, const struct cu *cu)
 
 					bit_sum = 0;
 				}
-			}
+			} else if (cc_last_size < 0 && bit_sum == 0)
+				bitfield_real_offset = last->offset + last_size;
 		}
 
 		bit_sum += pos->bit_size;
@@ -2387,12 +2393,9 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 					fputc('\n', fp);
 					++printed;
 				}
-				printed += fprintf(fp, "%.*s/* WARNING: DWARF"
-						   " offset=%zd, real offset="
-						   "%zd */\n",
-						   cconf.indent, tabs,
-						   pos->offset,
-						   last_offset + last_size);
+				printed += fprintf(fp, "%.*s/* Bitfield combined"
+						   " with previous fields */\n",
+						   cconf.indent, tabs);
 			} else if (cc_last_size > 0 &&
 			    (size_t)cc_last_size < last_size) {
 				if (!newline++) {
