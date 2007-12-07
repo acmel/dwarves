@@ -1478,10 +1478,20 @@ static size_t struct_member__fprintf(struct class_member *self,
 			printed += p;
 			spacing -= p;
 		}
-		if (!sconf.suppress_offset_comment)
-			printed += fprintf(fp, "%*s/* %5u %5u */",
+		if (!sconf.suppress_offset_comment) {
+			size_t size_spacing = 5;
+
+			printed += fprintf(fp, "%*s/* %5u",
 					   spacing > 0 ? spacing : 0, " ",
-					   offset, size);
+					   offset);
+
+			if (self->bit_size != 0) {
+				printed += fprintf(fp, ":%2d", self->bit_offset);
+				size_spacing -= 3;
+			}
+
+			printed += fprintf(fp, " %*u */", size_spacing, size);
+		}
 	}
 	return printed;
 }
