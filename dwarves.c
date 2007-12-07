@@ -2296,7 +2296,6 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 {
 	struct type *tself = &self->type;
 	size_t last_size = 0, size;
-	size_t last_bit_size = 0;
 	uint8_t newline = 0;
 	uint16_t nr_paddings = 0;
 	uint32_t sum = 0;
@@ -2304,8 +2303,9 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 	uint32_t sum_paddings = 0;
 	uint32_t sum_bit_holes = 0;
 	uint32_t last_cacheline = 0;
-	int last_offset = -1, first = 1;
-	struct class_member *pos;
+	uint32_t bitfield_real_offset = 0;
+	int first = 1;
+	struct class_member *pos, *last = NULL;
 	struct tag *tag_pos;
 	const char *current_accessibility = NULL;
 	struct conf_fprintf cconf = conf ? *conf : conf_fprintf__defaults;
@@ -2313,9 +2313,9 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 				 cconf.prefix ?: "", cconf.prefix ? " " : "",
 				 type__name(tself, cu) ? " " : "",
 				 type__name(tself, cu) ?: "");
-	size_t indent = cconf.indent;
+	int indent = cconf.indent;
 
-	if (indent >= sizeof(tabs))
+	if (indent >= (int)sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 
 	cconf.indent = indent + 1;
@@ -2372,7 +2372,9 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		}
 		pos = tag__class_member(tag_pos);
 
-		if ((int)pos->offset != last_offset && !cconf.suppress_comments)
+		if (last != NULL &&
+		    pos->offset != last->offset &&
+		    !cconf.suppress_comments)
 			printed +=
 			    class__fprintf_cacheline_boundary(last_cacheline,
 							      sum, sum_holes,
@@ -2385,51 +2387,44 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		 * DW_TAG_inheritance, have to understand why virtual public
 		 * ancestors make the offset go backwards...
 		 */
-		if (!cconf.suppress_comments &&
-		    last_offset != -1 && tag_pos->tag == DW_TAG_member) {
-			const ssize_t cc_last_size = pos->offset - last_offset;
-
-			if ((int)pos->offset < last_offset) {
-				if (!newline++) {
-					fputc('\n', fp);
-					++printed;
+		if (last != NULL && tag_pos->tag == DW_TAG_member) {
+			if (pos->offset < last->offset ||
+			    (pos->offset == last->offset &&
+			     last->bit_size == 0 &&
+			     /*
+			      * This is just when transitioning from a non-bitfield to
+			      * a bitfield, think about zero sized arrays in the middle
+			      * of a struct.
+			      */
+			     pos->bit_size != 0)) {
+				if (!cconf.suppress_comments) {
+					if (!newline++) {
+						fputc('\n', fp);
+						++printed;
+					}
+					printed += fprintf(fp, "%.*s/* Bitfield combined"
+							   " with previous fields */\n",
+							   cconf.indent, tabs);
 				}
-				printed += fprintf(fp, "%.*s/* Bitfield combined"
-						   " with previous fields */\n",
-						   cconf.indent, tabs);
-			} else if (cc_last_size > 0 &&
-			    (size_t)cc_last_size < last_size) {
-				if (!newline++) {
-					fputc('\n', fp);
-					++printed;
+				bitfield_real_offset = last->offset + last_size;
+			} else { 
+				const ssize_t cc_last_size = ((ssize_t)pos->offset -
+							      (ssize_t)last->offset);
+
+				if (cc_last_size > 0 &&
+				   (size_t)cc_last_size < last_size) {
+					if (!cconf.suppress_comments) {
+						if (!newline++) {
+							fputc('\n', fp);
+							++printed;
+						}
+						printed += fprintf(fp, "%.*s/* Bitfield combined"
+								   " with next fields */\n",
+								   cconf.indent, tabs);
+					}
+					sum -= last_size;
+					sum += cc_last_size;
 				}
-				printed += fprintf(fp, "%.*s/* Bitfield "
-						   "WARNING: DWARF size=%zd, "
-						   "real size=%zd */\n",
-						   cconf.indent, tabs,
-						   last_size, cc_last_size);
-				sum -= last_size - cc_last_size;
-				/*
-				 * Confusing huh? think about this case then,
-				 * should clarify:
-				 */
-#if 0
-			struct foo {
-				int   a:1;   /*     0     4 */
-
-				/* XXX 7 bits hole, try to pack */
-				/* WARNING: DWARF size: 4, compiler size: 1 */
-
-				char  b;     /*     1     1 */
-			}; /* size: 4, cachelines: 1 */
-			   /* bit holes: 1, sum bit holes: 7 bits */
-			   /* padding: 2 */
-			   /* last cacheline: 4 bytes */
-#endif
-				/*
-				 * Yeah, this could somehow be simplified,
-				 * send me a patch 8-)
-				 */
 			}
 		}
 
@@ -2500,21 +2495,24 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		if (tag_pos->tag == DW_TAG_inheritance &&
 		    pos->virtuality == DW_VIRTUALITY_virtual)
 			continue;
+
 		/*
-		 * check for bitfields, accounting for only the biggest
-		 * of the byte_size in the fields in each bitfield set.
+		 * Check if we have to adjust size because bitfields were
+		 * combined with previous fields.
 		 */
-		if (last_offset != (int)pos->offset ||
-		    pos->bit_size == 0 || last_bit_size == 0) {
-			last_size = size;
-			sum += last_size;
-		} else if (size > last_size) {
-			sum += size - last_size;
+		if (bitfield_real_offset != 0 && last->bitfield_end) {
+			size_t real_last_size = pos->offset - bitfield_real_offset;
+			sum -= last_size;
+			sum += real_last_size;
+			bitfield_real_offset = 0;
+		}
+
+		if (last == NULL || last->offset != pos->offset || last_size == 0) {
+			sum += size;
 			last_size = size;
 		}
 
-		last_offset = pos->offset;
-		last_bit_size = pos->bit_size;
+		last = pos;
 	}
 
 	if (!cconf.suppress_comments)
