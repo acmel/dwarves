@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.2
+Version: 1.3
 Release: 1
 License: GPL
 Summary: Dwarf Tools
@@ -20,11 +20,19 @@ GDB, and more recent ones such as systemtap.
 
 Utilities in the dwarves suite include pahole, that can be used to find
 alignment holes in structs and classes in languages such as C, C++, but not
-limited to these, and other information such as CPU cacheline alignment,
-helping pack those structures to achieve more cache hits, codiff, a diff like
-tool to compare the effects changes in source code generate on the resulting
-binaries, pfunct, that can be used to find all sorts of information about
+limited to these.
+
+It also extracts other information such as CPU cacheline alignment, helping
+pack those structures to achieve more cache hits.
+
+A diff like tool, codiff can be used to compare the effects changes in source
+code generate on the resulting binaries.
+
+Another tool is pfunct, that can be used to find all sorts of information about
 functions, inlines, decisions made by the compiler about inlining, etc.
+
+The documentation about ctracer is not updated to the latest developments: it
+now generates systemtap scripts, stay tuned for improvements in this area!
 
 %package -n %{libname}%{libver}
 Summary: DWARF processing library
@@ -101,7 +109,13 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
-* Thu Dec  6 2007 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.1-1
+* Sat Dec  8 2007 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.3-1
+- c4ee21aa122f51f2601893b2118b7f7902d2f410
+- Fixed bitfield byte offset handling, now there are no
+  more BRAIN FART alerts on a x86_64 linux kernel and on
+  an old openbsd kernel image.
+
+* Thu Dec  6 2007 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.2-1
 - 07e0974f2c3798acb8e9a2d06f6b2ece7a01c508
 - Fix a patological bitfield case
 
