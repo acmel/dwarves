@@ -204,7 +204,7 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 			       		   new_structure, new_cu, 0);
 	if (diff == 0)
 		return;
-out:
+
 	++cu->nr_structures_changed;
 	len = strlen(class__name(structure, cu)) + sizeof("struct");
 	if (len > cu->max_len_changed_item)
