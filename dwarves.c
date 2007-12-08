@@ -556,9 +556,9 @@ size_t enumeration__fprintf(const struct tag *tag_self, const struct cu *cu,
 	size_t printed = fprintf(fp, "enum%s%s {\n",
 				 type__name(self, cu) ? " " : "",
 				 type__name(self, cu) ?: "");
-	size_t indent = conf->indent;
+	int indent = conf->indent;
 
-	if (indent >= sizeof(tabs))
+	if (indent >= (int)sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 
 	type__for_each_enumerator(self, pos)
@@ -1479,7 +1479,7 @@ static size_t struct_member__fprintf(struct class_member *self,
 			spacing -= p;
 		}
 		if (!sconf.suppress_offset_comment) {
-			size_t size_spacing = 5;
+			int size_spacing = 5;
 
 			printed += fprintf(fp, "%*s/* %5u",
 					   spacing > 0 ? spacing : 0, " ",
@@ -1537,10 +1537,10 @@ static size_t union__fprintf(struct type *self, const struct cu *cu,
 {
 	struct class_member *pos;
 	size_t printed = 0;
-	size_t indent = conf->indent;
+	int indent = conf->indent;
 	struct conf_fprintf uconf;
 
-	if (indent >= sizeof(tabs))
+	if (indent >= (int)sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 
 	if (conf->prefix != NULL)
@@ -2002,7 +2002,7 @@ void cu__account_inline_expansions(struct cu *self)
 }
 
 static size_t ftype__fprintf_parms(const struct ftype *self,
-				   const struct cu *cu, size_t indent,
+				   const struct cu *cu, int indent,
 				   FILE *fp)
 {
 	struct parameter *pos;
