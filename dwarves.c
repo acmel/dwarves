@@ -2508,8 +2508,6 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 			bitfield_real_offset = 0;
 		}
 
-
-
 		if (last == NULL || /* First member */
 		    /*
 		     * Last member was a zero sized array, typedef, struct, etc
@@ -2542,6 +2540,18 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		}
 
 		last = pos;
+	}
+
+	/*
+	 * Check if we have to adjust size because bitfields were
+	 * combined with previous fields and were the last fields
+	 * in the struct.
+	 */
+	if (bitfield_real_offset != 0) {
+		size_t real_last_size = tself->size - bitfield_real_offset;
+		sum -= last_size;
+		sum += real_last_size;
+		bitfield_real_offset = 0;
 	}
 
 	if (!cconf.suppress_comments)
