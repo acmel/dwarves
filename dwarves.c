@@ -2406,7 +2406,8 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 							   " with previous fields */\n",
 							   cconf.indent, tabs);
 				}
-				bitfield_real_offset = last->offset + last_size;
+				if (pos->offset != last->offset)
+					bitfield_real_offset = last->offset + last_size;
 			} else { 
 				const ssize_t cc_last_size = ((ssize_t)pos->offset -
 							      (ssize_t)last->offset);
@@ -2507,8 +2508,36 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 			bitfield_real_offset = 0;
 		}
 
-		if (last == NULL || last->offset != pos->offset || last_size == 0) {
+
+
+		if (last == NULL || /* First member */
+		    /*
+		     * Last member was a zero sized array, typedef, struct, etc
+		     */
+		    last_size == 0 ||
+		    /*
+		     * We moved to a new offset
+		     */
+		    last->offset != pos->offset) {
 			sum += size;
+			last_size = size;
+		} else if (last->bit_size == 0 && pos->bit_size != 0) {
+			/*
+			 * Transitioned from from a non-bitfield to a
+			 * bitfield sharing the same offset
+			 */
+			/*
+			 * Compensate by removing the size of the
+			 * last member that is "inside" this new
+			 * member at the same offset.
+			 *
+			 * E.g.:
+			 * struct foo {
+			 * 	u8	a;   / 0    1 /
+			 * 	int	b:1; / 0:23 4 /
+			 * }
+			 */
+			sum += size - last_size;
 			last_size = size;
 		}
 
