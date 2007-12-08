@@ -720,7 +720,6 @@ static int class__emit_classes(struct tag *tag_self, struct cu *cu)
 	struct class *self = tag__class(tag_self);
 	int err = -1;
 	char mini_class_name[128];
-	struct structure *pos;
 
 	snprintf(mini_class_name, sizeof(mini_class_name), "ctracer__mini_%s",
 		 class__name(self, cu));
