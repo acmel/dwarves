@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 1.3
-Release: 1
+Release: 2
 License: GPL
 Summary: Dwarf Tools
 Group: Development/Tools
@@ -53,13 +53,12 @@ DWARF processing library development files
 %setup -q -c -n %{name}-%{version}
 
 %build
-cmake -D__LIB=%{_lib} -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE="MinSizeRel" .
-make %{?_smp_mflags}
+%cmake .
+make VERBOSE=1 %{?_smp_mflags}
 
 %install
 rm -Rf %{buildroot}
-
-make DESTDIR=%{buildroot} install
+make install DESTDIR=%{buildroot}
 
 %post -n %{libname}%{libver} -p /sbin/ldconfig
 
@@ -109,6 +108,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Sun Dec  9 2007 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.3-2
+- c6c71398cd2481e219ea3ef63f32c6479ba4f08f
+- SPEC file adjustments to follow http://fedoraproject.org/wiki/Packaging/cmake
+
 * Sat Dec  8 2007 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.3-1
 - c4ee21aa122f51f2601893b2118b7f7902d2f410
 - Fixed bitfield byte offset handling, now there are no
