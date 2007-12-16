@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "dwarves.h"
+#include "dutil.h"
 
 static int verbose;
 

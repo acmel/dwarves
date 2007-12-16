@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "dwarves.h"
+#include "dutil.h"
 
 static void refcnt_tag(struct tag *tag, const struct cu *cu);
 

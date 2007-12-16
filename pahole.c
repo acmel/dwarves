@@ -17,6 +17,7 @@
 
 #include "dwarves_reorganize.h"
 #include "dwarves.h"
+#include "dutil.h"
 
 static uint8_t class__include_anonymous;
 static uint8_t class__include_nested_anonymous;

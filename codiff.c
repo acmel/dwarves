@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "dwarves.h"
+#include "dutil.h"
 
 static int show_struct_diffs;
 static int show_function_diffs;

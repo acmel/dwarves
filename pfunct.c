@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "dwarves.h"
+#include "dutil.h"
 
 static int verbose;
 static int show_inline_expansions;

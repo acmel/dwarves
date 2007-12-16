@@ -8,6 +8,9 @@
   published by the Free Software Foundation.
 */
 
+#ifndef __unused
+#define __unused __attribute__ ((unused))
+#endif
 
 struct fstrlist {
 	void *entries;

@@ -12,6 +12,7 @@
 #include <malloc.h>
 
 #include "dwarves.h"
+#include "dutil.h"
 
 static void print_malloc_stats(void)
 {

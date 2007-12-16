@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "dwarves.h"
+#include "dutil.h"
 
 static const char *prefix = "sys_";
 static size_t prefix_len = 4;

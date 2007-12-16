@@ -19,10 +19,6 @@
 
 struct argp;
 
-#ifndef __unused
-#define __unused __attribute__ ((unused))
-#endif
-
 struct cus {
 	struct list_head cus;
 	struct list_head priv_definitions; /* struct type entries */

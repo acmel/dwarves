@@ -12,6 +12,7 @@
 #include <malloc.h>
 
 #include "dwarves.h"
+#include "dutil.h"
 
 static struct conf_fprintf conf = {
 	.emit_stats	= 1,

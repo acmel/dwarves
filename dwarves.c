@@ -26,6 +26,7 @@
 
 #include "list.h"
 #include "dwarves.h"
+#include "dutil.h"
 
 static const char *dwarf_tag_names[] = {
 	[DW_TAG_array_type]		  = "array_type",
