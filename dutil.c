@@ -20,13 +20,14 @@ static int str_compare(const void *a, const void *b)
 	return strcmp(a, b);
 }
 
-static int fstrlist__add(struct fstrlist *self, const char *str)
+int strlist__add(struct strlist *self, const char *str)
 {
-	char **s = tsearch(str, &self->entries, str_compare);
+	const char **s = tsearch(str, &self->entries, str_compare);
 
 	if (s != NULL) {
 		if (*s == str) {
-			char *dup = strdup(str);
+			const char *dup = self->dupstr ? strdup(str) : str;
+
 			if (dup != NULL)
 				*s = dup;
 			else {
@@ -41,7 +42,7 @@ static int fstrlist__add(struct fstrlist *self, const char *str)
 	return 0;
 }
 
-static int fstrlist__load(struct fstrlist *self, const char *filename)
+int strlist__load(struct strlist *self, const char *filename)
 {
 	char entry[1024];
 	int err = -1;
@@ -57,7 +58,7 @@ static int fstrlist__load(struct fstrlist *self, const char *filename)
 			continue;
 		entry[len - 1] = '\0';
 		
-		if (fstrlist__add(self, entry) != 0)
+		if (strlist__add(self, entry) != 0)
 			goto out;
 	}
 		
@@ -67,31 +68,35 @@ out:
 	return err;
 }
 
-struct fstrlist *fstrlist__new(const char *filename)
+struct strlist *strlist__new(bool dupstr)
 {
-	struct fstrlist *self = malloc(sizeof(*self));
+	struct strlist *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
 		self->entries = NULL;
-		if (fstrlist__load(self, filename) != 0) {
-			fstrlist__delete(self);
-			self = NULL;
-		}
+		self->dupstr = dupstr;
 	}
 
 	return self;
 }
 
-void fstrlist__delete(struct fstrlist *self)
+static void do_nothing(void *ptr __unused)
+{
+}
+
+void strlist__delete(struct strlist *self)
 {
 	if (self != NULL) {
-		tdestroy(self->entries, free);
+		if (self->dupstr)
+			tdestroy(self->entries, free);
+		else
+			tdestroy(self->entries, do_nothing);
 		self->entries = NULL;
 		free(self);
 	}
 }
 
-int fstrlist__has_entry(const struct fstrlist *self, const char *entry)
+int strlist__has_entry(const struct strlist *self, const char *entry)
 {
 	return tfind(entry, &self->entries, str_compare) != NULL;
 }

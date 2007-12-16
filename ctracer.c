@@ -70,12 +70,12 @@ static LIST_HEAD(cus__fwd_decls);
  */
 static const char *cu_blacklist_filename = "blacklist.cu";
 
-static struct fstrlist *cu_blacklist;
+static struct strlist *cu_blacklist;
 
 static struct cu *cu_filter(struct cu *cu)
 {
 	if (cu_blacklist != NULL &&
-	    fstrlist__has_entry(cu_blacklist, cu->name))
+	    strlist__has_entry(cu_blacklist, cu->name))
 		return NULL;
 	return cu;
 }
@@ -1075,7 +1075,9 @@ failure:
 
 	class__emit_ostra_converter(class, cu);
 
-	cu_blacklist = fstrlist__new(cu_blacklist_filename);
+	cu_blacklist = strlist__new(true);
+	if (cu_blacklist != NULL)
+		strlist__load(cu_blacklist, cu_blacklist_filename);
 
 	cus__for_each_cu(methods_cus, cu_find_methods_iterator,
 			 class_name, cu_filter);
@@ -1109,7 +1111,7 @@ failure:
 	fclose(fp_collector);
 	fclose(fp_functions);
 	fclose(fp_classes);
-	fstrlist__delete(cu_blacklist);
+	strlist__delete(cu_blacklist);
 
 	return EXIT_SUCCESS;
 }

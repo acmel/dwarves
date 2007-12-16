@@ -27,6 +27,7 @@ endif (NOT CMAKE_BUILD_TYPE)
 
 add_definitions(-D_GNU_SOURCE)
 find_package(DWARF REQUIRED)
+find_package(SQLite REQUIRED)
 
 _set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${__LIB}" "libdir")
 
@@ -57,6 +58,10 @@ set(dtagnames_SRCS dtagnames.c)
 add_executable(dtagnames ${dtagnames_SRCS})
 target_link_libraries(dtagnames dwarves)
 
+set(dwdb_SRCS dwdb.c)
+add_executable(dwdb ${dwdb_SRCS})
+target_link_libraries(dwdb dwarves sqlite3)
+
 set(pahole_SRCS pahole.c)
 add_executable(pahole ${pahole_SRCS})
 target_link_libraries(pahole dwarves dwarves_reorganize)
@@ -81,7 +86,7 @@ set(syscse_SRCS syscse.c)
 add_executable(syscse ${syscse_SRCS})
 target_link_libraries(syscse dwarves)
 
-install(TARGETS codiff ctracer dtagnames pahole pdwtags
+install(TARGETS codiff ctracer dtagnames dwdb pahole pdwtags
 		pfunct pglobal prefcnt syscse RUNTIME DESTINATION
 		${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
