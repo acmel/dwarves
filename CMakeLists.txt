@@ -46,7 +46,7 @@ add_library(dwarves_reorganize SHARED ${dwarves_reorganize_LIB_SRCS})
 set_target_properties(dwarves_reorganize PROPERTIES VERSION 1.0.0 SOVERSION 1)
 target_link_libraries(dwarves_reorganize ${DWARF_LIBRARIES} dwarves)
 
-set(codiff_SRCS codiff.c)
+set(codiff_SRCS codiff.c dutil.c)
 add_executable(codiff ${codiff_SRCS})
 target_link_libraries(codiff dwarves)
 

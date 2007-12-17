@@ -22,6 +22,8 @@ static int show_function_diffs;
 static int verbose;
 static int show_terse_type_changes;
 
+static struct strlist *structs_printed;
+
 #define TCHANGEF__SIZE		(1 << 0)
 #define TCHANGEF__NR_MEMBERS	(1 << 1)
 #define TCHANGEF__TYPE		(1 << 2)
@@ -497,8 +499,13 @@ static int show_structure_diffs_iterator(struct tag *tag, struct cu *cu,
 		return 0;
 
 	class = tag__class(tag);
-	if (class->priv != NULL)
-		show_diffs_structure(class, cu);
+	if (class->priv != NULL) {
+		const char *name = class__name(class, cu);
+		if (!strlist__has_entry(structs_printed, name)) {
+			show_diffs_structure(class, cu);
+			strlist__add(structs_printed, name);
+		}
+	}
 	return 0;
 }
 
@@ -660,9 +667,10 @@ failure:
 
 	dwarves__init(0);
 
+	structs_printed = strlist__new(false);
 	old_cus = cus__new(NULL, NULL);
 	new_cus = cus__new(NULL, NULL);
-	if (old_cus == NULL || new_cus == NULL) {
+	if (old_cus == NULL || new_cus == NULL || structs_printed == NULL) {
 		fputs("codiff: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
