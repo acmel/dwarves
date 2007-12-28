@@ -81,7 +81,7 @@ set(syscse_SRCS syscse.c)
 add_executable(syscse ${syscse_SRCS})
 target_link_libraries(syscse dwarves)
 
-install(TARGETS codiff ctracer dtagnames dwdb pahole pdwtags
+install(TARGETS codiff ctracer dtagnames pahole pdwtags
 		pfunct pglobal prefcnt syscse RUNTIME DESTINATION
 		${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
