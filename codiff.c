@@ -568,27 +568,20 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 
 static void print_total_function_diff(const char *filename)
 {
-	int kind = 0;
-
 	printf("\n%s:\n", filename);
 
 	printf(" %u function%s changed", total_nr_functions_changed,
 	       total_nr_functions_changed > 1 ? "s" : "");
 
-	if (total_function_bytes_added != 0) {
-		++kind;
+	if (total_function_bytes_added != 0)
 		printf(", %u bytes added", total_function_bytes_added);
-	}
 
-	if (total_function_bytes_removed != 0) {
-		++kind;
+	if (total_function_bytes_removed != 0)
 		printf(", %u bytes removed", total_function_bytes_removed);
-	}
   
-	if (kind == 2)
-		printf(", diff: %+d",
-		       (total_function_bytes_added -
-		        total_function_bytes_removed));
+	printf(", diff: %+d",
+	       (total_function_bytes_added -
+	        total_function_bytes_removed));
 	putchar('\n');
 }
 
