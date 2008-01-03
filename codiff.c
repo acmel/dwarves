@@ -230,6 +230,7 @@ static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
 				       void *old_cu)
 {
 	struct function *function = tag__function(tfunction);
+	struct tag *old_function;
 	const char *name;
 
 	assert(function->proto.tag.tag == DW_TAG_subprogram);
@@ -238,7 +239,9 @@ static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
 		return 0;
 
 	name = function__name(function, cu);
-	if (cu__find_function_by_name(old_cu, name) == NULL) {
+	old_function = cu__find_function_by_name(old_cu, name);
+
+	if (old_function == NULL || tag__function(old_function)->inlined) {
 		const size_t len = strlen(name);
 		const int32_t diff = function__size(function);
 
@@ -246,7 +249,7 @@ static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
 			cu->max_len_changed_item = len;
 		++cu->nr_functions_changed;
 		cu->function_bytes_added += diff;
-		function->priv = diff_info__new(NULL, NULL, diff);
+		function->priv = diff_info__new(old_function, cu, diff);
 	}
 
 	return 0;
@@ -326,7 +329,9 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 	else {
 		const struct function *twin = tag__function(di->tag);
 
-		if (strcmp(function->name, twin->name) != 0)
+		if (twin->inlined)
+			puts(cookie ? " (uninlined)" : " (inlined)");
+		else if (strcmp(function->name, twin->name) != 0)
 			printf("%s: BRAIN FART ALERT: comparing %s to %s, "
 			       "should be the same name\n", __FUNCTION__,
 			       function->name, twin->name);
