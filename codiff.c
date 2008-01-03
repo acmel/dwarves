@@ -545,27 +545,22 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	}
 
 	if (cu->nr_functions_changed != 0 && show_function_diffs) {
-		int kind = 0;
 		total_nr_functions_changed += cu->nr_functions_changed;
 
 		cu__for_each_tag(cu, show_function_diffs_iterator, cookie, NULL);
 		printf(" %u function%s changed", cu->nr_functions_changed,
 		       cu->nr_functions_changed > 1 ? "s" : "");
 		if (cu->function_bytes_added != 0) {
-			++kind;
 			total_function_bytes_added += cu->function_bytes_added;
 			printf(", %zd bytes added", cu->function_bytes_added);
 		}
 		if (cu->function_bytes_removed != 0) {
-			++kind;
 			total_function_bytes_removed += cu->function_bytes_removed;
 			printf(", %zd bytes removed",
 			       cu->function_bytes_removed);
 		}
-		if (kind == 2)
-			printf(", diff: %+zd",
-			       (cu->function_bytes_added -
-			        cu->function_bytes_removed));
+		printf(", diff: %+zd",
+		       cu->function_bytes_added - cu->function_bytes_removed);
 		putchar('\n');
 	}
 	return 0;
