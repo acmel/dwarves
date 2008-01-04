@@ -284,8 +284,15 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 
 static int find_new_tags_iterator(struct tag *tag, struct cu *cu, void *old_cu)
 {
-	if (tag->tag == DW_TAG_subprogram)
+	if (tag->tag == DW_TAG_subprogram) {
+		/*
+		 * We're not interested in aliases, just real function definitions,
+		 * where we'll know if the kind of inlining
+		 */
+		if (tag__function(tag)->abstract_origin != 0)
+			return 0;
 		return find_new_functions_iterator(tag, cu, old_cu);
+	}
 	return find_new_classes_iterator(tag, cu, old_cu);
 }
 
