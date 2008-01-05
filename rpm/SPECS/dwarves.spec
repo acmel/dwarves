@@ -2,8 +2,8 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.3
-Release: 2
+Version: 1.4
+Release: 1
 License: GPLv2
 Summary: Dwarf Tools
 Group: Development/Tools
@@ -108,6 +108,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Sat Jan  5 2008 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.4-1
+- 8e099cf5d1f204e9ea1a9c8c0f1a09a43458d9d3
+- codiff fixes
+
 * Sun Dec  9 2007 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.3-2
 - c6c71398cd2481e219ea3ef63f32c6479ba4f08f
 - SPEC file adjustments to follow http://fedoraproject.org/wiki/Packaging/cmake
