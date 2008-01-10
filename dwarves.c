@@ -3354,9 +3354,16 @@ static int cus__load_module(Dwfl_Module *mod, void **userdata __unused,
 	Dwarf_Off off = 0, noff;
 	size_t cuhl;
 	GElf_Addr vaddr;
-	const unsigned char *build_id;
+	const unsigned char *build_id = NULL;
+	/*
+	 * FIXME: check how to do this properly using cmake to test for
+	 * the existence of dwfl_module_build_id in the elfutils libraries.
+	 */
+#if 1
 	int build_id_len = dwfl_module_build_id(mod, &build_id, &vaddr);
-
+#else
+	int build_id_len = 0;
+#endif
 	while (dwarf_nextcu(dw, off, &noff, &cuhl, NULL, NULL, NULL) == 0) {
 		Dwarf_Die die_mem, tmp;
 		Dwarf_Die *cu_die = dwarf_offdie(dw, off + cuhl, &die_mem);
