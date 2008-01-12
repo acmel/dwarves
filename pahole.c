@@ -388,6 +388,16 @@ static int cu_unique_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, unique_iterator, cookie, tag__filter);
 }
 
+static struct tag *tag__follow_typedef(struct tag *tag, struct cu *cu)
+{
+	struct tag *type = cu__find_tag_by_id(cu, tag->type);
+
+	if (type->tag == DW_TAG_typedef)
+		return tag__follow_typedef(type, cu);
+
+	return type;
+}
+
 static void union__find_new_size(struct tag *tag, struct cu *cu);
 
 static void class__resize_LP(struct tag *tag, struct cu *cu)
@@ -417,6 +427,8 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		    	continue;
 
 		type = cu__find_tag_by_id(cu, tag_pos->type);
+		if (type->tag == DW_TAG_typedef)
+			type = tag__follow_typedef(type, cu);
 		switch (type->tag) {
 		case DW_TAG_base_type: {
 			struct base_type *bt = tag__base_type(type);
