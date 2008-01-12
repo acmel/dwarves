@@ -445,6 +445,7 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 	else
 		tag__type(tag)->size_diff = self->type.size - orig_size;
 
+	class__find_holes(self, cu);
 	class__fixup_alignment(self, cu);
 }
 

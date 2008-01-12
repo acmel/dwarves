@@ -68,6 +68,17 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 			class__subtract_offsets_from(self, cu, pos,
 						     pos->offset - member_size);
 			pos->offset = 0;
+		} else if (last_member != NULL &&
+			   last_member->hole >= cu->addr_size) {
+			size_t dec = (last_member->hole / cu->addr_size) *
+				     cu->addr_size;
+
+			last_member->hole -= dec;
+			if (last_member->hole == 0)
+				--self->nr_holes;
+			pos->offset -= dec;
+			self->type.size -= dec;
+			class__subtract_offsets_from(self, cu, pos, dec);
 		} else for (power2 = cu->addr_size; power2 >= 2; power2 /= 2) {
 			const size_t remainder = pos->offset % power2;
 
