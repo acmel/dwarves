@@ -388,12 +388,19 @@ static int cu_unique_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, unique_iterator, cookie, tag__filter);
 }
 
+static void union__find_new_size(struct tag *tag, struct cu *cu);
+
 static void class__resize_LP(struct tag *tag, struct cu *cu)
 {
 	struct tag *tag_pos;
 	struct class *self = tag__class(tag);
 	size_t word_size_diff;
 	size_t orig_size = self->type.size;
+
+	if (tag__type(tag)->resized)
+		return;
+
+	tag__type(tag)->resized = 1;
 
 	if (original_word_size > word_size)
 		word_size_diff = original_word_size - word_size;
@@ -424,6 +431,10 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 			break;
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:
+			if (type->tag == DW_TAG_union_type)
+				union__find_new_size(type, cu);
+			else
+				class__resize_LP(type, cu);
 			diff = tag__type(type)->size_diff;
 			break;
 		}
@@ -455,6 +466,11 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 	struct type *self = tag__type(tag);
 	size_t max_size = 0;
 
+	if (self->resized)
+		return;
+
+	self->resized = 1;
+
 	type__for_each_tag(self, tag_pos) {
 		struct tag *type;
 		size_t size;
@@ -465,6 +481,12 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 		    	continue;
 
 		type = cu__find_tag_by_id(cu, tag_pos->type);
+
+		if (type->tag == DW_TAG_union_type)
+			union__find_new_size(type, cu);
+		else if (type->tag == DW_TAG_structure_type)
+			class__resize_LP(type, cu);
+
 		size = tag__size(type, cu);
 		if (size > max_size)
 			max_size = size;

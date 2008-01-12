@@ -432,6 +432,7 @@ static void type__init(struct type *self, Dwarf_Die *die)
 	self->specification	 = attr_type(die, DW_AT_specification);
 	self->definition_emitted = 0;
 	self->fwd_decl_emitted	 = 0;
+	self->resized		 = 0;
 	self->nr_members	 = 0;
 }
 

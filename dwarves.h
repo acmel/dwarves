@@ -112,6 +112,7 @@ struct type {
 	uint8_t		 declaration; /* only one bit used */
 	uint8_t		 definition_emitted:1;
 	uint8_t		 fwd_decl_emitted:1;
+	uint8_t		 resized:1;
 };
 
 static inline struct class *type__class(const struct type *self)
