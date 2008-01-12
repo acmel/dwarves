@@ -493,6 +493,8 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 		    	continue;
 
 		type = cu__find_tag_by_id(cu, tag_pos->type);
+		if (type->tag == DW_TAG_typedef)
+			type = tag__follow_typedef(type, cu);
 
 		if (type->tag == DW_TAG_union_type)
 			union__find_new_size(type, cu);
