@@ -420,6 +420,7 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 	type__for_each_tag(tag__type(tag), tag_pos) {
 		struct tag *type;
 		size_t diff = 0;
+		size_t array_multiplier = 1;
 
 		/* we want only data members, i.e. with byte_offset attr */
 		if (tag_pos->tag != DW_TAG_member &&
@@ -427,8 +428,17 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		    	continue;
 
 		type = cu__find_tag_by_id(cu, tag_pos->type);
+		if (type->tag == DW_TAG_array_type) {
+			int i;
+			for (i = 0; i < tag__array_type(type)->dimensions; ++i)
+				array_multiplier *= tag__array_type(type)->nr_entries[i];
+
+			type = cu__find_tag_by_id(cu, type->type);
+		}
+
 		if (type->tag == DW_TAG_typedef)
 			type = tag__follow_typedef(type, cu);
+
 		switch (type->tag) {
 		case DW_TAG_base_type: {
 			struct base_type *bt = tag__base_type(type);
@@ -450,6 +460,8 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 			diff = tag__type(type)->size_diff;
 			break;
 		}
+
+		diff *= array_multiplier;
 
 		if (diff != 0) {
 			struct class_member *m = tag__class_member(tag_pos);
