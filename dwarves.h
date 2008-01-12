@@ -107,6 +107,7 @@ struct type {
 	struct list_head node;
 	Dwarf_Off	 specification;
 	size_t		 size;
+	size_t		 size_diff;
 	uint16_t	 nr_members;
 	uint8_t		 declaration; /* only one bit used */
 	uint8_t		 definition_emitted:1;

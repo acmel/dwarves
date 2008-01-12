@@ -21,6 +21,7 @@
 
 static uint8_t class__include_anonymous;
 static uint8_t class__include_nested_anonymous;
+static uint8_t word_size, original_word_size;
 
 static char *class__exclude_prefix;
 static size_t class__exclude_prefix_len;
@@ -387,6 +388,133 @@ static int cu_unique_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, unique_iterator, cookie, tag__filter);
 }
 
+static void class__resize_LP(struct tag *tag, struct cu *cu)
+{
+	struct tag *tag_pos;
+	struct class *self = tag__class(tag);
+	size_t word_size_diff;
+	size_t orig_size = self->type.size;
+
+	if (original_word_size > word_size)
+		word_size_diff = original_word_size - word_size;
+	else
+		word_size_diff = word_size - original_word_size;
+
+	type__for_each_tag(tag__type(tag), tag_pos) {
+		struct tag *type;
+		size_t diff = 0;
+
+		/* we want only data members, i.e. with byte_offset attr */
+		if (tag_pos->tag != DW_TAG_member &&
+		    tag_pos->tag != DW_TAG_inheritance)
+		    	continue;
+
+		type = cu__find_tag_by_id(cu, tag_pos->type);
+		switch (type->tag) {
+		case DW_TAG_base_type: {
+			struct base_type *bt = tag__base_type(type);
+
+			if (strcmp(bt->name, "long int") != 0 &&
+			    strcmp(bt->name, "long unsigned int") != 0)
+				break;
+			/* fallthru */
+		}
+		case DW_TAG_pointer_type:
+			diff = word_size_diff;
+			break;
+		case DW_TAG_structure_type:
+		case DW_TAG_union_type:
+			diff = tag__type(type)->size_diff;
+			break;
+		}
+
+		if (diff != 0) {
+			struct class_member *m = tag__class_member(tag_pos);
+			if (original_word_size > word_size) {
+				self->type.size -= diff;
+				class__subtract_offsets_from(self, cu, m, diff);
+			} else {
+				self->type.size += diff;
+				class__add_offsets_from(self, m, diff);
+			}
+		}
+	}
+
+	if (original_word_size > word_size)
+		tag__type(tag)->size_diff = orig_size - self->type.size;
+	else
+		tag__type(tag)->size_diff = self->type.size - orig_size;
+
+	class__fixup_alignment(self, cu);
+}
+
+static void union__find_new_size(struct tag *tag, struct cu *cu)
+{
+	struct tag *tag_pos;
+	struct type *self = tag__type(tag);
+	size_t max_size = 0;
+
+	type__for_each_tag(self, tag_pos) {
+		struct tag *type;
+		size_t size;
+
+		/* we want only data members, i.e. with byte_offset attr */
+		if (tag_pos->tag != DW_TAG_member &&
+		    tag_pos->tag != DW_TAG_inheritance)
+		    	continue;
+
+		type = cu__find_tag_by_id(cu, tag_pos->type);
+		size = tag__size(type, cu);
+		if (size > max_size)
+			max_size = size;
+	}
+
+	if (max_size > self->size) 
+		self->size_diff = max_size - self->size;
+	else
+		self->size_diff = self->size - max_size;
+
+	self->size = max_size;
+}
+
+static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
+					void *cookie)
+{
+	if (tag->tag == DW_TAG_structure_type ||
+	    tag->tag == DW_TAG_union_type) {
+		struct tag *pos;
+
+		namespace__for_each_tag(tag__namespace(tag), pos)
+			tag_fixup_word_size_iterator(pos, cu, cookie);
+	}
+
+	switch (tag->tag) {
+	case DW_TAG_base_type: {
+		struct base_type *bt = tag__base_type(tag);
+
+		if (strcmp(bt->name, "long int") == 0 ||
+		    strcmp(bt->name, "long unsigned int") == 0)
+			bt->size = word_size;
+	}
+		break;
+	case DW_TAG_structure_type:
+		class__resize_LP(tag, cu);
+		break;
+	case DW_TAG_union_type:
+		union__find_new_size(tag, cu);
+		break;
+	}
+
+	return 0;
+}
+
+static int cu_fixup_word_size_iterator(struct cu *cu, void *cookie)
+{
+	original_word_size = cu->addr_size;
+	cu->addr_size = word_size;
+	return cu__for_each_tag(cu, tag_fixup_word_size_iterator, cookie, NULL);
+}
+
 static struct tag *nr_methods__filter(struct tag *tag, struct cu *cu __unused,
 				      void *cookie __unused)
 {
@@ -652,6 +780,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "be verbose",
 	},
 	{
+		.name = "word_size",
+		.key  = 'w',
+		.arg  = "WORD_SIZE",
+		.doc  = "change the arch word size to WORD_SIZE"
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -696,6 +830,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'T': formatter = nr_definitions_formatter;	break;
 	case 't': separator = arg[0];			break;
 	case 'V': global_verbose = 1;			break;
+	case 'w': word_size = atoi(arg);		break;
 	case 'X': cu__exclude_prefix = arg;
 		  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
 							break;
@@ -737,6 +872,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 
 	dwarves__init(cacheline_size);
+
+	if (word_size != 0)
+		cus__for_each_cu(cus, cu_fixup_word_size_iterator, NULL, NULL);
 
 	if (class_dwarf_offset != 0) {
 		struct cu *cu;
