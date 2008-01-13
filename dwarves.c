@@ -491,7 +491,9 @@ reevaluate:
 			member_size = class_member__size(inner, cu);
 			break;
 		case DW_TAG_array_type:
+		case DW_TAG_const_type:
 		case DW_TAG_typedef:
+		case DW_TAG_volatile_type:
 			type = cu__find_tag_by_id(cu, type->type);
 			goto reevaluate;
 		case DW_TAG_enumeration_type:
