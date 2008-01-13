@@ -942,6 +942,7 @@ int main(int argc, char *argv[])
 		}
 
  		tag__fprintf(tag, cu, &conf, stdout);
+		putchar('\n');
 		return EXIT_SUCCESS;
 	}
 
