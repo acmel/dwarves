@@ -465,6 +465,56 @@ const char *type__name(struct type *self, const struct cu *cu)
 	return self->namespace.name;
 }
 
+struct class_member *
+	type__find_first_biggest_size_base_type_member(struct type *self,
+						       const struct cu *cu)
+{
+	struct class_member *pos, *result = NULL;
+	size_t result_size = 0;
+
+	type__for_each_data_member(self, pos) {
+		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
+		size_t member_size = 0, power2;
+		struct class_member *inner = NULL;
+reevaluate:
+		switch (type->tag) {
+		case DW_TAG_base_type:
+			member_size = tag__base_type(type)->size;
+			break;
+		case DW_TAG_pointer_type:
+		case DW_TAG_reference_type:
+			member_size = cu->addr_size;
+			break;
+		case DW_TAG_union_type:
+		case DW_TAG_structure_type:
+			inner = type__find_first_biggest_size_base_type_member(tag__type(type), cu);
+			member_size = class_member__size(inner, cu);
+			break;
+		case DW_TAG_array_type:
+		case DW_TAG_typedef:
+			type = cu__find_tag_by_id(cu, type->type);
+			goto reevaluate;
+		case DW_TAG_enumeration_type:
+			member_size = tag__type(type)->size;
+			break;
+		}
+		
+		/* long long */
+		if (member_size > cu->addr_size)
+			return pos;
+
+		for (power2 = cu->addr_size; power2 > result_size; power2 /= 2)
+			if (member_size >= power2) {
+				if (power2 == cu->addr_size)
+					return inner ?: pos;
+				result_size = power2;
+				result = inner ?: pos;
+			}
+	}
+
+	return result;
+}
+
 size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 			const struct conf_fprintf *conf, FILE *fp)
 {
@@ -2598,6 +2648,13 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		printed += fprintf(fp, "\n%.*s/* last cacheline: %u bytes */",
 				   cconf.indent, tabs,
 				   last_cacheline);
+	if (cconf.show_first_biggest_size_base_type_member) {
+		struct class_member *m = type__find_first_biggest_size_base_type_member(tself, cu);
+
+		printed += fprintf(fp, "\n%.*s/* first biggest size base type member: %s %u %zd */",
+				   cconf.indent, tabs, m->name, m->offset,
+				   class_member__size(m, cu));
+	}
 
 	if (sum + sum_holes != tself->size - self->padding)
 		printed += fprintf(fp, "\n\n%.*s/* BRAIN FART ALERT! %zd != %u "

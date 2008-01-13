@@ -430,6 +430,7 @@ struct conf_fprintf {
 	uint8_t	   show_decl_info:1;
 	uint8_t	   show_only_data_members:1;
 	uint8_t	   no_semicolon:1;
+	uint8_t	   show_first_biggest_size_base_type_member:1;
 };
 
 extern void dwarves__init(size_t user_cacheline_size);
@@ -533,6 +534,10 @@ extern size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 extern int ftype__has_parm_of_type(const struct ftype *self,
 				   const struct tag *target,
 				   const struct cu *cu);
+
+extern struct class_member *
+	type__find_first_biggest_size_base_type_member(struct type *self,
+						       const struct cu *cu);
 
 extern const char *tag__name(const struct tag *self, const struct cu *cu,
 			     char *bf, size_t len);
