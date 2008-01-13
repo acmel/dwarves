@@ -108,13 +108,19 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 	}
 
 	if (last_member != NULL) {
-		size_t remainder;
-		/* Now check if previous steps left bogus padding on the struct */
-		member_size = class_member__size(last_member, cu);
-		remainder = (last_member->offset + member_size) % cu->addr_size;
-		if (remainder == cu->addr_size || remainder == 4) {
-			self->type.size = last_member->offset + member_size;
-			self->padding = 0;
+		struct class_member *m =
+		 type__find_first_biggest_size_base_type_member(&self->type, cu);
+		size_t unpadded_size = last_member->offset + class_member__size(last_member, cu);
+		size_t m_size = class_member__size(m, cu), remainder;
+
+		/* google for struct zone_padding in the linux kernel for an example */
+		if (m_size == 0)
+			return;
+
+		remainder = unpadded_size % m_size;
+		if (remainder != 0) {
+			self->padding = m_size - remainder;
+			self->type.size = unpadded_size + self->padding;
 		}
 	}
 }
