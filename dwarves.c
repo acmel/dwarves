@@ -487,6 +487,8 @@ reevaluate:
 			break;
 		case DW_TAG_union_type:
 		case DW_TAG_structure_type:
+			if (tag__type(type)->nr_members == 0)
+				continue;
 			inner = type__find_first_biggest_size_base_type_member(tag__type(type), cu);
 			member_size = class_member__size(inner, cu);
 			break;
@@ -2650,7 +2652,8 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		printed += fprintf(fp, "\n%.*s/* last cacheline: %u bytes */",
 				   cconf.indent, tabs,
 				   last_cacheline);
-	if (cconf.show_first_biggest_size_base_type_member) {
+	if (cconf.show_first_biggest_size_base_type_member &&
+	    tself->nr_members != 0) {
 		struct class_member *m = type__find_first_biggest_size_base_type_member(tself, cu);
 
 		printed += fprintf(fp, "\n%.*s/* first biggest size base type member: %s %u %zd */",
