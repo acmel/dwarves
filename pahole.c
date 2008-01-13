@@ -754,6 +754,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "show size of classes",
 	},
 	{
+		.name = "show_first_biggest_size_base_type_member",
+		.key  = 'l',
+		.doc  = "show first biggest size base_type member",
+	},
+	{
 		.name = "nr_methods",
 		.key  = 'm',
 		.doc  = "show number of methods",
@@ -862,6 +867,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'I': conf.show_decl_info = 1;		break;
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
+	case 'l': conf.show_first_biggest_size_base_type_member = 1;	break;
 	case 'M': conf.show_only_data_members = 1;	break;
 	case 'm': formatter = nr_methods_formatter;	break;
 	case 'N': formatter = class_name_len_formatter;	break;
