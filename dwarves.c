@@ -313,6 +313,12 @@ static struct tag *tag__new(Dwarf_Die *die)
 	return self;
 }
 
+static void tag__delete(struct tag *self)
+{
+	assert(list_empty(&self->node));
+	free(self);
+}
+
 static const char *tag__accessibility(const struct tag *self)
 {
 	int a;
@@ -421,6 +427,25 @@ static struct namespace *namespace__new(Dwarf_Die *die)
 		namespace__init(self, die);
 
 	return self;
+}
+
+static void namespace__delete(struct namespace *self)
+{
+	struct tag *pos, *n;
+
+	namespace__for_each_tag_safe(self, pos, n) {
+		list_del_init(&pos->node);
+
+		/* Look for nested namespaces */
+		if (tag__is_struct(pos)    ||
+		    tag__is_union(pos)	   ||
+		    tag__is_namespace(pos) ||
+		    tag__is_enumeration(pos))
+		    	namespace__delete(tag__namespace(pos));
+		tag__delete(pos);
+	}
+
+	tag__delete(&self->tag);
 }
 
 static void type__init(struct type *self, Dwarf_Die *die)
@@ -711,6 +736,24 @@ static struct cu *cu__new(const char *name, uint8_t addr_size,
 	}
 
 	return self;
+}
+
+void cu__delete(struct cu *self)
+{
+	struct tag *pos, *n;
+
+	list_for_each_entry_safe(pos, n, &self->tags, node) {
+		list_del_init(&pos->node);
+
+		/* Look for nested namespaces */
+		if (tag__is_struct(pos)    ||
+		    tag__is_union(pos)	   ||
+		    tag__is_namespace(pos) ||
+		    tag__is_enumeration(pos)) {
+		    	namespace__delete(tag__namespace(pos));
+		}
+	}
+	free(self);
 }
 
 static void cu__add_tag(struct cu *self, struct tag *tag)

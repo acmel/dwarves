@@ -88,13 +88,22 @@ static inline struct namespace *tag__namespace(const struct tag *self)
 	return (struct namespace *)self;
 }
 
-/** 
+/**
  * namespace__for_each_tag - iterate thru all the tags
  * @self: struct namespace instance to iterate
  * @pos: struct tag iterator
  */
 #define namespace__for_each_tag(self, pos) \
 	list_for_each_entry(pos, &(self)->tags, node)
+
+/**
+ * namespace__for_each_tag_safe - safely iterate thru all the tags
+ * @self: struct namespace instance to iterate
+ * @pos: struct tag iterator
+ * @n: struct class_member temp iterator
+ */
+#define namespace__for_each_tag_safe(self, pos, n) \
+	list_for_each_entry_safe(pos, n, &(self)->tags, node)
 
 /**
  * struct type - base type for enumerations, structs and unions
@@ -479,6 +488,8 @@ extern struct tag *cus__find_function_by_name(const struct cus *self,
 					      const char *name);
 extern struct tag *cus__find_tag_by_id(const struct cus *self,
 				       struct cu **cu, const Dwarf_Off id);
+
+extern void cu__delete(struct cu *self);
 
 extern struct tag *cu__find_tag_by_id(const struct cu *self,
 				      const Dwarf_Off id);
