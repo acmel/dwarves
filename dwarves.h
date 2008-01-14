@@ -487,6 +487,7 @@ extern struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 extern struct tag *cu__find_struct_by_name(const struct cu *cu,
 					   const char *name,
 					   const int include_decls);
+extern bool cu__same_build_id(const struct cu *self, const struct cu *other);
 extern void	    cu__account_inline_expansions(struct cu *self);
 extern int	    cu__for_each_tag(struct cu *self,
 				     int (*iterator)(struct tag *tag,

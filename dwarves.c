@@ -718,6 +718,13 @@ static void cu__add_tag(struct cu *self, struct tag *tag)
 	list_add_tail(&tag->node, &self->tags);
 }
 
+bool cu__same_build_id(const struct cu *self, const struct cu *other)
+{
+	return self->build_id_len != 0 &&
+	       self->build_id_len == other->build_id_len &&
+	       memcmp(self->build_id, other->build_id, self->build_id_len) == 0;
+}
+
 static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
 {
 	switch (tag) {
