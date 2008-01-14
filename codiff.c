@@ -300,9 +300,12 @@ static int cu_find_new_tags_iterator(struct cu *new_cu, void *old_cus)
 {
 	struct cu *old_cu = cus__find_cu_by_name(old_cus, new_cu->name);
 
-	if (old_cu != NULL)
+	if (old_cu != NULL) {
+		if (cu__same_build_id(old_cu, new_cu))
+			return 0;
 		cu__for_each_tag(new_cu, find_new_tags_iterator,
 				 old_cu, NULL);
+	}
 
 	return 0;
 }
@@ -311,8 +314,11 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 {
 	struct cu *new_cu = cus__find_cu_by_name(new_cus, cu->name);
 
-	if (new_cu != NULL)
+	if (new_cu != NULL) {
+		if (cu__same_build_id(cu, new_cu))
+			return 0;
 		cu__for_each_tag(cu, diff_tag_iterator, new_cu, NULL);
+	}
 
 	return 0;
 }
