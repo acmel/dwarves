@@ -319,6 +319,16 @@ static void tag__delete(struct tag *self)
 	free(self);
 }
 
+struct tag *tag__follow_typedef(struct tag *tag, const struct cu *cu)
+{
+	struct tag *type = cu__find_tag_by_id(cu, tag->type);
+
+	if (type->tag == DW_TAG_typedef)
+		return tag__follow_typedef(type, cu);
+
+	return type;
+}
+
 static const char *tag__accessibility(const struct tag *self)
 {
 	int a;

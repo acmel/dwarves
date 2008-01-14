@@ -555,6 +555,7 @@ extern const char *tag__name(const struct tag *self, const struct cu *cu,
 			     char *bf, size_t len);
 extern size_t tag__size(const struct tag *self, const struct cu *cu);
 extern size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu);
+extern struct tag *tag__follow_typedef(struct tag *tag, const struct cu *cu);
 
 extern struct class_member *type__find_member_by_name(const struct type *self,
 						      const char *name);
