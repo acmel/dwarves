@@ -1509,9 +1509,12 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			printed += fprintf(fp, "struct %-*s %s",
 					   conf->type_spacing - 7,
 					   type__name(ctype, cu), name);
-		else
-			printed += class__fprintf(tag__class(type), cu,
-						  &tconf, fp);
+		else {
+			struct class *class = tag__class(type);
+
+			class__find_holes(class, cu);
+			printed += class__fprintf(class, cu, &tconf, fp);
+		}
 		break;
 	case DW_TAG_union_type:
 		ctype = tag__type(type);
