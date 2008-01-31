@@ -822,7 +822,7 @@ struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 {
 	struct tag *pos;
 
-	if (id == 0)
+	if (self == NULL || id == 0)
 		return NULL;
 
 	list_for_each_entry(pos, &self->tags, node) {
@@ -847,7 +847,7 @@ struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 {
 	struct tag *pos;
 
-	if (type == 0)
+	if (self == NULL || type == 0)
 		return NULL;
 
 	list_for_each_entry(pos, &self->tags, node)
@@ -861,7 +861,7 @@ struct tag *cu__find_base_type_by_name(const struct cu *self, const char *name)
 {
 	struct tag *pos;
 
-	if (name == NULL)
+	if (self == NULL || name == NULL)
 		return NULL;
 
 	list_for_each_entry(pos, &self->tags, node) {
@@ -878,7 +878,7 @@ struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
 {
 	struct tag *pos;
 
-	if (name == NULL)
+	if (self == NULL || name == NULL)
 		return NULL;
 
 	list_for_each_entry(pos, &self->tags, node) {
@@ -972,7 +972,7 @@ struct tag *cu__find_function_by_name(const struct cu *self, const char *name)
 	struct tag *pos;
 	struct function *fpos;
 
-	if (name == NULL)
+	if (self == NULL || name == NULL)
 		return NULL;
 
 	list_for_each_entry(pos, &self->tags, node) {
@@ -1015,6 +1015,9 @@ static struct variable *cu__find_variable_by_id(const struct cu *self,
 						const Dwarf_Off id)
 {
 	struct tag *pos;
+
+	if (self == NULL)
+		return NULL;
 
 	list_for_each_entry(pos, &self->tags, node) {
 		/* Look at global variables first */
@@ -1069,6 +1072,8 @@ static struct tag *list__find_tag_by_id(const struct list_head *self,
 static struct tag *cu__find_parameter_by_id(const struct cu *self,
 					    const Dwarf_Off id)
 {
+	if (self == NULL)
+		return NULL;
 	return list__find_tag_by_id(&self->tags, id);
 }
 
