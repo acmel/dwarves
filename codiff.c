@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "dwarves.h"
 #include "dutil.h"
@@ -300,13 +303,11 @@ static int cu_find_new_tags_iterator(struct cu *new_cu, void *old_cus)
 {
 	struct cu *old_cu = cus__find_cu_by_name(old_cus, new_cu->name);
 
-	if (old_cu != NULL) {
-		if (cu__same_build_id(old_cu, new_cu))
-			return 0;
-		cu__for_each_tag(new_cu, find_new_tags_iterator,
-				 old_cu, NULL);
-	}
+	if (old_cu != NULL && cu__same_build_id(old_cu, new_cu))
+		return 0;
 
+	cu__for_each_tag(new_cu, find_new_tags_iterator,
+			 old_cu, NULL);
 	return 0;
 }
 
@@ -314,11 +315,9 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 {
 	struct cu *new_cu = cus__find_cu_by_name(new_cus, cu->name);
 
-	if (new_cu != NULL) {
-		if (cu__same_build_id(cu, new_cu))
-			return 0;
-		cu__for_each_tag(cu, diff_tag_iterator, new_cu, NULL);
-	}
+	if (new_cu != NULL && cu__same_build_id(cu, new_cu))
+		return 0;
+	cu__for_each_tag(cu, diff_tag_iterator, new_cu, NULL);
 
 	return 0;
 }
@@ -651,6 +650,7 @@ int main(int argc, char *argv[])
 	struct cus *old_cus, *new_cus;
 	char *old_filename, *new_filename;
 	char *dwfl_argv[4];
+	struct stat st;
 
 	argp_parse(&codiff__argp, argc, argv, 0, &remaining, NULL);
 
@@ -681,21 +681,38 @@ failure:
 		return EXIT_FAILURE;
 	}
 
-	dwfl_argv[0] = argv[0];
-	dwfl_argv[1] = "-e";
-	dwfl_argv[2] = old_filename;
-	dwfl_argv[3] = NULL;
-	err = cus__loadfl(old_cus, NULL, 3, dwfl_argv);
-	if (err != 0) {
-		cus__print_error_msg("codiff", old_filename, err);
+	if (stat(old_filename, &st) != 0) {
+		fprintf(stderr, "codiff: %s (%s)\n", strerror(errno), old_filename);
 		return EXIT_FAILURE;
 	}
 
-	dwfl_argv[2] = new_filename;
-	err = cus__loadfl(new_cus, NULL, 3, dwfl_argv);
-	if (err != 0) {
-		cus__print_error_msg("codiff", new_filename, err);
+	dwfl_argv[0] = argv[0];
+	dwfl_argv[1] = "-e";
+	dwfl_argv[3] = NULL;
+
+	/* If old_file is a character device, leave its cus empty */
+	if (!S_ISCHR(st.st_mode)) {
+		dwfl_argv[2] = old_filename;
+		err = cus__loadfl(old_cus, NULL, 3, dwfl_argv);
+		if (err != 0) {
+			cus__print_error_msg("codiff", old_filename, err);
+			return EXIT_FAILURE;
+		}
+	}
+
+	if (stat(new_filename, &st) != 0) {
+		fprintf(stderr, "codiff: %s (%s)\n", strerror(errno), new_filename);
 		return EXIT_FAILURE;
+	}
+
+	/* If old_file is a character device, leave its cus empty */
+	if (!S_ISCHR(st.st_mode)) {
+		dwfl_argv[2] = new_filename;
+		err = cus__loadfl(new_cus, NULL, 3, dwfl_argv);
+		if (err != 0) {
+			cus__print_error_msg("codiff", new_filename, err);
+			return EXIT_FAILURE;
+		}
 	}
 
 	cus__for_each_cu(old_cus, cu_diff_iterator, new_cus, NULL);
