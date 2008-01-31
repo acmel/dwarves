@@ -893,7 +893,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	return 0;
 }
 
-static const char pahole__args_doc[] = "[FILE]";
+static const char pahole__args_doc[] = "FILE";
 
 static struct argp pahole__argp = {
 	.options  = pahole__options,

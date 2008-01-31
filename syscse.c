@@ -132,7 +132,7 @@ static error_t options_parser(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
-static const char args_doc[] = "[FILE]";
+static const char args_doc[] = "FILE";
 
 static struct argp argp = {
 	.options  = options,

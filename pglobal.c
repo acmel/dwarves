@@ -299,7 +299,7 @@ static error_t pglobal__options_parser(int key, char *arg __unused,
 	return 0;
 }
 
-static const char pglobal__args_doc[] = "-e [FILE]";
+static const char pglobal__args_doc[] = "FILE";
 
 static struct argp pglobal__argp = {
 	.options  = pglobal__options,

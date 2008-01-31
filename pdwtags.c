@@ -78,7 +78,7 @@ static error_t pdwtags__options_parser(int key, char *arg __unused,
 	return 0;
 }
 
-static const char pdwtags__args_doc[] = "[FILE]";
+static const char pdwtags__args_doc[] = "FILE";
 
 static struct argp pdwtags__argp = {
 	.options  = pdwtags__options,

@@ -861,7 +861,7 @@ static error_t ctracer__options_parser(int key, char *arg,
 	return 0;
 }
 
-static const char ctracer__args_doc[] = "[FILE] [CLASS]";
+static const char ctracer__args_doc[] = "FILE CLASS";
 
 static struct argp ctracer__argp = {
 	.options  = ctracer__options,

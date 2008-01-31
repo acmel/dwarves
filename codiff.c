@@ -637,7 +637,7 @@ static error_t codiff__options_parser(int key, char *arg __unused,
 	return 0;
 }
 
-static const char codiff__args_doc[] = "[OLD_FILE] [NEW_FILE]";
+static const char codiff__args_doc[] = "OLD_FILE NEW_FILE";
 
 static struct argp codiff__argp = {
 	.options  = codiff__options,
