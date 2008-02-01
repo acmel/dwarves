@@ -531,6 +531,14 @@ static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
 	case DW_TAG_base_type: {
 		struct base_type *bt = tag__base_type(tag);
 
+		/*
+		 * This shouldn't happen, but at least on a tcp_ipv6.c
+		 * built with GNU C 4.3.0 20080130 (Red Hat 4.3.0-0.7),
+		 * one was found, so just bail out.
+		 */
+		if (bt->name == NULL)
+			return 0;
+
 		if (strcmp(bt->name, "long int") == 0 ||
 		    strcmp(bt->name, "long unsigned int") == 0)
 			bt->size = word_size;
