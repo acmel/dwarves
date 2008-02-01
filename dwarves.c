@@ -864,11 +864,13 @@ struct tag *cu__find_base_type_by_name(const struct cu *self, const char *name)
 	if (self == NULL || name == NULL)
 		return NULL;
 
-	list_for_each_entry(pos, &self->tags, node) {
-		if (pos->tag == DW_TAG_base_type &&
-		    strcmp(tag__base_type(pos)->name, name) == 0)
-			return pos;
-	}
+	list_for_each_entry(pos, &self->tags, node)
+		if (pos->tag == DW_TAG_base_type) {
+			const struct base_type *bt = tag__base_type(pos);
+
+			if (bt->name != NULL && strcmp(bt->name, name) == 0)
+				return pos;
+		}
 
 	return NULL;
 }
@@ -1148,8 +1150,15 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	if (self == NULL)
 		strncpy(bf, "void", len);
 	else switch (self->tag) {
-	case DW_TAG_base_type:
-		strncpy(bf, tag__base_type(self)->name, len);
+	case DW_TAG_base_type: {
+		const struct base_type *bt = tag__base_type(self);
+		const char *s = "nameless base type!";
+
+		if (bt->name != NULL)
+			s = bt->name;
+
+		strncpy(bf, s, len);
+	}
 		break;
 	case DW_TAG_subprogram:
 		strncpy(bf, function__name(tag__function(self), cu), len);
