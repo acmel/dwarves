@@ -1,7 +1,7 @@
 /*
   Copyright (C) 2006 Mandriva Conectiva S.A.
   Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
-  Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+  Copyright (C) 2007-2008 Arnaldo Carvalho de Melo <acme@redhat.com>
 
   This program is free software; you can redistribute it and/or modify it
   under the terms of version 2 of the GNU General Public License as
@@ -42,6 +42,7 @@ static size_t cacheline_size;
 static uint8_t find_containers;
 static uint8_t find_pointers_in_structs;
 static int reorganize;
+static bool defined_in;
 static int show_reorg_steps;
 static char *class_name;
 static char separator = '\t';
@@ -385,7 +386,14 @@ static int unique_iterator(struct tag *tag, struct cu *cu,
 
 static int cu_unique_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_tag(cu, unique_iterator, cookie, tag__filter);
+	if (defined_in) {
+		struct tag *tag = cu__find_struct_by_name(cu, class_name, 0);
+
+		if (tag != NULL)
+			puts(cu->name);
+	} else
+		return cu__for_each_tag(cu, unique_iterator, cookie, tag__filter);
+	return 0;
 }
 
 static void union__find_new_size(struct tag *tag, struct cu *cu);
@@ -827,6 +835,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "be quieter",
 	},
 	{
+		.name = "defined_in",
+		.key  = 'u',
+		.doc  = "show CUs where CLASS_NAME (-C) is defined",
+	},
+	{
 		.name = "verbose",
 		.key  = 'V',
 		.doc  = "be verbose",
@@ -882,6 +895,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 's': formatter = size_formatter;		break;
 	case 'T': formatter = nr_definitions_formatter;	break;
 	case 't': separator = arg[0];			break;
+	case 'u': defined_in = 1;			break;
 	case 'V': global_verbose = 1;			break;
 	case 'w': word_size = atoi(arg);		break;
 	case 'X': cu__exclude_prefix = arg;
@@ -945,6 +959,12 @@ int main(int argc, char *argv[])
 	}
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, cu__filter);
+	/*
+	 * Done on cu_unique_iterator, we just want to print the CUs
+	 * that have class_name defined
+	 */
+	if (defined_in)
+		return EXIT_SUCCESS;
 	if (formatter == nr_methods_formatter)
 		cus__for_each_cu(cus, cu_nr_methods_iterator, NULL, cu__filter);
 
