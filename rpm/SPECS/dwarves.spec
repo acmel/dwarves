@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.4
+Version: 1.5
 Release: 1
 License: GPLv2
 Summary: Dwarf Tools
@@ -10,7 +10,7 @@ Group: Development/Tools
 URL: http://oops.ghostprotocols.net:81/blog
 Source: http://userweb.kernel.org/~acme/dwarves/%{name}-%{version}.tar.bz2
 BuildRequires: cmake
-BuildRequires: elfutils-devel
+BuildRequires: elfutils-devel >= 0.130
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 %description
@@ -108,6 +108,34 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Thu Feb  7 2008 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.5-1
+- c4e49add9e48ff08a8ba4187ea43d795af995136
+- PAHOLE: Introduce --defined_in
+- DWARVES: Another fix for DW_TAG_base_type entries without DW_AT_name
+- PAHOLE: Cope with DW_TAG_basic_type entries without DW_AT_name
+- CODIFF: Allow passing /dev/null as one of the files to compare
+- DWARVES: Allow passing NULL as self to cu__find_
+- DWARVES: Fixup usage messages
+- DWARVES: Find holes in inner, nameless structs
+- DWARVES: Adopt tag__follow_typedef from pahole
+- DWARVES: Add some destructors: tag, cu, namespace
+- CODIFF: Check if the objects are the same when we have build-id
+- DWARVES: Introduce cu__same_build_id
+- DWARVES_REORGANIZE: Proper tail padding fixup
+- DWARVES: Don't search in empty structs
+- DWARVES: Follow const and volatile tags to its ultimate types
+- PAHOLE: Add a newline after the --class_dwarf_offset output
+- PAHOLE: Expose type__find_first_biggest_size_base_type_member
+- DWARVES: Introduce type__find_first_biggest_size_base_type_member
+- PAHOLE: Account arrays properly when changing word-size
+- PAHOLE: Follow typedefs too when resizing unions
+- PAHOLE: Follow typedefs to find if they are resized structs/unions
+- PAHOLE: Check if types of struct and union members were already resized
+- DWARVES_REORGANIZE: Fixup class__fixup_alingment
+- PAHOLE: Allow changing the architecture word-size
+- DWARVES_REORGANIZE: Adopt class__add_offsets_from and class__fixup_alignment from ctracer
+- DWARVES: build id support requires a recent elfutils package
+
 * Sat Jan  5 2008 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.4-1
 - 8e099cf5d1f204e9ea1a9c8c0f1a09a43458d9d3
 - codiff fixes
