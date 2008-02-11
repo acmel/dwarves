@@ -16,6 +16,7 @@
 #include <elfutils/libdw.h>
 
 #include "list.h"
+#include "hash.h"
 
 struct argp;
 
@@ -27,9 +28,14 @@ struct cus {
 	struct list_head *fwd_decls;
 };
 
+#define HASHTAGS__BITS 8
+#define HASHTAGS__SIZE (1UL << HASHTAGS__BITS)
+#define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
+
 struct cu {
 	struct list_head node;
 	struct list_head tags;
+	struct list_head hash_tags[HASHTAGS__SIZE];
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
 	const char	 *name;
 	uint8_t		 addr_size;
@@ -47,6 +53,7 @@ struct cu {
 
 struct tag {
 	struct list_head node;
+	struct list_head hash_node;
 	Dwarf_Off	 type;
 	Dwarf_Off	 id;
 	const char	 *decl_file;

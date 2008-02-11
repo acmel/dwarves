@@ -301,6 +301,7 @@ static void tag__init(struct tag *self, Dwarf_Die *die)
 	dwarf_decl_line(die, &decl_line);
 	self->decl_line = decl_line;
 	self->recursivity_level = 0;
+	INIT_LIST_HEAD(&self->hash_node);
 }
 
 static struct tag *tag__new(Dwarf_Die *die)
@@ -727,6 +728,11 @@ static struct cu *cu__new(const char *name, uint8_t addr_size,
 	struct cu *self = malloc(sizeof(*self) + build_id_len);
 
 	if (self != NULL) {
+		uint32_t i;
+
+		for (i = 0; i < HASHTAGS__SIZE; ++i)
+			INIT_LIST_HEAD(&self->hash_tags[i]);
+
 		INIT_LIST_HEAD(&self->tags);
 		INIT_LIST_HEAD(&self->tool_list);
 
@@ -766,9 +772,17 @@ void cu__delete(struct cu *self)
 	free(self);
 }
 
+static void hashtags__hash(struct list_head *hashtable, struct tag *tag)
+{
+	struct list_head *head = hashtable + hashtags__fn(tag->id);
+
+	list_add_tail(&tag->hash_node, head);
+}
+
 static void cu__add_tag(struct cu *self, struct tag *tag)
 {
 	list_add_tail(&tag->node, &self->tags);
+	hashtags__hash(self->hash_tags, tag);
 }
 
 bool cu__same_build_id(const struct cu *self, const struct cu *other)
@@ -793,51 +807,19 @@ static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
 	return "";
 }
 
-static struct tag *namespace__find_tag_by_id(const struct namespace *self,
-					     const Dwarf_Off id)
-{
-	struct tag *pos;
-
-	if (id == 0)
-		return NULL;
-
-	namespace__for_each_tag(self, pos) {
-		if (pos->id == id)
-			return pos;
-
-		/* Look for nested namespaces */
-		if (tag__is_struct(pos) || tag__is_union(pos) ||
-		    tag__is_namespace(pos)) {
-			 struct tag *tag =
-			    namespace__find_tag_by_id(tag__namespace(pos), id);
-			if (tag != NULL)
-				return tag;
-		}
-	}
-
-	return NULL;
-}
-
 struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 {
 	struct tag *pos;
+	const struct list_head *head;
 
 	if (self == NULL || id == 0)
 		return NULL;
 
-	list_for_each_entry(pos, &self->tags, node) {
+	head = &self->hash_tags[hashtags__fn(id)];
+
+	list_for_each_entry(pos, head, hash_node)
 		if (pos->id == id)
 			return pos;
-
-		/* Look for nested namespaces */
-		if (tag__is_struct(pos) || tag__is_union(pos) ||
-		    tag__is_namespace(pos)) {
-			 struct tag *tag =
-			    namespace__find_tag_by_id(tag__namespace(pos), id);
-			if (tag != NULL)
-				return tag;
-		}
-	}
 
 	return NULL;
 }
@@ -3160,7 +3142,7 @@ out:
 	return &ftype->tag;
 }
 
-static struct tag *die__create_new_enumeration(Dwarf_Die *die)
+static struct tag *die__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
 	struct type *enumeration = type__new(die);
@@ -3187,6 +3169,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die)
 			oom("enumerator__new");
 
 		enumeration__add(enumeration, enumerator);
+		hashtags__hash(cu->hash_tags, &enumerator->tag);
 	} while (dwarf_siblingof(die, die) == 0);
 
 	return &enumeration->namespace.tag;
@@ -3205,6 +3188,7 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 				oom("class_member__new");
 
 			type__add_member(class, member);
+			hashtags__hash(cu->hash_tags, &member->tag);
 		}
 			continue;
 		default: {
@@ -3212,6 +3196,7 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 
 			if (tag != NULL) {
 				namespace__add_tag(&class->namespace, tag);
+				hashtags__hash(cu->hash_tags, tag);
 				if (tag->tag == DW_TAG_subprogram) {
 					struct function *fself = tag__function(tag);
 
@@ -3231,8 +3216,10 @@ static void die__process_namespace(Dwarf_Die *die,
 	do {
 		struct tag *tag = die__process_tag(die, cu);
 
-		if (tag != NULL)
+		if (tag != NULL) {
 			namespace__add_tag(namespace, tag);
+			hashtags__hash(cu->hash_tags, tag);
+		}
 	} while (dwarf_siblingof(die, die) == 0);
 }
 
@@ -3328,7 +3315,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	case DW_TAG_volatile_type:
 		return die__create_new_tag(die);
 	case DW_TAG_enumeration_type:
-		return die__create_new_enumeration(die);
+		return die__create_new_enumeration(die, cu);
 	case DW_TAG_namespace:
 		return die__create_new_namespace(die, cu);
 	case DW_TAG_structure_type:
