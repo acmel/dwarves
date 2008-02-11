@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.5
+Version: 1.6
 Release: 1
 License: GPLv2
 Summary: Dwarf Tools
@@ -108,6 +108,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Mon Feb 11 2008 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.6-1
+- c83d935a4fd561a3807f520c126c2a61ae1f4d83
+- [DWARVES]: Use a hash table for the tags in a CU
+
 * Thu Feb  7 2008 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.5-1
 - c4e49add9e48ff08a8ba4187ea43d795af995136
 - PAHOLE: Introduce --defined_in

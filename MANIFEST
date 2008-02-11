@@ -9,6 +9,7 @@ CMakeLists.txt
 codiff.c
 ctracer.c
 dtagnames.c
+hash.h
 list.h
 MANIFEST
 pahole.c
