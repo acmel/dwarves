@@ -114,7 +114,7 @@ static void *zalloc(const size_t size)
 	return s;
 }
 
-void *memdup(const void *src, size_t len)
+static void *memdup(const void *src, size_t len)
 {
 	void *s = malloc(len);
 	if (s != NULL)
