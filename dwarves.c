@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "list.h"
 #include "dwarves.h"
 #include "dutil.h"
@@ -3482,11 +3483,8 @@ static int cus__load_module(Dwfl_Module *mod, void **userdata __unused,
 	size_t cuhl;
 	GElf_Addr vaddr;
 	const unsigned char *build_id = NULL;
-	/*
-	 * FIXME: check how to do this properly using cmake to test for
-	 * the existence of dwfl_module_build_id in the elfutils libraries.
-	 */
-#if 1
+
+#ifdef HAVE_DWFL_MODULE_BUILD_ID
 	int build_id_len = dwfl_module_build_id(mod, &build_id, &vaddr);
 #else
 	int build_id_len = 0;
