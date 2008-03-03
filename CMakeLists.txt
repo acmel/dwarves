@@ -30,7 +30,7 @@ find_package(DWARF REQUIRED)
 
 _set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${__LIB}" "libdir")
 
-set(dwarves_LIB_SRCS dwarves.c)
+set(dwarves_LIB_SRCS dwarves.c dwarf_loader.c)
 add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 target_link_libraries(dwarves ${DWARF_LIBRARIES})

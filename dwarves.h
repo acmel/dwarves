@@ -32,6 +32,10 @@ struct cus {
 #define HASHTAGS__SIZE (1UL << HASHTAGS__BITS)
 #define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
 
+struct tag;
+
+void hashtags__hash(struct list_head *hashtable, struct tag *tag);
+
 struct cu {
 	struct list_head node;
 	struct list_head tags;
@@ -455,6 +459,7 @@ extern void class__find_holes(struct class *self, const struct cu *cu);
 extern int class__has_hole_ge(const struct class *self, const uint16_t size);
 extern size_t class__fprintf(struct class *self, const struct cu *cu,
 			     const struct conf_fprintf *conf, FILE *fp);
+void enumeration__add(struct type *self, struct enumerator *enumerator);
 extern size_t enumeration__fprintf(const struct tag *tag_self,
 				   const struct cu *cu,
 				   const struct conf_fprintf *conf, FILE *fp);
@@ -469,6 +474,12 @@ extern size_t function__fprintf_stats(const struct tag *tag_self,
 				      const struct cu *cu,
 				      FILE *fp);
 
+void lexblock__add_inline_expansion(struct lexblock *self,
+				    struct inline_expansion *exp);
+void lexblock__add_label(struct lexblock *self, struct label *label);
+void lexblock__add_lexblock(struct lexblock *self, struct lexblock *child);
+void lexblock__add_tag(struct lexblock *self, struct tag *tag);
+void lexblock__add_variable(struct lexblock *self, struct variable *var);
 extern size_t lexblock__fprintf(const struct lexblock *self,
 				const struct cu *cu, struct function *function,
 				uint16_t indent, FILE *fp);
@@ -480,6 +491,7 @@ extern int cus__loadfl(struct cus *self, struct argp *argp,
 extern int cus__load(struct cus *self, const char *filename);
 extern int cus__load_dir(struct cus *self, const char *dirname,
 			 const char *filename_mask, const int recursive);
+void cus__add(struct cus *self, struct cu *cu);
 extern void cus__print_error_msg(const char *progname, const char *filename,
 				 const int err);
 extern struct cu *cus__find_cu_by_name(const struct cus *self,
@@ -496,8 +508,11 @@ extern struct tag *cus__find_function_by_name(const struct cus *self,
 extern struct tag *cus__find_tag_by_id(const struct cus *self,
 				       struct cu **cu, const Dwarf_Off id);
 
+struct cu *cu__new(const char *name, uint8_t addr_size,
+		   const unsigned char *build_id, int build_id_len);
 extern void cu__delete(struct cu *self);
 
+void cu__add_tag(struct cu *self, struct tag *tag);
 extern struct tag *cu__find_tag_by_id(const struct cu *self,
 				      const Dwarf_Off id);
 extern struct tag *cu__find_first_typedef_of_type(const struct cu *self,
@@ -546,6 +561,7 @@ static inline int function__inlined(const struct function *self)
 	        self->inlined == DW_INL_declared_inlined);
 }
 
+void ftype__add_parameter(struct ftype *self, struct parameter *parm);
 extern size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 			     const char *name, const int inlined,
 			     const int is_pointer, const int type_spacing,
@@ -554,6 +570,7 @@ extern int ftype__has_parm_of_type(const struct ftype *self,
 				   const struct tag *target,
 				   const struct cu *cu);
 
+void type__add_member(struct type *self, struct class_member *member);
 extern struct class_member *
 	type__find_first_biggest_size_base_type_member(struct type *self,
 						       const struct cu *cu);
@@ -570,6 +587,7 @@ extern uint32_t type__nr_members_of_type(const struct type *self,
 					 const Dwarf_Off type);
 extern struct class_member *type__last_member(struct type *self);
 
+void class__add_vtable_entry(struct class *self, struct function *vtable_entry);
 static inline struct class_member *
 	class__find_member_by_name(const struct class *self, const char *name)
 {
@@ -591,6 +609,8 @@ static inline int class__is_declaration(const struct class *self)
 	return self->type.declaration;
 }
 
+void namespace__add_tag(struct namespace *self, struct tag *tag);
+
 extern const char *variable__name(const struct variable *self,
 				  const struct cu *cu);
 extern const char *variable__type_name(const struct variable *self,
@@ -598,4 +618,6 @@ extern const char *variable__type_name(const struct variable *self,
 				       char *bf, size_t len);
 
 extern const char *dwarf_tag_name(const uint32_t tag);
+
+char *strings__add(const char *str);
 #endif /* _DWARVES_H_ */

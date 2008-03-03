@@ -1,3 +1,5 @@
+dwarf_loader.c
+dwarf_loader.h
 dwarves.c
 dwarves.h
 dwarves_emit.c
