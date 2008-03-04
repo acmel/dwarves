@@ -596,7 +596,8 @@ static int create_new_enumeration(struct ctf_state *sp, void *ptr,
 	u_int16_t i;
 	struct type *enumeration = type__new(DW_TAG_enumeration_type, id,
 					     ctf_string(ctf_get32(sp->ctf,
-							&tp->base.ctf_name), sp), 0);
+							&tp->base.ctf_name), sp),
+					     sizeof(int)); /* FIXME: is this always the case? */
 
 	if (enumeration == NULL)
 		oom("enumeration");
