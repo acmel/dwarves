@@ -42,21 +42,21 @@ static void zero_extend(const int regparm, const struct base_type *bt,
 {
 	const char *instr = "INVALID";
 
-	switch (bt->size) {
-	case 4: /* 32 bits */
+	switch (bt->bit_size) {
+	case 32:
 		instr = "sll";
 		break;
-	case 2: /* 16 bits */
+	case 16:
 		instr = "slw";
 		break;
-	case 1: /* 8 bits */
+	case 8:
 		instr = "slb";
 		break;
 	}
 
 	printf("\t%s\t$a%d, $a%d, 0"
 	       "\t/* zero extend $a%d(%s %s) from %zd to 64-bit */\n",
-	       instr, regparm, regparm, regparm, bt->name, parm, bt->size * 8);
+	       instr, regparm, regparm, regparm, bt->name, parm, bt->bit_size);
 }
 
 static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
@@ -74,7 +74,7 @@ static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
 		if (type->tag == DW_TAG_base_type) {
 			struct base_type *bt = tag__base_type(type);
 
-			if (bt->size < 8 &&
+			if (bt->bit_size < 64 &&
 			    strncmp(bt->name, "unsigned", 8) == 0) {
 				if (!needs_wrapper) {
 					printf("wrap_%s:\n", name);

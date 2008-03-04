@@ -549,7 +549,7 @@ static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
 
 		if (strcmp(bt->name, "long int") == 0 ||
 		    strcmp(bt->name, "long unsigned int") == 0)
-			bt->size = word_size;
+			bt->bit_size = word_size * 8;
 	}
 		break;
 	case DW_TAG_structure_type:

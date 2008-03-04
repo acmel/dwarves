@@ -276,7 +276,7 @@ struct class_member *
 reevaluate:
 		switch (type->tag) {
 		case DW_TAG_base_type:
-			member_size = tag__base_type(type)->size;
+			member_size = base_type__size(type);
 			break;
 		case DW_TAG_pointer_type:
 		case DW_TAG_reference_type:
@@ -785,7 +785,7 @@ size_t tag__size(const struct tag *self, const struct cu *cu)
 	switch (self->tag) {
 	case DW_TAG_pointer_type:
 	case DW_TAG_reference_type:	return cu->addr_size;
-	case DW_TAG_base_type:		return tag__base_type(self)->size;
+	case DW_TAG_base_type:		return base_type__size(self);
 	case DW_TAG_enumeration_type:	return tag__type(self)->size;
 	}
 

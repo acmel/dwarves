@@ -210,7 +210,7 @@ static struct base_type *base_type__new(Dwarf_Die *die)
 	if (self != NULL) {
 		tag__init(&self->tag, die);
 		self->name = strings__add(attr_string(die, DW_AT_name));
-		self->size = attr_numeric(die, DW_AT_byte_size);
+		self->bit_size = attr_numeric(die, DW_AT_byte_size) * 8;
 	}
 
 	return self;

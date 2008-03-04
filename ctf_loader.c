@@ -319,7 +319,7 @@ static struct base_type *base_type__new(const char *name, size_t size)
 
 	if (self != NULL) {
 		self->name = strings__add(name);
-		self->size = size / 8;
+		self->bit_size = size;
 	}
 	return self;
 }

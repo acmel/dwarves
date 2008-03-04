@@ -446,7 +446,7 @@ static void class__demote_bitfield_members(struct class *class,
 					   const struct base_type *old_type,
 					   const struct base_type *new_type)
 {
-	const uint8_t bit_diff = (old_type->size - new_type->size) * 8;
+	const uint8_t bit_diff = old_type->bit_size - new_type->bit_size;
 	struct class_member *member =
 		list_prepare_entry(from, class__tags(class), tag.node);
 

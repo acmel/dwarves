@@ -256,12 +256,17 @@ static inline int class__is_struct(const struct class *self)
 struct base_type {
 	struct tag	tag;
 	const char	*name;
-	size_t		size;
+	size_t		bit_size;
 };
 
 static inline struct base_type *tag__base_type(const struct tag *self)
 {
 	return (struct base_type *)self;
+}
+
+static inline size_t base_type__size(const struct tag *self)
+{
+	return tag__base_type(self)->bit_size / 8;
 }
 
 struct array_type {
