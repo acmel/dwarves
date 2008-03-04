@@ -27,13 +27,14 @@ endif (NOT CMAKE_BUILD_TYPE)
 
 add_definitions(-D_GNU_SOURCE)
 find_package(DWARF REQUIRED)
+find_package(ZLIB REQUIRED)
 
 _set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${__LIB}" "libdir")
 
-set(dwarves_LIB_SRCS dwarves.c dwarf_loader.c)
+set(dwarves_LIB_SRCS dwarves.c ctf_loader.c libctf.c dwarf_loader.c)
 add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
-target_link_libraries(dwarves ${DWARF_LIBRARIES})
+target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES})
 
 set(dwarves_emit_LIB_SRCS dwarves_emit.c)
 add_library(dwarves_emit SHARED ${dwarves_emit_LIB_SRCS})

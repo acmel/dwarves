@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include "config.h"
+#include "ctf_loader.h"
 #include "dwarf_loader.h"
 #include "list.h"
 #include "dwarves.h"
@@ -1292,8 +1293,10 @@ static size_t union__fprintf(struct type *self, const struct cu *cu,
 
 		if (type == NULL) {
 			tag__type_not_found(&pos->tag);
-			printed += fprintf(fp, "%.*s>>>ERROR: type for %s not "
-				     "found!\n", uconf.indent, tabs, pos->name);
+			printed += fprintf(fp, "%.*s>>>ERROR: type(%#llx) for %s not "
+					   "found!\n", uconf.indent, tabs,
+					   (unsigned long long)pos->tag.type,
+					   pos->name);
 			continue;
 		}
 
@@ -2096,8 +2099,10 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		type = cu__find_tag_by_id(cu, pos->tag.type);
 		if (type == NULL) {
 			tag__type_not_found(&pos->tag);
-			printed += fprintf(fp, "%.*s>>>ERROR: type for %s not "
-				     "found!\n", cconf.indent, tabs, pos->name);
+			printed += fprintf(fp, "%.*s>>>ERROR: type(%#llx) for %s not "
+					   "found!\n", cconf.indent, tabs,
+				     	   (unsigned long long)pos->tag.type,
+					   pos->name);
 			continue;
 		}
 
@@ -2513,7 +2518,12 @@ int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
 	 * for the magic types they support or just pass them the file,
 	 * unloading the shared object if it says its not the type they
 	 * support.
+	 * FIXME: for now we just check if no DWARF info was found
+	 * by looking at the list of CUs found:
 	 */
+	if (list_empty(&self->cus))
+		err = ctf__load(self, argp, argc, argv);
+
 	return err;
 }
 

@@ -1,3 +1,5 @@
+ctf_loader.c
+ctf_loader.h
 dwarf_loader.c
 dwarf_loader.h
 dwarves.c
@@ -32,3 +34,6 @@ lib/ctracer_relay.h
 lib/linux.blacklist.cu
 ostra/ostra-cg
 ostra/python/ostra.py
+ctf.h
+libctf.c
+libctf.h
