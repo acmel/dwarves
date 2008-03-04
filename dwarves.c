@@ -1290,6 +1290,13 @@ static size_t union__fprintf(struct type *self, const struct cu *cu,
 	type__for_each_member(self, pos) {
 		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
 
+		if (type == NULL) {
+			tag__type_not_found(&pos->tag);
+			printed += fprintf(fp, "%.*s>>>ERROR: type for %s not "
+				     "found!\n", uconf.indent, tabs, pos->name);
+			continue;
+		}
+
 		printed += fprintf(fp, "%.*s", uconf.indent, tabs);
 		printed += union_member__fprintf(pos, type, cu, &uconf, fp);
 		fputc('\n', fp);
