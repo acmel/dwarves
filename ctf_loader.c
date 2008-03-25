@@ -124,7 +124,7 @@ static void elf_symbol_iterate(struct ctf_state *sp,
 }
 #endif
 
-static void parse_elf(struct ctf_state *sp)
+static int parse_elf(struct ctf_state *sp)
 {
 	GElf_Ehdr ehdr;
 	GElf_Shdr shdr;
@@ -137,21 +137,19 @@ static void parse_elf(struct ctf_state *sp)
 	}
 
 	sec = elf_section_by_name(sp->elf, &ehdr, &shdr, ".SUNW_ctf");
-	if (!sec) {
-		fprintf(stderr, "File has no CTF section.\n");
-		exit(2);
-	}
+	if (!sec)
+		return -1;
 
 	data = elf_getdata(sec, NULL);
 	if (!data) {
 		fprintf(stderr, "Cannot get data of CTF section.\n");
-		exit(2);
+		return -1;
 	}
 
 	sp->ctf = ctf_begin(data->d_buf, data->d_size);
 	if (!sp->ctf) {
 		fprintf(stderr, "Cannot initialize CTF state.\n");
-		exit(2);
+		return -1;
 	}
 
 	if (shdr.sh_link != 0)
@@ -160,7 +158,7 @@ static void parse_elf(struct ctf_state *sp)
 		sec = elf_section_by_name(sp->elf, &ehdr, &shdr, ".symtab");
 
 	if (!sec)
-		return;
+		return 0;
 
 	if (gelf_getshdr(sec, &shdr) != NULL) {
 		sp->elf_syms = elf_getdata(sec, NULL);
@@ -169,6 +167,8 @@ static void parse_elf(struct ctf_state *sp)
 		sec = elf_getscn(sp->elf, shdr.sh_link);
 		sp->elf_symstrs = elf_getdata(sec, NULL);
 	}
+
+	return 0;
 }
 
 static char *ctf_string(u_int32_t ref, struct ctf_state *sp)
@@ -789,16 +789,17 @@ int ctf__load(struct cus *self, struct argp *argp __unused,
 
 	if (elf_version(EV_CURRENT) == EV_NONE) {
 		fprintf(stderr, "Cannot set libelf version.\n");
-		exit(2);
+		return -1;
 	}
 
 	state.elf = elf_begin(state.in_fd, ELF_C_READ_MMAP, NULL);
 	if (!state.elf) {
 		fprintf(stderr, "Cannot read ELF file.\n");
-		exit(2);
+		return -1;
 	}
 
-	parse_elf(&state);
+	if (parse_elf(&state))
+		return -1;
 
 	state.cu = cu__new("FIXME.c", 8, NULL, 0);
 	if (state.cu == NULL)
