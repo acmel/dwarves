@@ -2006,7 +2006,11 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 			printed += fprintf(fp, " %s", accessibility);
 
 		type = cu__find_tag_by_id(cu, tag_pos->type);
-		printed += fprintf(fp, " %s", type__name(tag__type(type), cu));
+		if (type != NULL)
+			printed += fprintf(fp, " %s", type__name(tag__type(type), cu));
+		else
+			printed += fprintf(fp, " <ERROR! %#llx NOT FOUND!>",
+					   (unsigned long long)tag_pos->type);
 	}
 
 	printed += fprintf(fp, " {\n");
