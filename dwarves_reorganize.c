@@ -587,6 +587,9 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			new_type_tag =
 				cu__find_base_type_of_size(cu, bytes_needed);
 
+			tag__assert_search_result(old_type_tag);
+			tag__assert_search_result(new_type_tag);
+
 			if (verbose)
 				fprintf(fp, "/* Demoting bitfield ('%s') "
 					"from '%s' to '%s' */\n",

@@ -109,6 +109,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 	}
 
 	type = cu__find_tag_by_id(cu, tdef->type);
+	tag__assert_search_result(type);
 
 	switch (type->tag) {
 	case DW_TAG_array_type:
@@ -119,6 +120,7 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 		break;
 	case DW_TAG_pointer_type:
 		ptr_type = cu__find_tag_by_id(cu, type->type);
+		tag__assert_search_result(ptr_type);
 		if (ptr_type->tag != DW_TAG_subroutine_type)
 			break;
 		type = ptr_type;

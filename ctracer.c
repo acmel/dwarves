@@ -367,6 +367,7 @@ static struct class *class__clone_base_types(const struct tag *tag_self,
 	type__for_each_data_member_safe(&clone->type, pos, next) {
 		struct tag *member_type = cu__find_tag_by_id(cu, pos->tag.type);
 
+		tag__assert_search_result(member_type);
 		if (!tag__is_base_type(member_type, cu)) {
 			next = class__remove_member(clone, cu, pos);
 			class_member__delete(pos);
@@ -508,6 +509,7 @@ static struct tag *pointer_filter(struct tag *tag, struct cu *cu, void *target_t
 	type__for_each_member(type, pos) {
 		struct tag *ctype = cu__find_tag_by_id(cu, pos->tag.type);
 
+		tag__assert_search_result(ctype);
 		if (ctype->tag == DW_TAG_pointer_type && ctype->type == target_type->namespace.tag.id)
 			return tag;
 	}
@@ -707,6 +709,7 @@ static int function__emit_probes(struct function *self, const struct cu *cu,
 	list_for_each_entry(pos, &self->proto.parms, tag.node) {
 		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
 
+		tag__assert_search_result(type);
 		if (type->tag != DW_TAG_pointer_type)
 			continue;
 
@@ -741,6 +744,7 @@ static int cu_emit_probes_iterator(struct cu *cu, void *cookie)
 	struct tag *target = cu__find_struct_by_name(cu, cookie, 0);
 	struct function *pos;
 
+	tag__assert_search_result(target);
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
 		if (methods__add(&probes_emitted, function__name(pos, cu)) != 0)
 			continue;
@@ -768,11 +772,14 @@ static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 
 	target = cu__find_struct_by_name(cu, class_name, 1);
 	pointer = cu__find_struct_by_name(cu, cookie, 0);
+	tag__assert_search_result(target);
+	tag__assert_search_result(pointer);
 
 	/* for now just for the first member that is a pointer */
 	type__for_each_member(tag__type(pointer), pos_member) {
 		struct tag *ctype = cu__find_tag_by_id(cu, pos_member->tag.type);
 
+		tag__assert_search_result(ctype);
 		if (ctype->tag == DW_TAG_pointer_type && ctype->type == target->id)
 			break;
 	}

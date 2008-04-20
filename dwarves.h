@@ -582,6 +582,12 @@ extern struct class_member *
 
 extern const char *tag__name(const struct tag *self, const struct cu *cu,
 			     char *bf, size_t len);
+extern void tag__not_found_die(const char *file, int line, const char *func);
+
+#define tag__assert_search_result(tag) \
+	do { if (!tag) tag__not_found_die(__FILE__,\
+					  __LINE__, __func__); } while (0)
+
 extern size_t tag__size(const struct tag *self, const struct cu *cu);
 extern size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu);
 extern struct tag *tag__follow_typedef(struct tag *tag, const struct cu *cu);

@@ -426,16 +426,20 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		    	continue;
 
 		type = cu__find_tag_by_id(cu, tag_pos->type);
+		tag__assert_search_result(type);
 		if (type->tag == DW_TAG_array_type) {
 			int i;
 			for (i = 0; i < tag__array_type(type)->dimensions; ++i)
 				array_multiplier *= tag__array_type(type)->nr_entries[i];
 
 			type = cu__find_tag_by_id(cu, type->type);
+			tag__assert_search_result(type);
 		}
 
-		if (type->tag == DW_TAG_typedef)
+		if (type->tag == DW_TAG_typedef) {
 			type = tag__follow_typedef(type, cu);
+			tag__assert_search_result(type);
+		}
 
 		switch (type->tag) {
 		case DW_TAG_base_type: {
@@ -503,6 +507,7 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 		    	continue;
 
 		type = cu__find_tag_by_id(cu, tag_pos->type);
+		tag__assert_search_result(type);
 		if (type->tag == DW_TAG_typedef)
 			type = tag__follow_typedef(type, cu);
 
@@ -644,6 +649,7 @@ static void print_structs_with_pointer_to(const struct structure *s)
 		type__for_each_member(&c->type, pos_member) {
 			struct tag *ctype = cu__find_tag_by_id(pos_structure->cu, pos_member->tag.type);
 
+			tag__assert_search_result(ctype);
 			if (ctype->tag == DW_TAG_pointer_type && ctype->type == type)
 				printf("%s: %s\n", class__name(c, pos_structure->cu), pos_member->name);
 		}

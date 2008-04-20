@@ -376,6 +376,7 @@ static void show_changed_member(char change, const struct class_member *member,
 	const struct tag *type = cu__find_tag_by_id(cu, member->tag.type);
 	char bf[128];
 
+	tag__assert_search_result(type);
 	printf("    %c%-26s %-21s /* %5u %5zd */\n",
 	       change, tag__name(type, cu, bf, sizeof(bf)), member->name,
 	       member->offset, tag__size(type, cu));

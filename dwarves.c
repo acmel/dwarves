@@ -145,11 +145,18 @@ void tag__delete(struct tag *self)
 	free(self);
 }
 
+void tag__not_found_die(const char *file, int line, const char *func)
+{
+	fprintf(stderr, "%s::%s(%d): tag not found, please report to "
+			"acme@ghostprotocols.net\n", file, func, line);
+	exit(1);
+}
+
 struct tag *tag__follow_typedef(struct tag *tag, const struct cu *cu)
 {
 	struct tag *type = cu__find_tag_by_id(cu, tag->type);
 
-	if (type->tag == DW_TAG_typedef)
+	if (type != NULL && type->tag == DW_TAG_typedef)
 		return tag__follow_typedef(type, cu);
 
 	return type;
@@ -216,9 +223,14 @@ static size_t array_type__fprintf(const struct tag *tag_self,
 {
 	struct array_type *self = tag__array_type(tag_self);
 	struct tag *type = cu__find_tag_by_id(cu, tag_self->type);
-	size_t printed = type__fprintf(type, cu, name, conf, fp);
+	size_t printed;
 	int i;
 
+	if (type == NULL)
+		return fprintf(fp, " <ERROR: type %#llx not found!>",
+				   (unsigned long long)tag_self->type);
+
+	printed = type__fprintf(type, cu, name, conf, fp);
 	for (i = 0; i < self->dimensions; ++i)
 		printed += fprintf(fp, "[%u]", self->nr_entries[i]);
 	return printed;
@@ -273,6 +285,11 @@ struct class_member *
 		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
 		size_t member_size = 0, power2;
 		struct class_member *inner = NULL;
+
+		if (type == NULL) {
+			tag__type_not_found(&pos->tag);
+			continue;
+		}
 reevaluate:
 		switch (type->tag) {
 		case DW_TAG_base_type:
@@ -292,8 +309,15 @@ reevaluate:
 		case DW_TAG_array_type:
 		case DW_TAG_const_type:
 		case DW_TAG_typedef:
-		case DW_TAG_volatile_type:
-			type = cu__find_tag_by_id(cu, type->type);
+		case DW_TAG_volatile_type: {
+			const struct tag *tag = type;
+
+			type = cu__find_tag_by_id(cu, type->id);
+			if (type == NULL) {
+				tag__type_not_found(tag);
+				continue;
+			}
+		}
 			goto reevaluate;
 		case DW_TAG_enumeration_type:
 			member_size = tag__type(type)->size;
@@ -384,9 +408,13 @@ static size_t imported_declaration__fprintf(const struct tag *self,
 					    const struct cu *cu, FILE *fp)
 {
 	char bf[512];
+	size_t printed = fprintf(fp, "using ::");
 	const struct tag *decl = cu__find_tag_by_id(cu, self->type);
 
-	return fprintf(fp, "using ::%s", tag__name(decl, cu, bf, sizeof(bf)));
+	if (decl == NULL)
+		printed += fprintf(fp, " <ERROR: type %#llx not found!>",
+				   (unsigned long long)self->type);
+	return printed + fprintf(fp, "%s", tag__name(decl, cu, bf, sizeof(bf)));
 }
 
 static size_t imported_module__fprintf(const struct tag *self,
@@ -2009,7 +2037,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		if (type != NULL)
 			printed += fprintf(fp, " %s", type__name(tag__type(type), cu));
 		else
-			printed += fprintf(fp, " <ERROR! %#llx NOT FOUND!>",
+			printed += fprintf(fp, " <ERROR: type %#llx not found!>",
 					   (unsigned long long)tag_pos->type);
 	}
 

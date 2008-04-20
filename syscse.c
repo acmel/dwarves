@@ -70,7 +70,7 @@ static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
 		const Dwarf_Off type_id = parameter__type(parm, cu);
 		struct tag *type = cu__find_tag_by_id(cu, type_id);
 
-		assert(type != NULL);
+		tag__assert_search_result(type);
 		if (type->tag == DW_TAG_base_type) {
 			struct base_type *bt = tag__base_type(type);
 
