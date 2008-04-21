@@ -88,6 +88,17 @@ static inline int tag__is_union(const struct tag *self)
 	return self->tag == DW_TAG_union_type;
 }
  
+struct ptr_to_member_type {
+	struct tag tag;
+	Dwarf_Off  containing_type;
+};
+
+static inline struct ptr_to_member_type *
+		tag__ptr_to_member_type(const struct tag *self)
+{
+	return (struct ptr_to_member_type *)self;
+}
+ 
 struct namespace {
 	struct tag	 tag;
 	const char	 *name;

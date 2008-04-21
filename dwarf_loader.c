@@ -203,6 +203,18 @@ static struct tag *tag__new(Dwarf_Die *die)
 	return self;
 }
 
+static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die)
+{
+	struct ptr_to_member_type *self = malloc(sizeof(*self));
+
+	if (self != NULL) {
+		tag__init(&self->tag, die);
+		self->containing_type = attr_type(die, DW_AT_containing_type);
+	}
+
+	return self;
+}
+
 static struct base_type *base_type__new(Dwarf_Die *die)
 {
 	struct base_type *self = zalloc(sizeof(*self));
@@ -537,6 +549,16 @@ static struct tag *die__create_new_tag(Dwarf_Die *die)
 			dwarf_tag_name(self->tag));
 
 	return self;
+}
+
+static struct tag *die__create_new_ptr_to_member_type(Dwarf_Die *die)
+{
+	struct ptr_to_member_type *self = ptr_to_member_type__new(die);
+
+	if (self == NULL)
+		oom("ptr_to_member_type__new");
+
+	return &self->tag;
 }
 
 static void die__process_class(Dwarf_Die *die,
@@ -900,6 +922,8 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	case DW_TAG_reference_type:
 	case DW_TAG_volatile_type:
 		return die__create_new_tag(die);
+	case DW_TAG_ptr_to_member_type:
+		return die__create_new_ptr_to_member_type(die);
 	case DW_TAG_enumeration_type:
 		return die__create_new_enumeration(die, cu);
 	case DW_TAG_namespace:

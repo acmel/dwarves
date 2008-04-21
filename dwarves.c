@@ -848,22 +848,22 @@ size_t tag__size(const struct tag *self, const struct cu *cu)
 }
 
 static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
-				 char *bf, size_t len, char ptr_char)
+				 char *bf, size_t len, const char *ptr_suffix)
 {
 	if (self->type == 0) /* No type == void */
-		snprintf(bf, len, "void %c", ptr_char);
+		snprintf(bf, len, "void %s", ptr_suffix);
 	else {
 		const struct tag *type = cu__find_tag_by_id(cu, self->type);
 
 		if (type == NULL) {
 			size_t l = tag__id_not_found_snprintf(bf, len,
 							      self->type);
-			snprintf(bf + l, len - l, " %c", ptr_char);
+			snprintf(bf + l, len - l, " %s", ptr_suffix);
 		} else {
-			char tmpbf[512];
-			snprintf(bf, len, "%s %c",
+			char tmpbf[1024];
+			snprintf(bf, len, "%s %s",
 				 tag__name(type, cu,
-					   tmpbf, sizeof(tmpbf)), ptr_char);
+					   tmpbf, sizeof(tmpbf)), ptr_suffix);
 		}
 	}
 
@@ -892,9 +892,26 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		strncpy(bf, function__name(tag__function(self), cu), len);
 		break;
 	case DW_TAG_pointer_type:
-		return tag__ptr_name(self, cu, bf, len, '*');
+		return tag__ptr_name(self, cu, bf, len, "*");
 	case DW_TAG_reference_type:
-		return tag__ptr_name(self, cu, bf, len, '&');
+		return tag__ptr_name(self, cu, bf, len, "&");
+	case DW_TAG_ptr_to_member_type: {
+		char suffix[512];
+		Dwarf_Off id = tag__ptr_to_member_type(self)->containing_type;
+
+		type = cu__find_tag_by_id(cu, id);
+		if (type != NULL)
+			snprintf(suffix, sizeof(suffix), "%s::*",
+				 class__name(tag__class(type), cu));
+		else {
+			size_t l = tag__id_not_found_snprintf(suffix,
+							      sizeof(suffix),
+							      id);
+			snprintf(suffix + l, sizeof(suffix) - l, "::*");
+		}
+
+		return tag__ptr_name(self, cu, bf, len, suffix);
+	}
 	case DW_TAG_volatile_type:
 	case DW_TAG_const_type:
 		type = cu__find_tag_by_id(cu, self->type);
