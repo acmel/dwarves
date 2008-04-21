@@ -1745,8 +1745,8 @@ static size_t ftype__fprintf_parms(const struct ftype *self,
 						  0, 0, 0, fp);
 			continue;
 		}
-print_it:
 		stype = tag__name(type, cu, sbf, sizeof(sbf));
+print_it:
 		printed += fprintf(fp, "%s%s%s", stype, name ? " " : "",
 				   name ?: "");
 	}
