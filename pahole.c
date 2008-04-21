@@ -26,6 +26,9 @@ static uint8_t word_size, original_word_size;
 static char *class__exclude_prefix;
 static size_t class__exclude_prefix_len;
 
+static char *class__include_prefix;
+static size_t class__include_prefix_len;
+
 static char *cu__exclude_prefix;
 static size_t cu__exclude_prefix_len;
 
@@ -349,6 +352,20 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 					    class__exclude_prefix_len) == 0)
 			return NULL;
 	}
+
+	if (class__include_prefix != NULL) {
+		if (name == NULL) {
+			const struct tag *tdef =
+				cu__find_first_typedef_of_type(cu, tag->id);
+			if (tdef != NULL)
+				name = class__name(tag__class(tdef), cu);
+		}
+
+		if (name != NULL && strncmp(class__include_prefix, name,
+					    class__include_prefix_len) != 0)
+			return NULL;
+	}
+
 
 	if (decl_exclude_prefix != NULL &&
 	    (tag->decl_file == NULL ||
@@ -820,6 +837,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "exclude PREFIXed classes",
 	},
 	{
+		.name = "prefix_filter",
+		.key  = 'y',
+		.arg  = "PREFIX",
+		.doc  = "include PREFIXed classes",
+	},
+	{
 		.name = "cu_exclude",
 		.key  = 'X',
 		.arg  = "PREFIX",
@@ -910,6 +933,9 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'x': class__exclude_prefix = arg;
 		  class__exclude_prefix_len = strlen(class__exclude_prefix);
 							break;
+        case 'y': class__include_prefix = arg;
+                  class__include_prefix_len = strlen(class__include_prefix);
+                                                        break;
 	case 'z':
 		hole_size_ge = atoi(arg);
 		if (!global_verbose)
