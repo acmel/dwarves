@@ -904,6 +904,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 		return die__create_new_enumeration(die, cu);
 	case DW_TAG_namespace:
 		return die__create_new_namespace(die, cu);
+	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
 		return die__create_new_class(die, cu);
 	case DW_TAG_subprogram:

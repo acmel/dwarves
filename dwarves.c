@@ -299,6 +299,7 @@ reevaluate:
 		case DW_TAG_reference_type:
 			member_size = cu->addr_size;
 			break;
+		case DW_TAG_class_type:
 		case DW_TAG_union_type:
 		case DW_TAG_structure_type:
 			if (tag__type(type)->nr_members == 0)
@@ -389,6 +390,7 @@ size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 						type__name(self, cu),
 						0, is_pointer, 0,
 						fp);
+	case DW_TAG_class_type:
 	case DW_TAG_structure_type: {
 		struct type *ctype = tag__type(type);
 
@@ -533,6 +535,7 @@ static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
 	case DW_TAG_structure_type:
 		return cu->language == DW_LANG_C_plus_plus ? "class " :
 							     "struct ";
+	case DW_TAG_class_type:		return "class";
 	case DW_TAG_union_type:		return "union ";
 	case DW_TAG_pointer_type:	return " *";
 	case DW_TAG_reference_type:	return " &";
@@ -767,6 +770,7 @@ static struct tag *list__find_tag_by_id(const struct list_head *self,
 
 		switch (pos->tag) {
 		case DW_TAG_namespace:
+		case DW_TAG_class_type:
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:
 			tag = list__find_tag_by_id(&tag__namespace(pos)->tags, id);
@@ -1149,11 +1153,13 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	case DW_TAG_array_type:
 		printed += array_type__fprintf(type, cu, name, conf, fp);
 		break;
+	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
 		ctype = tag__type(type);
 
 		if (type__name(ctype, cu) != NULL && !expand_types)
-			printed += fprintf(fp, "struct %-*s %s",
+			printed += fprintf(fp, "%s %-*s %s",
+					   type->tag == DW_TAG_class_type ? "class" : "struct",
 					   conf->type_spacing - 7,
 					   type__name(ctype, cu), name);
 		else {
@@ -1998,8 +2004,9 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 	struct tag *tag_pos;
 	const char *current_accessibility = NULL;
 	struct conf_fprintf cconf = conf ? *conf : conf_fprintf__defaults;
-	size_t printed = fprintf(fp, "%s%sstruct%s%s",
+	size_t printed = fprintf(fp, "%s%s%s%s%s",
 				 cconf.prefix ?: "", cconf.prefix ? " " : "",
+				 tself->namespace.tag.tag == DW_TAG_class_type ? "class" : "struct",
 				 type__name(tself, cu) ? " " : "",
 				 type__name(tself, cu) ?: "");
 	int indent = cconf.indent;
@@ -2397,6 +2404,7 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 	case DW_TAG_typedef:
 		printed += typedef__fprintf(self, cu, pconf, fp);
 		break;
+	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
 		printed += class__fprintf(tag__class(self), cu, pconf, fp);
 		break;

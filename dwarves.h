@@ -79,7 +79,8 @@ static inline int tag__is_namespace(const struct tag *self)
 
 static inline int tag__is_struct(const struct tag *self)
 {
-	return self->tag == DW_TAG_structure_type;
+	return self->tag == DW_TAG_structure_type ||
+	       self->tag == DW_TAG_class_type;
 }
 
 static inline int tag__is_union(const struct tag *self)
