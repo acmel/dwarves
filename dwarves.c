@@ -2582,11 +2582,11 @@ int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
 	return err;
 }
 
-void cus__print_error_msg(const char *progname, const char *filename,
-			  const int err)
+void cus__print_error_msg(const char *progname, const struct cus *cus,
+			  const char *filename, const int err)
 {
-	if (err == -EINVAL)
-		fprintf(stderr, "%s: couldn't load DWARF info from %s\n",
+	if (err == -EINVAL || (cus != NULL && list_empty(&cus->cus)))
+		fprintf(stderr, "%s: couldn't load debugging info from %s\n",
 		       progname, filename);
 	else
 		fprintf(stderr, "%s: %s\n", progname, strerror(err));

@@ -942,7 +942,7 @@ failure:
 	if (filename != NULL) {
 		err = cus__load(methods_cus, filename);
 		if (err != 0) {
-			cus__print_error_msg("ctracer", filename, err);
+			cus__print_error_msg("ctracer", methods_cus, filename, err);
 			return EXIT_FAILURE;
 		}
 	}

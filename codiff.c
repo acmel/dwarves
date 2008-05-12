@@ -696,7 +696,7 @@ failure:
 		dwfl_argv[2] = old_filename;
 		err = cus__loadfl(old_cus, NULL, 3, dwfl_argv);
 		if (err != 0) {
-			cus__print_error_msg("codiff", old_filename, err);
+			cus__print_error_msg("codiff", old_cus, old_filename, err);
 			return EXIT_FAILURE;
 		}
 	}
@@ -711,7 +711,7 @@ failure:
 		dwfl_argv[2] = new_filename;
 		err = cus__loadfl(new_cus, NULL, 3, dwfl_argv);
 		if (err != 0) {
-			cus__print_error_msg("codiff", new_filename, err);
+			cus__print_error_msg("codiff", new_cus, new_filename, err);
 			return EXIT_FAILURE;
 		}
 	}

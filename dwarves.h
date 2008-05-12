@@ -509,8 +509,8 @@ extern int cus__load(struct cus *self, const char *filename);
 extern int cus__load_dir(struct cus *self, const char *dirname,
 			 const char *filename_mask, const int recursive);
 void cus__add(struct cus *self, struct cu *cu);
-extern void cus__print_error_msg(const char *progname, const char *filename,
-				 const int err);
+extern void cus__print_error_msg(const char *progname, const struct cus *cus,
+				 const char *filename, const int err);
 extern struct cu *cus__find_cu_by_name(const struct cus *self,
 				       const char *name);
 extern struct tag *cu__find_base_type_by_name(const struct cu *self,
