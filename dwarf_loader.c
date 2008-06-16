@@ -721,7 +721,8 @@ static struct tag *die__create_new_variable(Dwarf_Die *die)
 	return &var->tag;
 }
 
-static struct tag *die__create_new_subroutine_type(Dwarf_Die *die)
+static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
+						   struct cu *cu)
 {
 	Dwarf_Die child;
 	struct ftype *ftype = ftype__new(die);
@@ -740,6 +741,14 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die)
 			break;
 		case DW_TAG_unspecified_parameters:
 			ftype->unspec_parms = 1;
+			break;
+		case DW_TAG_typedef: {
+			/*
+			 * First seen in inkscape
+			 */
+			struct tag *tag = die__create_new_typedef(die);
+			cu__add_tag(cu, tag);
+		}
 			break;
 		default:
 			cu__tag_not_handled(die);
@@ -934,7 +943,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	case DW_TAG_subprogram:
 		return die__create_new_function(die, cu);
 	case DW_TAG_subroutine_type:
-		return die__create_new_subroutine_type(die);
+		return die__create_new_subroutine_type(die, cu);
 	case DW_TAG_typedef:
 		return die__create_new_typedef(die);
 	case DW_TAG_union_type:
