@@ -563,8 +563,8 @@ static struct tag *alias_filter(struct tag *tag, struct cu *cu, void *target_tag
 	if (type->nr_members == 0)
 		return NULL;
 
-	first_member = list_entry(type->namespace.tags.next,
-				  struct class_member, tag.node);
+	first_member = list_first_entry(&type->namespace.tags,
+					struct class_member, tag.node);
 	target_type = tag__type(target_tag);
 	if (first_member->tag.type != target_type->namespace.tag.id)
 		return NULL;
