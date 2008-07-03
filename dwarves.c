@@ -2281,10 +2281,10 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 	if (!cconf.emit_stats)
 		goto out;
 
-	printed += fprintf(fp, "\n%.*s/* size: %zd, cachelines: %zd */",
+	printed += fprintf(fp, "\n%.*s/* size: %zd, cachelines: %zd, members: %u */",
 			   cconf.indent, tabs,
-			   tself->size, tag__nr_cachelines(class__tag(self),
-			   cu));
+			   tself->size, tag__nr_cachelines(class__tag(self), cu),
+			   tself->nr_members);
 	if (sum_holes > 0)
 		printed += fprintf(fp, "\n%.*s/* sum members: %u, holes: %d, "
 				   "sum holes: %u */",
