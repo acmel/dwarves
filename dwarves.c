@@ -829,9 +829,15 @@ size_t tag__size(const struct tag *self, const struct cu *cu)
 	case DW_TAG_enumeration_type:	return tag__type(self)->size;
 	}
 
-	if (self->type == 0) /* struct class: unions, structs */
-		size = tag__type(self)->size;
-	else {
+	if (self->type == 0) { /* struct class: unions, structs */
+		struct type *type = tag__type(self);
+
+		/* empty base optimization trick */
+		if (type->size == 1 && type->nr_members == 0)
+			size = 0;
+		else
+			size = tag__type(self)->size;
+	} else {
 		const struct tag *type = cu__find_tag_by_id(cu, self->type);
 
 		if (type == NULL) {
@@ -1627,7 +1633,8 @@ void class__find_holes(struct class *self, const struct cu *cu)
 		if (last->bit_size != 0)
 			self->bit_padding = (last_size * 8) - bit_sum;
 	} else
-		self->padding = ctype->size;
+		/* No members? Zero sized C++ class */
+		self->padding = 0;
 }
 
 /** class__has_hole_ge - check if class has a hole greater or equal to @size
@@ -2283,7 +2290,8 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 
 	printed += fprintf(fp, "\n%.*s/* size: %zd, cachelines: %zd, members: %u */",
 			   cconf.indent, tabs,
-			   tself->size, tag__nr_cachelines(class__tag(self), cu),
+			   tag__size(class__tag(self), cu),
+			   tag__nr_cachelines(class__tag(self), cu),
 			   tself->nr_members);
 	if (sum_holes > 0)
 		printed += fprintf(fp, "\n%.*s/* sum members: %u, holes: %d, "
@@ -2322,7 +2330,8 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 				   class_member__size(m, cu));
 	}
 
-	if (sum + sum_holes != tself->size - self->padding)
+	if (sum + sum_holes != tself->size - self->padding &&
+	    tself->nr_members != 0)
 		printed += fprintf(fp, "\n\n%.*s/* BRAIN FART ALERT! %zd != %u "
 				   "+ %u(holes), diff = %zd */\n",
 				   cconf.indent, tabs,
