@@ -1479,6 +1479,20 @@ const char *function__name(struct function *self, const struct cu *cu)
 	return self->name;
 }
 
+const char *function__prototype(const struct function *self,
+				const struct cu *cu, char *bf, size_t len) 
+{
+	FILE *bfp = fmemopen(bf, len, "w");
+
+	if (bfp != NULL) {
+		ftype__fprintf(&self->proto, cu, NULL, 0, 0, 0, bfp);
+		fclose(bfp);
+	} else
+		snprintf(bf, len, "<ERROR(%s): fmemopen failed!>", __func__);
+
+	return bf;
+}
+
 int ftype__has_parm_of_type(const struct ftype *self, const struct tag *target,
 			    const struct cu *cu)
 {

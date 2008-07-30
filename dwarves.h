@@ -382,6 +382,11 @@ static inline struct function *tag__function(const struct tag *self)
 	return (struct function *)self;
 }
 
+static inline struct tag *function__tag(const struct function *self)
+{
+	return (struct tag *)self;
+}
+
 /** 
  * function__for_each_parameter - iterate thru all the parameters
  * @self: struct function instance to iterate
@@ -490,6 +495,9 @@ extern const char *function__name(struct function *self, const struct cu *cu);
 extern size_t function__fprintf_stats(const struct tag *tag_self,
 				      const struct cu *cu,
 				      FILE *fp);
+extern const char *function__prototype(const struct function *self,
+				       const struct cu *cu,
+				       char *bf, size_t len);
 
 void lexblock__add_inline_expansion(struct lexblock *self,
 				    struct inline_expansion *exp);
