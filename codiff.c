@@ -93,6 +93,18 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 				cu->function_bytes_added += diff;
 			else
 				cu->function_bytes_removed += -diff;
+		} else {
+			char proto[1024], twin_proto[1024];
+
+			if (strcmp(function__prototype(function, cu,
+						       proto, sizeof(proto)),
+				   function__prototype(new_function, new_cu,
+						       twin_proto,
+						       sizeof(twin_proto))) != 0) {
+				++cu->nr_functions_changed;
+				function->priv = diff_info__new(function__tag(new_function),
+								new_cu, 0);
+			}
 		}
 	} else {
 		const size_t len = strlen(name);
@@ -348,6 +360,8 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 			       "should be the same name\n", __FUNCTION__,
 			       function->name, twin->name);
 		else {
+			char proto[1024], twin_proto[1024];
+
 			printf(" # %zd -> %zd", function__size(function),
 			       function__size(twin));
 			if (function->lexblock.nr_lexblocks !=
@@ -365,6 +379,12 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 				printf(", size inlines: %zd -> %zd",
 				       function->lexblock.size_inline_expansions,
 				       twin->lexblock.size_inline_expansions);
+
+			if (strcmp(function__prototype(function, cu,
+					     proto, sizeof(proto)),
+				   function__prototype(twin, di->cu,
+				   	     twin_proto, sizeof(twin_proto))) != 0)
+				printf(", prototype: %s -> %s", proto, twin_proto);
 			putchar('\n');
 		}
 	}
