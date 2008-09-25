@@ -105,54 +105,46 @@ err:
 	return -EINVAL;
 }
 
-struct ctf *ctf__new(void *orig_buf, size_t orig_size)
+static int ctf__load(struct ctf *self, void *orig_buf, size_t orig_size)
 {
 	struct ctf_header *hp = orig_buf;
-	struct ctf *self;
-	int swapped;
+	int err = -ENOTSUP;
 
+	if (hp->ctf_version != CTF_VERSION)
+		goto out;
+
+	err = -EINVAL;
 	if (hp->ctf_magic == CTF_MAGIC)
-		swapped = 0;
+		self->swapped = 0;
 	else if (hp->ctf_magic == CTF_MAGIC_SWAP)
-		swapped = 1;
-	else {
-		fprintf(stderr, "Bad CTF magic %04x.\n", hp->ctf_magic);
-		return NULL;
-	}
-
-	if (hp->ctf_version != CTF_VERSION) {
-		fprintf(stderr, "Bad CTF version %u, expected %u.\n",
-			hp->ctf_version, CTF_VERSION);
-		return NULL;
-	}
-
-	self = malloc(sizeof(*self));
-	if (!self) {
-		fprintf(stderr, "Ctf allocation failure.\n");
-		return NULL;
-	}
-
-	memset(self, 0, sizeof(*self));
-	self->swapped = swapped;
+		self->swapped = 1;
+	else
+		goto out;
 
 	if (!(hp->ctf_flags & CTF_FLAGS_COMPR)) {
+		err = -ENOMEM;
 		self->buf = malloc(orig_size);
-		if (!self->buf) {
-			fprintf(stderr, "Ctf buffer allocation failure.\n");
-			free(self);
-			return NULL;
+		if (self->buf != NULL) {
+			memcpy(self->buf, orig_buf, orig_size);
+			self->size = orig_size;
+			err = 0;
 		}
-		memcpy(self->buf, orig_buf, orig_size);
-		self->size = orig_size;
+	} else
+		err = ctf__decompress(self, orig_buf, orig_size);
+out:
+	return err;
+}
 
-		return self;
-	} else {
-		int err = ctf__decompress(self, orig_buf, orig_size);
+struct ctf *ctf__new(void *orig_buf, size_t orig_size)
+{
+	struct ctf *self = malloc(sizeof(*self));
 
-		if (err) {
-			fprintf(stderr, "Ctf decompression failure.\n");
+	if (self != NULL) {
+		memset(self, 0, sizeof(*self));
+		if (orig_buf != NULL &&
+		    ctf__load(self, orig_buf, orig_size) != 0) {
 			free(self);
-			return NULL;
+			self = NULL;
 		}
 	}
 
