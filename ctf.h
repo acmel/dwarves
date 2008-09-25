@@ -1,31 +1,31 @@
 #ifndef _CTF_H
 #define _CTF_H
 
-#include <sys/types.h>
+#include <stdint.h>
 
 struct ctf_header {
-	u_int16_t	ctf_magic;        /* Header magic value            */
+	uint16_t	ctf_magic;	/* Header magic value            */
 #define CTF_MAGIC	0xcff1
 #define CTF_MAGIC_SWAP	0xf1cf
 
-	u_int8_t	ctf_version;      /* Header version                */
+	uint8_t		ctf_version;	/* Header version                */
 #define CTF_VERSION	2
 
-	u_int8_t	ctf_flags;        /* Header flags                  */
+	uint8_t		ctf_flags;	/* Header flags                  */
 #define CTF_FLAGS_COMPR	0x01
 
-	u_int32_t	ctf_parent_label; /* Label of parent CTF object    */
-	u_int32_t	ctf_parent_name;  /* Name of parent CTF object     */
+	uint32_t	ctf_parent_label; /* Label of parent CTF object  */
+	uint32_t	ctf_parent_name;  /* Name of parent CTF object   */
 
 	/* All offsets are in bytes are relative to the end of
 	 * this header.
 	 */
-	u_int32_t	ctf_label_off;    /* Offset of label section       */
-	u_int32_t	ctf_object_off;   /* Offset of data object section */
-	u_int32_t	ctf_func_off;     /* Offset of function section    */
-	u_int32_t	ctf_type_off;     /* Offset of type section        */
-	u_int32_t	ctf_str_off;      /* Offset of string section      */
-	u_int32_t	ctf_str_len;      /* Length of string section      */
+	uint32_t	ctf_label_off;	/* Offset of label section       */
+	uint32_t	ctf_object_off;	/* Offset of data object section */
+	uint32_t	ctf_func_off;	/* Offset of function section    */
+	uint32_t	ctf_type_off;	/* Offset of type section        */
+	uint32_t	ctf_str_off;	/* Offset of string section      */
+	uint32_t	ctf_str_len;	/* Length of string section      */
 };
 
 #define CTF_REF_OFFSET(REF)	((REF) & 0x7fffffff)
@@ -36,28 +36,28 @@ struct ctf_header {
 #define CTF_REF_ENCODE(TBL, OFF) (((TBL) << 31) | (OFF))
 
 struct ctf_label_ent {
-	u_int32_t	ctf_label_ref;
-	u_int32_t	ctf_type_index;
+	uint32_t	ctf_label_ref;
+	uint32_t	ctf_type_index;
 };
 
 /* Types are encoded with ctf_short_type so long as the ctf_size
- * field can be fully represented in a u_int16_t.  If not, then
+ * field can be fully represented in a uint16_t.  If not, then
  * the ctf_size is given the value 0xffff and ctf_full_type is
  * used.
  */
 struct ctf_short_type {
-	u_int32_t		ctf_name;
-	u_int16_t		ctf_info;
+	uint32_t		ctf_name;
+	uint16_t		ctf_info;
 	union {
-		u_int16_t	ctf_size;
-		u_int16_t	ctf_type;
-	} u;
+		uint16_t	ctf_size;
+		uint16_t	ctf_type;
+	};
 };
 
 struct ctf_full_type {
 	struct ctf_short_type	base;
-	u_int32_t		ctf_size_high;
-	u_int32_t		ctf_size_low;
+	uint32_t		ctf_size_high;
+	uint32_t		ctf_size_low;
 };
 
 #define CTF_GET_KIND(VAL)	(((VAL) >> 11) & 0x1f)
@@ -119,14 +119,14 @@ struct ctf_full_type {
 #define CTF_TYPE_FP_MAX		12
 
 struct ctf_enum {
-	u_int32_t	ctf_enum_name;
-	u_int32_t	ctf_enum_val;
+	uint32_t	ctf_enum_name;
+	uint32_t	ctf_enum_val;
 };
 
 struct ctf_array {
-	u_int16_t	ctf_array_type;
-	u_int16_t	ctf_array_index_type;
-	u_int32_t	ctf_array_nelems;
+	uint16_t	ctf_array_type;
+	uint16_t	ctf_array_index_type;
+	uint32_t	ctf_array_nelems;
 };
 
 /* Struct members are encoded with either ctf_short_member or
@@ -138,17 +138,17 @@ struct ctf_array {
 #define CTF_SHORT_MEMBER_LIMIT	8192
 
 struct ctf_short_member {
-	u_int32_t	ctf_member_name;
-	u_int16_t	ctf_member_type;
-	u_int16_t	ctf_member_offset;
+	uint32_t	ctf_member_name;
+	uint16_t	ctf_member_type;
+	uint16_t	ctf_member_offset;
 };
 
 struct ctf_full_member {
-	u_int32_t	ctf_member_name;
-	u_int16_t	ctf_member_type;
-	u_int16_t	ctf_member_unused;
-	u_int32_t	ctf_member_offset_high;
-	u_int32_t	ctf_member_offset_low;
+	uint32_t	ctf_member_name;
+	uint16_t	ctf_member_type;
+	uint16_t	ctf_member_unused;
+	uint32_t	ctf_member_offset_high;
+	uint32_t	ctf_member_offset_low;
 };
 
 #endif /* _CTF_H */

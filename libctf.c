@@ -7,26 +7,26 @@
 #include "libctf.h"
 #include "ctf.h"
 
-struct Ctf {
+struct ctf {
 	void	*buf;
 	size_t	size;
 	int	swapped;
 };
 
-u_int16_t ctf_get16(Ctf *cp, u_int16_t *p)
+uint16_t ctf__get16(struct ctf *self, uint16_t *p)
 {
-	u_int16_t val = *p;
+	uint16_t val = *p;
 
-	if (cp->swapped)
+	if (self->swapped)
 		val = ((val >> 8) | (val << 8));
 	return val;
 }
 
-u_int32_t ctf_get32(Ctf *cp, u_int32_t *p)
+uint32_t ctf__get32(struct ctf *self, uint32_t *p)
 {
-	u_int32_t val = *p;
+	uint32_t val = *p;
 
-	if (cp->swapped)
+	if (self->swapped)
 		val = ((val >> 24) |
 		       ((val >> 8) & 0x0000ff00) |
 		       ((val << 8) & 0x00ff0000) |
@@ -34,16 +34,16 @@ u_int32_t ctf_get32(Ctf *cp, u_int32_t *p)
 	return val;
 }
 
-void ctf_put16(Ctf *cp, u_int16_t *p, u_int16_t val)
+void ctf__put16(struct ctf *self, uint16_t *p, uint16_t val)
 {
-	if (cp->swapped)
+	if (self->swapped)
 		val = ((val >> 8) | (val << 8));
 	*p = val;
 }
 
-void ctf_put32(Ctf *cp, u_int32_t *p, u_int32_t val)
+void ctf__put32(struct ctf *self, uint32_t *p, uint32_t val)
 {
-	if (cp->swapped)
+	if (self->swapped)
 		val = ((val >> 24) |
 		       ((val >> 8) & 0x0000ff00) |
 		       ((val << 8) & 0x00ff0000) |
@@ -51,7 +51,7 @@ void ctf_put32(Ctf *cp, u_int32_t *p, u_int32_t val)
 	*p = val;
 }
 
-static int decompress_ctf(struct Ctf *cp, void *orig_buf, size_t orig_size)
+static int ctf__decompress(struct ctf *self, void *orig_buf, size_t orig_size)
 {
 	struct ctf_header *hp = orig_buf;
 	const char *err_str;
@@ -59,8 +59,8 @@ static int decompress_ctf(struct Ctf *cp, void *orig_buf, size_t orig_size)
 	size_t len;
 	void *new;
 
-	len = (ctf_get32(cp, &hp->ctf_str_off) +
-	       ctf_get32(cp, &hp->ctf_str_len));
+	len = (ctf__get32(self, &hp->ctf_str_off) +
+	       ctf__get32(self, &hp->ctf_str_len));
 	new = malloc(len + sizeof(*hp));
 	if (!new) {
 		fprintf(stderr, "CTF decompression allocation failure.\n");
@@ -75,27 +75,27 @@ static int decompress_ctf(struct Ctf *cp, void *orig_buf, size_t orig_size)
 	state.avail_out = len;
 
 	if (inflateInit(&state) != Z_OK) {
-		err_str = "Ctf decompression inflateInit failure.";
+		err_str = "struct ctf decompression inflateInit failure.";
 		goto err;
 	}
 
 	if (inflate(&state, Z_FINISH) != Z_STREAM_END) {
-		err_str = "Ctf decompression inflate failure.";
+		err_str = "struct ctf decompression inflate failure.";
 		goto err;
 	}
 
 	if (inflateEnd(&state) != Z_OK) {
-		err_str = "Ctf decompression inflateEnd failure.";
+		err_str = "struct ctf decompression inflateEnd failure.";
 		goto err;
 	}
 
 	if (state.total_out != len) {
-		err_str = "Ctf decompression truncation error.";
+		err_str = "struct ctf decompression truncation error.";
 		goto err;
 	}
 
-	cp->buf = new;
-	cp->size = len + sizeof(*hp);
+	self->buf = new;
+	self->size = len + sizeof(*hp);
 
 	return 0;
 
@@ -105,10 +105,10 @@ err:
 	return -EINVAL;
 }
 
-Ctf *ctf_begin(void *orig_buf, size_t orig_size)
+struct ctf *ctf__new(void *orig_buf, size_t orig_size)
 {
 	struct ctf_header *hp = orig_buf;
-	struct Ctf *cp;
+	struct ctf *self;
 	int swapped;
 
 	if (hp->ctf_magic == CTF_MAGIC)
@@ -126,51 +126,51 @@ Ctf *ctf_begin(void *orig_buf, size_t orig_size)
 		return NULL;
 	}
 
-	cp = malloc(sizeof(*cp));
-	if (!cp) {
+	self = malloc(sizeof(*self));
+	if (!self) {
 		fprintf(stderr, "Ctf allocation failure.\n");
 		return NULL;
 	}
 
-	memset(cp, 0, sizeof(*cp));
-	cp->swapped = swapped;
+	memset(self, 0, sizeof(*self));
+	self->swapped = swapped;
 
 	if (!(hp->ctf_flags & CTF_FLAGS_COMPR)) {
-		cp->buf = malloc(orig_size);
-		if (!cp->buf) {
+		self->buf = malloc(orig_size);
+		if (!self->buf) {
 			fprintf(stderr, "Ctf buffer allocation failure.\n");
-			free(cp);
+			free(self);
 			return NULL;
 		}
-		memcpy(cp->buf, orig_buf, orig_size);
-		cp->size = orig_size;
+		memcpy(self->buf, orig_buf, orig_size);
+		self->size = orig_size;
 
-		return cp;
+		return self;
 	} else {
-		int err = decompress_ctf(cp, orig_buf, orig_size);
+		int err = ctf__decompress(self, orig_buf, orig_size);
 
 		if (err) {
 			fprintf(stderr, "Ctf decompression failure.\n");
-			free(cp);
+			free(self);
 			return NULL;
 		}
 	}
 
-	return cp;
+	return self;
 }
 
-void ctf_end(Ctf *cp)
+void ctf__delete(struct ctf *self)
 {
-	free(cp->buf);
-	free(cp);
+	free(self->buf);
+	free(self);
 }
 
-void *ctf_get_buffer(Ctf *cp)
+void *ctf__get_buffer(struct ctf *self)
 {
-	return cp->buf;
+	return self->buf;
 }
 
-size_t ctf_get_size(Ctf *cp)
+size_t ctf__get_size(struct ctf *self)
 {
-	return cp->size;
+	return self->size;
 }

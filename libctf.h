@@ -1,19 +1,17 @@
 #ifndef _LIBCTF_H
 #define _LIBCTF_H
 
-#include <sys/types.h>
+#include <stdint.h>
 
-typedef struct Ctf Ctf;
+struct ctf *ctf__new(void *buf, size_t size);
+void ctf__delete(struct ctf *ctf);
 
-extern Ctf *ctf_begin(void *buf, size_t size);
-extern void ctf_end(Ctf *ctf);
+uint16_t ctf__get16(struct ctf *self, uint16_t *p);
+uint32_t ctf__get32(struct ctf *self, uint32_t *p);
+void ctf__put16(struct ctf *self, uint16_t *p, uint16_t val);
+void ctf__put32(struct ctf *self, uint32_t *p, uint32_t val);
 
-extern u_int16_t ctf_get16(Ctf *cp, u_int16_t *p);
-extern u_int32_t ctf_get32(Ctf *cp, u_int32_t *p);
-extern void ctf_put16(Ctf *cp, u_int16_t *p, u_int16_t val);
-extern void ctf_put32(Ctf *cp, u_int32_t *p, u_int32_t val);
-
-extern void *ctf_get_buffer(Ctf *cp);
-extern size_t ctf_get_size(Ctf *cp);
+void *ctf__get_buffer(struct ctf *self);
+size_t ctf__get_size(struct ctf *self);
 
 #endif /* _LIBCTF_H */

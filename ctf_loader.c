@@ -39,7 +39,7 @@ static void oom(const char *msg)
 }
 
 struct ctf_state {
-	Ctf		*ctf;
+	struct ctf	*ctf;
 	Elf		*elf;
 	Elf_Data	*elf_syms;
 	Elf_Data	*elf_symstrs;
@@ -146,7 +146,7 @@ static int parse_elf(struct ctf_state *sp)
 		return -1;
 	}
 
-	sp->ctf = ctf_begin(data->d_buf, data->d_size);
+	sp->ctf = ctf__new(data->d_buf, data->d_size);
 	if (!sp->ctf) {
 		fprintf(stderr, "Cannot initialize CTF state.\n");
 		return -1;
@@ -171,32 +171,32 @@ static int parse_elf(struct ctf_state *sp)
 	return 0;
 }
 
-static char *ctf_string(u_int32_t ref, struct ctf_state *sp)
+static char *ctf_string(uint32_t ref, struct ctf_state *sp)
 {
-	struct ctf_header *hp = ctf_get_buffer(sp->ctf);
-	u_int32_t off = CTF_REF_OFFSET(ref);
+	struct ctf_header *hp = ctf__get_buffer(sp->ctf);
+	uint32_t off = CTF_REF_OFFSET(ref);
 	char *name;
 
 	if (CTF_REF_TBL_ID(ref) != CTF_STR_TBL_ID_0)
 		return "(external ref)";
 
-	if (off >= ctf_get32(sp->ctf, &hp->ctf_str_len))
+	if (off >= ctf__get32(sp->ctf, &hp->ctf_str_len))
 		return "(ref out-of-bounds)";
 
-	if ((off + ctf_get32(sp->ctf, &hp->ctf_str_off)) >=
-	    ctf_get_size(sp->ctf))
+	if ((off + ctf__get32(sp->ctf, &hp->ctf_str_off)) >=
+	    ctf__get_size(sp->ctf))
 		return "(string table truncated)";
 
-	name = ((char *)(hp + 1) + ctf_get32(sp->ctf, &hp->ctf_str_off) + off);
+	name = ((char *)(hp + 1) + ctf__get32(sp->ctf, &hp->ctf_str_off) + off);
 	if (name[0] == '\0')
 		return "(anonymous)";
 
 	return name;
 }
 
-static char *ctf_format_flt_attrs(u_int32_t eval, char *buf)
+static char *ctf_format_flt_attrs(uint32_t eval, char *buf)
 {
-	u_int32_t attrs = CTF_TYPE_FP_ATTRS(eval);
+	uint32_t attrs = CTF_TYPE_FP_ATTRS(eval);
 
 	buf[0] = '\0';
 
@@ -251,11 +251,11 @@ static char *ctf_format_flt_attrs(u_int32_t eval, char *buf)
 static int dump_one_func(struct ctf_state *sp, const char *sym_name,
 			 int sym_index, int call_index, void *data)
 {
-	u_int16_t **func_pp = data;
-	u_int16_t val = ctf_get16(sp->ctf, *func_pp);
-	u_int16_t type = CTF_GET_KIND(val);
-	u_int16_t vlen = CTF_GET_VLEN(val);
-	u_int16_t i;
+	uint16_t **func_pp = data;
+	uint16_t val = ctf__get16(sp->ctf, *func_pp);
+	uint16_t type = CTF_GET_KIND(val);
+	uint16_t vlen = CTF_GET_VLEN(val);
+	uint16_t i;
 
 	(*func_pp)++;
 
@@ -270,14 +270,14 @@ static int dump_one_func(struct ctf_state *sp, const char *sym_name,
 	fprintf(stdout, "  [%6d] %-36s %8d\n",
 		call_index, sym_name, sym_index);
 	fprintf(stdout, "           0x%04x   (",
-		ctf_get16(sp->ctf, *func_pp));
+		ctf__get16(sp->ctf, *func_pp));
 
 	(*func_pp)++;
 	for (i = 0; i < vlen; i++) {
 		if (i >= 1)
 			fprintf(stdout, ", ");
 
-		fprintf(stdout, "0x%04x", ctf_get16(sp->ctf, *func_pp));
+		fprintf(stdout, "0x%04x", ctf__get16(sp->ctf, *func_pp));
 		(*func_pp)++;
 	}
 	fprintf(stdout, ")\n");
@@ -287,9 +287,9 @@ static int dump_one_func(struct ctf_state *sp, const char *sym_name,
 
 static void dump_funcs(struct ctf_state *sp)
 {
-	struct ctf_header *hp = ctf_get_buffer(sp->ctf);
+	struct ctf_header *hp = ctf__get_buffer(sp->ctf);
 	struct elf_sym_iter_state estate;
-	u_int16_t *func_ptr;
+	uint16_t *func_ptr;
 
 	fprintf(stdout, "CTF Functions:\n");
 	fprintf(stdout,
@@ -300,8 +300,8 @@ static void dump_funcs(struct ctf_state *sp)
 		"Args\n");
 
 	memset(&estate, 0, sizeof(estate));
-	func_ptr = ctf_get_buffer(sp->ctf) + sizeof(*hp) +
-		ctf_get32(sp->ctf, &hp->ctf_func_off);
+	func_ptr = ctf__get_buffer(sp->ctf) + sizeof(*hp) +
+		ctf__get32(sp->ctf, &hp->ctf_func_off);
 	estate.data = &func_ptr;
 	estate.func = dump_one_func;
 	estate.st_type = STT_FUNC;
@@ -362,10 +362,10 @@ static int create_new_base_type(struct ctf_state *sp, void *ptr,
 				int vlen __unused, struct ctf_full_type *tp,
 				unsigned int id)
 {
-	u_int32_t *enc = ptr, name_idx;
+	uint32_t *enc = ptr, name_idx;
 	char name[64], *buf = name;
-	u_int32_t eval = ctf_get32(sp->ctf, enc);
-	u_int32_t attrs = CTF_TYPE_INT_ATTRS(eval);
+	uint32_t eval = ctf__get32(sp->ctf, enc);
+	uint32_t attrs = CTF_TYPE_INT_ATTRS(eval);
 	struct base_type *base;
 
 	if (attrs & CTF_TYPE_INT_SIGNED)
@@ -377,7 +377,7 @@ static int create_new_base_type(struct ctf_state *sp, void *ptr,
 	if (attrs & CTF_TYPE_INT_VARARGS)
 		buf += sprintf(buf, "varargs ");
 
-	name_idx = ctf_get32(sp->ctf, &tp->base.ctf_name);
+	name_idx = ctf__get32(sp->ctf, &tp->base.ctf_name);
 	buf += sprintf(buf, "%s", ctf_string(name_idx, sp));
 	base = base_type__new(name, CTF_TYPE_INT_BITS(eval));
 	if (base == NULL)
@@ -395,13 +395,13 @@ static int create_new_base_type_float(struct ctf_state *sp, void *ptr,
 				      struct ctf_full_type *tp,
 				      unsigned int id)
 {
-	u_int32_t *enc = ptr, eval;
+	uint32_t *enc = ptr, eval;
 	char name[64];
 	struct base_type *base;
 
-	eval = ctf_get32(sp->ctf, enc);
+	eval = ctf__get32(sp->ctf, enc);
 	sprintf(ctf_format_flt_attrs(eval, name), "%s",
-		ctf_string(ctf_get32(sp->ctf, &tp->base.ctf_name), sp));
+		ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp));
 
 	base = base_type__new(name, CTF_TYPE_FP_BITS(eval));
 	if (base == NULL)
@@ -433,10 +433,10 @@ static int create_new_array(struct ctf_state *sp, void *ptr,
 	if (self->nr_entries == NULL)
 		oom("array_type->nr_entries");
 
-	self->nr_entries[0] = ctf_get32(sp->ctf, &ap->ctf_array_nelems) - 1;
+	self->nr_entries[0] = ctf__get32(sp->ctf, &ap->ctf_array_nelems) - 1;
 	self->tag.tag = DW_TAG_array_type;
 	self->tag.id = id;
-	self->tag.type = ctf_get16(sp->ctf, &ap->ctf_array_type);
+	self->tag.type = ctf__get16(sp->ctf, &ap->ctf_array_type);
 
 	cu__add_tag(sp->cu, &self->tag);
 
@@ -447,10 +447,10 @@ static int create_new_subroutine_type(struct ctf_state *sp, void *ptr,
 				      int vlen, struct ctf_full_type *tp,
 				      unsigned int id)
 {
-	u_int16_t *args = ptr;
-	u_int16_t i;
-	const char *name = ctf_string(ctf_get32(sp->ctf, &tp->base.ctf_name), sp);
-	unsigned int type = ctf_get16(sp->ctf, &tp->base.u.ctf_type);
+	uint16_t *args = ptr;
+	uint16_t i;
+	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
+	unsigned int type = ctf__get16(sp->ctf, &tp->base.ctf_type);
 	struct function *self = zalloc(sizeof(*self));
 
 	if (self == NULL)
@@ -466,7 +466,7 @@ static int create_new_subroutine_type(struct ctf_state *sp, void *ptr,
 	INIT_LIST_HEAD(&self->lexblock.tags);
 
 	for (i = 0; i < vlen; i++) {
-		//fprintf(stdout, "0x%04x", ctf_get16(sp->ctf, &args[i]));
+		//fprintf(stdout, "0x%04x", ctf__get16(sp->ctf, &args[i]));
 	}
 
 	vlen *= sizeof(*args);
@@ -496,10 +496,10 @@ static unsigned long create_full_members(struct ctf_state *sp, void *ptr,
 			oom("class_member");
 
 		member->tag.tag = DW_TAG_member;
-		member->tag.type = ctf_get16(sp->ctf, &mp[i].ctf_member_type);
-		member->name = strings__add(ctf_string(ctf_get32(sp->ctf, &mp[i].ctf_member_name), sp));
-		bit_offset = (ctf_get32(sp->ctf, &mp[i].ctf_member_offset_high) << 16) |
-			      ctf_get32(sp->ctf, &mp[i].ctf_member_offset_low);
+		member->tag.type = ctf__get16(sp->ctf, &mp[i].ctf_member_type);
+		member->name = strings__add(ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
+		bit_offset = (ctf__get32(sp->ctf, &mp[i].ctf_member_offset_high) << 16) |
+			      ctf__get32(sp->ctf, &mp[i].ctf_member_offset_low);
 		member->offset = bit_offset / 8;
 		member->bit_offset = bit_offset % 8;
 		type__add_member(class, member);
@@ -523,9 +523,9 @@ static unsigned long create_short_members(struct ctf_state *sp, void *ptr,
 			oom("class_member");
 
 		member->tag.tag = DW_TAG_member;
-		member->tag.type = ctf_get16(sp->ctf, &mp[i].ctf_member_type);
-		member->name = strings__add(ctf_string(ctf_get32(sp->ctf, &mp[i].ctf_member_name), sp));
-		bit_offset = ctf_get16(sp->ctf, &mp[i].ctf_member_offset);
+		member->tag.type = ctf__get16(sp->ctf, &mp[i].ctf_member_type);
+		member->name = strings__add(ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
+		bit_offset = ctf__get16(sp->ctf, &mp[i].ctf_member_offset);
 		member->offset = bit_offset / 8;
 		member->bit_offset = bit_offset % 8;
 
@@ -538,10 +538,10 @@ static unsigned long create_short_members(struct ctf_state *sp, void *ptr,
 
 static int create_new_class(struct ctf_state *sp, void *ptr,
 			    int vlen, struct ctf_full_type *tp,
-			    u_int64_t size, unsigned int id)
+			    uint64_t size, unsigned int id)
 {
 	unsigned long member_size;
-	const char *name = ctf_string(ctf_get32(sp->ctf, &tp->base.ctf_name), sp);
+	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
 	struct class *self = class__new(name, id, size);
 
 	if (size >= CTF_SHORT_MEMBER_LIMIT) {
@@ -557,10 +557,10 @@ static int create_new_class(struct ctf_state *sp, void *ptr,
 
 static int create_new_union(struct ctf_state *sp, void *ptr,
 			    int vlen, struct ctf_full_type *tp,
-			    u_int64_t size, unsigned int id)
+			    uint64_t size, unsigned int id)
 {
 	unsigned long member_size;
-	const char *name = ctf_string(ctf_get32(sp->ctf, &tp->base.ctf_name), sp);
+	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
 	struct type *self = type__new(DW_TAG_union_type, id, name, size);
 
 	if (size >= CTF_SHORT_MEMBER_LIMIT) {
@@ -593,9 +593,9 @@ static int create_new_enumeration(struct ctf_state *sp, void *ptr,
 				  unsigned int id)
 {
 	struct ctf_enum *ep = ptr;
-	u_int16_t i;
+	uint16_t i;
 	struct type *enumeration = type__new(DW_TAG_enumeration_type, id,
-					     ctf_string(ctf_get32(sp->ctf,
+					     ctf_string(ctf__get32(sp->ctf,
 							&tp->base.ctf_name), sp),
 					     sizeof(int)); /* FIXME: is this always the case? */
 
@@ -603,8 +603,8 @@ static int create_new_enumeration(struct ctf_state *sp, void *ptr,
 		oom("enumeration");
 
 	for (i = 0; i < vlen; i++) {
-		char *name = ctf_string(ctf_get32(sp->ctf, &ep[i].ctf_enum_name), sp);
-		uint32_t value = ctf_get32(sp->ctf, &ep[i].ctf_enum_val);
+		char *name = ctf_string(ctf__get32(sp->ctf, &ep[i].ctf_enum_name), sp);
+		uint32_t value = ctf__get32(sp->ctf, &ep[i].ctf_enum_val);
 		struct enumerator *enumerator = enumerator__new(name, value);
 
 		if (enumerator == NULL)
@@ -621,9 +621,9 @@ static int create_new_enumeration(struct ctf_state *sp, void *ptr,
 
 static int create_new_forward_decl(struct ctf_state *sp, void *ptr __unused,
 				   int vlen __unused, struct ctf_full_type *tp,
-				   u_int64_t size, unsigned int id)
+				   uint64_t size, unsigned int id)
 {
-	char *name = ctf_string(ctf_get32(sp->ctf, &tp->base.ctf_name), sp);
+	char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
 	struct class *self = class__new(name, id, size);
 
 	if (self == NULL)
@@ -636,10 +636,10 @@ static int create_new_forward_decl(struct ctf_state *sp, void *ptr __unused,
 static int create_new_typedef(struct ctf_state *sp, int type,
 			      void *ptr __unused, int vlen __unused,
 			      struct ctf_full_type *tp,
-			      u_int64_t size, unsigned int id)
+			      uint64_t size, unsigned int id)
 {
-	const char *name = ctf_string(ctf_get32(sp->ctf, &tp->base.ctf_name), sp);
-	unsigned int type_id = ctf_get16(sp->ctf, &tp->base.u.ctf_type);
+	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
+	unsigned int type_id = ctf__get16(sp->ctf, &tp->base.ctf_type);
 	unsigned int tag;
 	struct type *self;
 
@@ -663,7 +663,7 @@ static int create_new_tag(struct ctf_state *sp, int type,
 			  void *ptr __unused, int vlen __unused,
 			  struct ctf_full_type *tp, unsigned int id)
 {
-	unsigned int type_id = ctf_get16(sp->ctf, &tp->base.u.ctf_type);
+	unsigned int type_id = ctf__get16(sp->ctf, &tp->base.ctf_type);
 	struct tag *self = zalloc(sizeof(*self));
 
 	if (self == NULL)
@@ -688,14 +688,14 @@ static int create_new_tag(struct ctf_state *sp, int type,
 
 static void load_types(struct ctf_state *sp)
 {
-	struct ctf_header *hp = ctf_get_buffer(sp->ctf);
+	struct ctf_header *hp = ctf__get_buffer(sp->ctf);
 	struct ctf_full_type *type_ptr, *end;
 	unsigned int type_index;
 
-	type_ptr = ctf_get_buffer(sp->ctf) + sizeof(*hp) +
-		ctf_get32(sp->ctf, &hp->ctf_type_off);
-	end = ctf_get_buffer(sp->ctf) + sizeof(*hp) +
-		ctf_get32(sp->ctf, &hp->ctf_str_off);
+	type_ptr = ctf__get_buffer(sp->ctf) + sizeof(*hp) +
+		ctf__get32(sp->ctf, &hp->ctf_type_off);
+	end = ctf__get_buffer(sp->ctf) + sizeof(*hp) +
+		ctf__get32(sp->ctf, &hp->ctf_str_off);
 
 	type_index = 0x0001;
 	if (hp->ctf_parent_name ||
@@ -703,20 +703,20 @@ static void load_types(struct ctf_state *sp)
 		type_index += 0x8000;
 
 	while (type_ptr < end) {
-		u_int16_t val, type, vlen, base_size;
-		u_int64_t size;
+		uint16_t val, type, vlen, base_size;
+		uint64_t size;
 		void *ptr;
 
-		val = ctf_get16(sp->ctf, &type_ptr->base.ctf_info);
+		val = ctf__get16(sp->ctf, &type_ptr->base.ctf_info);
 		type = CTF_GET_KIND(val);
 		vlen = CTF_GET_VLEN(val);
 
-		base_size = ctf_get16(sp->ctf, &type_ptr->base.u.ctf_size);
+		base_size = ctf__get16(sp->ctf, &type_ptr->base.ctf_size);
 		ptr = type_ptr;
 		if (base_size == 0xffff) {
-			size = ctf_get32(sp->ctf, &type_ptr->ctf_size_high);
+			size = ctf__get32(sp->ctf, &type_ptr->ctf_size_high);
 			size <<= 32;
-			size |= ctf_get32(sp->ctf, &type_ptr->ctf_size_low);
+			size |= ctf__get32(sp->ctf, &type_ptr->ctf_size_low);
 			ptr += sizeof(struct ctf_full_type);
 		} else {
 			size = base_size;
