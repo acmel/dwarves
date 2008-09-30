@@ -156,7 +156,7 @@ struct tag *tag__follow_typedef(struct tag *tag, const struct cu *cu)
 {
 	struct tag *type = cu__find_tag_by_id(cu, tag->type);
 
-	if (type != NULL && type->tag == DW_TAG_typedef)
+	if (type != NULL && tag__is_typedef(type))
 		return tag__follow_typedef(type, cu);
 
 	return type;
@@ -578,7 +578,7 @@ struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 		return NULL;
 
 	list_for_each_entry(pos, &self->tags, node)
-		if (pos->tag == DW_TAG_typedef && pos->type == type)
+		if (tag__is_typedef(pos) && pos->type == type)
 			return pos;
 
 	return NULL;
@@ -1129,7 +1129,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	if (expand_types) {
 		int typedef_expanded = 0;
 
-		while (type->tag == DW_TAG_typedef) {
+		while (tag__is_typedef(type)) {
 			ctype = tag__type(type);
 			if (typedef_expanded)
 				printed += fprintf(fp, " -> %s",

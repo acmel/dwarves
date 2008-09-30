@@ -83,6 +83,11 @@ static inline int tag__is_struct(const struct tag *self)
 	       self->tag == DW_TAG_class_type;
 }
 
+static inline int tag__is_typedef(const struct tag *self)
+{
+	return self->tag == DW_TAG_typedef;
+}
+
 static inline int tag__is_union(const struct tag *self)
 {
 	return self->tag == DW_TAG_union_type;

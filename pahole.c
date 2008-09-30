@@ -453,7 +453,7 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 			tag__assert_search_result(type);
 		}
 
-		if (type->tag == DW_TAG_typedef) {
+		if (tag__is_typedef(type)) {
 			type = tag__follow_typedef(type, cu);
 			tag__assert_search_result(type);
 		}
@@ -525,7 +525,7 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 
 		type = cu__find_tag_by_id(cu, tag_pos->type);
 		tag__assert_search_result(type);
-		if (type->tag == DW_TAG_typedef)
+		if (tag__is_typedef(type))
 			type = tag__follow_typedef(type, cu);
 
 		if (type->tag == DW_TAG_union_type)
