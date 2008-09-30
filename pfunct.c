@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "dwarves.h"
+#include "dwarves_emit.h"
 #include "dutil.h"
 
 static int verbose;
@@ -23,7 +24,9 @@ static int show_variables;
 static int show_externals;
 static int show_cc_inlined;
 static int show_cc_uninlined;
+static bool expand_types;
 
+struct cus *cus;
 static struct conf_fprintf conf;
 
 struct fn_stats {
@@ -297,6 +300,34 @@ static int cu_class_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, class_iterator, target, NULL);
 }
 
+static int function__emit_type_definitions(struct function *self,
+					   struct cus *cus, struct cu *cu,
+					   FILE *fp)
+{
+	struct parameter *pos;
+
+	function__for_each_parameter(self, pos) {
+		struct tag *type = cu__find_tag_by_id(cu, parameter__type(pos, cu));
+	try_again:
+		if (type == NULL)
+			continue;
+
+		if (type->tag == DW_TAG_pointer_type) {
+			type = cu__find_tag_by_id(cu, type->type);
+			goto try_again;
+		}
+
+		if (tag__is_type(type)) {
+			cus__emit_type_definitions(cus, cu, type, fp);
+			tag__type(type)->definition_emitted = 1;
+			type__emit(type, cu, NULL, NULL, fp);
+			putchar('\n');
+		}
+	}
+
+	return 0;
+}
+
 static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
 	struct function *function;
@@ -306,6 +337,9 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 	function = tag__function(tag);
 	if (strcmp(function__name(function, cu), cookie) == 0) {
+		if (expand_types)
+			function__emit_type_definitions(function, cus, cu,
+							stdout);
 		tag__fprintf(tag, cu, &conf, stdout);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
@@ -321,6 +355,11 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 }
 
 static const struct argp_option pfunct__options[] = {
+	{
+		.key  = 'b',
+		.name = "expand_types",
+		.doc  = "Expand types needed by the prototype",
+	},
 	{
 		.key  = 'c',
 		.name = "class",
@@ -418,6 +457,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 {
 	switch (key) {
 	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
+	case 'b': expand_types = true;			 break;
 	case 'c': class_name = arg;			 break;
 	case 'f': function_name = arg;			 break;
 	case 'E': show_externals = 1;			 break;
@@ -451,8 +491,8 @@ static struct argp pfunct__argp = {
 int main(int argc, char *argv[])
 {
 	int err;
-	struct cus *cus = cus__new(NULL, NULL);
 
+	cus = cus__new(NULL, NULL);
 	if (cus == NULL) {
 		fputs("pfunct: insufficient memory\n", stderr);
 		return EXIT_FAILURE;

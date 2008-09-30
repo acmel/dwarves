@@ -135,7 +135,6 @@ static int cus__emit_typedef_definitions(struct cus *self, struct cu *cu,
 			.suffix = NULL,
 		};
 
-		tag__fprintf_decl_info(type, fp);
 		if (type__name(ctype, cu) == NULL) {
 			fputs("typedef ", fp);
 			conf.suffix = type__name(def, cu);
@@ -228,7 +227,6 @@ next_indirection:
 			struct conf_fprintf conf = {
 				.suffix = NULL,
 			};
-			tag__fprintf_decl_info(type, fp);
 			return cus__emit_enumeration_definitions(self, type,
 								 cu, &conf, fp);
 		}

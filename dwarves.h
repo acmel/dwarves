@@ -92,6 +92,14 @@ static inline int tag__is_union(const struct tag *self)
 {
 	return self->tag == DW_TAG_union_type;
 }
+
+static inline int tag__is_type(const struct tag *self)
+{
+	return tag__is_union(self)   ||
+	       tag__is_struct(self)  ||
+	       tag__is_typedef(self) ||
+	       tag__is_enumeration(self);
+}
  
 struct ptr_to_member_type {
 	struct tag tag;

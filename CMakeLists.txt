@@ -72,7 +72,7 @@ target_link_libraries(pglobal dwarves)
 
 set(pfunct_SRCS pfunct.c )
 add_executable(pfunct ${pfunct_SRCS})
-target_link_libraries(pfunct dwarves)
+target_link_libraries(pfunct dwarves dwarves_emit)
 
 set(prefcnt_SRCS prefcnt.c)
 add_executable(prefcnt ${prefcnt_SRCS})
