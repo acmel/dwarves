@@ -472,7 +472,7 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 			break;
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:
-			if (type->tag == DW_TAG_union_type)
+			if (tag__is_union(type))
 				union__find_new_size(type, cu);
 			else
 				class__resize_LP(type, cu);
@@ -528,9 +528,9 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 		if (tag__is_typedef(type))
 			type = tag__follow_typedef(type, cu);
 
-		if (type->tag == DW_TAG_union_type)
+		if (tag__is_union(type))
 			union__find_new_size(type, cu);
-		else if (type->tag == DW_TAG_structure_type)
+		else if (tag__is_struct(type))
 			class__resize_LP(type, cu);
 
 		size = tag__size(type, cu);
@@ -549,8 +549,7 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
 					void *cookie)
 {
-	if (tag->tag == DW_TAG_structure_type ||
-	    tag->tag == DW_TAG_union_type) {
+	if (tag__is_struct(tag) || tag__is_union(tag)) {
 		struct tag *pos;
 
 		namespace__for_each_tag(tag__namespace(tag), pos)

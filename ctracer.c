@@ -494,7 +494,7 @@ static struct tag *pointer_filter(struct tag *tag, struct cu *cu, void *target_t
 	struct class_member *pos;
 	const char *class_name;
 
-	if (tag->tag != DW_TAG_structure_type)
+	if (!tag__is_struct(tag))
 		return NULL;
 
 	type = tag__type(tag);
@@ -556,7 +556,7 @@ static struct tag *alias_filter(struct tag *tag, struct cu *cu, void *target_tag
 	struct type *type, *target_type;
 	struct class_member *first_member;
 
-	if (tag->tag != DW_TAG_structure_type)
+	if (!tag__is_struct(tag))
 		return NULL;
 
 	type = tag__type(tag);
