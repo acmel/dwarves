@@ -61,8 +61,7 @@ static FILE *fp_classes;
  * List of definitions and forward declarations already emitted for
  * methods_cus, to avoid duplication.
  */
-static LIST_HEAD(cus__definitions);
-static LIST_HEAD(cus__fwd_decls);
+static struct type_emissions cus__emissions;
 
 /*
  * CU blacklist: if a "blacklist.cu" file is present, don't consider the
@@ -910,13 +909,15 @@ failure:
 	 */
 	dwarves__init(0);
 
+	type_emissions__init(&cus__emissions);
+
         /*
          * Create the methods_cus (Compilation Units) object where we will
 	 * load the objects where we'll look for functions pointers to the
 	 * specified class, i.e. to find its "methods", where we'll insert
 	 * the entry and exit hooks.
          */
-	methods_cus = cus__new(&cus__definitions, &cus__fwd_decls);
+	methods_cus = cus__new(&cus__emissions);
 	if (methods_cus == NULL) {
 		fputs("ctracer: insufficient memory\n", stderr);
 		return EXIT_FAILURE;

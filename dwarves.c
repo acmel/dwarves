@@ -2489,6 +2489,12 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 	return printed;
 }
 
+void type_emissions__init(struct type_emissions *self)
+{
+	INIT_LIST_HEAD(&self->definitions);
+	INIT_LIST_HEAD(&self->fwd_decls);
+}
+
 int cu__for_each_tag(struct cu *self,
 		     int (*iterator)(struct tag *tag, struct cu *cu,
 			     	     void *cookie),
@@ -2615,17 +2621,18 @@ void cus__print_error_msg(const char *progname, const struct cus *cus,
 		fprintf(stderr, "%s: %s\n", progname, strerror(err));
 }
 
-struct cus *cus__new(struct list_head *definitions,
-		     struct list_head *fwd_decls)
+struct cus *cus__new(struct type_emissions *emissions)
 {
-	struct cus *self = malloc(sizeof(*self));
+	struct cus *self = malloc(sizeof(*self) + (emissions ? 0 : sizeof(*emissions)));
 
 	if (self != NULL) {
 		INIT_LIST_HEAD(&self->cus);
-		INIT_LIST_HEAD(&self->priv_definitions);
-		INIT_LIST_HEAD(&self->priv_fwd_decls);
-		self->definitions = definitions ?: &self->priv_definitions;
-		self->fwd_decls = fwd_decls ?: &self->priv_fwd_decls;
+		if (emissions != NULL)
+			self->emissions = emissions;
+		else {
+			self->emissions = (struct type_emissions *)(self + 1);
+			type_emissions__init(self->emissions);
+		}
 	}
 
 	return self;

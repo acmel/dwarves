@@ -20,13 +20,19 @@
 
 struct argp;
 
-struct cus {
-	struct list_head cus;
-	struct list_head priv_definitions; /* struct type entries */
-	struct list_head priv_fwd_decls;   /* struct class entries */
-	struct list_head *definitions;
-	struct list_head *fwd_decls;
+struct type_emissions {
+	struct list_head definitions; /* struct type entries */
+	struct list_head fwd_decls;   /* struct class entries */
 };
+
+void type_emissions__init(struct type_emissions *self);
+
+struct cus {
+	struct list_head      cus;
+	struct type_emissions *emissions;
+};
+
+struct cus *cus__new(struct type_emissions *emissions);
 
 #define HASHTAGS__BITS 8
 #define HASHTAGS__SIZE (1UL << HASHTAGS__BITS)
@@ -522,8 +528,6 @@ extern size_t lexblock__fprintf(const struct lexblock *self,
 				const struct cu *cu, struct function *function,
 				uint16_t indent, FILE *fp);
 
-extern struct cus *cus__new(struct list_head *definitions,
-			    struct list_head *fwd_decls);
 extern int cus__loadfl(struct cus *self, struct argp *argp,
 		       int argc, char *argv[]);
 extern int cus__load(struct cus *self, const char *filename);

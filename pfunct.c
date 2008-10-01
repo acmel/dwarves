@@ -492,7 +492,7 @@ int main(int argc, char *argv[])
 {
 	int err;
 
-	cus = cus__new(NULL, NULL);
+	cus = cus__new(NULL);
 	if (cus == NULL) {
 		fputs("pfunct: insufficient memory\n", stderr);
 		return EXIT_FAILURE;

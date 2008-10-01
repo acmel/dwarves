@@ -959,7 +959,7 @@ int main(int argc, char *argv[])
 	struct cus *cus;
 	int err;
 
-	cus = cus__new(NULL, NULL);
+	cus = cus__new(NULL);
 	if (cus == NULL) {
 		fputs("pahole: insufficient memory\n", stderr);
 		return EXIT_FAILURE;

@@ -150,7 +150,7 @@ static int cu_lost_iterator(struct cu *cu, void *cookie)
 int main(int argc, char *argv[])
 {
 	int err;
-	struct cus *cus = cus__new(NULL, NULL);
+	struct cus *cus = cus__new(NULL);
 
 	if (cus == NULL) {
 		fputs("prefcnt: insufficient memory\n", stderr);

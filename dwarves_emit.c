@@ -20,14 +20,14 @@ static void cus__add_definition(struct cus *self, struct type *type)
 	type->definition_emitted = 1;
 	if (!list_empty(&type->node))
 		list_del(&type->node);
-	list_add_tail(&type->node, self->definitions);
+	list_add_tail(&type->node, &self->emissions->definitions);
 }
 
 static void cus__add_fwd_decl(struct cus *self, struct type *type)
 {
 	type->fwd_decl_emitted = 1;
 	if (list_empty(&type->node))
-		list_add_tail(&type->node, self->fwd_decls);
+		list_add_tail(&type->node, &self->emissions->fwd_decls);
 }
 
 struct type *cus__find_definition(const struct cus *self, const char *name)
@@ -37,7 +37,7 @@ struct type *cus__find_definition(const struct cus *self, const char *name)
 	if (name == NULL)
 		return NULL;
 
-	list_for_each_entry(pos, self->definitions, node)
+	list_for_each_entry(pos, &self->emissions->definitions, node)
 		if (type__name(pos, NULL) != NULL &&
 		    strcmp(type__name(pos, NULL), name) == 0)
 			return pos;
@@ -50,7 +50,7 @@ static struct type *cus__find_fwd_decl(const struct cus *self,
 {
 	struct type *pos;
 
-	list_for_each_entry(pos, self->fwd_decls, node)
+	list_for_each_entry(pos, &self->emissions->fwd_decls, node)
 		if (strcmp(type__name(pos, NULL), name) == 0)
 			return pos;
 

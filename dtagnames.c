@@ -42,7 +42,7 @@ static void cus__dump_class_tag_names(struct cus *self)
 int main(int argc, char *argv[])
 {
 	int err;
-	struct cus *cus = cus__new(NULL, NULL);
+	struct cus *cus = cus__new(NULL);
 
 	if (cus == NULL) {
 		fputs("dtagnames: insufficient memory\n", stderr);
