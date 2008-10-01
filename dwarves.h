@@ -20,13 +20,6 @@
 
 struct argp;
 
-struct type_emissions {
-	struct list_head definitions; /* struct type entries */
-	struct list_head fwd_decls;   /* struct class entries */
-};
-
-void type_emissions__init(struct type_emissions *self);
-
 struct cus {
 	struct list_head      cus;
 };

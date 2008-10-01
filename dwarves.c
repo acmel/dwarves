@@ -2489,12 +2489,6 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 	return printed;
 }
 
-void type_emissions__init(struct type_emissions *self)
-{
-	INIT_LIST_HEAD(&self->definitions);
-	INIT_LIST_HEAD(&self->fwd_decls);
-}
-
 int cu__for_each_tag(struct cu *self,
 		     int (*iterator)(struct tag *tag, struct cu *cu,
 			     	     void *cookie),

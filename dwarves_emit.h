@@ -11,12 +11,19 @@
 */
 
 #include <stdio.h>
+#include "list.h"
 
 struct cu;
 struct ftype;
 struct tag;
 struct type;
-struct type_emissions;
+
+struct type_emissions {
+	struct list_head definitions; /* struct type entries */
+	struct list_head fwd_decls;   /* struct class entries */
+};
+
+void type_emissions__init(struct type_emissions *self);
 
 int ftype__emit_definitions(struct ftype *self, struct cu *cu,
 			    struct type_emissions *emissions, FILE *fp);

@@ -15,6 +15,12 @@
 #include "dwarves_emit.h"
 #include "dwarves.h"
 
+void type_emissions__init(struct type_emissions *self)
+{
+	INIT_LIST_HEAD(&self->definitions);
+	INIT_LIST_HEAD(&self->fwd_decls);
+}
+
 static void type_emissions__add_definition(struct type_emissions *self,
 					   struct type *type)
 {
