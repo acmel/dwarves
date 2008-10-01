@@ -89,7 +89,7 @@ static struct argp pdwtags__argp = {
 int main(int argc, char *argv[])
 {
 	int err;
-	struct cus *cus = cus__new(NULL);
+	struct cus *cus = cus__new();
 
 	if (cus == NULL) {
 		fputs("pwdtags: insufficient memory\n", stderr);

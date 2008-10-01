@@ -27,7 +27,6 @@ static int show_cc_uninlined;
 static bool expand_types;
 static struct type_emissions emissions;
 
-struct cus *cus;
 static struct conf_fprintf conf;
 
 struct fn_stats {
@@ -490,8 +489,8 @@ static struct argp pfunct__argp = {
 int main(int argc, char *argv[])
 {
 	int err;
+	struct cus *cus = cus__new();
 
-	cus = cus__new(NULL);
 	if (cus == NULL) {
 		fputs("pfunct: insufficient memory\n", stderr);
 		return EXIT_FAILURE;

@@ -2621,19 +2621,12 @@ void cus__print_error_msg(const char *progname, const struct cus *cus,
 		fprintf(stderr, "%s: %s\n", progname, strerror(err));
 }
 
-struct cus *cus__new(struct type_emissions *emissions)
+struct cus *cus__new(void)
 {
-	struct cus *self = malloc(sizeof(*self) + (emissions ? 0 : sizeof(*emissions)));
+	struct cus *self = malloc(sizeof(*self));
 
-	if (self != NULL) {
+	if (self != NULL)
 		INIT_LIST_HEAD(&self->cus);
-		if (emissions != NULL)
-			self->emissions = emissions;
-		else {
-			self->emissions = (struct type_emissions *)(self + 1);
-			type_emissions__init(self->emissions);
-		}
-	}
 
 	return self;
 }

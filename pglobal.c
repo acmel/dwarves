@@ -1,4 +1,5 @@
 /*
+ *
  * Copyright (C) 2007 Davi E. M. Arnaut <davi@haxent.com.br>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -310,7 +311,7 @@ static struct argp pglobal__argp = {
 int main(int argc, char *argv[])
 {
 	int err;
-	struct cus *cus = cus__new(NULL);
+	struct cus *cus = cus__new();
 
 	if (cus == NULL) {
 		fputs("pglobal: insufficient memory\n", stderr);

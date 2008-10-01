@@ -29,10 +29,9 @@ void type_emissions__init(struct type_emissions *self);
 
 struct cus {
 	struct list_head      cus;
-	struct type_emissions *emissions;
 };
 
-struct cus *cus__new(struct type_emissions *emissions);
+struct cus *cus__new(void);
 
 #define HASHTAGS__BITS 8
 #define HASHTAGS__SIZE (1UL << HASHTAGS__BITS)

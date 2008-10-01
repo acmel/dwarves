@@ -61,7 +61,7 @@ static FILE *fp_classes;
  * List of definitions and forward declarations already emitted for
  * methods_cus, to avoid duplication.
  */
-static struct type_emissions cus__emissions;
+static struct type_emissions emissions;
 
 /*
  * CU blacklist: if a "blacklist.cu" file is present, don't consider the
@@ -632,13 +632,13 @@ static void emit_list_of_types(struct list_head *list)
 		 * Lets look at the other CUs, perhaps we have already
 		 * emmited this one
 		 */
-		if (type_emissions__find_definition(&cus__emissions,
+		if (type_emissions__find_definition(&emissions,
 						    class__name(tag__class(pos->class),
 							        pos->cu))) {
 			type->definition_emitted = 1;
 			continue;
 		}
-		type__emit_definitions(pos->class, pos->cu, &cus__emissions,
+		type__emit_definitions(pos->class, pos->cu, &emissions,
 				       fp_classes);
 		type->definition_emitted = 1;
 		type__emit(pos->class, pos->cu, NULL, NULL, fp_classes);
@@ -660,7 +660,7 @@ static int class__emit_classes(struct tag *tag_self, struct cu *cu)
 	if (mini_class == NULL)
 		goto out;
 
-	type__emit_definitions(tag_self, cu, &cus__emissions, fp_classes);
+	type__emit_definitions(tag_self, cu, &emissions, fp_classes);
 
 	type__emit(tag_self, cu, NULL, NULL, fp_classes);
 	fputs("\n/* class aliases */\n\n", fp_classes);
@@ -909,7 +909,7 @@ failure:
 	 */
 	dwarves__init(0);
 
-	type_emissions__init(&cus__emissions);
+	type_emissions__init(&emissions);
 
         /*
          * Create the methods_cus (Compilation Units) object where we will
@@ -917,7 +917,7 @@ failure:
 	 * specified class, i.e. to find its "methods", where we'll insert
 	 * the entry and exit hooks.
          */
-	methods_cus = cus__new(&cus__emissions);
+	methods_cus = cus__new();
 	if (methods_cus == NULL) {
 		fputs("ctracer: insufficient memory\n", stderr);
 		return EXIT_FAILURE;

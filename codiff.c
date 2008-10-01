@@ -695,8 +695,8 @@ failure:
 	dwarves__init(0);
 
 	structs_printed = strlist__new(false);
-	old_cus = cus__new(NULL);
-	new_cus = cus__new(NULL);
+	old_cus = cus__new();
+	new_cus = cus__new();
 	if (old_cus == NULL || new_cus == NULL || structs_printed == NULL) {
 		fputs("codiff: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
