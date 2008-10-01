@@ -632,14 +632,14 @@ static void emit_list_of_types(struct list_head *list)
 		 * Lets look at the other CUs, perhaps we have already
 		 * emmited this one
 		 */
-		if (cus__find_definition(methods_cus,
-					 class__name(tag__class(pos->class),
-					 pos->cu))) {
+		if (type_emissions__find_definition(&cus__emissions,
+						    class__name(tag__class(pos->class),
+							        pos->cu))) {
 			type->definition_emitted = 1;
 			continue;
 		}
-		cus__emit_type_definitions(methods_cus, pos->cu, pos->class,
-					   fp_classes);
+		type__emit_definitions(pos->class, pos->cu, &cus__emissions,
+				       fp_classes);
 		type->definition_emitted = 1;
 		type__emit(pos->class, pos->cu, NULL, NULL, fp_classes);
 		tag__type(pos->class)->definition_emitted = 1;
@@ -660,7 +660,7 @@ static int class__emit_classes(struct tag *tag_self, struct cu *cu)
 	if (mini_class == NULL)
 		goto out;
 
-	cus__emit_type_definitions(methods_cus, cu, tag_self, fp_classes);
+	type__emit_definitions(tag_self, cu, &cus__emissions, fp_classes);
 
 	type__emit(tag_self, cu, NULL, NULL, fp_classes);
 	fputs("\n/* class aliases */\n\n", fp_classes);
