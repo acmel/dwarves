@@ -8,9 +8,14 @@
   published by the Free Software Foundation.
 */
 
+#include "gobuffer.h"
+
 typedef unsigned int strings_t;
 
-struct strings;
+struct strings {
+	void		*tree;
+	struct gobuffer	gb;
+};
 
 struct strings *strings__new(void);
 
@@ -18,14 +23,30 @@ void strings__delete(struct strings *self);
 
 strings_t strings__add(struct strings *self, const char *str);
 
-const char *strings__ptr(const struct strings *self, strings_t s);
+static inline const char *strings__ptr(const struct strings *self, strings_t s)
+{
+	return gobuffer__ptr(&self->gb, s);
+}
 
-const char *strings__entries(const struct strings *self);
+static inline const char *strings__entries(const struct strings *self)
+{
+	return gobuffer__entries(&self->gb);
+}
 
-unsigned int strings__nr_entries(const struct strings *self);
+static inline unsigned int strings__nr_entries(const struct strings *self)
+{
+	return gobuffer__nr_entries(&self->gb);
+}
 
-strings_t strings__size(const struct strings *self);
+static inline strings_t strings__size(const struct strings *self)
+{
+	return gobuffer__size(&self->gb);
+}
 
-const char *strings__compress(struct strings *self, unsigned int *size);
+static inline const char *strings__compress(struct strings *self,
+					    unsigned int *size)
+{
+	return gobuffer__compress(&self->gb, size);
+}
 
 #endif /* _STRINGS_H_ */
