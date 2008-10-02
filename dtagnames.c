@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 	int err;
 	struct cus *cus = cus__new();
 
-	if (cus == NULL) {
+	if (dwarves__init(0) || cus == NULL) {
 		fputs("dtagnames: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
@@ -52,8 +52,6 @@ int main(int argc, char *argv[])
 	err = cus__loadfl(cus, NULL, argc, argv);
 	if (err != 0)
 		return EXIT_FAILURE;
-
-	dwarves__init(0);
 
 	cus__dump_class_tag_names(cus);
 	print_malloc_stats();

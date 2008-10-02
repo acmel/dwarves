@@ -56,7 +56,8 @@ static void zero_extend(const int regparm, const struct base_type *bt,
 
 	printf("\t%s\t$a%d, $a%d, 0"
 	       "\t/* zero extend $a%d(%s %s) from %zd to 64-bit */\n",
-	       instr, regparm, regparm, regparm, bt->name, parm, bt->bit_size);
+	       instr, regparm, regparm, regparm, base_type__name(bt),
+	       parm, bt->bit_size);
 }
 
 static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
@@ -75,7 +76,7 @@ static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
 			struct base_type *bt = tag__base_type(type);
 
 			if (bt->bit_size < 64 &&
-			    strncmp(bt->name, "unsigned", 8) == 0) {
+			    strncmp(base_type__name(bt), "unsigned", 8) == 0) {
 				if (!needs_wrapper) {
 					printf("wrap_%s:\n", name);
 					needs_wrapper = 1;

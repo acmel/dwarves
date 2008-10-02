@@ -313,7 +313,7 @@ int main(int argc, char *argv[])
 	int err;
 	struct cus *cus = cus__new();
 
-	if (cus == NULL) {
+	if (dwarves__init(0) || cus == NULL) {
 		fputs("pglobal: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
@@ -321,8 +321,6 @@ int main(int argc, char *argv[])
 	err = cus__loadfl(cus, &pglobal__argp, argc, argv);
 	if (err != 0)
 		return EXIT_FAILURE;
-
-	dwarves__init(0);
 
 	if (walk_var) {
 		cus__for_each_cu(cus, cu_extvar_iterator, NULL, NULL);

@@ -305,7 +305,8 @@ static size_t class__find_biggest_member_name(const struct class *self)
 	size_t biggest_name_len = 0;
 
 	type__for_each_data_member(&self->type, pos) {
-		const size_t len = pos->name ? strlen(pos->name) : 0;
+		const size_t len = pos->name ?
+					strlen(class_member__name(pos)) : 0;
 
 		if (len > biggest_name_len)
 			biggest_name_len = len;
@@ -329,7 +330,7 @@ static void class__emit_class_state_collector(struct class *self,
 		class__name(self, cu), class__name(clone, cu));
 	type__for_each_data_member(&clone->type, pos)
 		fprintf(fp_collector, "\tmini_obj->%-*s = obj->%s;\n",
-			len, pos->name, pos->name);
+			len, class_member__name(pos), class_member__name(pos));
 	fputs("}\n\n", fp_collector);
 }
 
@@ -468,10 +469,11 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 			plen -= n; p += n;
 		}
 		fprintf(fp_converter, "%%u");
-		n = snprintf(p, plen, "obj.%s", pos->name);
+		n = snprintf(p, plen, "obj.%s", class_member__name(pos));
 		plen -= n; p += n;
 		emit_struct_member_table_entry(fp_fields, field++,
-					       pos->name, 1, "entry,exit");
+					       class_member__name(pos),
+					       1, "entry,exit");
 	}
 	fprintf(fp_converter,
 		"\\n\",\n\t\t\t %s);\n"
@@ -717,12 +719,14 @@ static int function__emit_probes(struct function *self, const struct cu *cu,
 			continue;
 
 		if (member != NULL)
-			fprintf(fp_methods, "\tif ($%s)\n\t", pos->name);
+			fprintf(fp_methods, "\tif ($%s)\n\t",
+				parameter__name(pos, cu));
 
 		fprintf(fp_methods,
 			"\tctracer__method_hook(%d, %#llx, $%s%s%s, %zd);\n",
 			probe_type,
-			(unsigned long long)self->proto.tag.id, pos->name,
+			(unsigned long long)self->proto.tag.id,
+			parameter__name(pos, cu),
 			member ? "->" : "", member ?: "",
 			class__size(mini_class));
 		break;
@@ -788,8 +792,10 @@ static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 			continue;
 		pos_tag->priv = (void *)1; /* Mark as visited, for the table iterator */
 
-		function__emit_probes(pos_tag, cu, pointer, 0, pos_member->name); /* entry */
-		function__emit_probes(pos_tag, cu, pointer, 1, pos_member->name); /* exit */ 
+		function__emit_probes(pos_tag, cu, pointer, 0,
+				      class_member__name(pos_member)); /* entry */
+		function__emit_probes(pos_tag, cu, pointer, 1,
+				      class_member__name(pos_member)); /* exit */ 
 	}
 
 	return 0;
@@ -888,6 +894,11 @@ int main(int argc, char *argv[])
 	struct structure *pos;
 	FILE *fp_functions;
 
+	if (dwarves__init(0)) {
+		fputs("ctracer: insufficient memory\n", stderr);
+		return EXIT_FAILURE;
+	}
+
 	argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL);
 
 	if (remaining < argc) {
@@ -902,12 +913,6 @@ failure:
 		argp_help(&ctracer__argp, stderr, ARGP_HELP_SEE, "ctracer");
 		return EXIT_FAILURE;
 	}
-
-	/*
-         * Initialize libdwarves, for now just to get the machine L1 cacheline
-         * size, in the future may do more stuff.
-	 */
-	dwarves__init(0);
 
 	type_emissions__init(&emissions);
 

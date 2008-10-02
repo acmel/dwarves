@@ -228,7 +228,8 @@ static void print_classes(void (*formatter)(struct structure *s))
 				       savings);
 			else
 				printf("%s(%d)%c%zd%c%zd%c%zd\n",
-				       t->decl_file, t->decl_line, separator,
+				       tag__decl_file(t), t->decl_line,
+				       separator,
 				       orig_size, separator,
 				       new_size, separator,
 				       savings);
@@ -368,8 +369,8 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 
 
 	if (decl_exclude_prefix != NULL &&
-	    (tag->decl_file == NULL ||
-	     strncmp(decl_exclude_prefix, tag->decl_file,
+	    (!tag->decl_file ||
+	     strncmp(decl_exclude_prefix, tag__decl_file(tag),
 		     decl_exclude_prefix_len) == 0))
 		return NULL;
 
@@ -462,8 +463,8 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		case DW_TAG_base_type: {
 			struct base_type *bt = tag__base_type(type);
 
-			if (strcmp(bt->name, "long int") != 0 &&
-			    strcmp(bt->name, "long unsigned int") != 0)
+			if (strcmp(base_type__name(bt), "long int") != 0 &&
+			    strcmp(base_type__name(bt), "long unsigned int") != 0)
 				break;
 			/* fallthru */
 		}
@@ -565,11 +566,11 @@ static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
 		 * built with GNU C 4.3.0 20080130 (Red Hat 4.3.0-0.7),
 		 * one was found, so just bail out.
 		 */
-		if (bt->name == NULL)
+		if (!bt->name)
 			return 0;
 
-		if (strcmp(bt->name, "long int") == 0 ||
-		    strcmp(bt->name, "long unsigned int") == 0)
+		if (strcmp(base_type__name(bt), "long int") == 0 ||
+		    strcmp(base_type__name(bt), "long unsigned int") == 0)
 			bt->bit_size = word_size * 8;
 	}
 		break;
@@ -667,7 +668,8 @@ static void print_structs_with_pointer_to(const struct structure *s)
 
 			tag__assert_search_result(ctype);
 			if (ctype->tag == DW_TAG_pointer_type && ctype->type == type)
-				printf("%s: %s\n", class__name(c, pos_structure->cu), pos_member->name);
+				printf("%s: %s\n", class__name(c, pos_structure->cu),
+				       class_member__name(pos_member));
 		}
 	}
 }
@@ -956,11 +958,10 @@ static struct argp pahole__argp = {
 
 int main(int argc, char *argv[])
 {
-	struct cus *cus;
 	int err;
+	struct cus *cus = cus__new();
 
-	cus = cus__new();
-	if (cus == NULL) {
+	if (dwarves__init(cacheline_size) || cus == NULL) {
 		fputs("pahole: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
@@ -968,8 +969,6 @@ int main(int argc, char *argv[])
 	err = cus__loadfl(cus, &pahole__argp, argc, argv);
 	if (err != 0)
 		return EXIT_FAILURE;
-
-	dwarves__init(cacheline_size);
 
 	if (word_size != 0)
 		cus__for_each_cu(cus, cu_fixup_word_size_iterator, NULL, NULL);

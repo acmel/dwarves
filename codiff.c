@@ -165,7 +165,7 @@ static int check_print_change(const struct class_member *old,
 		printf("    %s\n"
 		       "     from: %-21s /* %5u(%u) %5zd(%d) */\n"
 		       "     to:   %-21s /* %5u(%u) %5zd(%u) */\n",
-		       old->name,
+		       class_member__name(old),
 		       old_type_name, old->offset, old->bit_offset,
 		       old_size, old->bit_size,
 		       new_type_name, new->offset, new->bit_offset,
@@ -185,7 +185,8 @@ static int check_print_members_changes(const struct class *structure,
 
 	type__for_each_member(&structure->type, member) {
 		struct class_member *twin =
-			class__find_member_by_name(new_structure, member->name);
+			class__find_member_by_name(new_structure,
+						   class_member__name(member));
 		if (twin != NULL)
 			if (check_print_change(member, cu, twin, new_cu, print))
 				changes = 1;
@@ -351,14 +352,16 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 	if (di->tag == NULL)
 		puts(cookie ? " (added)" : " (removed)");
 	else {
-		const struct function *twin = tag__function(di->tag);
+		struct function *twin = tag__function(di->tag);
 
 		if (twin->inlined)
 			puts(cookie ? " (uninlined)" : " (inlined)");
-		else if (strcmp(function->name, twin->name) != 0)
+		else if (strcmp(function__name(function, cu),
+				function__name(twin, di->cu)) != 0)
 			printf("%s: BRAIN FART ALERT: comparing %s to %s, "
 			       "should be the same name\n", __FUNCTION__,
-			       function->name, twin->name);
+			       function__name(function, cu),
+			       function__name(twin, di->cu));
 		else {
 			char proto[1024], twin_proto[1024];
 
@@ -398,7 +401,8 @@ static void show_changed_member(char change, const struct class_member *member,
 
 	tag__assert_search_result(type);
 	printf("    %c%-26s %-21s /* %5u %5zd */\n",
-	       change, tag__name(type, cu, bf, sizeof(bf)), member->name,
+	       change, tag__name(type, cu, bf, sizeof(bf)),
+	       class_member__name(member),
 	       member->offset, tag__size(type, cu));
 }
 
@@ -412,7 +416,8 @@ static void show_nr_members_changes(const struct class *structure,
 	/* Find the removed ones */
 	type__for_each_member(&structure->type, member) {
 		struct class_member *twin =
-			class__find_member_by_name(new_structure, member->name);
+			class__find_member_by_name(new_structure,
+						   class_member__name(member));
 		if (twin == NULL)
 			show_changed_member('-', member, cu);
 	}
@@ -420,7 +425,8 @@ static void show_nr_members_changes(const struct class *structure,
 	/* Find the new ones */
 	type__for_each_member(&new_structure->type, member) {
 		struct class_member *twin =
-			class__find_member_by_name(structure, member->name);
+			class__find_member_by_name(structure,
+						   class_member__name(member));
 		if (twin == NULL)
 			show_changed_member('+', member, new_cu);
 	}
@@ -673,6 +679,11 @@ int main(int argc, char *argv[])
 	char *dwfl_argv[4];
 	struct stat st;
 
+	if (dwarves__init(0)) {
+		fputs("codiff: insufficient memory\n", stderr);
+		return EXIT_FAILURE;
+	}
+
 	argp_parse(&codiff__argp, argc, argv, 0, &remaining, NULL);
 
 	if (remaining < argc) {
@@ -691,8 +702,6 @@ failure:
 	if (show_function_diffs == 0 && show_struct_diffs == 0 &&
 	    show_terse_type_changes == 0)
 		show_function_diffs = show_struct_diffs = 1;
-
-	dwarves__init(0);
 
 	structs_printed = strlist__new(false);
 	old_cus = cus__new();

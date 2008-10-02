@@ -29,6 +29,14 @@
 #include "list.h"
 #include "dwarves.h"
 #include "dutil.h"
+#include "strings.h"
+
+struct strings *strings;
+
+static inline const char *s(strings_t i)
+{
+	return strings__ptr(strings, i);
+}
 
 static const char *dwarf_tag_names[] = {
 	[DW_TAG_array_type]		  = "array_type",
@@ -108,37 +116,6 @@ static const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
 static size_t cacheline_size;
 
-static void *strings;
-
-static int strings__compare(const void *a, const void *b)
-{
-	return strcmp(a, b);
-}
-
-char *strings__add(const char *str)
-{
-	char **s;
-
-	if (str == NULL)
-		return NULL;
-
-	s = tsearch(str, &strings, strings__compare);
-	if (s != NULL) {
-		if (*s == str) {
-			char *dup = strdup(str);
-			if (dup != NULL)
-				*s = dup;
-			else {
-				tdelete(str, &strings, strings__compare);
-				return NULL;
-			}
-		}
-	} else
-		return NULL;
-
-	return *s;
-}
-
 void tag__delete(struct tag *self)
 {
 	assert(list_empty(&self->node));
@@ -216,7 +193,7 @@ size_t tag__fprintf_decl_info(const struct tag *self, FILE *fp)
 {
 	return fprintf(fp, "/* <%llx> %s:%u */\n",
 		       (unsigned long long)self->id,
-		       self->decl_file, self->decl_line);
+		       s(self->decl_file), self->decl_line);
 }
 
 static size_t type__fprintf(struct tag *type, const struct cu *cu,
@@ -264,7 +241,7 @@ void namespace__delete(struct namespace *self)
 const char *type__name(struct type *self, const struct cu *cu)
 {
 	/* Check if the tag doesn't comes with a DW_AT_name attribute... */
-	if (self->namespace.name == NULL &&
+	if (!self->namespace.name &&
 	    /* No? So it can have a DW_TAG_specification... */
 	    self->specification != 0 &&
 	    cu != NULL) {
@@ -277,7 +254,7 @@ const char *type__name(struct type *self, const struct cu *cu)
 		self->namespace.name = tag__type(tag)->namespace.name;
 	}
 
-	return self->namespace.name;
+	return s(self->namespace.name);
 }
 
 struct class_member *
@@ -434,7 +411,7 @@ static size_t imported_module__fprintf(const struct tag *self,
 	const char *name = "<IMPORTED MODULE ERROR!>";
 
 	if (tag__is_namespace(module))
-		name = tag__namespace(module)->name;
+		name = s(tag__namespace(module)->name);
 
 	return fprintf(fp, "using namespace %s", name);
 }
@@ -454,7 +431,7 @@ size_t enumeration__fprintf(const struct tag *tag_self, const struct cu *cu,
 
 	type__for_each_enumerator(self, pos)
 		printed += fprintf(fp, "%.*s\t%s = %u,\n", indent, tabs,
-				   pos->name, pos->value);
+				   s(pos->name), pos->value);
 
 	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
 				 conf->suffix ? " " : "", conf->suffix ?: "");
@@ -480,7 +457,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		INIT_LIST_HEAD(&self->tags);
 		INIT_LIST_HEAD(&self->tool_list);
 
-		self->name	= strings__add(name);
+		self->name	= strdup(name);
 		self->addr_size = addr_size;
 
 		self->nr_inline_expansions   = 0;
@@ -595,7 +572,7 @@ struct tag *cu__find_base_type_by_name(const struct cu *self, const char *name)
 		if (pos->tag == DW_TAG_base_type) {
 			const struct base_type *bt = tag__base_type(pos);
 
-			if (bt->name != NULL && strcmp(bt->name, name) == 0)
+			if (bt->name && strcmp(s(bt->name), name) == 0)
 				return pos;
 		}
 
@@ -690,7 +667,7 @@ struct cu *cus__find_cu_by_name(const struct cus *self, const char *name)
 	struct cu *pos;
 
 	list_for_each_entry(pos, &self->cus, node)
-		if (strcmp(pos->name, name) == 0)
+		if (pos->name && strcmp(pos->name, name) == 0)
 			return pos;
 
 	return NULL;
@@ -708,7 +685,7 @@ struct tag *cu__find_function_by_name(const struct cu *self, const char *name)
 		if (pos->tag != DW_TAG_subprogram)
 			continue;
 		fpos = tag__function(pos);
-		if (fpos->name != NULL && strcmp(fpos->name, name) == 0)
+		if (fpos->name && strcmp(s(fpos->name), name) == 0)
 			return pos;
 	}
 
@@ -886,12 +863,12 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	else switch (self->tag) {
 	case DW_TAG_base_type: {
 		const struct base_type *bt = tag__base_type(self);
-		const char *s = "nameless base type!";
+		const char *name = "nameless base type!";
 
-		if (bt->name != NULL)
-			s = bt->name;
+		if (bt->name)
+			name = s(bt->name);
 
-		strncpy(bf, s, len);
+		strncpy(bf, name, len);
 	}
 		break;
 	case DW_TAG_subprogram:
@@ -983,14 +960,14 @@ const char *variable__type_name(const struct variable *self,
 
 const char *variable__name(const struct variable *self, const struct cu *cu)
 {
-	if (self->name != NULL)
-		return self->name;
+	if (self->name)
+		return s(self->name);
 
 	if (self->abstract_origin != 0) {
 		struct variable *var =
 			cu__find_variable_by_id(cu, self->abstract_origin);
 		if (var != NULL)
-			return var->name;
+			return s(var->name);
 	}
 	return NULL;
 }
@@ -1044,7 +1021,7 @@ size_t class_member__size(const struct class_member *self,
 const char *parameter__name(struct parameter *self, const struct cu *cu)
 {
 	/* Check if the tag doesn't comes with a DW_AT_name attribute... */
-	if (self->name == NULL && self->abstract_origin != 0) {
+	if (!self->name && self->abstract_origin != 0) {
 		/* No? Does it have a DW_AT_abstract_origin? */
 		struct tag *alias =
 			cu__find_parameter_by_id(cu, self->abstract_origin);
@@ -1056,7 +1033,7 @@ const char *parameter__name(struct parameter *self, const struct cu *cu)
 		self->name = tag__parameter(alias)->name;
 	}
 
-	return self->name;
+	return s(self->name);
 }
 
 Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu)
@@ -1238,8 +1215,8 @@ static size_t struct_member__fprintf(struct class_member *self,
 	struct conf_fprintf sconf = *conf;
 	uint32_t offset = self->offset;
 	size_t printed = 0;
-	const char *name = self->name;
-	
+	const char *name = s(self->name);
+
 	if (!sconf.rel_offset) {
 		sconf.base_offset += self->offset;
 		offset = sconf.base_offset;
@@ -1265,8 +1242,8 @@ static size_t struct_member__fprintf(struct class_member *self,
 	    type__name(tag__type(type), cu) == NULL) {
 		if (!sconf.suppress_offset_comment) {
 			/* Check if this is a anonymous union */
-			const int slen = self->name != NULL ?
-						(int)strlen(self->name) : -1;
+			const int slen = self->name ?
+					(int)strlen(s(self->name)) : -1;
 			printed += fprintf(fp, "%*s/* %5u %5u */",
 					   (sconf.type_spacing +
 					    sconf.name_spacing - slen - 3),
@@ -1303,7 +1280,7 @@ static size_t union_member__fprintf(struct class_member *self,
 				    const struct conf_fprintf *conf, FILE *fp)
 {
 	const size_t size = tag__size(type, cu);
-	size_t printed = type__fprintf(type, cu, self->name, conf, fp);
+	size_t printed = type__fprintf(type, cu, s(self->name), conf, fp);
 	
 	if ((tag__is_union(type) || tag__is_struct(type) ||
 	     tag__is_enumeration(type)) &&
@@ -1311,7 +1288,7 @@ static size_t union_member__fprintf(struct class_member *self,
 	    type__name(tag__type(type), cu) == NULL) {
 		if (!conf->suppress_offset_comment) {
 			/* Check if this is a anonymous union */
-			const int slen = self->name != NULL ? (int)strlen(self->name) : -1;
+			const int slen = self->name ? (int)strlen(s(self->name)) : -1;
 			/*
 			 * Add the comment with the union size after padding the
 			 * '} member_name;' last line of the type printed in the
@@ -1439,7 +1416,8 @@ struct class *class__clone(const struct class *from,
 			self = NULL;
 		}
 		if (new_class_name != NULL)
-			self->type.namespace.name = strings__add(new_class_name);
+			self->type.namespace.name = strings__add(strings,
+								 new_class_name);
 	}
 
 	return self;
@@ -1460,7 +1438,7 @@ void lexblock__add_lexblock(struct lexblock *self, struct lexblock *child)
 const char *function__name(struct function *self, const struct cu *cu)
 {
 	/* Check if the tag doesn't comes with a DW_AT_name attribute... */
-	if (self->name == NULL) {
+	if (!self->name) {
 		/* No? So it must have a DW_AT_abstract_origin... */
 		struct tag *tag = cu__find_tag_by_id(cu,
 						     self->abstract_origin);
@@ -1476,7 +1454,7 @@ const char *function__name(struct function *self, const struct cu *cu)
 		self->name = tag__function(tag)->name;
 	}
 
-	return self->name;
+	return s(self->name);
 }
 
 const char *function__prototype(const struct function *self,
@@ -1675,7 +1653,7 @@ struct class_member *type__find_member_by_name(const struct type *self,
 	if (name != NULL) {
 		struct class_member *pos;
 		type__for_each_data_member(self, pos)
-			if (pos->name != NULL && strcmp(pos->name, name) == 0)
+			if (pos->name && strcmp(s(pos->name), name) == 0)
 				return pos;
 	}
 
@@ -1856,7 +1834,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		fputc('\n', fp);
 		++printed;
-		c = fprintf(fp, "%s:", label->name);
+		c = fprintf(fp, "%s:", s(label->name));
 		printed += c;
 	}
 		break;
@@ -2018,7 +1996,8 @@ static size_t class__vtable_fprintf(struct class *self,
 	list_for_each_entry(pos, &self->vtable, vtable_node) {
 		printed += fprintf(fp, "%.*s   [%d] = %s(%s), \n",
 				   conf->indent, tabs, pos->vtable_entry,
-				   pos->name, pos->linkage_name);
+				   s(pos->name),
+				   s(pos->linkage_name));
 	}
 
 	printed += fprintf(fp, "%.*s} */", conf->indent, tabs);
@@ -2340,7 +2319,8 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		struct class_member *m = type__find_first_biggest_size_base_type_member(tself, cu);
 
 		printed += fprintf(fp, "\n%.*s/* first biggest size base type member: %s %u %zd */",
-				   cconf.indent, tabs, m->name, m->offset,
+				   cconf.indent, tabs,
+				   s(m->name), m->offset,
 				   class_member__size(m, cu));
 	}
 
@@ -2382,7 +2362,7 @@ static size_t namespace__fprintf(const struct tag *tself, const struct cu *cu,
 {
 	struct namespace *self = tag__namespace(tself);
 	struct conf_fprintf cconf = *conf;
-	size_t printed = fprintf(fp, "namespace %s {\n", self->name);
+	size_t printed = fprintf(fp, "namespace %s {\n", s(self->name));
 	struct tag *pos;
 
 	++cconf.indent;
@@ -2479,8 +2459,9 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 	    !pconf->suppress_comments) {
 		const struct function *fself = tag__function(self);
 
-		if (fself->linkage_name != NULL)
-			printed += fprintf(fp, " /* linkage=%s */", fself->linkage_name);
+		if (fself->linkage_name)
+			printed += fprintf(fp, " /* linkage=%s */",
+					   s(fself->linkage_name));
 	}
 
 	if (pconf->expand_types)
@@ -2625,8 +2606,13 @@ struct cus *cus__new(void)
 	return self;
 }
 
-void dwarves__init(size_t user_cacheline_size)
+int dwarves__init(size_t user_cacheline_size)
 {
+	strings = strings__new();
+
+	if (strings == NULL)
+		return -ENOMEM;
+
 	if (user_cacheline_size == 0) {
 		long sys_cacheline_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
 
@@ -2636,4 +2622,6 @@ void dwarves__init(size_t user_cacheline_size)
 			cacheline_size = 64; /* Fall back to a sane value */
 	} else
 		cacheline_size = user_cacheline_size;
+
+	return 0;
 }

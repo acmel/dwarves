@@ -223,7 +223,7 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 	 * FIXME: remove this check and try to fix the parameter abstract
 	 * origin code someday...
 	 */
-	if (function->name == NULL)
+	if (!function->name)
 		return NULL;
 
 	name = function__name(function, cu);
@@ -491,7 +491,7 @@ int main(int argc, char *argv[])
 	int err;
 	struct cus *cus = cus__new();
 
-	if (cus == NULL) {
+	if (dwarves__init(0) || cus == NULL) {
 		fputs("pfunct: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
@@ -499,8 +499,6 @@ int main(int argc, char *argv[])
 	err = cus__loadfl(cus, &pfunct__argp, argc, argv);
 	if (err != 0)
 		return EXIT_FAILURE;
-
-	dwarves__init(0);
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, NULL);
 

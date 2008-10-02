@@ -24,6 +24,12 @@
 #include "dutil.h"
 #include "dwarves.h"
 
+/*
+ * FIXME: We should just get the table from the CTF ELF section
+ * and use it directly
+ */
+extern struct strings *strings;
+
 static void *zalloc(const size_t size)
 {
 	void *s = malloc(size);
@@ -318,7 +324,7 @@ static struct base_type *base_type__new(const char *name, size_t size)
         struct base_type *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->name = strings__add(name);
+		self->name = strings__add(strings, name);
 		self->bit_size = size;
 	}
 	return self;
@@ -332,7 +338,7 @@ static void type__init(struct type *self, uint16_t tag, unsigned int id,
 	self->size = size;
 	self->namespace.tag.id = id;
 	self->namespace.tag.tag = tag;
-	self->namespace.name = strings__add(name[0] == '(' ? NULL : name);
+	self->namespace.name = strings__add(strings, name[0] == '(' ? NULL : name);
 }
 
 static struct type *type__new(uint16_t tag, unsigned int id,
@@ -456,7 +462,7 @@ static int create_new_subroutine_type(struct ctf_state *sp, void *ptr,
 	if (self == NULL)
 		oom("function__new");
 
-	self->name = strings__add(name);
+	self->name = strings__add(strings, name);
 	INIT_LIST_HEAD(&self->vtable_node);
 	INIT_LIST_HEAD(&self->tool_node);
 	INIT_LIST_HEAD(&self->proto.parms);
@@ -497,7 +503,7 @@ static unsigned long create_full_members(struct ctf_state *sp, void *ptr,
 
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(sp->ctf, &mp[i].ctf_member_type);
-		member->name = strings__add(ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
+		member->name = strings__add(strings, ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
 		bit_offset = (ctf__get32(sp->ctf, &mp[i].ctf_member_offset_high) << 16) |
 			      ctf__get32(sp->ctf, &mp[i].ctf_member_offset_low);
 		member->offset = bit_offset / 8;
@@ -524,7 +530,7 @@ static unsigned long create_short_members(struct ctf_state *sp, void *ptr,
 
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(sp->ctf, &mp[i].ctf_member_type);
-		member->name = strings__add(ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
+		member->name = strings__add(strings, ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
 		bit_offset = ctf__get16(sp->ctf, &mp[i].ctf_member_offset);
 		member->offset = bit_offset / 8;
 		member->bit_offset = bit_offset % 8;
@@ -580,7 +586,7 @@ static struct enumerator *enumerator__new(const char *name,
 	struct enumerator *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->name = strings__add(name);
+		self->name = strings__add(strings, name);
 		self->value = value;
 		self->tag.tag = DW_TAG_enumerator;
 	}

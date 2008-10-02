@@ -135,7 +135,7 @@ static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 static int lost_iterator(struct tag *tag, struct cu *cu,
 			 void *cookie __unused)
 {
-	if (tag->refcnt == 0 && tag->decl_file != NULL) {
+	if (tag->refcnt == 0 && tag->decl_file) {
 		tag__fprintf(tag, cu, NULL, stdout);
 		puts(";\n");
 	}
@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
 	int err;
 	struct cus *cus = cus__new();
 
-	if (cus == NULL) {
+	if (dwarves__init(0) || cus == NULL) {
 		fputs("prefcnt: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
@@ -161,7 +161,6 @@ int main(int argc, char *argv[])
 	if (err != 0)
 		return EXIT_FAILURE;
 
-	dwarves__init(0);
 	cus__for_each_cu(cus, cu_refcnt_iterator, NULL, NULL);
 	cus__for_each_cu(cus, cu_lost_iterator, NULL, NULL);
 

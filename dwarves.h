@@ -17,6 +17,9 @@
 
 #include "list.h"
 #include "hash.h"
+#include "strings.h"
+
+extern struct strings *strings;
 
 struct argp;
 
@@ -58,7 +61,7 @@ struct tag {
 	struct list_head hash_node;
 	Dwarf_Off	 type;
 	Dwarf_Off	 id;
-	const char	 *decl_file;
+	strings_t	 decl_file;
 	uint16_t	 decl_line;
 	uint16_t	 tag;
 	uint16_t	 refcnt;
@@ -98,6 +101,11 @@ static inline int tag__is_type(const struct tag *self)
 	       tag__is_typedef(self) ||
 	       tag__is_enumeration(self);
 }
+
+static inline const char *tag__decl_file(const struct tag *self)
+{
+	return strings__ptr(strings, self->decl_file);
+}
  
 struct ptr_to_member_type {
 	struct tag tag;
@@ -112,9 +120,9 @@ static inline struct ptr_to_member_type *
  
 struct namespace {
 	struct tag	 tag;
-	const char	 *name;
-	struct list_head tags;
+	strings_t	 name;
 	uint16_t	 nr_tags;
+	struct list_head tags;
 };
 
 static inline struct namespace *tag__namespace(const struct tag *self)
@@ -278,7 +286,7 @@ static inline int class__is_struct(const struct class *self)
 
 struct base_type {
 	struct tag	tag;
-	const char	*name;
+	strings_t	name;
 	size_t		bit_size;
 };
 
@@ -290,6 +298,11 @@ static inline struct base_type *tag__base_type(const struct tag *self)
 static inline size_t base_type__size(const struct tag *self)
 {
 	return tag__base_type(self)->bit_size / 8;
+}
+
+static inline const char *base_type__name(const struct base_type *self)
+{
+	return strings__ptr(strings, self->name);
 }
 
 struct array_type {
@@ -305,7 +318,7 @@ static inline struct array_type *tag__array_type(const struct tag *self)
 
 struct class_member {
 	struct tag	 tag;
-	char		 *name;
+	strings_t	 name;
 	uint32_t	 offset;
 	uint8_t		 bit_offset;
 	uint8_t		 bit_size;
@@ -326,6 +339,12 @@ static inline struct class_member *tag__class_member(const struct tag *self)
 
 extern size_t class_member__size(const struct class_member *self,
 				 const struct cu *cu);
+
+static inline const char *class_member__name(const struct class_member *self)
+{
+	return strings__ptr(strings, self->name);
+}
+
 extern void class_member__delete(struct class_member *self);
 
 struct lexblock {
@@ -371,10 +390,10 @@ static inline struct ftype *tag__ftype(const struct tag *self)
 struct function {
 	struct ftype	 proto;
 	struct lexblock	 lexblock;
-	const char	 *name;
-	char		 *linkage_name;
 	Dwarf_Off	 abstract_origin;
 	Dwarf_Off	 specification;
+	strings_t	 name;
+	strings_t	 linkage_name;
 	size_t		 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;
 	uint8_t		 inlined:2;
@@ -408,7 +427,7 @@ static inline struct tag *function__tag(const struct function *self)
 
 struct parameter {
 	struct tag	 tag;
-	char		 *name;
+	strings_t	 name;
 	Dwarf_Off	 abstract_origin;
 };
 
@@ -430,8 +449,8 @@ enum vlocation {
 
 struct variable {
 	struct tag	 tag;
-	char		 *name;
 	Dwarf_Off	 abstract_origin;
+	strings_t	 name;
 	uint8_t		 external:1;
 	uint8_t		 declaration:1;
 	enum vlocation	 location;
@@ -457,13 +476,13 @@ static inline struct inline_expansion *
 
 struct label {
 	struct tag	 tag;
-	char		 *name;
+	strings_t	 name;
 	Dwarf_Addr	 low_pc;
 };
 
 struct enumerator {
 	struct tag	 tag;
-	const char	 *name;
+	strings_t	 name;
 	uint32_t	 value;
 };
 
@@ -486,7 +505,7 @@ struct conf_fprintf {
 	uint8_t	   show_first_biggest_size_base_type_member:1;
 };
 
-extern void dwarves__init(size_t user_cacheline_size);
+int dwarves__init(size_t user_cacheline_size);
 
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern int class__has_hole_ge(const struct class *self, const uint16_t size);
@@ -659,5 +678,4 @@ extern const char *variable__type_name(const struct variable *self,
 
 extern const char *dwarf_tag_name(const uint32_t tag);
 
-char *strings__add(const char *str);
 #endif /* _DWARVES_H_ */
