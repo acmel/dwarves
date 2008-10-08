@@ -891,7 +891,10 @@ static error_t pahole__options_parser(int key, char *arg,
 				      struct argp_state *state)
 {
 	switch (key) {
-	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
+	case ARGP_KEY_INIT:
+		if (state->child_inputs != NULL)
+			state->child_inputs[0] = state->input;
+		break;
 	case 'A': class__include_nested_anonymous = 1;	break;
 	case 'a': class__include_anonymous = 1;		break;
 	case 'B': nr_bit_holes = atoi(arg);		break;
