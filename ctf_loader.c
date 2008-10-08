@@ -439,7 +439,7 @@ static int create_new_array(struct ctf_state *sp, void *ptr,
 	if (self->nr_entries == NULL)
 		oom("array_type->nr_entries");
 
-	self->nr_entries[0] = ctf__get32(sp->ctf, &ap->ctf_array_nelems) - 1;
+	self->nr_entries[0] = ctf__get32(sp->ctf, &ap->ctf_array_nelems);
 	self->tag.tag = DW_TAG_array_type;
 	self->tag.id = id;
 	self->tag.type = ctf__get16(sp->ctf, &ap->ctf_array_type);
