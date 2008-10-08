@@ -21,10 +21,8 @@ static struct conf_fprintf conf = {
 static int emit_tag(struct tag *self, struct cu *cu, void *cookie __unused)
 {
 	if (self->tag != DW_TAG_array_type &&
-	    self->tag != DW_TAG_base_type &&
 	    self->tag != DW_TAG_const_type &&
 	    self->tag != DW_TAG_formal_parameter &&
-	    self->tag != DW_TAG_pointer_type &&
 	    self->tag != DW_TAG_reference_type &&
 	    self->tag != DW_TAG_subroutine_type &&
 	    self->tag != DW_TAG_volatile_type) {
@@ -33,7 +31,19 @@ static int emit_tag(struct tag *self, struct cu *cu, void *cookie __unused)
 
 		conf.no_semicolon = self->tag == DW_TAG_subprogram;
 
-		tag__fprintf(self, cu, &conf, stdout);
+		printf("%lld ", (unsigned long long)self->id);
+
+	    	if (self->tag == DW_TAG_base_type) {
+			const char *name = base_type__name(tag__base_type(self));
+
+			if (name == NULL)
+				printf("anonymous base_type\n");
+			else
+				puts(name);
+		} else if (self->tag == DW_TAG_pointer_type)
+			printf("pointer to %lld\n", (unsigned long long)self->type);
+		else
+			tag__fprintf(self, cu, &conf, stdout);
 
 		if (self->tag == DW_TAG_subprogram) {
 			struct function *fn = tag__function(self);
