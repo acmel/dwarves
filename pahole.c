@@ -118,7 +118,7 @@ static void structures__add(struct class *class, const struct cu *cu)
 	struct structure *str = structure__new(class, cu);
 
 	if (str != NULL)
-		list_add(&str->node, &structures__list);
+		list_add_tail(&str->node, &structures__list);
 }
 
 static void nr_definitions_formatter(struct structure *self)
