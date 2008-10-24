@@ -22,6 +22,9 @@ struct strings *strings__new(void);
 void strings__delete(struct strings *self);
 
 strings_t strings__add(struct strings *self, const char *str);
+strings_t strings__find(struct strings *self, const char *str);
+
+int strings__cmp(const struct strings *self, strings_t a, strings_t b);
 
 static inline const char *strings__ptr(const struct strings *self, strings_t s)
 {

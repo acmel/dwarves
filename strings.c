@@ -88,3 +88,24 @@ strings_t strings__add(struct strings *self, const char *str)
 
 	return index;
 }
+
+strings_t strings__find(struct strings *self, const char *str)
+{
+	strings_t *s;
+	struct search_key key = {
+		.self = self,
+		.str = str,
+	};
+
+	if (str == NULL)
+		return 0;
+
+	s = tfind(&key, &self->tree, strings__compare);
+	return s ? *s : 0;
+}
+ 
+int strings__cmp(const struct strings *self, strings_t a, strings_t b)
+{
+	return a == b ? 0 : strcmp(strings__ptr(self, a),
+				   strings__ptr(self, b));
+}
