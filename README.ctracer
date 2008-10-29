@@ -8,6 +8,10 @@ Basic instructions to use ctracer:
    The .src.rpm is there in case you want to rebuild it for another
    rpm based distro.
 
+   Since fedora 9 you just have to run:
+
+   yum install dwarves
+
 2. build the kernel with CONFIG_DEBUG_INFO=y, i.e. gcc -g, that will
    insert the DWARF info needed by all the pahole tools, ctracer, etc, or
    just install the kernel-debuginfo rpm package on FC6, other distros
