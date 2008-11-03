@@ -165,9 +165,11 @@ static struct structure *structures__find(strings_t name)
 	struct structure *s = NULL;
 
 	if (name) {
-		s = tfind(&name, &structures__tree, structure__compare);
+		struct structure **key = tfind(&name, &structures__tree, structure__compare);
 
-		if (!s && class__include_anonymous)
+		if (key != NULL)
+			s = *key;
+		else if (class__include_anonymous)
 			s = structures__find_anonymous(name);
 	}
 
