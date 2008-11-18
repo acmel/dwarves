@@ -453,7 +453,10 @@ static error_t pfunct__options_parser(int key, char *arg,
 				      struct argp_state *state)
 {
 	switch (key) {
-	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
+	case ARGP_KEY_INIT:
+		if (state->child_inputs != NULL)
+			state->child_inputs[0] = state->input;
+		break;
 	case 'b': expand_types = true;
 		  type_emissions__init(&emissions);	 break;
 	case 'c': class_name = arg;			 break;

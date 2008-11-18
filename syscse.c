@@ -121,7 +121,8 @@ static error_t options_parser(int key, char *arg, struct argp_state *state)
 {
 	switch (key) {
 	case ARGP_KEY_INIT:
-		state->child_inputs[0] = state->input;
+		if (state->child_inputs != NULL)
+			state->child_inputs[0] = state->input;
 		break;
 	case 'p':
 		prefix = arg;

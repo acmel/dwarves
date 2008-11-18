@@ -81,7 +81,10 @@ static error_t pdwtags__options_parser(int key, char *arg __unused,
 				      struct argp_state *state)
 {
 	switch (key) {
-	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
+	case ARGP_KEY_INIT:
+		if (state->child_inputs != NULL)
+			state->child_inputs[0] = state->input;
+		break;
 	case 'V': conf.show_decl_info = 1;		break;
 	default:  return ARGP_ERR_UNKNOWN;
 	}

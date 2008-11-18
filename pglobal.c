@@ -291,7 +291,10 @@ static error_t pglobal__options_parser(int key, char *arg __unused,
 				      struct argp_state *state)
 {
 	switch (key) {
-	case ARGP_KEY_INIT: state->child_inputs[0] = state->input; break;
+	case ARGP_KEY_INIT:
+		if (state->child_inputs != NULL)
+			state->child_inputs[0] = state->input;
+		break;
 	case 'v': walk_var = 1;		break;
 	case 'f': walk_fun = 1;		break;
 	case 'V': verbose = 1;		break;
