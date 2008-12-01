@@ -1083,7 +1083,8 @@ static int with_executable_option(int argc, char *argv[])
 	return 0;
 }
 
-int dwarf__load(struct cus *self, struct argp *argp, int argc, char *argv[])
+int dwarf__load(struct cus *self, struct argp *argp, int argc, char *argv[],
+		bool parsed __unused)
 {
 	Dwfl *dwfl = NULL;
 	char **new_argv = NULL;

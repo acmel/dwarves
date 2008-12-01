@@ -2570,7 +2570,7 @@ int cus__load(struct cus *self, const char *filename)
 
 int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
 {
-	int err = dwarf__load(self, argp, argc, argv);
+	int err = dwarf__load(self, argp, argc, argv, false);
 	/*
 	 * If dwarf__load fails, try ctf__load. Eventually we should just
 	 * register all the shared objects at some directory and ask them
@@ -2579,9 +2579,12 @@ int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
 	 * support.
 	 * FIXME: for now we just check if no DWARF info was found
 	 * by looking at the list of CUs found:
+	 *
+	 * XXX We have to avoid calling argp_parse twice, so tell the
+	 * loaders if we already processed it.
 	 */
 	if (list_empty(&self->cus))
-		err = ctf__load(self, argp, argc, argv);
+		err = ctf__load(self, argp, argc, argv, true);
 
 	return err;
 }

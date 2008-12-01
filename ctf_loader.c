@@ -788,13 +788,15 @@ static void open_files(struct ctf_state *sp, const char *in_filename)
 	}
 }
 
-int ctf__load(struct cus *self, struct argp *argp, int argc, char *argv[])
+int ctf__load(struct cus *self, struct argp *argp, int argc, char *argv[],
+	      bool parsed)
 {
 	struct ctf_state state;
 
 	memset(&state, 0, sizeof(state));
 
-	if (argc > 2 && argp_parse(argp, argc - 1, argv, 0, NULL, NULL))
+	if (argc > 2 && !parsed &&
+	    argp_parse(argp, argc - 1, argv, 0, NULL, NULL))
 		return -1;
 
 	open_files(&state, argv[argc - 1]);

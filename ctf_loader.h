@@ -8,9 +8,12 @@
   published by the Free Software Foundation.
 */
 
+#include <stdbool.h>
+
 struct cus;
 struct argp;
 
-int ctf__load(struct cus *self, struct argp *argp, int argc, char *argv[]);
+int ctf__load(struct cus *self, struct argp *argp, int argc, char *argv[],
+	      bool parsed);
 
 #endif /* _CTF_LOADER_H_ */
