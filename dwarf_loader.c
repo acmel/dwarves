@@ -9,7 +9,6 @@
 #include <assert.h>
 #include <dirent.h>
 #include <dwarf.h>
-#include <argp.h>
 #include <elfutils/libdwfl.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -1132,26 +1131,25 @@ out:
 	return err;
 }
 
-int dwarf__load(struct cus *self, struct argp *argp, int argc, char *argv[],
-		bool parsed __unused)
+int dwarf__load(struct cus *self, char *filenames[], bool parsed __unused)
 {
-	int err = 0, remaining = 1;
+	int err = 0, i = 0;
 
 	elf_version(EV_CURRENT);
 
-	if (argp != NULL)
-		argp_parse(argp, argc, argv, 0, &remaining, NULL);
-
-	do {
-		int fd = open(argv[remaining], O_RDONLY);
+	while (filenames[i] != NULL) {
+		int fd = open(filenames[i], O_RDONLY);
 
 		if (fd == -1) {
 			fprintf(stderr, "%s: couldn't open %s\n", __func__,
-				argv[remaining]);
+				filenames[i]);
+			++i;
+			continue;
 		}
-		cus__process_file(self, fd, argv[remaining]);
+		cus__process_file(self, fd, filenames[i]);
 		close(fd);
-	} while (++remaining < argc);
+		++i;
+	}
 
 	return err;
 }

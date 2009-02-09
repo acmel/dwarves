@@ -899,9 +899,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL);
-
-	if (remaining < argc) {
+	if (argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL) ||
+	    remaining < argc) {
 		switch (argc - remaining) {
 		case 1:	 goto failure;
 		case 2:	 filename  = argv[remaining++];
@@ -910,7 +909,7 @@ int main(int argc, char *argv[])
 		}
 	} else {
 failure:
-		argp_help(&ctracer__argp, stderr, ARGP_HELP_SEE, "ctracer");
+		argp_help(&ctracer__argp, stderr, ARGP_HELP_SEE, argv[0]);
 		return EXIT_FAILURE;
 	}
 

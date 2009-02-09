@@ -21,8 +21,6 @@
 
 extern struct strings *strings;
 
-struct argp;
-
 struct cus {
 	struct list_head      cus;
 };
@@ -539,8 +537,7 @@ extern size_t lexblock__fprintf(const struct lexblock *self,
 				const struct cu *cu, struct function *function,
 				uint16_t indent, FILE *fp);
 
-extern int cus__loadfl(struct cus *self, struct argp *argp,
-		       int argc, char *argv[]);
+extern int cus__loadfl(struct cus *self, char *filenames[]);
 extern int cus__load(struct cus *self, const char *filename);
 extern int cus__load_dir(struct cus *self, const char *dirname,
 			 const char *filename_mask, const int recursive);

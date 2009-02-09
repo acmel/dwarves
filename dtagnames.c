@@ -39,7 +39,7 @@ static void cus__dump_class_tag_names(struct cus *self)
 	cus__for_each_cu(self, cu__dump_class_tag_names, NULL, NULL);
 }
 
-int main(int argc, char *argv[])
+int main(int argc __unused, char *argv[])
 {
 	int err;
 	struct cus *cus = cus__new();
@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, NULL, argc, argv);
+	err = cus__loadfl(cus, argv + 1);
 	if (err != 0)
 		return EXIT_FAILURE;
 

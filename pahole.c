@@ -1044,7 +1044,7 @@ static struct argp pahole__argp = {
 
 int main(int argc, char *argv[])
 {
-	int err;
+	int err, remaining;
 	struct cus *cus = cus__new();
 
 	if (dwarves__init(cacheline_size) || cus == NULL) {
@@ -1052,7 +1052,13 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, &pahole__argp, argc, argv);
+	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL) ||
+	    remaining == argc) {
+                argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, argv[0]);
+                return EXIT_FAILURE;
+	}
+
+	err = cus__loadfl(cus, argv + remaining);
 	if (err != 0)
 		return EXIT_FAILURE;
 

@@ -144,7 +144,7 @@ static struct argp argp = {
 
 int main(int argc, char *argv[])
 {
-	int err;
+	int err, remaining;
 	struct cus *cus = cus__new();
 
 	if (cus == NULL) {
@@ -152,7 +152,12 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, &argp, argc, argv);
+	if (argp_parse(&argp, argc, argv, 0, &remaining, NULL) ||
+	    remaining == argc) {
+                argp_help(&argp, stderr, ARGP_HELP_SEE, argv[0]);
+                return EXIT_FAILURE;
+	}
+	err = cus__loadfl(cus, argv + remaining);
 	if (err != 0)
 		return EXIT_FAILURE;
 

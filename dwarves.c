@@ -12,7 +12,6 @@
 #include <assert.h>
 #include <dirent.h>
 #include <dwarf.h>
-#include <argp.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
@@ -2568,9 +2567,9 @@ int cus__load(struct cus *self, const char *filename)
 	return err;
 }
 
-int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
+int cus__loadfl(struct cus *self, char *filenames[])
 {
-	int err = dwarf__load(self, argp, argc, argv, false);
+	int err = dwarf__load(self, filenames);
 	/*
 	 * If dwarf__load fails, try ctf__load. Eventually we should just
 	 * register all the shared objects at some directory and ask them
@@ -2579,12 +2578,9 @@ int cus__loadfl(struct cus *self, struct argp *argp, int argc, char *argv[])
 	 * support.
 	 * FIXME: for now we just check if no DWARF info was found
 	 * by looking at the list of CUs found:
-	 *
-	 * XXX We have to avoid calling argp_parse twice, so tell the
-	 * loaders if we already processed it.
 	 */
 	if (list_empty(&self->cus))
-		err = ctf__load(self, argp, argc, argv, true);
+		err = ctf__load(self, filenames);
 
 	return err;
 }

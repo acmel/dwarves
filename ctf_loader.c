@@ -14,7 +14,6 @@
 #include <string.h>
 #include <limits.h>
 #include <libgen.h>
-#include <argp.h>
 #include <zlib.h>
 
 #include <gelf.h>
@@ -788,18 +787,13 @@ static void open_files(struct ctf_state *sp, const char *in_filename)
 	}
 }
 
-int ctf__load(struct cus *self, struct argp *argp, int argc, char *argv[],
-	      bool parsed)
+int ctf__load(struct cus *self, char *filenames[])
 {
 	struct ctf_state state;
 
 	memset(&state, 0, sizeof(state));
 
-	if (argc > 2 && !parsed &&
-	    argp_parse(argp, argc - 1, argv, 0, NULL, NULL))
-		return -1;
-
-	open_files(&state, argv[argc - 1]);
+	open_files(&state, filenames[0]);
 
 	if (elf_version(EV_CURRENT) == EV_NONE) {
 		fprintf(stderr, "Cannot set libelf version.\n");

@@ -676,7 +676,7 @@ int main(int argc, char *argv[])
 	int remaining, err;
 	struct cus *old_cus, *new_cus;
 	char *old_filename, *new_filename;
-	char *dwfl_argv[4];
+	char *filenames[2];
 	struct stat st;
 
 	if (dwarves__init(0)) {
@@ -684,9 +684,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	argp_parse(&codiff__argp, argc, argv, 0, &remaining, NULL);
-
-	if (remaining < argc) {
+	if (argp_parse(&codiff__argp, argc, argv, 0, &remaining, NULL) ||
+	    remaining < argc) {
 		switch (argc - remaining) {
 		case 2:	 old_filename = argv[remaining++];
 			 new_filename = argv[remaining++]; break;
@@ -695,7 +694,7 @@ int main(int argc, char *argv[])
 		}
 	} else {
 failure:
-		argp_help(&codiff__argp, stderr, ARGP_HELP_SEE, "codiff");
+		argp_help(&codiff__argp, stderr, ARGP_HELP_SEE, argv[0]);
 		return EXIT_FAILURE;
 	}
 
@@ -716,13 +715,12 @@ failure:
 		return EXIT_FAILURE;
 	}
 
-	dwfl_argv[0] = argv[0];
-	dwfl_argv[2] = NULL;
+	filenames[1] = NULL;
 
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
-		dwfl_argv[1] = old_filename;
-		err = cus__loadfl(old_cus, NULL, 2, dwfl_argv);
+		filenames[0] = old_filename;
+		err = cus__loadfl(old_cus, filenames);
 		if (err != 0) {
 			cus__print_error_msg("codiff", old_cus, old_filename, err);
 			return EXIT_FAILURE;
@@ -736,8 +734,8 @@ failure:
 
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
-		dwfl_argv[1] = new_filename;
-		err = cus__loadfl(new_cus, NULL, 2, dwfl_argv);
+		filenames[0] = new_filename;
+		err = cus__loadfl(new_cus, filenames);
 		if (err != 0) {
 			cus__print_error_msg("codiff", new_cus, new_filename, err);
 			return EXIT_FAILURE;
