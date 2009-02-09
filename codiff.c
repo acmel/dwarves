@@ -717,13 +717,12 @@ failure:
 	}
 
 	dwfl_argv[0] = argv[0];
-	dwfl_argv[1] = "-e";
-	dwfl_argv[3] = NULL;
+	dwfl_argv[2] = NULL;
 
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
-		dwfl_argv[2] = old_filename;
-		err = cus__loadfl(old_cus, NULL, 3, dwfl_argv);
+		dwfl_argv[1] = old_filename;
+		err = cus__loadfl(old_cus, NULL, 2, dwfl_argv);
 		if (err != 0) {
 			cus__print_error_msg("codiff", old_cus, old_filename, err);
 			return EXIT_FAILURE;
@@ -737,8 +736,8 @@ failure:
 
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
-		dwfl_argv[2] = new_filename;
-		err = cus__loadfl(new_cus, NULL, 3, dwfl_argv);
+		dwfl_argv[1] = new_filename;
+		err = cus__loadfl(new_cus, NULL, 2, dwfl_argv);
 		if (err != 0) {
 			cus__print_error_msg("codiff", new_cus, new_filename, err);
 			return EXIT_FAILURE;

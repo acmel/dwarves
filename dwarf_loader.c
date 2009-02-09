@@ -991,9 +991,7 @@ static void die__process(Dwarf_Die *die, struct cu *cu)
 			__FUNCTION__, dwarf_tag_name(tag));
 }
 
-static int cus__load_module(Dwfl_Module *mod, void **userdata __unused,
-			    const char *name __unused, Dwarf_Addr base __unused,
-			    Dwarf *dw, Dwarf_Addr bias __unused, void *self)
+static void cus__load_module(struct cus *self, Dwfl_Module *mod, Dwarf *dw)
 {
 	Dwarf_Off off = 0, noff;
 	size_t cuhl;
@@ -1021,8 +1019,73 @@ static int cus__load_module(Dwfl_Module *mod, void **userdata __unused,
 		cus__add(self, cu);
 		off = noff;
 	}
+}
+
+static int cus__process_dwflmod(Dwfl_Module *dwflmod,
+				void **userdata __unused,
+				const char *name __unused,
+				Dwarf_Addr base __unused,
+				void *arg)
+{
+	struct cus *self = arg;
+	/*
+	 * WARNING: Don't remove the seemingly useless call to
+	 * dwfl_module_getelf, as it will change dwflmod internal state in a
+	 * way that is required by dwfl_module_getdwarf.
+ 	 */
+	GElf_Addr dwflbias;
+	dwfl_module_getelf(dwflmod, &dwflbias);
+
+	Dwarf_Addr dwbias;
+	Dwarf *dw = dwfl_module_getdwarf(dwflmod, &dwbias);
+
+	if (dw != NULL)
+		cus__load_module(self, dwflmod, dw);
+	/*
+	 * XXX We will fall back to try finding other debugging
+	 * formats (CTF), so no point in telling this to the user
+	 * Use for debugging.
+	 * else
+	 *   fprintf(stderr,
+	 *         "%s: can't get debug context descriptor: %s\n",
+	 *	__func__, dwfl_errmsg(-1));
+	 */
 
 	return DWARF_CB_OK;
+}
+
+static int cus__process_file(struct cus *self, int fd, const char *filename)
+{
+	/* Duplicate an fd for dwfl_report_offline to swallow.  */
+	int dwfl_fd = dup(fd);
+
+	if (dwfl_fd < 0)
+		return -1;
+
+	/*
+	 * Use libdwfl in a trivial way to open the libdw handle for us.
+	 * This takes care of applying relocations to DWARF data in ET_REL
+	 * files.
+	 */
+
+	static const Dwfl_Callbacks callbacks = {
+		.section_address = dwfl_offline_section_address,
+		.find_debuginfo	 = dwfl_standard_find_debuginfo,
+		/* We use this table for core files too.  */
+		.find_elf	 = dwfl_build_id_find_elf,
+	};
+
+	Dwfl *dwfl = dwfl_begin(&callbacks);
+
+	if (dwfl_report_offline(dwfl, filename, filename, dwfl_fd) == NULL)
+		return -1;
+
+	dwfl_report_end(dwfl, NULL, NULL);
+
+	/* Process the one or more modules gleaned from this file. */
+	dwfl_getmodules(dwfl, cus__process_dwflmod, self, 0);
+	dwfl_end(dwfl);
+	return 0;
 }
 
 int dwarf__load_filename(struct cus *self, const char *filename)
@@ -1069,69 +1132,26 @@ out:
 	return err;
 }
 
-static int with_executable_option(int argc, char *argv[])
-{
-	while (--argc != 0)
-		if (strcmp(argv[argc], "--help") == 0 ||
-		    strcmp(argv[argc], "-?") == 0 ||
-		    strcmp(argv[argc], "-h") == 0 ||
-		    strcmp(argv[argc], "--usage") == 0 ||
-		    strcmp(argv[argc], "--executable") == 0 ||
-		    (argv[argc][0] == '-' && argv[argc][1] != '-' &&
-		     strchr(argv[argc] + 1, 'e') != NULL))
-			return 1;
-	return 0;
-}
-
 int dwarf__load(struct cus *self, struct argp *argp, int argc, char *argv[],
 		bool parsed __unused)
 {
-	Dwfl *dwfl = NULL;
-	char **new_argv = NULL;
-	ptrdiff_t offset;
-	int err = -1;
+	int err = 0, remaining = 1;
 
-	if (argc == 1) {
-		argp_help(argp ? : dwfl_standard_argp(), stderr,
-			  ARGP_HELP_SEE, argv[0]);
-		return -1;
-	}
+	elf_version(EV_CURRENT);
 
-	if (!with_executable_option(argc, argv)) {
-		new_argv = malloc((argc + 2) * sizeof(char *));
-		if (new_argv == NULL) {
-			fprintf(stderr, "%s: not enough memory!\n", __func__);
-			return -1;
-		}
-		memcpy(new_argv, argv, (argc - 1) * sizeof(char *));
-		new_argv[argc - 1] = "-e";
-		new_argv[argc] = argv[argc - 1];
-		new_argv[argc + 1] = NULL;
-		argv = new_argv;
-		argc++;
-	}
+	if (argp != NULL)
+		argp_parse(argp, argc, argv, 0, &remaining, NULL);
 
-	if (argp != NULL) {
-		const struct argp_child argp_children[] = {
-			{ .argp = dwfl_standard_argp(), },
-			{ .argp = NULL }
-		};
-		argp->children = argp_children;
-		argp_parse(argp, argc, argv, 0, NULL, &dwfl);
-	} else
-		argp_parse(dwfl_standard_argp(), argc, argv, 0, NULL, &dwfl);
-
-	if (dwfl == NULL)
-		goto out;
-
-	offset = 0;
 	do {
-		offset = dwfl_getdwarf(dwfl, cus__load_module, self, offset);
-	} while (offset > 0);
+		int fd = open(argv[remaining], O_RDONLY);
 
-	dwfl_end(dwfl);
-	err = 0;
-out:
-	free(new_argv);
+		if (fd == -1) {
+			fprintf(stderr, "%s: couldn't open %s\n", __func__,
+				argv[remaining]);
+		}
+		cus__process_file(self, fd, argv[remaining]);
+		close(fd);
+	} while (++remaining < argc);
+
 	return err;
 }
