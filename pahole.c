@@ -1059,8 +1059,10 @@ int main(int argc, char *argv[])
 	}
 
 	err = cus__loadfl(cus, argv + remaining);
-	if (err != 0)
+	if (err != 0) {
+		fputs("pahole: No debugging information found\n", stderr);
 		return EXIT_FAILURE;
+	}
 
 	if (word_size != 0)
 		cus__for_each_cu(cus, cu_fixup_word_size_iterator, NULL, NULL);
