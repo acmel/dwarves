@@ -1,3 +1,4 @@
+config.h.cmake
 ctf_loader.c
 ctf_loader.h
 dwarf_loader.c
@@ -13,15 +14,20 @@ CMakeLists.txt
 codiff.c
 ctracer.c
 dtagnames.c
+gobuffer.c
+gobuffer.h
 hash.h
 list.h
 MANIFEST
+man-pages/pahole.1
 pahole.c
 pdwtags.c
 pfunct.c
 pglobal.c
 prefcnt.c
 syscse.c
+strings.c
+strings.h
 dutil.c
 dutil.h
 NEWS

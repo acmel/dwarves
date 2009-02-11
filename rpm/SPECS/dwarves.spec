@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.6
+Version: 1.6.1
 Release: 1
 License: GPLv2
 Summary: Dwarf Tools
@@ -85,6 +85,7 @@ rm -rf %{buildroot}
 %dir %{_datadir}/dwarves/runtime/
 %dir %{_datadir}/dwarves/runtime/python/
 %defattr(0644,root,root,0755)
+%{_mandir}/man1/pahole.1*
 %{_datadir}/dwarves/runtime/Makefile
 %{_datadir}/dwarves/runtime/linux.blacklist.cu
 %{_datadir}/dwarves/runtime/ctracer_relay.c
