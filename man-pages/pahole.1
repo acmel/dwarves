@@ -1,7 +1,7 @@
 .\" Man page for pahole
 .\" Arnaldo Carvalho de Melo, 2009
 .\" Licensed under version 2 of the GNU General Public License.
-.TH pahole 1 "February 10, 2009" "dwarves" "dwarves"
+.TH pahole 1 "February 13, 2009" "dwarves" "dwarves"
 .\"
 .SH NAME
 pahole \- Shows and manipulates data structure layout.
@@ -171,6 +171,18 @@ Include PREFIXed classes.
 .TP
 .B \-z, \-\-hole_size_ge=HOLE_SIZE
 Show only structs with at least one hole greater or equal to HOLE_SIZE.
+
+.SH NOTES
+
+To enable the generation of debugging information in the Linux kernel build
+process select CONFIG_DEBUG_INFO. This is can be done using make menuconfig by
+this path: "Kernel Hacking" -> "Kernel Debugging" -> "Compile the kernel with
+debug info".
+
+Many distributions also come with debuginfo packages, so just enable it in your
+package manager repository configuration and install the kernel-debuginfo, or
+any other userspace program written in a language that the compiler generates
+debuginfo (C, C++, for instance).
 
 .SH SEE ALSO
 \fIeu-readelf\fR(1), \fIreadelf\fR(1), \fIobjdump\fR(1).
