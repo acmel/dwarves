@@ -675,4 +675,8 @@ extern const char *variable__type_name(const struct variable *self,
 
 extern const char *dwarf_tag_name(const uint32_t tag);
 
+struct argp_state;
+
+void dwarves_print_version(FILE *fp, struct argp_state *state);
+
 #endif /* _DWARVES_H_ */

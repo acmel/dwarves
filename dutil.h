@@ -14,6 +14,17 @@
 #define __unused __attribute__ ((unused))
 #endif
 
+/* We need define two variables, argp_program_version_hook and
+   argp_program_bug_address, in all programs.  argp.h declares these
+   variables as non-const (which is correct in general).  But we can
+   do better, it is not going to change.  So we want to move them into
+   the .rodata section.  Define macros to do the trick.  */
+#define ARGP_PROGRAM_VERSION_HOOK_DEF \
+	void (*const apvh) (FILE *, struct argp_state *) \
+	__asm ("argp_program_version_hook")
+#define ARGP_PROGRAM_BUG_ADDRESS_DEF \
+	const char *const apba__ __asm ("argp_program_bug_address")
+
 struct strlist {
 	void *entries;
 	bool dupstr;

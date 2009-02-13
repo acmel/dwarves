@@ -821,6 +821,9 @@ static int cu_emit_functions_table(struct cu *cu, void *fp)
        return 0;
 }
 
+/* Name and version of program.  */
+ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
+
 static const struct argp_option ctracer__options[] = {
 	{
 		.key  = 'd',

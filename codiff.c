@@ -624,6 +624,9 @@ static void print_total_function_diff(const char *filename)
 	putchar('\n');
 }
 
+/* Name and version of program.  */
+ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
+
 static const struct argp_option codiff__options[] = {
 	{
 		.key  = 's',

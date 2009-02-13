@@ -66,6 +66,9 @@ static void cus__emit_tags(struct cus *self)
 	cus__for_each_cu(self, cu__emit_tags, NULL, NULL);
 }
 
+/* Name and version of program.  */
+ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
+
 static const struct argp_option pdwtags__options[] = {
 	{
 		.key  = 'V',

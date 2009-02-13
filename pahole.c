@@ -777,6 +777,9 @@ static void print_containers(const struct structure *s, int ident)
 	}
 }
 
+/* Name and version of program.  */
+ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
+
 static const struct argp_option pahole__options[] = {
 	{
 		.name = "bit_holes",

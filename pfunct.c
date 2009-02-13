@@ -351,6 +351,9 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, function_iterator, cookie, NULL);
 }
 
+/* Name and version of program.  */
+ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
+
 static const struct argp_option pfunct__options[] = {
 	{
 		.key  = 'b',

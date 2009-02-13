@@ -264,6 +264,9 @@ static void free_node(void *nodep)
 	free(*node);
 }
 
+/* Name and version of program.  */
+ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
+
 static const struct argp_option pglobal__options[] = {
 	{
 		.key  = 'v',

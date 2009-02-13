@@ -2624,3 +2624,10 @@ int dwarves__init(size_t user_cacheline_size)
 
 	return 0;
 }
+
+struct argp_state;
+
+void dwarves_print_version(FILE *fp, struct argp_state *state __unused)
+{
+	fprintf(fp, "%s\n", DWARVES_VERSION);
+}

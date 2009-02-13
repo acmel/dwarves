@@ -147,7 +147,7 @@ static int cu_lost_iterator(struct cu *cu, void *cookie)
 	return cu__for_each_tag(cu, lost_iterator, cookie, NULL);
 }
 
-int main(int argc, char *argv[])
+int main(int argc __unused, char *argv[])
 {
 	int err;
 	struct cus *cus = cus__new();
