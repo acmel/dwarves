@@ -12,6 +12,11 @@ pahole \- Shows and manipulates data structure layout.
 shows data structure layouts encoded in debugging information formats,
 DWARF and CTF being supported.
 
+This is useful for, among other things: optimizing important data structures by
+reducing its size, figuring out what is the field sitting at an offset from the
+start of a data structure, investigating ABI changes and more generally
+understanding a new codebase you have to work with.
+
 The files must have associated debugging information.  This information may be
 inside the file itself, in ELF sections, or in another file.
 
@@ -22,7 +27,7 @@ others, the \fB.debug_info\fR ELF section. For the CTF it is found in just one
 ELF section, \fB.SUNW_ctf\fR.
 
 The \fBdebuginfo\fR packages available in most Linux distributions are also
-supported by \fBpahole\fR, where the debugging information is availabe in a
+supported by \fBpahole\fR, where the debugging information is available in a
 separate file.
 
 By default, \fBpahole\fR shows the layout of all named structs in the files
@@ -109,7 +114,7 @@ Show number of methods.
 .TP
 .B \-M, \-\-show_only_data_members
 Show only the members that use space in the class layout. C++ methods will be
-supressed.
+suppressed.
 
 .TP
 .B \-n, \-\-nr_members
@@ -186,8 +191,11 @@ debuginfo (C, C++, for instance).
 
 .SH SEE ALSO
 \fIeu-readelf\fR(1), \fIreadelf\fR(1), \fIobjdump\fR(1).
+.P
+\fIhttp://oops.ghostprotocols.net:81/acme/7dwarves.pdf\fR.
 .SH AUTHOR
 \fBpahole\fR was written by Arnaldo Carvalho de Melo <acme@ghostprotocols.net>.
 
 Please send bug reports to <dwarves@vger.kernel.org>.
+.P
 No\ subscription is required.
