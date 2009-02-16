@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 1.7
-Release: 1
+Release: 2
 License: GPLv2
 Summary: Dwarf Tools
 Group: Development/Tools
@@ -82,6 +82,7 @@ rm -rf %{buildroot}
 %{_bindir}/prefcnt
 %{_bindir}/syscse
 %{_bindir}/ostra-cg
+%dir %{_datadir}/dwarves/
 %dir %{_datadir}/dwarves/runtime/
 %dir %{_datadir}/dwarves/runtime/python/
 %defattr(0644,root,root,0755)
@@ -109,6 +110,9 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Fri Feb 13 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.7-2
+- Own /usr/share/dwarves, fixes #473645 
+
 * Fri Feb 13 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.7-1
 - A CTF decoder based on work done by David S. Miller
 - Handle DW_TAG_class_type,
