@@ -129,7 +129,7 @@ static void elf_symbol_iterate(struct ctf_state *sp,
 }
 #endif
 
-static int parse_elf(struct ctf_state *sp)
+static int parse_elf(struct ctf_state *sp, int *wordsizep)
 {
 	GElf_Ehdr ehdr;
 	GElf_Shdr shdr;
@@ -161,6 +161,12 @@ static int parse_elf(struct ctf_state *sp)
 		sec = elf_getscn(sp->elf, shdr.sh_link);
 	else
 		sec = elf_section_by_name(sp->elf, &ehdr, &shdr, ".symtab");
+
+	switch (ehdr.e_ident[EI_CLASS]) {
+	case ELFCLASS32: *wordsizep = 4; break;
+	case ELFCLASS64: *wordsizep = 8; break;
+	default:	 *wordsizep = 0; break;
+	}
 
 	if (!sec)
 		return 0;
@@ -790,6 +796,7 @@ static void open_files(struct ctf_state *sp, const char *in_filename)
 int ctf__load(struct cus *self, char *filenames[])
 {
 	struct ctf_state state;
+	int wordsize;
 
 	memset(&state, 0, sizeof(state));
 
@@ -806,10 +813,10 @@ int ctf__load(struct cus *self, char *filenames[])
 		return -1;
 	}
 
-	if (parse_elf(&state))
+	if (parse_elf(&state, &wordsize))
 		return -1;
 
-	state.cu = cu__new("FIXME.c", 8, NULL, 0);
+	state.cu = cu__new("FIXME.c", wordsize, NULL, 0);
 	if (state.cu == NULL)
 		oom("cu__new");
 
