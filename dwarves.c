@@ -578,6 +578,27 @@ struct tag *cu__find_base_type_by_name(const struct cu *self, const char *name)
 	return NULL;
 }
 
+struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
+						const char *name,
+						size_t bit_size)
+{
+	struct tag *pos;
+
+	if (self == NULL || name == NULL)
+		return NULL;
+
+	list_for_each_entry(pos, &self->tags, node)
+		if (pos->tag == DW_TAG_base_type) {
+			const struct base_type *bt = tag__base_type(pos);
+
+			if (bt->bit_size == bit_size &&
+			    bt->name && strcmp(s(bt->name), name) == 0)
+				return pos;
+		}
+
+	return NULL;
+}
+
 struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
 				    const int include_decls)
 {
