@@ -381,8 +381,6 @@ static int create_new_base_type(struct ctf_state *sp, void *ptr,
 
 	if (attrs & CTF_TYPE_INT_SIGNED)
 		buf += sprintf(buf, "signed ");
-	if (attrs & CTF_TYPE_INT_CHAR)
-		buf += sprintf(buf, "char ");
 	if (attrs & CTF_TYPE_INT_BOOL)
 		buf += sprintf(buf, "bool ");
 	if (attrs & CTF_TYPE_INT_VARARGS)
