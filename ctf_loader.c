@@ -793,6 +793,93 @@ static void open_files(struct ctf_state *sp, const char *in_filename)
 	}
 }
 
+static size_t base_type__name_to_size(struct base_type *self)
+{
+	if (strcmp(base_type__name(self), "unsigned") == 0)
+		return 32;
+
+	/* FIXME */
+	return 0;
+}
+
+static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
+{
+	struct class_member *pos;
+	struct type *type_self = tag__type(self);
+	uint16_t bit_offset = 0;
+	long last_offset = -1;
+
+	type__for_each_data_member(type_self, pos) {
+		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
+
+		if (type->tag != DW_TAG_base_type)
+			continue;
+		
+		struct base_type *bt = tag__base_type(type);
+		size_t bit_size = base_type__name_to_size(bt);
+
+		if (bit_size == 0 || bt->bit_size == bit_size) {
+			bit_offset = 0;
+			last_offset = -1;
+			continue;
+		}
+
+		if (last_offset == -1)
+			last_offset = pos->offset;
+
+		struct tag *fixed_tag;
+		fixed_tag = cu__find_base_type_by_name_and_size(cu, base_type__name(bt),
+							        bit_size);
+		if (fixed_tag == NULL) {
+			fprintf(stderr,
+				"%s: BRAIN FART ALERT!: class: %s, member: %s\n",
+				__func__, type__name(type_self, cu),
+				class_member__name(pos));
+			continue;
+		}
+
+		pos->offset	= last_offset;
+		pos->tag.type	= fixed_tag->id;
+		pos->bit_size	= bt->bit_size;
+		pos->bit_offset = bit_offset;
+		bit_offset	+= bt->bit_size;
+		if (bit_offset == bit_size) {
+			bit_offset = 0;
+			last_offset = -1;
+		}
+	}
+
+	return 0;
+}
+
+static int cu__fixup_ctf_bitfields(struct cu *self)
+{
+	int err = 0;
+	struct tag *pos;
+
+	list_for_each_entry(pos, &self->tags, node)
+		if (tag__is_struct(pos)) {
+			err = class__fixup_ctf_bitfields(pos, self);
+			if (err)
+				break;
+		}
+
+	return err;
+}
+
+static int cus__fixup_ctf_bitfields(struct cus *self)
+{
+	int err = 0;
+	struct cu *pos;
+
+	list_for_each_entry(pos, &self->cus, node) {
+		err = cu__fixup_ctf_bitfields(pos);
+		if (err)
+			break;
+	}
+	return err;
+}
+
 int ctf__load(struct cus *self, char *filenames[])
 {
 	struct ctf_state state;
@@ -828,5 +915,5 @@ int ctf__load(struct cus *self, char *filenames[])
 
 	close(state.in_fd);
 
-	return 0;
+	return cus__fixup_ctf_bitfields(self);
 }
