@@ -469,26 +469,32 @@ static void class__demote_bitfield_members(struct class *class,
 static struct tag *cu__find_base_type_of_size(const struct cu *cu,
 					      const size_t size)
 {
-	const char *type_name;
+	const char *type_name, *type_name_alt = NULL;
 
 	switch (size) {
 	case sizeof(unsigned char):
 		type_name = "unsigned char"; break;
 	case sizeof(unsigned short int):
-		type_name = "short unsigned int"; break;
+		type_name = "short unsigned int";
+		type_name = "unsigned short"; break;
 	case sizeof(unsigned int):
-		type_name = "unsigned int"; break;
+		type_name = "unsigned int";
+		type_name_alt = "unsigned"; break;
 	case sizeof(unsigned long long):
-		if (cu->addr_size == 8)
+		if (cu->addr_size == 8) {
 			type_name = "long unsigned int";
-		else
+			type_name_alt = "unsigned long";
+		} else {
 			type_name = "long long unsigned int";
+			type_name_alt = "unsigned long long";
+		}
 		break;
 	default:
 		return NULL;
 	}
 
-	return cu__find_base_type_by_name(cu, type_name);
+	struct tag *ret = cu__find_base_type_by_name(cu, type_name);
+	return ret ?: cu__find_base_type_by_name(cu, type_name_alt);
 }
 
 static int class__demote_bitfields(struct class *class, const struct cu *cu,
