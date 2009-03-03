@@ -788,7 +788,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 			oom("enumerator__new");
 
 		enumeration__add(enumeration, enumerator);
-		hashtags__hash(cu->hash_tags, &enumerator->tag);
+		cu__hash(cu, &enumerator->tag);
 	} while (dwarf_siblingof(die, die) == 0);
 
 	return &enumeration->namespace.tag;
@@ -807,7 +807,7 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 				oom("class_member__new");
 
 			type__add_member(class, member);
-			hashtags__hash(cu->hash_tags, &member->tag);
+			cu__hash(cu, &member->tag);
 		}
 			continue;
 		default: {
@@ -815,7 +815,7 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 
 			if (tag != NULL) {
 				namespace__add_tag(&class->namespace, tag);
-				hashtags__hash(cu->hash_tags, tag);
+				cu__hash(cu, tag);
 				if (tag->tag == DW_TAG_subprogram) {
 					struct function *fself = tag__function(tag);
 
@@ -837,7 +837,7 @@ static void die__process_namespace(Dwarf_Die *die,
 
 		if (tag != NULL) {
 			namespace__add_tag(namespace, tag);
-			hashtags__hash(cu->hash_tags, tag);
+			cu__hash(cu, tag);
 		}
 	} while (dwarf_siblingof(die, die) == 0);
 }

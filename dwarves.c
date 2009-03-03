@@ -25,10 +25,13 @@
 #include "config.h"
 #include "ctf_loader.h"
 #include "dwarf_loader.h"
+#include "hash.h"
 #include "list.h"
 #include "dwarves.h"
 #include "dutil.h"
 #include "strings.h"
+
+#define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
 
 struct strings *strings;
 
@@ -485,17 +488,22 @@ void cu__delete(struct cu *self)
 	free(self);
 }
 
-void hashtags__hash(struct list_head *hashtable, struct tag *tag)
+static void hashtags__hash(struct list_head *hashtable, struct tag *tag)
 {
 	struct list_head *head = hashtable + hashtags__fn(tag->id);
 
 	list_add_tail(&tag->hash_node, head);
 }
 
+void cu__hash(struct cu *self, struct tag *tag)
+{
+	hashtags__hash(self->hash_tags, tag);
+}
+
 void cu__add_tag(struct cu *self, struct tag *tag)
 {
 	list_add_tail(&tag->node, &self->tags);
-	hashtags__hash(self->hash_tags, tag);
+	cu__hash(self, tag);
 }
 
 bool cu__same_build_id(const struct cu *self, const struct cu *other)

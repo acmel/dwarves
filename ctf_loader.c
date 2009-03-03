@@ -516,7 +516,7 @@ static unsigned long create_full_members(struct ctf_state *sp, void *ptr,
 		member->offset = bit_offset / 8;
 		member->bit_offset = bit_offset % 8;
 		type__add_member(class, member);
-		hashtags__hash(sp->cu->hash_tags, &member->tag);
+		cu__hash(sp->cu, &member->tag);
 	}
 
 	return sizeof(*mp);
@@ -543,7 +543,7 @@ static unsigned long create_short_members(struct ctf_state *sp, void *ptr,
 		member->bit_offset = bit_offset % 8;
 
 		type__add_member(class, member);
-		hashtags__hash(sp->cu->hash_tags, &member->tag);
+		cu__hash(sp->cu, &member->tag);
 	}
 
 	return sizeof(*mp);
@@ -624,7 +624,7 @@ static int create_new_enumeration(struct ctf_state *sp, void *ptr,
 			oom("enumerator__new");
 
 		enumeration__add(enumeration, enumerator);
-		hashtags__hash(sp->cu->hash_tags, &enumerator->tag);
+		cu__hash(sp->cu, &enumerator->tag);
 	}
 
 	cu__add_tag(sp->cu, &enumeration->namespace.tag);

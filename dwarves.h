@@ -16,7 +16,6 @@
 #include <elfutils/libdw.h>
 
 #include "list.h"
-#include "hash.h"
 #include "strings.h"
 
 extern struct strings *strings;
@@ -29,11 +28,6 @@ struct cus *cus__new(void);
 
 #define HASHTAGS__BITS 8
 #define HASHTAGS__SIZE (1UL << HASHTAGS__BITS)
-#define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
-
-struct tag;
-
-void hashtags__hash(struct list_head *hashtable, struct tag *tag);
 
 struct cu {
 	struct list_head node;
@@ -53,6 +47,10 @@ struct cu {
 	int		 build_id_len;
 	unsigned char	 build_id[0];
 };
+
+struct tag;
+
+void cu__hash(struct cu *cu, struct tag *tag);
 
 struct tag {
 	struct list_head node;
