@@ -33,6 +33,9 @@ static struct strlist *structs_printed;
 #define TCHANGEF__OFFSET	(1 << 3)
 #define TCHANGEF__BIT_OFFSET	(1 << 4)
 #define TCHANGEF__BIT_SIZE	(1 << 5)
+#define TCHANGEF__PADDING	(1 << 6)
+#define TCHANGEF__NR_HOLES	(1 << 7)
+#define TCHANGEF__NR_BIT_HOLES	(1 << 8)
 
 static uint32_t terse_type_changes;
 
@@ -256,10 +259,16 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 
 	assert(class__is_struct(new_structure));
 
+	class__find_holes(structure, cu);
+	class__find_holes(new_structure, new_cu);
 	diff = class__size(structure) != class__size(new_structure) ||
 	       class__nr_members(structure) != class__nr_members(new_structure) ||
 	       check_print_members_changes(structure, cu,
-			       		   new_structure, new_cu, 0);
+			       		   new_structure, new_cu, 0) ||
+	       structure->padding != new_structure->padding ||
+	       structure->nr_holes != new_structure->nr_holes ||
+	       structure->nr_bit_holes != new_structure->nr_bit_holes;
+
 	if (diff == 0)
 		return;
 
@@ -498,8 +507,20 @@ static void print_terse_type_changes(struct class *structure,
 		printf("%sbit_offset", sep);
 		sep = ", ";
 	}
-	if (terse_type_changes & TCHANGEF__BIT_SIZE)
+	if (terse_type_changes & TCHANGEF__BIT_SIZE) {
 		printf("%sbit_size", sep);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__PADDING) {
+		printf("%spadding", sep);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__NR_HOLES) {
+		printf("%snr_holes", sep);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__NR_BIT_HOLES)
+		printf("%snr_bit_holes", sep);
 
 	putchar('\n');
 }
@@ -556,9 +577,29 @@ static void show_diffs_structure(struct class *structure,
 							new_structure, di->cu);
 		}
 	}
-	if (new_structure != NULL)
+	if (new_structure != NULL) {
+		diff = (int)new_structure->padding - (int)structure->padding;
+		if (diff) {
+			terse_type_changes |= TCHANGEF__PADDING;
+			if (!show_terse_type_changes)
+				printf("   padding: %+d\n", diff);
+		}
+		diff = (int)new_structure->nr_holes - (int)structure->nr_holes;
+		if (diff) {
+			terse_type_changes |= TCHANGEF__NR_HOLES;
+			if (!show_terse_type_changes)
+				printf("   nr_holes: %+d\n", diff);
+		}
+		diff = ((int)new_structure->nr_bit_holes -
+			(int)structure->nr_bit_holes);
+		if (structure->nr_bit_holes != new_structure->nr_bit_holes) {
+			terse_type_changes |= TCHANGEF__NR_BIT_HOLES;
+			if (!show_terse_type_changes)
+				printf("   nr_bit_holes: %+d\n", diff);
+		}
 		check_print_members_changes(structure, cu,
 					    new_structure, di->cu, 1);
+	}
 	if (show_terse_type_changes)
 		print_terse_type_changes(structure, cu);
 }
