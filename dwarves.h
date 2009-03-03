@@ -62,8 +62,8 @@ struct tag {
 	strings_t	 decl_file;
 	uint16_t	 decl_line;
 	uint16_t	 tag;
-	uint16_t	 refcnt;
-	uint16_t	 recursivity_level;
+	uint16_t	 visited:1;
+	uint16_t	 recursivity_level:15;
 };
 
 static inline int tag__is_enumeration(const struct tag *self)

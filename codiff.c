@@ -192,7 +192,7 @@ static int check_print_members_changes(const struct class *structure,
 		struct class_member *twin =
 			class__find_member_by_name(new_structure, member_name);
 		if (twin != NULL) {
-			twin->tag.refcnt = 1;
+			twin->tag.visited = 1;
 			++nr_twins_found;
 			if (check_print_change(member, cu, twin, new_cu, print))
 				changes = 1;
@@ -220,7 +220,7 @@ static int check_print_members_changes(const struct class *structure,
 		goto out;
 
 	type__for_each_member(&new_structure->type, member) {
-		if (!member->tag.refcnt) {
+		if (!member->tag.visited) {
 			char name[128];
 			struct tag *type;
 			type = cu__find_tag_by_id(new_cu, member->tag.type);

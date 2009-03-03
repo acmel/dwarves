@@ -64,7 +64,7 @@ static void refcnt_tag(struct tag *tag, const struct cu *cu)
 {
 	struct class_member *member;
 
-	tag->refcnt++;
+	tag->visited = 1;
 
 	if (tag__is_struct(tag) || tag__is_union(tag))
 		type__for_each_member(tag__type(tag), member)
@@ -93,7 +93,7 @@ static void refcnt_function(struct function *function, const struct cu *cu)
 {
 	struct parameter *parameter;
 
-	function->proto.tag.refcnt++;
+	function->proto.tag.visited = 1;
 
 	if (function->proto.tag.type != 0) /* if not void */ {
 		struct tag *type =
@@ -135,7 +135,7 @@ static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 static int lost_iterator(struct tag *tag, struct cu *cu,
 			 void *cookie __unused)
 {
-	if (tag->refcnt == 0 && tag->decl_file) {
+	if (!tag->visited && tag->decl_file) {
 		tag__fprintf(tag, cu, NULL, stdout);
 		puts(";\n");
 	}
