@@ -100,12 +100,32 @@ static inline bool tag__has_namespace(const struct tag *self)
 	       tag__is_enumeration(self);
 }
 
+/**
+ * tag__is_tag_type - is this tag derived from the 'type' class?
+ * @tag - tag queried
+ */
 static inline int tag__is_type(const struct tag *self)
 {
 	return tag__is_union(self)   ||
 	       tag__is_struct(self)  ||
 	       tag__is_typedef(self) ||
 	       tag__is_enumeration(self);
+}
+ 
+/**
+ * tag__is_tag_type - is this one of the possible types for a tag?
+ * @tag - tag queried
+ */
+static inline int tag__is_tag_type(const struct tag *self)
+{
+	return tag__is_type(self) ||
+	       tag__is_enumeration(self) ||
+	       self->tag == DW_TAG_array_type ||
+	       self->tag == DW_TAG_base_type ||
+	       self->tag == DW_TAG_const_type ||
+	       self->tag == DW_TAG_pointer_type ||
+	       self->tag == DW_TAG_subroutine_type ||
+	       self->tag == DW_TAG_volatile_type;
 }
 
 static inline const char *tag__decl_file(const struct tag *self)
