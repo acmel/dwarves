@@ -226,10 +226,7 @@ void namespace__delete(struct namespace *self)
 		list_del_init(&pos->node);
 
 		/* Look for nested namespaces */
-		if (tag__is_struct(pos)    ||
-		    tag__is_union(pos)	   ||
-		    tag__is_namespace(pos) ||
-		    tag__is_enumeration(pos))
+		if (tag__has_namespace(pos))
 		    	namespace__delete(tag__namespace(pos));
 		tag__delete(pos);
 	}
@@ -482,12 +479,8 @@ void cu__delete(struct cu *self)
 		list_del_init(&pos->node);
 
 		/* Look for nested namespaces */
-		if (tag__is_struct(pos)    ||
-		    tag__is_union(pos)	   ||
-		    tag__is_namespace(pos) ||
-		    tag__is_enumeration(pos)) {
+		if (tag__has_namespace(pos))
 		    	namespace__delete(tag__namespace(pos));
-		}
 	}
 	free(self);
 }
