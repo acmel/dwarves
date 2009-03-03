@@ -33,6 +33,7 @@ struct cu {
 	struct list_head node;
 	struct list_head tags;
 	struct list_head hash_tags[HASHTAGS__SIZE];
+	struct list_head hash_types[HASHTAGS__SIZE];
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
 	const char	 *name;
 	uint8_t		 addr_size;
@@ -596,6 +597,7 @@ extern void cu__delete(struct cu *self);
 void cu__add_tag(struct cu *self, struct tag *tag);
 extern struct tag *cu__find_tag_by_id(const struct cu *self,
 				      const Dwarf_Off id);
+struct tag *cu__find_type_by_id(const struct cu *self, const Dwarf_Off id);
 extern struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 						  const Dwarf_Off type);
 extern struct tag *cu__find_struct_by_name(const struct cu *cu,
