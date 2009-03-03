@@ -495,6 +495,24 @@ static void hashtags__hash(struct list_head *hashtable, struct tag *tag)
 	list_add_tail(&tag->hash_node, head);
 }
 
+static struct tag *hashtags__find(const struct list_head *hashtable,
+				  const Dwarf_Off id)
+{
+	struct tag *pos;
+	const struct list_head *head;
+
+	if (id == 0)
+		return NULL;
+
+	head = hashtable + hashtags__fn(id);
+
+	list_for_each_entry(pos, head, hash_node)
+		if (pos->id == id)
+			return pos;
+
+	return NULL;
+}
+
 void cu__hash(struct cu *self, struct tag *tag)
 {
 	hashtags__hash(self->hash_tags, tag);
@@ -531,19 +549,7 @@ static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
 
 struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
 {
-	struct tag *pos;
-	const struct list_head *head;
-
-	if (self == NULL || id == 0)
-		return NULL;
-
-	head = &self->hash_tags[hashtags__fn(id)];
-
-	list_for_each_entry(pos, head, hash_node)
-		if (pos->id == id)
-			return pos;
-
-	return NULL;
+	return self ? hashtags__find(self->hash_tags, id) : NULL;
 }
 
 struct tag *cu__find_first_typedef_of_type(const struct cu *self,
