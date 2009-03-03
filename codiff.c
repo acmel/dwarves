@@ -163,8 +163,8 @@ static int check_print_change(const struct class_member *old,
 
 	if (changes && print && !show_terse_type_changes)
 		printf("    %s\n"
-		       "     from: %-21s /* %5u(%u) %5zd(%d) */\n"
-		       "     to:   %-21s /* %5u(%u) %5zd(%u) */\n",
+		       "     from:    %-21s /* %5u(%2u) %5zd(%2d) */\n"
+		       "     to:      %-21s /* %5u(%2u) %5zd(%2u) */\n",
 		       class_member__name(old),
 		       old_type_name, old->offset, old->bit_offset,
 		       old_size, old->bit_size,
@@ -182,15 +182,54 @@ static int check_print_members_changes(const struct class *structure,
 {
 	int changes = 0;
 	struct class_member *member;
+	uint16_t nr_twins_found = 0;
 
 	type__for_each_member(&structure->type, member) {
+		const char *member_name = class_member__name(member);
 		struct class_member *twin =
-			class__find_member_by_name(new_structure,
-						   class_member__name(member));
-		if (twin != NULL)
+			class__find_member_by_name(new_structure, member_name);
+		if (twin != NULL) {
+			twin->tag.refcnt = 1;
+			++nr_twins_found;
 			if (check_print_change(member, cu, twin, new_cu, print))
 				changes = 1;
+		} else {
+			changes = 1;
+			if (print) {
+				char name[128];
+				struct tag *type;
+				type = cu__find_tag_by_id(cu, member->tag.type);
+				printf("    %s\n"
+				       "     removed: %-21s /* %5u(%2u) %5zd(%2d) */\n",
+				       class_member__name(member),
+				       tag__name(type, cu, name, sizeof(name)),
+				       member->offset, member->bit_offset,
+				       tag__size(type, cu), member->bit_size);
+			}
+		}
 	}
+
+	if (nr_twins_found == new_structure->type.nr_members)
+		goto out;
+
+	changes = 1;
+	if (!print)
+		goto out;
+
+	type__for_each_member(&new_structure->type, member) {
+		if (!member->tag.refcnt) {
+			char name[128];
+			struct tag *type;
+			type = cu__find_tag_by_id(new_cu, member->tag.type);
+			printf("    %s\n"
+			       "     added:   %-21s /* %5u(%2u) %5zd(%2d) */\n",
+			       class_member__name(member),
+			       tag__name(type, new_cu, name, sizeof(name)),
+			       member->offset, member->bit_offset,
+			       tag__size(type, new_cu), member->bit_size);
+		}
+	}
+out:
 	return changes;
 }
 
