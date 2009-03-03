@@ -122,6 +122,7 @@ static inline int tag__is_tag_type(const struct tag *self)
 	       self->tag == DW_TAG_base_type ||
 	       self->tag == DW_TAG_const_type ||
 	       self->tag == DW_TAG_pointer_type ||
+	       self->tag == DW_TAG_ptr_to_member_type ||
 	       self->tag == DW_TAG_reference_type ||
 	       self->tag == DW_TAG_subroutine_type ||
 	       self->tag == DW_TAG_volatile_type;

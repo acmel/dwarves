@@ -129,8 +129,8 @@ static int check_print_change(const struct class_member *old,
 {
 	size_t old_size, new_size;
 	char old_type_name[128], new_type_name[128];
-	const struct tag *old_type = cu__find_tag_by_id(old_cu, old->tag.type);
-	const struct tag *new_type = cu__find_tag_by_id(new_cu, new->tag.type);
+	const struct tag *old_type = cu__find_type_by_id(old_cu, old->tag.type);
+	const struct tag *new_type = cu__find_type_by_id(new_cu, new->tag.type);
 	int changes = 0;
 
 	if (old_type == NULL || new_type == NULL)
@@ -201,7 +201,7 @@ static int check_print_members_changes(const struct class *structure,
 			if (print) {
 				char name[128];
 				struct tag *type;
-				type = cu__find_tag_by_id(cu, member->tag.type);
+				type = cu__find_type_by_id(cu, member->tag.type);
 				printf("    %s\n"
 				       "     removed: %-21s /* %5u(%2u) %5zd(%2d) */\n",
 				       class_member__name(member),
@@ -223,7 +223,7 @@ static int check_print_members_changes(const struct class *structure,
 		if (!member->tag.visited) {
 			char name[128];
 			struct tag *type;
-			type = cu__find_tag_by_id(new_cu, member->tag.type);
+			type = cu__find_type_by_id(new_cu, member->tag.type);
 			printf("    %s\n"
 			       "     added:   %-21s /* %5u(%2u) %5zd(%2d) */\n",
 			       class_member__name(member),
@@ -444,7 +444,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 static void show_changed_member(char change, const struct class_member *member,
 				const struct cu *cu)
 {
-	const struct tag *type = cu__find_tag_by_id(cu, member->tag.type);
+	const struct tag *type = cu__find_type_by_id(cu, member->tag.type);
 	char bf[128];
 
 	tag__assert_search_result(type);

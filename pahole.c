@@ -525,14 +525,14 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		    tag_pos->tag != DW_TAG_inheritance)
 		    	continue;
 
-		type = cu__find_tag_by_id(cu, tag_pos->type);
+		type = cu__find_type_by_id(cu, tag_pos->type);
 		tag__assert_search_result(type);
 		if (type->tag == DW_TAG_array_type) {
 			int i;
 			for (i = 0; i < tag__array_type(type)->dimensions; ++i)
 				array_multiplier *= tag__array_type(type)->nr_entries[i];
 
-			type = cu__find_tag_by_id(cu, type->type);
+			type = cu__find_type_by_id(cu, type->type);
 			tag__assert_search_result(type);
 		}
 
@@ -606,7 +606,7 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 		    tag_pos->tag != DW_TAG_inheritance)
 		    	continue;
 
-		type = cu__find_tag_by_id(cu, tag_pos->type);
+		type = cu__find_type_by_id(cu, tag_pos->type);
 		tag__assert_search_result(type);
 		if (tag__is_typedef(type))
 			type = tag__follow_typedef(type, cu);
@@ -695,12 +695,12 @@ static int nr_methods_iterator(struct tag *tag, struct cu *cu,
 
 	list_for_each_entry(pos, &tag__ftype(tag)->parms, tag.node) {
 		struct tag *type =
-			cu__find_tag_by_id(cu, parameter__type(pos, cu));
+			cu__find_type_by_id(cu, parameter__type(pos, cu));
 
 		if (type == NULL || type->tag != DW_TAG_pointer_type)
 			continue;
 
-		type = cu__find_tag_by_id(cu, type->type);
+		type = cu__find_type_by_id(cu, type->type);
 		if (type == NULL || !tag__is_struct(type))
 			continue;
 
@@ -747,7 +747,7 @@ static void print_structs_with_pointer_to(const struct structure *s)
 		}
 
 		type__for_each_member(&c->type, pos_member) {
-			struct tag *ctype = cu__find_tag_by_id(pos_structure->cu, pos_member->tag.type);
+			struct tag *ctype = cu__find_type_by_id(pos_structure->cu, pos_member->tag.type);
 
 			tag__assert_search_result(ctype);
 			if (ctype->tag == DW_TAG_pointer_type && ctype->type == type)

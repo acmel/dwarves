@@ -808,7 +808,7 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 	long last_offset = -1;
 
 	type__for_each_data_member(type_self, pos) {
-		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
+		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
 
 		if (type->tag != DW_TAG_base_type)
 			continue;
