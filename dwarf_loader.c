@@ -178,6 +178,9 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 static void tag__init(struct tag *self, Dwarf_Die *die)
 {
 	int32_t decl_line;
+	const char *decl_file = dwarf_decl_file(die);
+	static const char *last_decl_file;
+	static uint32_t last_decl_file_idx;
 
 	self->tag = dwarf_tag(die);
 	self->id  = dwarf_dieoffset(die);
@@ -188,7 +191,12 @@ static void tag__init(struct tag *self, Dwarf_Die *die)
 	else
 		self->type = attr_type(die, DW_AT_type);
 
-	self->decl_file = strings__add(strings, dwarf_decl_file(die));
+	if (decl_file != last_decl_file) {
+		last_decl_file_idx = strings__add(strings, decl_file);
+		last_decl_file = decl_file;
+	}
+
+	self->decl_file = last_decl_file_idx;
 	dwarf_decl_line(die, &decl_line);
 	self->decl_line = decl_line;
 	self->recursivity_level = 0;
