@@ -451,8 +451,8 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		uint32_t i;
 
 		for (i = 0; i < HASHTAGS__SIZE; ++i) {
-			INIT_LIST_HEAD(&self->hash_tags[i]);
-			INIT_LIST_HEAD(&self->hash_types[i]);
+			INIT_HLIST_HEAD(&self->hash_tags[i]);
+			INIT_HLIST_HEAD(&self->hash_types[i]);
 		}
 
 		INIT_LIST_HEAD(&self->tags);
@@ -490,34 +490,35 @@ void cu__delete(struct cu *self)
 	free(self);
 }
 
-static void hashtags__hash(struct list_head *hashtable, struct tag *tag)
+static void hashtags__hash(struct hlist_head *hashtable, struct tag *tag)
 {
-	struct list_head *head = hashtable + hashtags__fn(tag->id);
+	struct hlist_head *head = hashtable + hashtags__fn(tag->id);
 
-	list_add_tail(&tag->hash_node, head);
+	hlist_add_head(&tag->hash_node, head);
 }
 
-static struct tag *hashtags__find(const struct list_head *hashtable,
+static struct tag *hashtags__find(const struct hlist_head *hashtable,
 				  const Dwarf_Off id)
 {
-	struct tag *pos;
-	const struct list_head *head;
+	struct tag *tpos;
+	struct hlist_node *pos;
+	const struct hlist_head *head;
 
 	if (id == 0)
 		return NULL;
 
 	head = hashtable + hashtags__fn(id);
 
-	list_for_each_entry(pos, head, hash_node)
-		if (pos->id == id)
-			return pos;
+	hlist_for_each_entry(tpos, pos, head, hash_node)
+		if (tpos->id == id)
+			return tpos;
 
 	return NULL;
 }
 
 void cu__hash(struct cu *self, struct tag *tag)
 {
-	struct list_head *hashtable = tag__is_tag_type(tag) ?
+	struct hlist_head *hashtable = tag__is_tag_type(tag) ?
 					self->hash_types :
 					self->hash_tags;
 	hashtags__hash(hashtable, tag);

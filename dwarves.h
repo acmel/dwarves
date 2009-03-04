@@ -32,8 +32,8 @@ struct cus *cus__new(void);
 struct cu {
 	struct list_head node;
 	struct list_head tags;
-	struct list_head hash_tags[HASHTAGS__SIZE];
-	struct list_head hash_types[HASHTAGS__SIZE];
+	struct hlist_head hash_tags[HASHTAGS__SIZE];
+	struct hlist_head hash_types[HASHTAGS__SIZE];
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
 	const char	 *name;
 	uint8_t		 addr_size;
@@ -55,7 +55,7 @@ void cu__hash(struct cu *cu, struct tag *tag);
 
 struct tag {
 	struct list_head node;
-	struct list_head hash_node;
+	struct hlist_node hash_node;
 	Dwarf_Off	 type;
 	Dwarf_Off	 id;
 	strings_t	 decl_file;
