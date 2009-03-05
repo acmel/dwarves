@@ -778,9 +778,9 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 		oom("class__new");
 
 	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
-		fprintf(stderr, "%s: DW_TAG_enumeration_type with no "
-				"children!\n", __FUNCTION__);
-		return NULL;
+		/* Seen on libQtCore.so.4.3.4.debug, 
+		 * class QAbstractFileEngineIterator, enum EntryInfoType */
+		goto out;
 	}
 
 	die = &child;
@@ -798,7 +798,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 		enumeration__add(enumeration, enumerator);
 		cu__hash(cu, &enumerator->tag);
 	} while (dwarf_siblingof(die, die) == 0);
-
+out:
 	return &enumeration->namespace.tag;
 }
 
