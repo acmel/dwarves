@@ -2457,6 +2457,9 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 	printed += fprintf(fp, "%.*s", pconf->indent, tabs);
 
 	switch (self->tag) {
+	case DW_TAG_array_type:
+		printed += array_type__fprintf(self, cu, "array", pconf, fp);
+		break;
 	case DW_TAG_enumeration_type:
 		printed += enumeration__fprintf(self, cu, pconf, fp);
 		break;
