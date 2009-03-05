@@ -26,16 +26,66 @@ struct cus {
 
 struct cus *cus__new(void);
 
-#define HASHTAGS__BITS 8
-#define HASHTAGS__SIZE (1UL << HASHTAGS__BITS)
+struct ptr_table {
+	void	 **entries;
+	uint32_t nr_entries;
+	uint32_t allocated_entries;
+};
+
+/**
+ * cu__for_each_type - iterate thru all the type tags
+ * @cu: struct cu instance to iterate
+ * @pos: struct tag iterator
+ * @id: uint16_t tag id
+ *
+ * See cu__table_nullify_type_entry and users for the reason for
+ * the NULL test (hint: CTF Unknown types)
+ */
+#define cu__for_each_type(cu, id, pos)				\
+	for (id = 1, pos = cu->types_table.entries[id];		\
+	     id < cu->types_table.nr_entries;			\
+	     pos = cu->types_table.entries[++id])		\
+		if (pos == NULL)				\
+			continue;				\
+		else
+
+/**
+ * cu__for_each_function - iterate thru all the function tags
+ * @cu: struct cu instance to iterate
+ * @pos: struct function iterator
+ * @id: uint32_t tag id
+ */
+#define cu__for_each_function(cu, id, pos)				\
+	for (id = 0, pos = tag__function(cu->tags_table.entries[id]);	\
+	     id < cu->tags_table.nr_entries;				\
+	     pos = tag__function(cu->tags_table.entries[++id]))		\
+		if (pos->proto.tag.tag != DW_TAG_subprogram)		\
+			continue;					\
+		else
+
+struct tag;
+struct cu;
+
+struct cu_orig_info {
+	const char	   *(*tag__decl_file)(const struct tag *self,
+					      const struct cu *cu);
+	uint32_t	   (*tag__decl_line)(const struct tag *self,
+					     const struct cu *cu);
+	unsigned long long (*tag__orig_id)(const struct tag *self,
+					   const struct cu *cu);
+	unsigned long long (*tag__orig_type)(const struct tag *self,
+					     const struct cu *cu);
+};
 
 struct cu {
 	struct list_head node;
 	struct list_head tags;
-	struct hlist_head hash_tags[HASHTAGS__SIZE];
-	struct hlist_head hash_types[HASHTAGS__SIZE];
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
-	const char	 *name;
+	struct ptr_table types_table;
+	struct ptr_table tags_table;
+	char		 *name;
+	void 		 *priv;
+	struct cu_orig_info *orig_info;
 	uint8_t		 addr_size;
 	uint16_t	 language;
 	unsigned long	 nr_inline_expansions;
@@ -49,20 +99,18 @@ struct cu {
 	unsigned char	 build_id[0];
 };
 
-struct tag;
-
-void cu__hash(struct cu *cu, struct tag *tag);
-
+/** struct tag - basic representation of a debug info element
+ * @priv - extra data, for instance, DWARF offset, id, decl_{file,line}
+ * @top_level - 
+ */
 struct tag {
 	struct list_head node;
-	struct hlist_node hash_node;
-	Dwarf_Off	 type;
-	Dwarf_Off	 id;
-	strings_t	 decl_file;
-	uint16_t	 decl_line;
+	uint16_t	 type;
 	uint16_t	 tag;
 	uint16_t	 visited:1;
-	uint16_t	 recursivity_level:15;
+	uint16_t	 top_level:1;
+	uint16_t	 recursivity_level;
+	void		 *priv;
 };
 
 static inline int tag__is_enumeration(const struct tag *self)
@@ -129,9 +177,28 @@ static inline int tag__is_tag_type(const struct tag *self)
 	       self->tag == DW_TAG_volatile_type;
 }
 
-static inline const char *tag__decl_file(const struct tag *self)
+static inline const char *tag__decl_file(const struct tag *self,
+					 const struct cu *cu)
 {
-	return strings__ptr(strings, self->decl_file);
+	return cu->orig_info ? cu->orig_info->tag__decl_file(self, cu) : NULL;
+}
+
+static inline uint32_t tag__decl_line(const struct tag *self,
+				      const struct cu *cu)
+{
+	return cu->orig_info ? cu->orig_info->tag__decl_line(self, cu) : 0;
+}
+
+static inline unsigned long long tag__orig_id(const struct tag *self,
+					      const struct cu *cu)
+{
+	return cu->orig_info ? cu->orig_info->tag__orig_id(self, cu) : 0;
+}
+
+static inline unsigned long long tag__orig_type(const struct tag *self,
+						const struct cu *cu)
+{
+	return cu->orig_info ? cu->orig_info->tag__orig_type(self, cu) : 0;
 }
  
 struct ptr_to_member_type {
@@ -508,6 +575,11 @@ struct label {
 	Dwarf_Off	 abstract_origin;
 };
 
+static inline struct label *tag__label(const struct tag *self)
+{
+	return (struct label *)self;
+}
+
 struct enumerator {
 	struct tag	 tag;
 	strings_t	 name;
@@ -545,7 +617,8 @@ extern size_t enumeration__fprintf(const struct tag *tag_self,
 				   const struct conf_fprintf *conf, FILE *fp);
 extern size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 			       const struct conf_fprintf *conf, FILE *fp);
-extern size_t tag__fprintf_decl_info(const struct tag *self, FILE *fp);
+size_t tag__fprintf_decl_info(const struct tag *self,
+			      const struct cu *cu, FILE *fp);
 extern size_t tag__fprintf(struct tag *self, const struct cu *cu,
 			   const struct conf_fprintf *conf, FILE *fp);
 
@@ -577,14 +650,17 @@ extern void cus__print_error_msg(const char *progname, const struct cus *cus,
 extern struct cu *cus__find_cu_by_name(const struct cus *self,
 				       const char *name);
 extern struct tag *cu__find_base_type_by_name(const struct cu *self,
-					      const char *name);
+					      const char *name,
+					      uint16_t *id);
 struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
 						const char *name,
-						size_t bit_size);
+						size_t bit_size,
+						uint16_t *id);
 extern struct tag *cus__find_struct_by_name(const struct cus *self,
 					    struct cu **cu,
 					    const char *name,
-					    const int include_decls);
+					    const int include_decls,
+					    uint16_t *id);
 extern struct tag *cus__find_function_by_name(const struct cus *self,
 					      struct cu **cu,
 					      const char *name);
@@ -595,15 +671,18 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id, int build_id_len);
 extern void cu__delete(struct cu *self);
 
-void cu__add_tag(struct cu *self, struct tag *tag);
+int cu__add_tag(struct cu *self, struct tag *tag, long *id);
+int cu__table_add_tag(struct cu *self, struct tag *tag, long *id);
+int cu__table_nullify_type_entry(struct cu *self, uint32_t id);
 extern struct tag *cu__find_tag_by_id(const struct cu *self,
-				      const Dwarf_Off id);
-struct tag *cu__find_type_by_id(const struct cu *self, const Dwarf_Off id);
+				      const uint32_t id);
+struct tag *cu__find_type_by_id(const struct cu *self, const uint16_t id);
 extern struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 						  const Dwarf_Off type);
 extern struct tag *cu__find_struct_by_name(const struct cu *cu,
 					   const char *name,
-					   const int include_decls);
+					   const int include_decls,
+					   uint16_t *id);
 extern bool cu__same_build_id(const struct cu *self, const struct cu *other);
 extern void	    cu__account_inline_expansions(struct cu *self);
 extern int	    cu__for_each_tag(struct cu *self,
@@ -651,7 +730,7 @@ extern size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 			     const int is_pointer, const int type_spacing,
 			     FILE *fp);
 extern int ftype__has_parm_of_type(const struct ftype *self,
-				   const struct tag *target,
+				   const uint16_t target,
 				   const struct cu *cu);
 
 void type__add_member(struct type *self, struct class_member *member);

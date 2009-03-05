@@ -218,6 +218,9 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 	if (tag->tag != DW_TAG_subprogram)
 		return NULL;
 
+	if (!tag->top_level)
+		return NULL;
+
 	function = tag__function(tag);
 	/*
 	 * FIXME: remove this check and try to fix the parameter abstract
@@ -271,6 +274,7 @@ static int cu_unique_iterator(struct cu *cu, void *cookie)
 
 static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
+	uint16_t *target_id = cookie;
 	struct function *function;
 
 	if (tag->tag != DW_TAG_subprogram)
@@ -280,7 +284,7 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 	if (function->inlined)
 		return 0;
 
-	if (ftype__has_parm_of_type(&function->proto, cookie, cu)) {
+	if (ftype__has_parm_of_type(&function->proto, *target_id, cu)) {
 		if (verbose)
 			tag__fprintf(tag, cu, &conf, stdout);
 		else
@@ -292,12 +296,13 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 static int cu_class_iterator(struct cu *cu, void *cookie)
 {
-	struct tag *target = cu__find_struct_by_name(cu, cookie, 0);
+	uint16_t target_id;
+	struct tag *target = cu__find_struct_by_name(cu, cookie, 0, &target_id);
 
 	if (target == NULL)
 		return 0;
 
-	return cu__for_each_tag(cu, class_iterator, target, NULL);
+	return cu__for_each_tag(cu, class_iterator, &target_id, NULL);
 }
 
 static int function__emit_type_definitions(struct function *self,

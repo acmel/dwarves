@@ -18,46 +18,43 @@ static struct conf_fprintf conf = {
 	.emit_stats	= 1,
 };
 
-static int emit_tag(struct tag *self, struct cu *cu, void *cookie __unused)
+static void emit_tag(struct tag *self, uint32_t tag_id, struct cu *cu)
 {
-	if (self->tag != DW_TAG_array_type &&
-	    self->tag != DW_TAG_const_type &&
-	    self->tag != DW_TAG_formal_parameter &&
-	    self->tag != DW_TAG_reference_type &&
-	    self->tag != DW_TAG_subroutine_type &&
-	    self->tag != DW_TAG_volatile_type) {
-		if (tag__is_struct(self))
-			class__find_holes(tag__class(self), cu);
+	if (tag__is_struct(self))
+		class__find_holes(tag__class(self), cu);
 
-		conf.no_semicolon = self->tag == DW_TAG_subprogram;
+	conf.no_semicolon = self->tag == DW_TAG_subprogram;
 
-		printf("%lld ", (unsigned long long)self->id);
+	printf("%d ", tag_id);
 
-	    	if (self->tag == DW_TAG_base_type) {
-			const char *name = base_type__name(tag__base_type(self));
+	if (self->tag == DW_TAG_base_type) {
+		const char *name = base_type__name(tag__base_type(self));
 
-			if (name == NULL)
-				printf("anonymous base_type\n");
-			else
-				puts(name);
-		} else if (self->tag == DW_TAG_pointer_type)
-			printf("pointer to %lld\n", (unsigned long long)self->type);
+		if (name == NULL)
+			printf("anonymous base_type\n");
 		else
-			tag__fprintf(self, cu, &conf, stdout);
+			puts(name);
+	} else if (self->tag == DW_TAG_pointer_type)
+		printf("pointer to %lld\n", (unsigned long long)self->type);
+	else
+		tag__fprintf(self, cu, &conf, stdout);
 
-		if (self->tag == DW_TAG_subprogram) {
-			struct function *fn = tag__function(self);
-			putchar('\n');
-			lexblock__fprintf(&fn->lexblock, cu, fn, 0, stdout);
-		}
-		puts("\n");
+	if (self->tag == DW_TAG_subprogram) {
+		struct function *fn = tag__function(self);
+		putchar('\n');
+		lexblock__fprintf(&fn->lexblock, cu, fn, 0, stdout);
 	}
-	return 0;
+	puts("\n");
 }
 
 static int cu__emit_tags(struct cu *self, void *cookie __unused)
 {
-	cu__for_each_tag(self, emit_tag, NULL, NULL);
+	uint16_t i;
+
+	for (i = 1; i < self->types_table.nr_entries; ++i) {
+		struct tag *tag = self->types_table.entries[i];
+		emit_tag(tag, i, self);
+	}
 	return 0;
 }
 

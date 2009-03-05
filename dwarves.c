@@ -25,13 +25,10 @@
 #include "config.h"
 #include "ctf_loader.h"
 #include "dwarf_loader.h"
-#include "hash.h"
 #include "list.h"
 #include "dwarves.h"
 #include "dutil.h"
 #include "strings.h"
-
-#define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
 
 struct strings *strings;
 
@@ -191,11 +188,12 @@ static size_t __tag__id_not_found_fprintf(FILE *fp, Dwarf_Off id,
 #define tag__id_not_found_fprintf(fp, id) \
 	__tag__id_not_found_fprintf(fp, id, __func__)
 
-size_t tag__fprintf_decl_info(const struct tag *self, FILE *fp)
+size_t tag__fprintf_decl_info(const struct tag *self,
+			      const struct cu *cu, FILE *fp)
 {
-	return fprintf(fp, "/* <%llx> %s:%u */\n",
-		       (unsigned long long)self->id,
-		       s(self->decl_file), self->decl_line);
+	return fprintf(fp, "/* <%llx> %s:%u */\n", tag__orig_id(self, cu),
+		       tag__decl_file(self, cu), tag__decl_line(self, cu));
+	return 0;
 }
 
 static size_t type__fprintf(struct tag *type, const struct cu *cu,
@@ -237,22 +235,8 @@ void namespace__delete(struct namespace *self)
 	tag__delete(&self->tag);
 }
 
-const char *type__name(struct type *self, const struct cu *cu)
+const char *type__name(struct type *self, const struct cu *cu __unused)
 {
-	/* Check if the tag doesn't comes with a DW_AT_name attribute... */
-	if (!self->namespace.name &&
-	    /* No? So it can have a DW_TAG_specification... */
-	    self->specification != 0 &&
-	    cu != NULL) {
-		struct tag *tag = cu__find_type_by_id(cu, self->specification);
-		if (tag == NULL) {
-			tag__id_not_found_fprintf(stderr, self->specification);
-			return NULL;
-		}
-		/* ... and now we cache the result in this tag ->name field */
-		self->namespace.name = tag__type(tag)->namespace.name;
-	}
-
 	return s(self->namespace.name);
 }
 
@@ -293,11 +277,10 @@ reevaluate:
 		case DW_TAG_const_type:
 		case DW_TAG_typedef:
 		case DW_TAG_volatile_type: {
-			const struct tag *tag = type;
-
-			type = cu__find_type_by_id(cu, type->id);
+			struct tag *tag = type;
+			type = cu__find_type_by_id(cu, tag->type);
 			if (type == NULL) {
-				tag__id_not_found_fprintf(stderr, tag->id);
+				tag__id_not_found_fprintf(stderr, tag->type);
 				continue;
 			}
 		}
@@ -440,6 +423,93 @@ void cus__add(struct cus *self, struct cu *cu)
 {
 	list_add_tail(&cu->node, &self->cus);
 }
+ 
+static void ptr_table__init(struct ptr_table *self)
+{
+	self->entries = NULL;
+	self->nr_entries = self->allocated_entries = 0;
+}
+
+static void ptr_table__exit(struct ptr_table *self)
+{
+	free(self->entries);
+	self->entries = NULL;
+}
+
+static long ptr_table__add(struct ptr_table *self, void *ptr)
+{
+	const uint32_t nr_entries = self->nr_entries + 1;
+	const long rc = self->nr_entries;
+
+	if (nr_entries > self->allocated_entries) {
+		uint32_t allocated_entries = self->allocated_entries + 256;
+		void *entries = realloc(self->entries,
+					sizeof(void *) * allocated_entries);
+		if (entries == NULL)
+			return -ENOMEM;
+
+		self->allocated_entries = allocated_entries;
+		self->entries = entries;
+	}
+
+	self->entries[rc] = ptr;
+	self->nr_entries = nr_entries;
+	return rc;
+}
+
+static int ptr_table__add_with_id(struct ptr_table *self, void *ptr,
+				  uint32_t id)
+{
+	/* Assume we won't be fed with the same id more than once */
+	if (id >= self->allocated_entries) {
+		uint32_t allocated_entries = roundup(id + 1, 256);
+		void *entries = realloc(self->entries,
+					sizeof(void *) * allocated_entries);
+		if (entries == NULL)
+			return -ENOMEM;
+
+		self->allocated_entries = allocated_entries;
+		self->entries = entries;
+	}
+
+	self->entries[id] = ptr;
+	++self->nr_entries;
+	return 0;
+}
+
+static void *ptr_table__entry(const struct ptr_table *self, uint32_t id)
+{
+	return id >= self->nr_entries ? NULL : self->entries[id];
+}
+
+int cu__table_add_tag(struct cu *self, struct tag *tag, long *id)
+{
+	struct ptr_table *pt = tag__is_tag_type(tag) ?
+					&self->types_table :
+					&self->tags_table;
+	if (*id < 0) {
+		*id = ptr_table__add(pt, tag);
+		if (*id < 0)
+			return -ENOMEM;
+	} else if (ptr_table__add_with_id(pt, tag, *id) < 0)
+		return -ENOMEM;
+	return 0;
+}
+
+int cu__table_nullify_type_entry(struct cu *self, uint32_t id)
+{
+	return ptr_table__add_with_id(&self->types_table, NULL, id);
+}
+
+int cu__add_tag(struct cu *self, struct tag *tag, long *id)
+{
+	int err = cu__table_add_tag(self, tag, id);
+
+	if (err == 0)
+		list_add_tail(&tag->node, &self->tags);
+
+	return err;
+}
 
 struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id,
@@ -448,17 +518,23 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 	struct cu *self = malloc(sizeof(*self) + build_id_len);
 
 	if (self != NULL) {
-		uint32_t i;
+		self->name = strdup(name);
+		if (self->name == NULL)
+			goto out_free;
 
-		for (i = 0; i < HASHTAGS__SIZE; ++i) {
-			INIT_HLIST_HEAD(&self->hash_tags[i]);
-			INIT_HLIST_HEAD(&self->hash_types[i]);
-		}
+		ptr_table__init(&self->tags_table);
+		ptr_table__init(&self->types_table);
+		/*
+		 * the first entry is historically associated with void,
+		 * so make sure we don't use it
+		 */
+		if (ptr_table__add(&self->types_table, NULL) < 0)
+			goto out_free_name;
 
+		self->orig_info	= NULL;
 		INIT_LIST_HEAD(&self->tags);
 		INIT_LIST_HEAD(&self->tool_list);
 
-		self->name	= strdup(name);
 		self->addr_size = addr_size;
 
 		self->nr_inline_expansions   = 0;
@@ -472,8 +548,14 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		if (build_id_len > 0)
 			memcpy(self->build_id, build_id, build_id_len);
 	}
-
+out:
 	return self;
+out_free_name:
+	free(self->name);
+out_free:
+	free(self);
+	self = NULL;
+	goto out;
 }
 
 void cu__delete(struct cu *self)
@@ -487,47 +569,10 @@ void cu__delete(struct cu *self)
 		if (tag__has_namespace(pos))
 		    	namespace__delete(tag__namespace(pos));
 	}
+	
+	ptr_table__exit(&self->tags_table);
+	ptr_table__exit(&self->types_table);
 	free(self);
-}
-
-static void hashtags__hash(struct hlist_head *hashtable, struct tag *tag)
-{
-	struct hlist_head *head = hashtable + hashtags__fn(tag->id);
-
-	hlist_add_head(&tag->hash_node, head);
-}
-
-static struct tag *hashtags__find(const struct hlist_head *hashtable,
-				  const Dwarf_Off id)
-{
-	struct tag *tpos;
-	struct hlist_node *pos;
-	const struct hlist_head *head;
-
-	if (id == 0)
-		return NULL;
-
-	head = hashtable + hashtags__fn(id);
-
-	hlist_for_each_entry(tpos, pos, head, hash_node)
-		if (tpos->id == id)
-			return tpos;
-
-	return NULL;
-}
-
-void cu__hash(struct cu *self, struct tag *tag)
-{
-	struct hlist_head *hashtable = tag__is_tag_type(tag) ?
-					self->hash_types :
-					self->hash_tags;
-	hashtags__hash(hashtable, tag);
-}
-
-void cu__add_tag(struct cu *self, struct tag *tag)
-{
-	list_add_tail(&tag->node, &self->tags);
-	cu__hash(self, tag);
 }
 
 bool cu__same_build_id(const struct cu *self, const struct cu *other)
@@ -553,90 +598,118 @@ static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
 	return "";
 }
 
-struct tag *cu__find_tag_by_id(const struct cu *self, const Dwarf_Off id)
+struct tag *cu__find_tag_by_id(const struct cu *self, const uint32_t id)
 {
-	return self ? hashtags__find(self->hash_tags, id) : NULL;
+	return self ? ptr_table__entry(&self->tags_table, id) : NULL; 
 }
 
-struct tag *cu__find_type_by_id(const struct cu *self, const Dwarf_Off id)
+struct tag *cu__find_type_by_id(const struct cu *self, const uint16_t id)
 {
-	return self ? hashtags__find(self->hash_types, id) : NULL;
+	return self ? ptr_table__entry(&self->types_table, id) : NULL; 
 }
 
 struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 					   const Dwarf_Off type)
 {
+	uint16_t id;
 	struct tag *pos;
 
 	if (self == NULL || type == 0)
 		return NULL;
 
-	list_for_each_entry(pos, &self->tags, node)
+	cu__for_each_type(self, id, pos)
 		if (tag__is_typedef(pos) && pos->type == type)
 			return pos;
 
 	return NULL;
 }
 
-struct tag *cu__find_base_type_by_name(const struct cu *self, const char *name)
+struct tag *cu__find_base_type_by_name(const struct cu *self,
+				       const char *name, uint16_t *idp)
 {
+	uint16_t id;
 	struct tag *pos;
 
 	if (self == NULL || name == NULL)
 		return NULL;
 
-	list_for_each_entry(pos, &self->tags, node)
+	strings_t sname = strings__find(strings, name);
+	if (sname == 0)
+		return NULL;
+
+	cu__for_each_type(self, id, pos) {
 		if (pos->tag == DW_TAG_base_type) {
 			const struct base_type *bt = tag__base_type(pos);
 
-			if (bt->name && strcmp(s(bt->name), name) == 0)
+			if (bt->name == sname) {
+				if (idp != NULL)
+					*idp = id;
 				return pos;
+			}
 		}
+	}
 
 	return NULL;
 }
 
 struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
 						const char *name,
-						size_t bit_size)
+						size_t bit_size,
+						uint16_t *idp)
 {
+	uint16_t id;
 	struct tag *pos;
 
 	if (self == NULL || name == NULL)
 		return NULL;
 
-	list_for_each_entry(pos, &self->tags, node)
+	strings_t sname = strings__find(strings, name);
+	if (sname == 0)
+		return NULL;
+
+	cu__for_each_type(self, id, pos) {
 		if (pos->tag == DW_TAG_base_type) {
 			const struct base_type *bt = tag__base_type(pos);
 
 			if (bt->bit_size == bit_size &&
-			    bt->name && strcmp(s(bt->name), name) == 0)
+			    bt->name == sname) {
+				if (idp != NULL)
+					*idp = id;
 				return pos;
+			}
 		}
+	}
 
 	return NULL;
 }
 
 struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
-				    const int include_decls)
+				    const int include_decls, uint16_t *idp)
 {
+	uint16_t id;
 	struct tag *pos;
 
 	if (self == NULL || name == NULL)
 		return NULL;
 
-	list_for_each_entry(pos, &self->tags, node) {
+	strings_t sname = strings__find(strings, name);
+	if (sname == 0)
+		return NULL;
+
+	cu__for_each_type(self, id, pos) {
 		struct type *type;
 
 		if (!tag__is_struct(pos))
 			continue;
 
 		type = tag__type(pos);
-		if (type__name(type, self) != NULL &&
-		    strcmp(type__name(type, self), name) == 0) {
+		if (type->namespace.name == sname) {
 			if (type->declaration) {
-				if (include_decls)
+				if (include_decls) {
+					if (idp != NULL)
+						*idp = id;
 					return pos;
+				}
 			} else
 				return pos;
 		}
@@ -647,13 +720,14 @@ struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
 
 struct tag *cus__find_struct_by_name(const struct cus *self,
 				     struct cu **cu, const char *name,
-				     const int include_decls)
+				     const int include_decls, uint16_t *id)
 {
 	struct cu *pos;
 
 	list_for_each_entry(pos, &self->cus, node) {
 		struct tag *tag = cu__find_struct_by_name(pos, name,
-							  include_decls);
+							  include_decls,
+							  id);
 		if (tag != NULL) {
 			if (cu != NULL)
 				*cu = pos;
@@ -731,98 +805,6 @@ struct tag *cu__find_function_by_name(const struct cu *self, const char *name)
 	}
 
 	return NULL;
-}
-
-static struct tag *lexblock__find_tag_by_id(const struct lexblock *self,
-					    const Dwarf_Off id)
-{
-	struct tag *pos;
-
-	list_for_each_entry(pos, &self->tags, node) {
-		/* Allow find DW_TAG_lexical_block tags */
-		if (pos->id == id)
-			return pos;
-		/*
-		 * Oh, not looking for DW_TAG_lexical_block tags? So lets look
-		 * inside this lexblock:
-		 */
-		if (pos->tag == DW_TAG_lexical_block) {
-			const struct lexblock *child = tag__lexblock(pos);
-			struct tag *tag = lexblock__find_tag_by_id(child, id);
-
-			if (tag != NULL)
-				return tag;
-		}
-	}
-
-	return NULL;
-}
-
-static struct variable *cu__find_variable_by_id(const struct cu *self,
-						const Dwarf_Off id)
-{
-	struct tag *pos;
-
-	if (self == NULL)
-		return NULL;
-
-	list_for_each_entry(pos, &self->tags, node) {
-		/* Look at global variables first */
-		if (pos->id == id)
-			return (struct variable *)(pos);
-
-		/* Now look inside function lexical blocks */
-		if (pos->tag == DW_TAG_subprogram) {
-			struct function *fn = tag__function(pos);
-			struct tag *tag =
-				lexblock__find_tag_by_id(&fn->lexblock, id);
-
-			if (tag != NULL)
-				return (struct variable *)(tag);
-		}
-	}
-
-	return NULL;
-}
-
-static struct tag *list__find_tag_by_id(const struct list_head *self,
-					const Dwarf_Off id)
-{
-	struct tag *pos, *tag;
-
-	list_for_each_entry(pos, self, node) {
-		if (pos->id == id)
-			return pos;
-
-		switch (pos->tag) {
-		case DW_TAG_namespace:
-		case DW_TAG_class_type:
-		case DW_TAG_structure_type:
-		case DW_TAG_union_type:
-			tag = list__find_tag_by_id(&tag__namespace(pos)->tags, id);
-			break;
-		case DW_TAG_subprogram:
-			tag = list__find_tag_by_id(&tag__ftype(pos)->parms, id);
-			if (tag == NULL)
-				tag = list__find_tag_by_id(&tag__function(pos)->lexblock.tags, id);
-			break;
-		default:
-			continue;
-		}
-
-		if (tag != NULL)
-			return tag;
-	}
-
-	return NULL;
-}
-
-static struct tag *cu__find_parameter_by_id(const struct cu *self,
-					    const Dwarf_Off id)
-{
-	if (self == NULL)
-		return NULL;
-	return list__find_tag_by_id(&self->tags, id);
 }
 
 static size_t array_type__nr_entries(const struct array_type *self)
@@ -978,14 +960,14 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 static struct tag *variable__type(const struct variable *self,
 				  const struct cu *cu)
 {
-	struct variable *var;
+	struct tag *var;
 
 	if (self->tag.type != 0)
 		return cu__find_type_by_id(cu, self->tag.type);
 	else if (self->abstract_origin != 0) {
-		var = cu__find_variable_by_id(cu, self->abstract_origin);
+		var = cu__find_tag_by_id(cu, self->abstract_origin);
 		if (var)
-			return variable__type(var, cu);
+			return variable__type(tag__variable(var), cu);
 	}
 
 	return NULL;
@@ -1005,10 +987,10 @@ const char *variable__name(const struct variable *self, const struct cu *cu)
 		return s(self->name);
 
 	if (self->abstract_origin != 0) {
-		struct variable *var =
-			cu__find_variable_by_id(cu, self->abstract_origin);
+		struct tag *var =
+			cu__find_tag_by_id(cu, self->abstract_origin);
 		if (var != NULL)
-			return s(var->name);
+			return s(tag__variable(var)->name);
 	}
 	return NULL;
 }
@@ -1059,40 +1041,13 @@ size_t class_member__size(const struct class_member *self,
 	return tag__size(type, cu);
 }
 
-const char *parameter__name(struct parameter *self, const struct cu *cu)
+const char *parameter__name(struct parameter *self, const struct cu *cu __unused)
 {
-	/* Check if the tag doesn't comes with a DW_AT_name attribute... */
-	if (!self->name && self->abstract_origin != 0) {
-		/* No? Does it have a DW_AT_abstract_origin? */
-		struct tag *alias =
-			cu__find_parameter_by_id(cu, self->abstract_origin);
-		if (alias == NULL) {
-			tag__id_not_found_fprintf(stderr, self->abstract_origin);
-			return NULL;
-		}
-		/* Now cache the result in this tag ->name field */
-		self->name = tag__parameter(alias)->name;
-	}
-
 	return s(self->name);
 }
 
-Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu)
+Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu __unused)
 {
-	/* Check if the tag doesn't comes with a DW_AT_type attribute... */
-	if (self->tag.type == 0 && self->abstract_origin != 0) {
-		/* No? Does it have a DW_AT_abstract_origin? */
-		struct tag *alias =
-			cu__find_parameter_by_id(cu, self->abstract_origin);
-		if (alias == NULL) {
-			tag__id_not_found_fprintf(stderr, self->abstract_origin);
-			return 0;
-		}
-		/* Now cache the result in this tag ->name and type fields */
-		self->name = tag__parameter(alias)->name;
-		self->tag.type = tag__parameter(alias)->tag.type;
-	}
-
 	return self->tag.type;
 }
 
@@ -1476,25 +1431,8 @@ void lexblock__add_lexblock(struct lexblock *self, struct lexblock *child)
 	list_add_tail(&child->tag.node, &self->tags);
 }
 
-const char *function__name(struct function *self, const struct cu *cu)
+const char *function__name(struct function *self, const struct cu *cu __unused)
 {
-	/* Check if the tag doesn't comes with a DW_AT_name attribute... */
-	if (!self->name) {
-		/* No? So it must have a DW_AT_abstract_origin... */
-		struct tag *tag = cu__find_tag_by_id(cu,
-						     self->abstract_origin);
-		if (tag == NULL) {
-			/* ... or a DW_TAG_specification... */
-			tag = cu__find_tag_by_id(cu, self->specification);
-			if (tag == NULL) {
-				tag__id_not_found_fprintf(stderr, self->specification);
-				return NULL;
-			}
-		}
-		/* ... and now we cache the result in this tag ->name field */
-		self->name = tag__function(tag)->name;
-	}
-
 	return s(self->name);
 }
 
@@ -1512,7 +1450,7 @@ const char *function__prototype(const struct function *self,
 	return bf;
 }
 
-int ftype__has_parm_of_type(const struct ftype *self, const struct tag *target,
+int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
 			    const struct cu *cu)
 {
 	struct parameter *pos;
@@ -1522,8 +1460,7 @@ int ftype__has_parm_of_type(const struct ftype *self, const struct tag *target,
 			cu__find_type_by_id(cu, parameter__type(pos, cu));
 
 		if (type != NULL && type->tag == DW_TAG_pointer_type) {
-			type = cu__find_type_by_id(cu, type->type);
-			if (type != NULL && type->id == target->id)
+			if (type->type == target)
 				return 1;
 		}
 	}
@@ -1779,7 +1716,9 @@ static size_t ftype__fprintf_parms(const struct ftype *self,
 		name = parameter__name(pos, cu);
 		type = cu__find_type_by_id(cu, parameter__type(pos, cu));
 		if (type == NULL) {
-			stype = "<ERROR>";
+			snprintf(sbf, sizeof(sbf),
+				 "<ERROR: type %d not found>", pos->tag.type);
+			stype = sbf;
 			goto print_it;
 		}
 		if (type->tag == DW_TAG_pointer_type) {
@@ -1886,14 +1825,13 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 	default:
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		n = fprintf(fp, "%s <%llx>", dwarf_tag_name(tag->tag),
-			    (unsigned long long)tag->id);
+			    tag__orig_id(tag, cu));
 		c += n;
 		printed += n;
 		break;
 	}
-
 	return printed + fprintf(fp, "%-*.*s// %5u\n", 70 - c, 70 - c, " ",
-				 tag->decl_line);
+				 tag__decl_line(tag, cu));
 }
 
 size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
@@ -2452,7 +2390,7 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 
 	if (pconf->show_decl_info) {
 		printed += fprintf(fp, "%.*s", pconf->indent, tabs);
-		printed += tag__fprintf_decl_info(self, fp);
+		printed += tag__fprintf_decl_info(self, cu, fp);
 	}
 	printed += fprintf(fp, "%.*s", pconf->indent, tabs);
 
@@ -2515,16 +2453,17 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 }
 
 int cu__for_each_tag(struct cu *self,
-		     int (*iterator)(struct tag *tag, struct cu *cu,
-			     	     void *cookie),
+		     int (*iterator)(struct tag *tag,
+				     struct cu *cu, void *cookie),
 		     void *cookie,
-		     struct tag *(*filter)(struct tag *tag, struct cu *cu,
-			     		   void *cookie))
+		     struct tag *(*filter)(struct tag *tag,
+					   struct cu *cu, void *cookie))
 {
 	struct tag *pos;
 
 	list_for_each_entry(pos, &self->tags, node) {
 		struct tag *tag = pos;
+
 		if (filter != NULL) {
 			tag = filter(pos, self, cookie);
 			if (tag == NULL)

@@ -14,6 +14,8 @@
 #define __unused __attribute__ ((unused))
 #endif
 
+#define roundup(x,y) ((((x) + ((y) - 1)) / (y)) * (y))
+
 /* We need define two variables, argp_program_version_hook and
    argp_program_bug_address, in all programs.  argp.h declares these
    variables as non-const (which is correct in general).  But we can

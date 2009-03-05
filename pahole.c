@@ -63,9 +63,10 @@ struct structure {
 	const struct cu	  *cu;
 	uint32_t	  nr_files;
 	uint32_t	  nr_methods;
+	uint16_t	  id;
 };
 
-static struct structure *structure__new(struct class *class,
+static struct structure *structure__new(struct class *class, uint16_t id,
 					const struct cu *cu)
 {
 	struct structure *self = malloc(sizeof(*self));
@@ -75,6 +76,7 @@ static struct structure *structure__new(struct class *class,
 		self->cu         = cu;
 		self->nr_files   = 1;
 		self->nr_methods = 0;
+		self->id	 = id;
 	}
 
 	return self;
@@ -84,9 +86,10 @@ static void *structures__tree;
 static LIST_HEAD(structures__anonymous_list);
 static LIST_HEAD(structures__named_list);
 
-static void structures__add_anonymous(struct class *class, const struct cu *cu)
+static void structures__add_anonymous(struct class *class, uint16_t id,
+				      const struct cu *cu)
 {
-	struct structure *str = structure__new(class, cu);
+	struct structure *str = structure__new(class, id, cu);
 
 	if (str != NULL)
 		list_add_tail(&str->node, &structures__anonymous_list);
@@ -100,7 +103,8 @@ static int structure__compare(const void *a, const void *b)
 	return strings__cmp(strings, *key, pos->class->type.namespace.name);
 }
 
-static int structures__add_named(struct class *class, const struct cu *cu)
+static int structures__add_named(struct class *class, uint16_t id,
+				 const struct cu *cu)
 {
 	struct structure *str;
 	strings_t *s = tsearch(&class->type.namespace.name, &structures__tree,
@@ -113,7 +117,7 @@ static int structures__add_named(struct class *class, const struct cu *cu)
 	 * calling structures__add_named */
 	assert(*s != class->type.namespace.name);
 
-	str = structure__new(class, cu);
+	str = structure__new(class, id, cu);
 	if (str == NULL)
 		return -ENOMEM;
 
@@ -125,17 +129,15 @@ static int structures__add_named(struct class *class, const struct cu *cu)
 	return 0;
 }
 
-static int structures__add(struct class *class, const struct cu *cu)
+static int structures__add(struct class *class, uint16_t id,
+			   const struct cu *cu)
 {
-	/* Let it follow abstract_origin, etc */
-	class__name(class, cu);
-
 	if (!class->type.namespace.name) {
-		structures__add_anonymous(class, cu);
+		structures__add_anonymous(class, id, cu);
 		return 0;
 	}
 
-	return structures__add_named(class, cu);
+	return structures__add_named(class, id, cu);
 }
 
 static struct structure *structures__find_anonymous(strings_t name)
@@ -144,7 +146,7 @@ static struct structure *structures__find_anonymous(strings_t name)
 
 	list_for_each_entry(pos, &structures__anonymous_list, node) {
 		struct class *c = pos->class;
-		const struct tag *tdef = cu__find_first_typedef_of_type(pos->cu, class__tag(c)->id);
+		const struct tag *tdef = cu__find_first_typedef_of_type(pos->cu, pos->id);
 
 		if (tdef == NULL)
 			continue;
@@ -225,7 +227,7 @@ static void class_formatter(struct structure *self)
 		 * affected.
 		 */
 		typedef_alias = cu__find_first_typedef_of_type(self->cu,
-							       tag->id);
+							       self->id);
 		/*
 		 * If there is no typedefs for this anonymous struct it is
 		 * found just inside another struct, and in this case it'll
@@ -265,7 +267,7 @@ static void print_packable_info(struct structure *pos)
 	/* Anonymous struct? Try finding a typedef */
 	if (name == NULL) {
 		const struct tag *tdef =
-		      cu__find_first_typedef_of_type(pos->cu, t->id);
+		      cu__find_first_typedef_of_type(pos->cu, pos->id);
 
 		if (tdef != NULL)
 			name = class__name(tag__class(tdef), pos->cu);
@@ -278,7 +280,8 @@ static void print_packable_info(struct structure *pos)
 		       savings);
 	else
 		printf("%s(%d)%c%zd%c%zd%c%zd\n",
-		       tag__decl_file(t), t->decl_line,
+		       tag__decl_file(t, pos->cu),
+		       tag__decl_line(t, pos->cu),
 		       separator,
 		       orig_size, separator,
 		       new_size, separator,
@@ -391,7 +394,7 @@ static void class__chkdupdef(struct class *self, const struct cu *cu,
 }
 
 static struct tag *tag__filter(struct tag *tag, struct cu *cu,
-			       void *cookie __unused)
+			       uint16_t tag_id)
 {
 	struct structure *str;
 	struct class *class;
@@ -399,6 +402,9 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 	strings_t stname;
 
 	if (!tag__is_struct(tag))
+		return NULL;
+
+	if (!tag->top_level)
 		return NULL;
 
 	class = tag__class(tag);
@@ -414,7 +420,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 	if (class__exclude_prefix != NULL) {
 		if (name == NULL) {
 			const struct tag *tdef =
-				cu__find_first_typedef_of_type(cu, tag->id);
+				cu__find_first_typedef_of_type(cu, tag_id);
 			if (tdef != NULL) {
 				struct class *c = tag__class(tdef);
 
@@ -422,7 +428,6 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 				stname = c->type.namespace.name;
 			}
 		}
-
 		if (name != NULL && strncmp(class__exclude_prefix, name,
 					    class__exclude_prefix_len) == 0)
 			return NULL;
@@ -431,7 +436,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 	if (class__include_prefix != NULL) {
 		if (name == NULL) {
 			const struct tag *tdef =
-				cu__find_first_typedef_of_type(cu, tag->id);
+				cu__find_first_typedef_of_type(cu, tag_id);
 			if (tdef != NULL) {
 				struct class *c = tag__class(tdef);
 
@@ -439,7 +444,6 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 				stname = c->type.namespace.name;
 			}
 		}
-
 		if (name != NULL && strncmp(class__include_prefix, name,
 					    class__include_prefix_len) != 0)
 			return NULL;
@@ -447,8 +451,8 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 
 
 	if (decl_exclude_prefix != NULL &&
-	    (!tag->decl_file ||
-	     strncmp(decl_exclude_prefix, tag__decl_file(tag),
+	    (!tag__decl_file(tag, cu) ||
+	     strncmp(decl_exclude_prefix, tag__decl_file(tag, cu),
 		     decl_exclude_prefix_len) == 0))
 		return NULL;
 
@@ -473,26 +477,23 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 	return tag;
 }
 
-static int unique_iterator(struct tag *tag, struct cu *cu,
-			   void *cookie __unused)
+static int cu_unique_iterator(struct cu *cu, void *cookie __unused)
 {
-	if (structures__add(tag__class(tag), cu)) {
-		fprintf(stderr, "pahole: not enough memory! "
-				"Continuing with partial results\n");
-		return -1;
-	}
-	return 0;
-}
+	uint16_t id;
+	struct tag *tag;
 
-static int cu_unique_iterator(struct cu *cu, void *cookie)
-{
 	if (defined_in) {
-		struct tag *tag = cu__find_struct_by_name(cu, class_name, 0);
-
+		tag = cu__find_struct_by_name(cu, class_name, 0, &id);
 		if (tag != NULL)
 			puts(cu->name);
-	} else
-		return cu__for_each_tag(cu, unique_iterator, cookie, tag__filter);
+	} else {
+		cu__for_each_type(cu, id, tag) {
+			if (tag__filter(tag, cu, id) &&
+			    structures__add(tag__class(tag), id, cu))
+				fprintf(stderr, "pahole: not enough memory! "
+						"Continuing with partial results\n");
+		}
+	}
 	return 0;
 }
 
@@ -728,7 +729,7 @@ static char tab[128];
 static void print_structs_with_pointer_to(const struct structure *s)
 {
 	struct structure *pos_structure;
-	Dwarf_Off type;
+	uint16_t type;
 	const char *class_name = class__name(s->class, s->cu);
 	const struct cu *current_cu = NULL;
 
@@ -737,13 +738,16 @@ static void print_structs_with_pointer_to(const struct structure *s)
 		struct class_member *pos_member;
 
 		if (pos_structure->cu != current_cu) {
+			uint16_t class_id;
 			struct tag *class;
 
-			class = cu__find_struct_by_name(pos_structure->cu, class_name, 1);
+			class = cu__find_struct_by_name(pos_structure->cu,
+							class_name, 1,
+							&class_id);
 			if (class == NULL)
 				continue;
 			current_cu = pos_structure->cu;
-			type = class->id;
+			type = class_id;
 		}
 
 		type__for_each_member(&c->type, pos_member) {
@@ -760,7 +764,7 @@ static void print_structs_with_pointer_to(const struct structure *s)
 static void print_containers(const struct structure *s, int ident)
 {
 	struct structure *pos;
-	const Dwarf_Off type = s->class->type.namespace.tag.id;
+	const uint16_t type = s->id;
 
 	list_for_each_entry(pos, &structures__named_list, node) {
 		struct class *c = pos->class;

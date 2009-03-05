@@ -135,7 +135,7 @@ static int cu_refcnt_iterator(struct cu *cu, void *cookie)
 static int lost_iterator(struct tag *tag, struct cu *cu,
 			 void *cookie __unused)
 {
-	if (!tag->visited && tag->decl_file) {
+	if (!tag->visited && tag__decl_file(tag, cu)) {
 		tag__fprintf(tag, cu, NULL, stdout);
 		puts(";\n");
 	}
