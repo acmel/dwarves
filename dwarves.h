@@ -505,6 +505,7 @@ struct label {
 	struct tag	 tag;
 	strings_t	 name;
 	Dwarf_Addr	 low_pc;
+	Dwarf_Off	 abstract_origin;
 };
 
 struct enumerator {

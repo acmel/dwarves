@@ -420,6 +420,7 @@ static struct label *label__new(Dwarf_Die *die)
 	if (self != NULL) {
 		tag__init(&self->tag, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
+		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
 		if (dwarf_lowpc(die, &self->low_pc))
 			self->low_pc = 0;
 	}
