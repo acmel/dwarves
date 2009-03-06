@@ -515,6 +515,11 @@ static inline struct tag *function__tag(const struct function *self)
 	return (struct tag *)self;
 }
 
+static __pure inline int tag__is_function(const struct tag *self)
+{
+	return self->tag == DW_TAG_subprogram;
+}
+
 /** 
  * function__for_each_parameter - iterate thru all the parameters
  * @self: struct function instance to iterate
