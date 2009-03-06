@@ -306,9 +306,6 @@ void type__emit(struct tag *tag_self, struct cu *cu,
 {
 	struct type *ctype = tag__type(tag_self);
 
-	if (tag__is_struct(tag_self))
-		class__find_holes(tag__class(tag_self), cu);
-
 	if (type__name(ctype) != NULL ||
 	    suffix != NULL || prefix != NULL) {
 		struct conf_fprintf conf = {

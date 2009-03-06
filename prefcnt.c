@@ -118,9 +118,7 @@ static int refcnt_function_iterator(struct function *function,
 
 static int refcnt_tag_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
-	if (tag__is_struct(tag))
-		class__find_holes(tag__class(tag), cu);
-	else if (tag__is_function(tag))
+	if (tag__is_function(tag))
 		refcnt_function_iterator(tag__function(tag), cu, cookie);
 
 	return 0;

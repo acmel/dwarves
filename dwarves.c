@@ -414,9 +414,19 @@ size_t enumeration__fprintf(const struct tag *tag_self,
 				 conf->suffix ? " " : "", conf->suffix ?: "");
 }
 
+static void cu__find_class_holes(struct cu *self)
+{
+	uint16_t id;
+	struct class *pos;
+
+	cu__for_each_struct(self, id, pos)
+		class__find_holes(pos, self);
+}
+
 void cus__add(struct cus *self, struct cu *cu)
 {
 	list_add_tail(&cu->node, &self->cus);
+	cu__find_class_holes(cu);
 }
  
 static void ptr_table__init(struct ptr_table *self)
@@ -1150,12 +1160,9 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 					   type->tag == DW_TAG_class_type ? "class" : "struct",
 					   conf->type_spacing - 7,
 					   type__name(ctype), name);
-		else {
-			struct class *class = tag__class(type);
-
-			class__find_holes(class, cu);
-			printed += class__fprintf(class, cu, &tconf, fp);
-		}
+		else
+			printed += class__fprintf(tag__class(type),
+						  cu, &tconf, fp);
 		break;
 	case DW_TAG_union_type:
 		ctype = tag__type(type);

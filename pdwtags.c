@@ -20,9 +20,6 @@ static struct conf_fprintf conf = {
 
 static void emit_tag(struct tag *self, uint32_t tag_id, struct cu *cu)
 {
-	if (tag__is_struct(self))
-		class__find_holes(tag__class(self), cu);
-
 	conf.no_semicolon = tag__is_function(self);
 
 	printf("%d ", tag_id);

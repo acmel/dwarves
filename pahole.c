@@ -454,8 +454,6 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 		     decl_exclude_prefix_len) == 0))
 		return NULL;
 
-	class__find_holes(class, cu);
-
 	if (class->nr_holes < nr_holes ||
 	    class->nr_bit_holes < nr_bit_holes ||
 	    (hole_size_ge != 0 && !class__has_hole_ge(class, hole_size_ge)))

@@ -51,6 +51,21 @@ struct ptr_table {
 		else
 
 /**
+ * cu__for_each_struct - iterate thru all the struct tags
+ * @cu: struct cu instance to iterate
+ * @pos: struct class iterator
+ * @id: uint16_t tag id
+ */
+#define cu__for_each_struct(cu, id, pos)				\
+	for (id = 0, pos = tag__class(cu->types_table.entries[id]);	\
+	     id < cu->types_table.nr_entries;				\
+	     pos = tag__class(cu->types_table.entries[++id]))		\
+		if (pos == NULL ||					\
+		    !tag__is_struct(class__tag(pos)))			\
+			continue;					\
+		else
+
+/**
  * cu__for_each_function - iterate thru all the function tags
  * @cu: struct cu instance to iterate
  * @pos: struct function iterator

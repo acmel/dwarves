@@ -258,8 +258,6 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 
 	assert(class__is_struct(new_structure));
 
-	class__find_holes(structure, cu);
-	class__find_holes(new_structure, new_cu);
 	diff = class__size(structure) != class__size(new_structure) ||
 	       class__nr_members(structure) != class__nr_members(new_structure) ||
 	       check_print_members_changes(structure, cu,
