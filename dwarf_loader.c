@@ -289,7 +289,6 @@ static void tag__init(struct tag *self, Dwarf_Die *die)
 	dwarf_decl_line(die, &decl_line);
 	dtag->decl_line = decl_line;
 	self->recursivity_level = 0;
-	INIT_HLIST_NODE(&dtag->hash_node);
 }
 
 static struct tag *tag__new(Dwarf_Die *die)
