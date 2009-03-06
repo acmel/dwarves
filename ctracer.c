@@ -353,8 +353,6 @@ static struct class *class__clone_base_types(const struct tag *tag_self,
 	if (clone == NULL)
 		return NULL;
 
-	class__find_holes(clone, cu);
-
 	type__for_each_data_member_safe(&clone->type, pos, next) {
 		struct tag *member_type = cu__find_type_by_id(cu, pos->tag.type);
 
@@ -364,7 +362,6 @@ static struct class *class__clone_base_types(const struct tag *tag_self,
 			class_member__delete(pos);
 		}
 	}
-	class__find_holes(clone, cu);
 	class__fixup_alignment(clone, cu);
 	class__reorganize(clone, cu, 0, NULL);
 	return clone;
