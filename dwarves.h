@@ -60,7 +60,8 @@ struct ptr_table {
 	for (id = 0, pos = tag__function(cu->tags_table.entries[id]);	\
 	     id < cu->tags_table.nr_entries;				\
 	     pos = tag__function(cu->tags_table.entries[++id]))		\
-		if (pos->proto.tag.tag != DW_TAG_subprogram)		\
+		if (pos == NULL ||					\
+		    pos->proto.tag.tag != DW_TAG_subprogram)		\
 			continue;					\
 		else
 
