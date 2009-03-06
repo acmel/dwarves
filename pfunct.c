@@ -215,7 +215,7 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 	struct fn_stats *fstats;
 	const char *name;
 
-	if (tag->tag != DW_TAG_subprogram)
+	if (!tag__is_function(tag))
 		return NULL;
 
 	if (!tag->top_level)
@@ -261,7 +261,7 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 static int unique_iterator(struct tag *tag, struct cu *cu,
 			   void *cookie __unused)
 {
-	if (tag->tag == DW_TAG_subprogram)
+	if (tag__is_function(tag))
 		fn_stats__add(tag, cu);
 	return 0;
 }
@@ -277,7 +277,7 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 	uint16_t *target_id = cookie;
 	struct function *function;
 
-	if (tag->tag != DW_TAG_subprogram)
+	if (!tag__is_function(tag))
 		return 0;
 
 	function = tag__function(tag);
@@ -335,7 +335,7 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
 	struct function *function;
 
-	if (tag->tag != DW_TAG_subprogram)
+	if (!tag__is_function(tag))
 		return 0;
 
 	function = tag__function(tag);

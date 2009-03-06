@@ -676,7 +676,7 @@ static int cu_fixup_word_size_iterator(struct cu *cu, void *cookie)
 static struct tag *nr_methods__filter(struct tag *tag, struct cu *cu __unused,
 				      void *cookie __unused)
 {
-	if (tag->tag != DW_TAG_subprogram)
+	if (!tag__is_function(tag))
 		return NULL;
 
 	if (function__declared_inline(tag__function(tag)))

@@ -960,7 +960,7 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 
 				namespace__add_tag(&class->namespace, tag);
 				cu__hash(cu, tag);
-				if (tag->tag == DW_TAG_subprogram) {
+				if (tag__is_function(tag)) {
 					struct function *fself = tag__function(tag);
 
 					if (fself->vtable_entry != -1)

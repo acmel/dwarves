@@ -120,7 +120,7 @@ static int refcnt_tag_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
 	if (tag__is_struct(tag))
 		class__find_holes(tag__class(tag), cu);
-	else if (tag->tag == DW_TAG_subprogram)
+	else if (tag__is_function(tag))
 		refcnt_function_iterator(tag__function(tag), cu, cookie);
 
 	return 0;

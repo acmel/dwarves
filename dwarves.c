@@ -792,7 +792,7 @@ struct tag *cu__find_function_by_name(const struct cu *self, const char *name)
 		return NULL;
 
 	list_for_each_entry(pos, &self->tags, node) {
-		if (pos->tag != DW_TAG_subprogram)
+		if (!tag__is_function(pos))
 			continue;
 		fpos = tag__function(pos);
 		if (fpos->name && strcmp(s(fpos->name), name) == 0)
@@ -1668,7 +1668,7 @@ void cu__account_inline_expansions(struct cu *self)
 	struct function *fpos;
 
 	list_for_each_entry(pos, &self->tags, node) {
-		if (pos->tag != DW_TAG_subprogram)
+		if (!tag__is_function(pos))
 			continue;
 		fpos = tag__function(pos);
 		lexblock__account_inline_expansions(&fpos->lexblock, self);
@@ -2421,8 +2421,7 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 		++printed;
 	}
 
-	if (self->tag == DW_TAG_subprogram &&
-	    !pconf->suppress_comments) {
+	if (tag__is_function(self) && !pconf->suppress_comments) {
 		const struct function *fself = tag__function(self);
 
 		if (fself->linkage_name)

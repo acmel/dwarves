@@ -139,7 +139,7 @@ static struct tag *extfun__filter(struct tag *tag, struct cu *cu __unused,
 {
 	struct function *fun;
 
-	if (tag->tag != DW_TAG_subprogram)
+	if (!tag__is_function(tag))
 		return NULL;
 
 	fun = tag__function(tag);

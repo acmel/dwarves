@@ -23,7 +23,7 @@ static size_t prefix_len = 4;
 static struct tag *filter(struct tag *self, struct cu *cu,
 			  void *cookie __unused)
 {
-	if (self->tag == DW_TAG_subprogram) {
+	if (tag__is_function(self)) {
 		struct function *f = tag__function(self);
 
 		if (f->proto.nr_parms != 0) {

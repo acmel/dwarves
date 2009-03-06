@@ -72,8 +72,6 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 	struct tag *new_tag;
 	const char *name;
 
-	assert(function->proto.tag.tag == DW_TAG_subprogram);
-
 	if (function->inlined || function->abstract_origin != 0)
 		return;
 
@@ -285,7 +283,7 @@ static int diff_tag_iterator(struct tag *tag, struct cu *cu, void *new_cu)
 {
 	if (tag__is_struct(tag))
 		diff_struct(new_cu, tag__class(tag), cu);
-	else if (tag->tag == DW_TAG_subprogram)
+	else if (tag__is_function(tag))
 		diff_function(new_cu, tag__function(tag), cu);
 
 	return 0;
@@ -297,8 +295,6 @@ static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
 	struct function *function = tag__function(tfunction);
 	struct tag *old_function;
 	const char *name;
-
-	assert(function->proto.tag.tag == DW_TAG_subprogram);
 
 	if (function->inlined)
 		return 0;
@@ -350,7 +346,7 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 
 static int find_new_tags_iterator(struct tag *tag, struct cu *cu, void *old_cu)
 {
-	if (tag->tag == DW_TAG_subprogram) {
+	if (tag__is_function(tag)) {
 		/*
 		 * We're not interested in aliases, just real function definitions,
 		 * where we'll know if the kind of inlining
@@ -609,7 +605,7 @@ static int show_function_diffs_iterator(struct tag *tag, struct cu *cu,
 {
 	struct function *function = tag__function(tag);
 
-	if (tag->tag == DW_TAG_subprogram && function->priv != NULL)
+	if (tag__is_function(tag) && function->priv != NULL)
 		show_diffs_function(function, cu, cookie);
 	return 0;
 }

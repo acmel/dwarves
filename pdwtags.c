@@ -23,7 +23,7 @@ static void emit_tag(struct tag *self, uint32_t tag_id, struct cu *cu)
 	if (tag__is_struct(self))
 		class__find_holes(tag__class(self), cu);
 
-	conf.no_semicolon = self->tag == DW_TAG_subprogram;
+	conf.no_semicolon = tag__is_function(self);
 
 	printf("%d ", tag_id);
 
@@ -39,7 +39,7 @@ static void emit_tag(struct tag *self, uint32_t tag_id, struct cu *cu)
 	else
 		tag__fprintf(self, cu, &conf, stdout);
 
-	if (self->tag == DW_TAG_subprogram) {
+	if (tag__is_function(self)) {
 		struct function *fn = tag__function(self);
 		putchar('\n');
 		lexblock__fprintf(&fn->lexblock, cu, fn, 0, stdout);

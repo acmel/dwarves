@@ -172,7 +172,7 @@ static void method__add(struct cu *cu, struct function *function, uint32_t id)
 }
 
 /* 
- * We want just the DW_TAG_subprogram tags that have as one of its parameters
+ * We want just the function tags that have as one of its parameters
  * a pointer to the specified "class" (a struct, unions can be added later).
  */
 static struct function *function__filter(struct function *function,
@@ -189,7 +189,7 @@ static struct function *function__filter(struct function *function,
 
 /*
  * Iterate thru all the tags in the compilation unit, looking just for the
- * DW_TAG_subprogram tags that have as one of its parameters a pointer to
+ * function tags that have as one of its parameters a pointer to
  * the specified "class" (struct).
  */
 static int cu_find_methods_iterator(struct cu *cu, void *cookie)
