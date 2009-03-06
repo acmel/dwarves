@@ -695,8 +695,7 @@ static int nr_methods_iterator(struct tag *tag, struct cu *cu,
 	struct type *ctype;
 
 	list_for_each_entry(pos, &tag__ftype(tag)->parms, tag.node) {
-		struct tag *type =
-			cu__find_type_by_id(cu, parameter__type(pos, cu));
+		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
 
 		if (type == NULL || type->tag != DW_TAG_pointer_type)
 			continue;

@@ -68,7 +68,7 @@ static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
 	int regparm = 0, needs_wrapper = 0;
 
 	function__for_each_parameter(f, parm) {
-		const Dwarf_Off type_id = parameter__type(parm, cu);
+		const uint16_t type_id = parm->tag.type;
 		struct tag *type = cu__find_type_by_id(cu, type_id);
 
 		tag__assert_search_result(type);
@@ -81,8 +81,7 @@ static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
 					printf("wrap_%s:\n", name);
 					needs_wrapper = 1;
 				}
-				zero_extend(regparm, bt,
-					    parameter__name(parm, cu));
+				zero_extend(regparm, bt, parameter__name(parm));
 			}
 		}
 		++regparm;

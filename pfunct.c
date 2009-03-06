@@ -311,7 +311,7 @@ static int function__emit_type_definitions(struct function *self,
 	struct parameter *pos;
 
 	function__for_each_parameter(self, pos) {
-		struct tag *type = cu__find_type_by_id(cu, parameter__type(pos, cu));
+		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
 	try_again:
 		if (type == NULL)
 			continue;

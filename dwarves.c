@@ -1041,16 +1041,6 @@ size_t class_member__size(const struct class_member *self,
 	return tag__size(type, cu);
 }
 
-const char *parameter__name(struct parameter *self, const struct cu *cu __unused)
-{
-	return s(self->name);
-}
-
-Dwarf_Off parameter__type(struct parameter *self, const struct cu *cu __unused)
-{
-	return self->tag.type;
-}
-
 static size_t union__fprintf(struct type *self, const struct cu *cu,
 			     const struct conf_fprintf *conf, FILE *fp);
 
@@ -1456,8 +1446,7 @@ int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
 	struct parameter *pos;
 
 	ftype__for_each_parameter(self, pos) {
-		struct tag *type =
-			cu__find_type_by_id(cu, parameter__type(pos, cu));
+		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
 
 		if (type != NULL && type->tag == DW_TAG_pointer_type) {
 			if (type->type == target)
@@ -1713,8 +1702,8 @@ static size_t ftype__fprintf_parms(const struct ftype *self,
 						   indent, tabs);
 		} else
 			first_parm = 0;
-		name = parameter__name(pos, cu);
-		type = cu__find_type_by_id(cu, parameter__type(pos, cu));
+		name = parameter__name(pos);
+		type = cu__find_type_by_id(cu, pos->tag.type);
 		if (type == NULL) {
 			snprintf(sbf, sizeof(sbf),
 				 "<ERROR: type %d not found>", pos->tag.type);
