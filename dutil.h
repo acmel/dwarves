@@ -14,6 +14,10 @@
 #define __unused __attribute__ ((unused))
 #endif
 
+#ifndef __pure
+#define __pure __attribute__ ((pure))
+#endif
+
 #define roundup(x,y) ((((x) + ((y) - 1)) / (y)) * (y))
 
 /* We need define two variables, argp_program_version_hook and

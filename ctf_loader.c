@@ -832,7 +832,7 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 							bit_size, &fixed_tag_id) == NULL) {
 			fprintf(stderr,
 				"%s: BRAIN FART ALERT!: class: %s, member: %s\n",
-				__func__, type__name(type_self, cu),
+				__func__, type__name(type_self),
 				class_member__name(pos));
 			continue;
 		}

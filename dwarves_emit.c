@@ -47,8 +47,8 @@ struct type *type_emissions__find_definition(const struct type_emissions *self,
 		return NULL;
 
 	list_for_each_entry(pos, &self->definitions, node)
-		if (type__name(pos, NULL) != NULL &&
-		    strcmp(type__name(pos, NULL), name) == 0)
+		if (type__name(pos) != NULL &&
+		    strcmp(type__name(pos), name) == 0)
 			return pos;
 
 	return NULL;
@@ -60,14 +60,13 @@ static struct type *type_emissions__find_fwd_decl(const struct type_emissions *s
 	struct type *pos;
 
 	list_for_each_entry(pos, &self->fwd_decls, node)
-		if (strcmp(type__name(pos, NULL), name) == 0)
+		if (strcmp(type__name(pos), name) == 0)
 			return pos;
 
 	return NULL;
 }
 
 static int enumeration__emit_definitions(struct tag *self,
-					 const struct cu *cu,
 					 struct type_emissions *emissions,
 					 const struct conf_fprintf *conf,
 					 FILE *fp)
@@ -80,7 +79,7 @@ static int enumeration__emit_definitions(struct tag *self,
 
 	/* Ok, lets look at the previous CUs: */
 	if (type_emissions__find_definition(emissions,
-					    type__name(etype, cu)) != NULL) {
+					    type__name(etype)) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
@@ -89,7 +88,7 @@ static int enumeration__emit_definitions(struct tag *self,
 		return 0;
 	}
 
-	enumeration__fprintf(self, cu, conf, fp);
+	enumeration__fprintf(self, conf, fp);
 	fputs(";\n", fp);
 	type_emissions__add_definition(emissions, etype);
 	return 1;
@@ -111,7 +110,7 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 
 	/* Ok, lets look at the previous CUs: */
 	if (type_emissions__find_definition(emissions,
-					    type__name(def, cu)) != NULL) {
+					    type__name(def)) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
@@ -147,23 +146,23 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 			.suffix = NULL,
 		};
 
-		if (type__name(ctype, cu) == NULL) {
+		if (type__name(ctype) == NULL) {
 			fputs("typedef ", fp);
-			conf.suffix = type__name(def, cu);
-			enumeration__emit_definitions(type, cu, emissions, &conf, fp);
+			conf.suffix = type__name(def);
+			enumeration__emit_definitions(type, emissions, &conf, fp);
 			goto out;
 		} else 
-			enumeration__emit_definitions(type, cu, emissions, &conf, fp);
+			enumeration__emit_definitions(type, emissions, &conf, fp);
 	}
 		break;
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type: {
 		struct type *ctype = tag__type(type);
 
-		if (type__name(ctype, cu) == NULL) {
+		if (type__name(ctype) == NULL) {
 			if (type__emit_definitions(type, cu, emissions, fp))
 				type__emit(type, cu, "typedef",
-					   type__name(def, cu), fp);
+					   type__name(def), fp);
 			goto out;
 		} else if (type__emit_definitions(type, cu, emissions, fp))
 			type__emit(type, cu, NULL, NULL, fp);
@@ -187,7 +186,7 @@ out:
 	return 1;
 }
 
-int type__emit_fwd_decl(struct type *ctype, const struct cu *cu,
+int type__emit_fwd_decl(struct type *ctype,
 			struct type_emissions *emissions, FILE *fp)
 {
 	/* Have we already emitted this in this CU? */
@@ -196,7 +195,7 @@ int type__emit_fwd_decl(struct type *ctype, const struct cu *cu,
 
 	/* Ok, lets look at the previous CUs: */
 	if (type_emissions__find_fwd_decl(emissions,
-					  type__name(ctype, cu)) != NULL) {
+					  type__name(ctype)) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
@@ -207,7 +206,7 @@ int type__emit_fwd_decl(struct type *ctype, const struct cu *cu,
 
 	fprintf(fp, "%s %s;\n",
 		tag__is_union(&ctype->namespace.tag) ? "union" : "struct",
-		type__name(ctype, cu));
+		type__name(ctype));
 	type_emissions__add_fwd_decl(emissions, ctype);
 	return 1;
 }
@@ -236,19 +235,18 @@ next_indirection:
 	case DW_TAG_typedef:
 		return typedef__emit_definitions(type, cu, emissions, fp);
 	case DW_TAG_enumeration_type:
-		if (type__name(tag__type(type), cu) != NULL) {
+		if (type__name(tag__type(type)) != NULL) {
 			struct conf_fprintf conf = {
 				.suffix = NULL,
 			};
-			return enumeration__emit_definitions(type, cu,
-							     emissions,
+			return enumeration__emit_definitions(type, emissions,
 							     &conf, fp);
 		}
 		break;
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
 		if (pointer)
-			return type__emit_fwd_decl(tag__type(type), cu,
+			return type__emit_fwd_decl(tag__type(type),
 						   emissions, fp);
 		if (type__emit_definitions(type, cu, emissions, fp))
 			type__emit(type, cu, NULL, NULL, fp);
@@ -289,7 +287,7 @@ int type__emit_definitions(struct tag *self, struct cu *cu,
 
 	/* Ok, lets look at the previous CUs: */
 	if (type_emissions__find_definition(emissions,
-					    type__name(ctype, cu)) != NULL) {
+					    type__name(ctype)) != NULL) {
 		ctype->definition_emitted = 1;
 		return 0;
 	}
@@ -311,7 +309,7 @@ void type__emit(struct tag *tag_self, struct cu *cu,
 	if (tag__is_struct(tag_self))
 		class__find_holes(tag__class(tag_self), cu);
 
-	if (type__name(ctype, cu) != NULL ||
+	if (type__name(ctype) != NULL ||
 	    suffix != NULL || prefix != NULL) {
 		struct conf_fprintf conf = {
 			.prefix	    = prefix,

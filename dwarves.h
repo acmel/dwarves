@@ -15,6 +15,7 @@
 #include <dwarf.h>
 #include <elfutils/libdw.h>
 
+#include "dutil.h"
 #include "list.h"
 #include "strings.h"
 
@@ -365,12 +366,14 @@ static inline struct list_head *class__tags(struct class *self)
 	return &self->type.namespace.tags;
 }
 
-extern const char *type__name(struct type *self, const struct cu *cu);
-
-static inline const char *class__name(struct class *self,
-				      const struct cu *cu)
+static __pure inline const char *type__name(const struct type *self)
 {
-	return type__name(&self->type, cu);
+	return strings__ptr(strings, self->namespace.name);
+}
+
+static __pure inline const char *class__name(struct class *self)
+{
+	return strings__ptr(strings, self->type.namespace.name);
 }
 
 static inline int class__is_struct(const struct class *self)
@@ -615,7 +618,6 @@ extern size_t class__fprintf(struct class *self, const struct cu *cu,
 			     const struct conf_fprintf *conf, FILE *fp);
 void enumeration__add(struct type *self, struct enumerator *enumerator);
 extern size_t enumeration__fprintf(const struct tag *tag_self,
-				   const struct cu *cu,
 				   const struct conf_fprintf *conf, FILE *fp);
 extern size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 			       const struct conf_fprintf *conf, FILE *fp);
