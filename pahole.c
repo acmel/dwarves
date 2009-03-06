@@ -493,6 +493,8 @@ static int cu_unique_iterator(struct cu *cu, void *cookie __unused)
 	return 0;
 }
 
+static strings_t long_int_str_t, long_unsigned_int_str_t;
+
 static void union__find_new_size(struct tag *tag, struct cu *cu);
 
 static void class__resize_LP(struct tag *tag, struct cu *cu)
@@ -542,8 +544,8 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		case DW_TAG_base_type: {
 			struct base_type *bt = tag__base_type(type);
 
-			if (strcmp(base_type__name(bt), "long int") != 0 &&
-			    strcmp(base_type__name(bt), "long unsigned int") != 0)
+			if (bt->name != long_int_str_t &&
+			    bt->name != long_unsigned_int_str_t)
 				break;
 			/* fallthru */
 		}
@@ -648,8 +650,8 @@ static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
 		if (!bt->name)
 			return 0;
 
-		if (strcmp(base_type__name(bt), "long int") == 0 ||
-		    strcmp(base_type__name(bt), "long unsigned int") == 0)
+		if (bt->name == long_int_str_t ||
+		    bt->name == long_unsigned_int_str_t)
 			bt->bit_size = word_size * 8;
 	}
 		break;
@@ -664,11 +666,11 @@ static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
 	return 0;
 }
 
-static int cu_fixup_word_size_iterator(struct cu *cu, void *cookie)
+static int cu_fixup_word_size_iterator(struct cu *cu, void *cookie __unused)
 {
 	original_word_size = cu->addr_size;
 	cu->addr_size = word_size;
-	return cu__for_each_tag(cu, tag_fixup_word_size_iterator, cookie, NULL);
+	return cu__for_each_tag(cu, tag_fixup_word_size_iterator, NULL, NULL);
 }
 
 static struct tag *nr_methods__filter(struct tag *tag, struct cu *cu __unused,
@@ -1065,8 +1067,19 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (word_size != 0)
+	if (word_size != 0) {
+		long_int_str_t = strings__find(strings, "long int"),
+		long_unsigned_int_str_t =
+				 strings__find(strings, "long unsigned int");
+
+		if (long_int_str_t == 0 || long_unsigned_int_str_t == 0) {
+			fputs("pahole: couldn't find one of \"long int\" or "
+			      "\"long unsigned int\" types", stderr);
+			return EXIT_FAILURE;
+		}
+
 		cus__for_each_cu(cus, cu_fixup_word_size_iterator, NULL, NULL);
+	}
 
 	if (class_dwarf_offset != 0) {
 		struct cu *cu;

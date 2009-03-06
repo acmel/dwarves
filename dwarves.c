@@ -796,18 +796,18 @@ struct cu *cus__find_cu_by_name(const struct cus *self, const char *name)
 struct tag *cu__find_function_by_name(const struct cu *self, const char *name)
 {
 	struct tag *pos;
-	struct function *fpos;
 
 	if (self == NULL || name == NULL)
 		return NULL;
 
-	list_for_each_entry(pos, &self->tags, node) {
-		if (!tag__is_function(pos))
-			continue;
-		fpos = tag__function(pos);
-		if (fpos->name && strcmp(s(fpos->name), name) == 0)
+	strings_t sname = strings__find(strings, name);
+	if (sname == 0)
+		return NULL;
+
+	list_for_each_entry(pos, &self->tags, node)
+		if (tag__is_function(pos) &&
+		    tag__function(pos)->name == sname)
 			return pos;
-	}
 
 	return NULL;
 }
@@ -1619,12 +1619,17 @@ int class__has_hole_ge(const struct class *self, const uint16_t size)
 struct class_member *type__find_member_by_name(const struct type *self,
 					       const char *name)
 {
-	if (name != NULL) {
-		struct class_member *pos;
-		type__for_each_data_member(self, pos)
-			if (pos->name && strcmp(s(pos->name), name) == 0)
-				return pos;
-	}
+	if (name == NULL)
+		return NULL;
+
+	strings_t sname = strings__find(strings, name);
+	if (sname == 0)
+		return NULL;
+
+	struct class_member *pos;
+	type__for_each_data_member(self, pos)
+		if (pos->name == sname)
+			return pos;
 
 	return NULL;
 }
