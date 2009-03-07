@@ -422,7 +422,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 				       twin->lexblock.nr_inline_expansions);
 			if (function->lexblock.size_inline_expansions !=
 			    twin->lexblock.size_inline_expansions)
-				printf(", size inlines: %zd -> %zd",
+				printf(", size inlines: %d -> %d",
 				       function->lexblock.size_inline_expansions,
 				       twin->lexblock.size_inline_expansions);
 

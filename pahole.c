@@ -196,7 +196,7 @@ static void nr_methods_formatter(struct structure *self)
 
 static void size_formatter(struct structure *self)
 {
-	printf("%s%c%zd%c%u\n", class__name(self->class), separator,
+	printf("%s%c%d%c%u\n", class__name(self->class), separator,
 	       class__size(self->class), separator,
 	       self->class->nr_holes);
 }

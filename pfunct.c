@@ -79,7 +79,7 @@ static void fn_stats_inline_exps_fmtr(const struct fn_stats *self)
 {
 	struct function *fn = tag__function(self->tag);
 	if (fn->lexblock.nr_inline_expansions > 0)
-		printf("%s: %u %zd\n", function__name(fn, self->cu),
+		printf("%s: %u %d\n", function__name(fn, self->cu),
 		       fn->lexblock.nr_inline_expansions,
 		       fn->lexblock.size_inline_expansions);
 }

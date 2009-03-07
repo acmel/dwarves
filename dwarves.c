@@ -659,7 +659,7 @@ struct tag *cu__find_base_type_by_name(const struct cu *self,
 
 struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
 						const char *name,
-						size_t bit_size,
+						uint16_t bit_size,
 						uint16_t *idp)
 {
 	uint16_t id;
@@ -1491,7 +1491,7 @@ void lexblock__add_label(struct lexblock *self, struct label *label)
 
 const struct class_member *class__find_bit_hole(const struct class *self,
 					    const struct class_member *trailer,
-						const size_t bit_hole_size)
+						const uint16_t bit_hole_size)
 {
 	struct class_member *pos;
 	const size_t byte_hole_size = bit_hole_size / 8;
@@ -1914,7 +1914,7 @@ size_t function__fprintf_stats(const struct tag *tag_self,
 		printed += fprintf(fp, ", goto labels: %u",
 				   self->lexblock.nr_labels);
 	if (self->lexblock.nr_inline_expansions > 0)
-		printed += fprintf(fp, ", inline expansions: %u (%zd bytes)",
+		printed += fprintf(fp, ", inline expansions: %u (%d bytes)",
 			self->lexblock.nr_inline_expansions,
 			self->lexblock.size_inline_expansions);
 	return printed + fprintf(fp, " */\n");
@@ -2301,8 +2301,8 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 
 	if (sum + sum_holes != tself->size - self->padding &&
 	    tself->nr_members != 0)
-		printed += fprintf(fp, "\n\n%.*s/* BRAIN FART ALERT! %zd != %u "
-				   "+ %u(holes), diff = %zd */\n",
+		printed += fprintf(fp, "\n\n%.*s/* BRAIN FART ALERT! %d != %u "
+				   "+ %u(holes), diff = %d */\n",
 				   cconf.indent, tabs,
 				   tself->size, sum, sum_holes,
 				   tself->size - (sum + sum_holes));
@@ -2584,7 +2584,7 @@ struct cus *cus__new(void)
 	return self;
 }
 
-int dwarves__init(size_t user_cacheline_size)
+int dwarves__init(uint16_t user_cacheline_size)
 {
 	strings = strings__new();
 

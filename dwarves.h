@@ -268,8 +268,8 @@ struct type {
 	struct namespace namespace;
 	struct list_head node;
 	Dwarf_Off	 specification;
-	size_t		 size;
-	size_t		 size_diff;
+	uint32_t	 size;
+	int32_t		 size_diff;
 	uint16_t	 nr_members;
 	uint8_t		 declaration; /* only one bit used */
 	uint8_t		 definition_emitted:1;
@@ -400,7 +400,7 @@ static inline int class__is_struct(const struct class *self)
 struct base_type {
 	struct tag	tag;
 	strings_t	name;
-	size_t		bit_size;
+	uint16_t	bit_size;
 };
 
 static inline struct base_type *tag__base_type(const struct tag *self)
@@ -408,7 +408,7 @@ static inline struct base_type *tag__base_type(const struct tag *self)
 	return (struct base_type *)self;
 }
 
-static inline size_t base_type__size(const struct tag *self)
+static inline uint16_t base_type__size(const struct tag *self)
 {
 	return tag__base_type(self)->bit_size / 8;
 }
@@ -469,7 +469,7 @@ struct lexblock {
 	uint16_t	 nr_labels;
 	uint16_t	 nr_variables;
 	uint16_t	 nr_lexblocks;
-	size_t		 size_inline_expansions;
+	uint32_t	 size_inline_expansions;
 };
 
 static inline struct lexblock *tag__lexblock(const struct tag *self)
@@ -507,7 +507,7 @@ struct function {
 	Dwarf_Off	 specification;
 	strings_t	 name;
 	strings_t	 linkage_name;
-	size_t		 cu_total_size_inline_expansions;
+	uint32_t	 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;
 	uint8_t		 inlined:2;
 	uint8_t		 external:1;
@@ -631,7 +631,7 @@ struct conf_fprintf {
 	uint8_t	   show_first_biggest_size_base_type_member:1;
 };
 
-int dwarves__init(size_t user_cacheline_size);
+int dwarves__init(uint16_t user_cacheline_size);
 
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern int class__has_hole_ge(const struct class *self, const uint16_t size);
@@ -679,7 +679,7 @@ extern struct tag *cu__find_base_type_by_name(const struct cu *self,
 					      uint16_t *id);
 struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
 						const char *name,
-						size_t bit_size,
+						uint16_t bit_size,
 						uint16_t *id);
 extern struct tag *cus__find_struct_by_name(const struct cus *self,
 					    struct cu **cu,
@@ -727,7 +727,7 @@ extern void	    cus__for_each_cu(struct cus *self,
 extern const struct class_member *
 		class__find_bit_hole(const struct class *self,
 				     const struct class_member *trailer,
-				     const size_t bit_hole_size);
+				     const uint16_t bit_hole_size);
 
 extern struct tag *cu__find_function_by_name(const struct cu *cu,
 					     const char *name);
@@ -793,7 +793,7 @@ static inline uint16_t class__nr_members(const struct class *self)
 	return self->type.nr_members;
 }
 
-static inline size_t class__size(const struct class *self)
+static inline uint32_t class__size(const struct class *self)
 {
 	return self->type.size;
 }
