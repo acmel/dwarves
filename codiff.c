@@ -408,7 +408,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 		else {
 			char proto[1024], twin_proto[1024];
 
-			printf(" # %zd -> %zd", function__size(function),
+			printf(" # %d -> %d", function__size(function),
 			       function__size(twin));
 			if (function->lexblock.nr_lexblocks !=
 			    twin->lexblock.nr_lexblocks)

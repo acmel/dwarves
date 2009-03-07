@@ -464,7 +464,7 @@ struct lexblock {
 	struct tag	 tag;
 	struct list_head tags;
 	Dwarf_Addr	 low_pc;
-	Dwarf_Addr	 high_pc;
+	uint32_t	 size;
 	uint16_t	 nr_inline_expansions;
 	uint16_t	 nr_labels;
 	uint16_t	 nr_variables;
@@ -732,9 +732,9 @@ extern const struct class_member *
 extern struct tag *cu__find_function_by_name(const struct cu *cu,
 					     const char *name);
 
-static inline size_t function__size(const struct function *self)
+static __pure inline uint32_t function__size(const struct function *self)
 {
-	return self->lexblock.high_pc - self->lexblock.low_pc;
+	return self->lexblock.size;
 }
 
 static inline int function__declared_inline(const struct function *self)

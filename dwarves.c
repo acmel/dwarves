@@ -1855,10 +1855,9 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 		printed += function__tag_fprintf(pos, cu, function, indent + 1, fp);
 	printed += fprintf(fp, "%.*s}", indent, tabs);
 
-	if (function->lexblock.low_pc != self->low_pc) {
-		const size_t size = self->high_pc - self->low_pc;
-		printed += fprintf(fp, " /* lexblock size=%zd */", size);
-	}
+	if (function->lexblock.low_pc != self->low_pc)
+		printed += fprintf(fp, " /* lexblock size=%d */", self->size);
+
 	return printed;
 }
 
@@ -1906,7 +1905,7 @@ size_t function__fprintf_stats(const struct tag *tag_self,
 	struct function *self = tag__function(tag_self);
 	size_t printed = lexblock__fprintf(&self->lexblock, cu, self, 0, fp);
 
-	printed += fprintf(fp, "/* size: %zd", function__size(self));
+	printed += fprintf(fp, "/* size: %d", function__size(self));
 	if (self->lexblock.nr_variables > 0)
 		printed += fprintf(fp, ", variables: %u",
 				   self->lexblock.nr_variables);

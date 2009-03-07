@@ -545,10 +545,15 @@ static struct class *class__new(Dwarf_Die *die)
 
 static void lexblock__init(struct lexblock *self, Dwarf_Die *die)
 {
-	if (dwarf_highpc(die, &self->high_pc))
-		self->high_pc = 0;
+	Dwarf_Off high_pc;
+
 	if (dwarf_lowpc(die, &self->low_pc))
 		self->low_pc = 0;
+
+	if (dwarf_highpc(die, &high_pc))
+		self->size = 0;
+	else
+		self->size = high_pc - self->low_pc;
 
 	INIT_LIST_HEAD(&self->tags);
 
