@@ -718,6 +718,10 @@ extern int	    cu__for_each_tag(struct cu *self,
 				     struct tag *(*filter)(struct tag *tag,
 							   struct cu *cu,
 							   void *cookie));
+int cu__for_all_tags(struct cu *self,
+		     int (*iterator)(struct tag *tag,
+				     struct cu *cu, void *cookie),
+		     void *cookie);
 extern void	    cus__for_each_cu(struct cus *self,
 				     int (*iterator)(struct cu *cu,
 						     void *cookie),

@@ -2469,6 +2469,49 @@ int cu__for_each_tag(struct cu *self,
 	return 0;
 }
 
+static int list__for_all_tags(struct list_head *self, struct cu *cu,
+			      int (*iterator)(struct tag *tag,
+					      struct cu *cu, void *cookie),
+			      void *cookie)
+{
+	struct tag *pos;
+
+	list_for_each_entry(pos, self, node) {
+		if (tag__has_namespace(pos)) {
+			if (list__for_all_tags(&tag__namespace(pos)->tags,
+					       cu, iterator, cookie))
+				return 1;
+			if (tag__is_struct(pos)) {
+				if (list__for_all_tags(&tag__class(pos)->vtable,
+						       cu, iterator, cookie))
+					return 1;
+			}
+		} if (tag__is_function(pos)) {
+			if (list__for_all_tags(&tag__ftype(pos)->parms,
+					       cu, iterator, cookie))
+				return 1;
+			if (list__for_all_tags(&tag__function(pos)->lexblock.tags,
+					       cu, iterator, cookie))
+				return 1;
+		} if (pos->tag == DW_TAG_subroutine_type) {
+			if (list__for_all_tags(&tag__ftype(pos)->parms,
+					       cu, iterator, cookie))
+				return 1;
+		}
+		if (iterator(pos, cu, cookie))
+			return 1;
+	}
+	return 0;
+}
+
+int cu__for_all_tags(struct cu *self,
+		     int (*iterator)(struct tag *tag,
+				     struct cu *cu, void *cookie),
+		     void *cookie)
+{
+	return list__for_all_tags(&self->tags, self, iterator, cookie);
+}
+
 void cus__for_each_cu(struct cus *self,
 		      int (*iterator)(struct cu *cu, void *cookie),
 		      void *cookie,
