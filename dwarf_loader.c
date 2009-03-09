@@ -247,17 +247,23 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 
 static void *tag__alloc(size_t size)
 {
-	struct dwarf_tag *dtag;
-	struct tag *self = malloc(size + sizeof(*dtag));
+	struct dwarf_tag *dtag = malloc(sizeof(*dtag));
 
-	if (self != NULL) {
-		dtag = ((void *)self) + size;
-		dtag->tag = self;
-		self->priv = dtag;
-		dtag->type = 0;
-		self->type = 0;
-		self->top_level = 0;
+	if (dtag == NULL) 
+		return NULL;
+
+	struct tag *self = malloc(size);
+	
+	if (self == NULL) {
+		free(dtag);
+		return NULL;
 	}
+
+	dtag->tag = self;
+	self->priv = dtag;
+	dtag->type = 0;
+	self->type = 0;
+	self->top_level = 0;
 
 	return self;
 }
@@ -1496,31 +1502,32 @@ static void cu__recode_dwarf_types(struct cu *self)
 }
 
 static const char *dwarf_tag__decl_file(const struct tag *self,
-					const struct cu *cu __unused)
+					const struct cu *cu)
 {
 	struct dwarf_tag *dtag = self->priv;
-	return dtag ? strings__ptr(strings, dtag->decl_file) : NULL;
+	return cu->extra_dbg_info ?
+			strings__ptr(strings, dtag->decl_file) : NULL;
 }
 
 static uint32_t dwarf_tag__decl_line(const struct tag *self,
-				     const struct cu *cu __unused)
+				     const struct cu *cu)
 {
 	struct dwarf_tag *dtag = self->priv;
-	return dtag ? dtag->decl_line : 0;
+	return cu->extra_dbg_info ? dtag->decl_line : 0;
 }
 
 static unsigned long long dwarf_tag__orig_id(const struct tag *self,
-					       const struct cu *cu __unused)
+					       const struct cu *cu)
 {
 	struct dwarf_tag *dtag = self->priv;
-	return dtag ? dtag->id : 0;
+	return cu->extra_dbg_info ? dtag->id : 0;
 }
 
 static unsigned long long dwarf_tag__orig_type(const struct tag *self,
-					       const struct cu *cu __unused)
+					       const struct cu *cu)
 {
 	struct dwarf_tag *dtag = self->priv;
-	return dtag ? dtag->type : 0;
+	return cu->extra_dbg_info ? dtag->type : 0;
 }
 
 static struct cu_orig_info dwarf_orig_info_ops = {
@@ -1529,6 +1536,14 @@ static struct cu_orig_info dwarf_orig_info_ops = {
 	.tag__orig_id	= dwarf_tag__orig_id,
 	.tag__orig_type	= dwarf_tag__orig_type,
 };
+
+static int tag__delete_priv(struct tag *self, struct cu *cu __unused,
+			    void *cookie __unused)
+{
+	free(self->priv);
+	self->priv = NULL;
+	return 0;
+}
 
 static void die__process(Dwarf_Die *die, struct cu *cu)
 {
@@ -1560,7 +1575,8 @@ static void die__process(Dwarf_Die *die, struct cu *cu)
 	cu__recode_dwarf_types(cu);
 }
 
-static void cus__load_module(struct cus *self, Dwfl_Module *mod, Dwarf *dw)
+static void cus__load_module(struct cus *self, struct conf_load *conf,
+			     Dwfl_Module *mod, Dwarf *dw)
 {
 	Dwarf_Off off = 0, noff;
 	size_t cuhl;
@@ -1584,11 +1600,19 @@ static void cus__load_module(struct cus *self, Dwfl_Module *mod, Dwarf *dw)
 			     build_id, build_id_len);
 		if (cu == NULL)
 			oom("cu__new");
+		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
 		die__process(cu_die, cu);
 		cus__add(self, cu);
+		if (!cu->extra_dbg_info)
+			cu__for_all_tags(cu, tag__delete_priv, NULL);
 		off = noff;
 	}
 }
+
+struct process_dwflmod_parms {
+	struct cus	 *cus;
+	struct conf_load *conf;
+};
 
 static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 				void **userdata __unused,
@@ -1596,7 +1620,8 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 				Dwarf_Addr base __unused,
 				void *arg)
 {
-	struct cus *self = arg;
+	struct process_dwflmod_parms *parms = arg;
+	struct cus *self = parms->cus;
 	/*
 	 * WARNING: Don't remove the seemingly useless call to
 	 * dwfl_module_getelf, as it will change dwflmod internal state in a
@@ -1609,7 +1634,7 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 	Dwarf *dw = dwfl_module_getdwarf(dwflmod, &dwbias);
 
 	if (dw != NULL)
-		cus__load_module(self, dwflmod, dw);
+		cus__load_module(self, parms->conf, dwflmod, dw);
 	/*
 	 * XXX We will fall back to try finding other debugging
 	 * formats (CTF), so no point in telling this to the user
@@ -1623,7 +1648,8 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 	return DWARF_CB_OK;
 }
 
-static int cus__process_file(struct cus *self, int fd, const char *filename)
+static int cus__process_file(struct cus *self, struct conf_load *conf, int fd,
+			     const char *filename)
 {
 	/* Duplicate an fd for dwfl_report_offline to swallow.  */
 	int dwfl_fd = dup(fd);
@@ -1651,8 +1677,13 @@ static int cus__process_file(struct cus *self, int fd, const char *filename)
 
 	dwfl_report_end(dwfl, NULL, NULL);
 
+	struct process_dwflmod_parms parms = {
+		.cus  = self,
+		.conf = conf,
+	};
+
 	/* Process the one or more modules gleaned from this file. */
-	dwfl_getmodules(dwfl, cus__process_dwflmod, self, 0);
+	dwfl_getmodules(dwfl, cus__process_dwflmod, &parms, 0);
 	dwfl_end(dwfl);
 	return 0;
 }
@@ -1701,7 +1732,7 @@ out:
 	return err;
 }
 
-int dwarf__load(struct cus *self, char *filenames[], bool parsed __unused)
+int dwarf__load(struct cus *self, struct conf_load *conf, char *filenames[])
 {
 	int err = 0, i = 0;
 
@@ -1716,7 +1747,7 @@ int dwarf__load(struct cus *self, char *filenames[], bool parsed __unused)
 			++i;
 			continue;
 		}
-		cus__process_file(self, fd, filenames[i]);
+		cus__process_file(self, conf, fd, filenames[i]);
 		close(fd);
 		++i;
 	}

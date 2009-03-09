@@ -797,7 +797,7 @@ failure:
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
 		filenames[0] = old_filename;
-		err = cus__loadfl(old_cus, filenames);
+		err = cus__loadfl(old_cus, NULL, filenames);
 		if (err != 0) {
 			cus__print_error_msg("codiff", old_cus, old_filename, err);
 			return EXIT_FAILURE;
@@ -812,7 +812,7 @@ failure:
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
 		filenames[0] = new_filename;
-		err = cus__loadfl(new_cus, filenames);
+		err = cus__loadfl(new_cus, NULL, filenames);
 		if (err != 0) {
 			cus__print_error_msg("codiff", new_cus, new_filename, err);
 			return EXIT_FAILURE;

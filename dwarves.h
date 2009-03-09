@@ -21,6 +21,14 @@
 
 extern struct strings *strings;
 
+/** struct conf_load - load configuration
+ * @extra_dbg_info - keep original debugging format extra info
+ *		     (e.g. DWARF's decl_{line,file}, id, etc)
+ */
+struct conf_load {
+	bool	   extra_dbg_info;
+};
+
 struct cus {
 	struct list_head      cus;
 };
@@ -104,6 +112,7 @@ struct cu {
 	void 		 *priv;
 	struct cu_orig_info *orig_info;
 	uint8_t		 addr_size;
+	uint8_t		 extra_dbg_info:1;
 	uint16_t	 language;
 	unsigned long	 nr_inline_expansions;
 	size_t		 size_inline_expansions;
@@ -665,7 +674,8 @@ extern size_t lexblock__fprintf(const struct lexblock *self,
 				const struct cu *cu, struct function *function,
 				uint16_t indent, FILE *fp);
 
-extern int cus__loadfl(struct cus *self, char *filenames[]);
+extern int cus__loadfl(struct cus *self, struct conf_load *conf,
+		       char *filenames[]);
 extern int cus__load(struct cus *self, const char *filename);
 extern int cus__load_dir(struct cus *self, const char *dirname,
 			 const char *filename_mask, const int recursive);

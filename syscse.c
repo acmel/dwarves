@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
                 argp_help(&argp, stderr, ARGP_HELP_SEE, argv[0]);
                 return EXIT_FAILURE;
 	}
-	err = cus__loadfl(cus, argv + remaining);
+	err = cus__loadfl(cus, NULL, argv + remaining);
 	if (err != 0)
 		return EXIT_FAILURE;
 

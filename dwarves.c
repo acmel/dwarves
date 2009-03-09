@@ -517,8 +517,7 @@ int cu__add_tag(struct cu *self, struct tag *tag, long *id)
 }
 
 struct cu *cu__new(const char *name, uint8_t addr_size,
-		   const unsigned char *build_id,
-		   int build_id_len)
+		   const unsigned char *build_id, int build_id_len)
 {
 	struct cu *self = malloc(sizeof(*self) + build_id_len);
 
@@ -541,6 +540,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		INIT_LIST_HEAD(&self->tool_list);
 
 		self->addr_size = addr_size;
+		self->extra_dbg_info = 0;
 
 		self->nr_inline_expansions   = 0;
 		self->size_inline_expansions = 0;
@@ -2588,9 +2588,9 @@ int cus__load(struct cus *self, const char *filename)
 	return err;
 }
 
-int cus__loadfl(struct cus *self, char *filenames[])
+int cus__loadfl(struct cus *self, struct conf_load *conf, char *filenames[])
 {
-	int err = dwarf__load(self, filenames);
+	int err = dwarf__load(self, conf, filenames);
 	/*
 	 * If dwarf__load fails, try ctf__load. Eventually we should just
 	 * register all the shared objects at some directory and ask them
@@ -2601,7 +2601,7 @@ int cus__loadfl(struct cus *self, char *filenames[])
 	 * by looking at the list of CUs found:
 	 */
 	if (list_empty(&self->cus))
-		err = ctf__load(self, filenames);
+		err = ctf__load(self, conf, filenames);
 
 	return err;
 }
