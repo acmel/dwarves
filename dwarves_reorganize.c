@@ -477,7 +477,7 @@ static struct tag *cu__find_base_type_of_size(const struct cu *cu,
 		type_name = "unsigned char"; break;
 	case sizeof(unsigned short int):
 		type_name = "short unsigned int";
-		type_name = "unsigned short"; break;
+		type_name_alt = "unsigned short"; break;
 	case sizeof(unsigned int):
 		type_name = "unsigned int";
 		type_name_alt = "unsigned"; break;
@@ -746,9 +746,9 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 								   real_size,
 								   &new_type_id);
 				if (new_type_tag == NULL) {
-					fprintf(stderr, "pahole: couldn't find"
+					fprintf(stderr, "%s: couldn't find"
 						" a base_type of %d bytes!\n",
-						real_size);
+						__func__, real_size);
 					continue;
 				}
 				class__fixup_bitfield_types(self,

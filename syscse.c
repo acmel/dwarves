@@ -55,7 +55,7 @@ static void zero_extend(const int regparm, const struct base_type *bt,
 	}
 
 	printf("\t%s\t$a%d, $a%d, 0"
-	       "\t/* zero extend $a%d(%s %s) from %zd to 64-bit */\n",
+	       "\t/* zero extend $a%d(%s %s) from %d to 64-bit */\n",
 	       instr, regparm, regparm, regparm, base_type__name(bt),
 	       parm, bt->bit_size);
 }
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
                 argp_help(&argp, stderr, ARGP_HELP_SEE, argv[0]);
                 return EXIT_FAILURE;
 	}
-	err = cus__loadfl(cus, argv + remaining);
+	err = cus__loadfl(cus, NULL, argv + remaining);
 	if (err != 0)
 		return EXIT_FAILURE;
 

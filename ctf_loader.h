@@ -9,7 +9,8 @@
 */
 
 struct cus;
+struct conf_load;
 
-int ctf__load(struct cus *self, char *filenames[]);
+int ctf__load(struct cus *self, struct conf_load *conf, char *filenames[]);
 
 #endif /* _CTF_LOADER_H_ */

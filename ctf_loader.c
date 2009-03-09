@@ -879,7 +879,8 @@ static int cus__fixup_ctf_bitfields(struct cus *self)
 	return err;
 }
 
-int ctf__load(struct cus *self, char *filenames[])
+int ctf__load(struct cus *self, struct conf_load *conf __unused,
+	      char *filenames[])
 {
 	struct ctf_state state;
 	int wordsize;

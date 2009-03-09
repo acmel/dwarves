@@ -155,7 +155,7 @@ int main(int argc __unused, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, argv + 1);
+	err = cus__loadfl(cus, NULL, argv + 1);
 	if (err != 0)
 		return EXIT_FAILURE;
 

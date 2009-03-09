@@ -57,6 +57,8 @@ static struct conf_fprintf conf = {
 	.emit_stats = 1,
 };
 
+static struct conf_load conf_load;
+
 struct structure {
 	struct list_head  node;
 	struct class	  *class;
@@ -196,7 +198,7 @@ static void nr_methods_formatter(struct structure *self)
 
 static void size_formatter(struct structure *self)
 {
-	printf("%s%c%zd%c%u\n", class__name(self->class), separator,
+	printf("%s%c%d%c%u\n", class__name(self->class), separator,
 	       class__size(self->class), separator,
 	       self->class->nr_holes);
 }
@@ -988,13 +990,14 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'c': cacheline_size = atoi(arg);		break;
 	case 'D': decl_exclude_prefix = arg;
 		  decl_exclude_prefix_len = strlen(decl_exclude_prefix);
-							break;
+		  conf_load.extra_dbg_info = 1;		break;
 	case 'd': recursive = 1;			break;
 	case 'E': conf.expand_types = 1;		break;
 	case 'f': find_pointers_in_structs = 1;
 		  class_name = arg;			break;
 	case 'H': nr_holes = atoi(arg);			break;
-	case 'I': conf.show_decl_info = 1;		break;
+	case 'I': conf.show_decl_info = 1;
+		  conf_load.extra_dbg_info = 1;		break;
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
 	case 'l': conf.show_first_biggest_size_base_type_member = 1;	break;
@@ -1002,8 +1005,10 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'm': formatter = nr_methods_formatter;	break;
 	case 'N': formatter = class_name_len_formatter;	break;
 	case 'n': formatter = nr_members_formatter;	break;
-	case 'O': class_dwarf_offset = strtoul(arg, NULL, 0);	break;
-	case 'P': show_packable	= 1;			break;
+	case 'O': class_dwarf_offset = strtoul(arg, NULL, 0);
+		  conf_load.extra_dbg_info = 1;		break;
+	case 'P': show_packable	= 1;
+		  conf_load.extra_dbg_info = 1;		break;
 	case 'p': conf.expand_pointers = 1;		break;
 	case 'q': conf.emit_stats = 0;
 		  conf.suppress_comments = 1;
@@ -1061,7 +1066,7 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, argv + remaining);
+	err = cus__loadfl(cus, &conf_load, argv + remaining);
 	if (err != 0) {
 		fputs("pahole: No debugging information found\n", stderr);
 		return EXIT_FAILURE;

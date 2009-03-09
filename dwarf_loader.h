@@ -9,8 +9,9 @@
 */
 
 struct cus;
+struct conf_load;
 
 int dwarf__load_filename(struct cus *self, const char *filename);
-int dwarf__load(struct cus *self, char *filenames[]);
+int dwarf__load(struct cus *self, struct conf_load *conf, char *filenames[]);
 
 #endif /* _DWARF_LOADER_H_ */

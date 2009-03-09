@@ -408,7 +408,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 		else {
 			char proto[1024], twin_proto[1024];
 
-			printf(" # %zd -> %zd", function__size(function),
+			printf(" # %d -> %d", function__size(function),
 			       function__size(twin));
 			if (function->lexblock.nr_lexblocks !=
 			    twin->lexblock.nr_lexblocks)
@@ -422,7 +422,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 				       twin->lexblock.nr_inline_expansions);
 			if (function->lexblock.size_inline_expansions !=
 			    twin->lexblock.size_inline_expansions)
-				printf(", size inlines: %zd -> %zd",
+				printf(", size inlines: %d -> %d",
 				       function->lexblock.size_inline_expansions,
 				       twin->lexblock.size_inline_expansions);
 
@@ -797,7 +797,7 @@ failure:
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
 		filenames[0] = old_filename;
-		err = cus__loadfl(old_cus, filenames);
+		err = cus__loadfl(old_cus, NULL, filenames);
 		if (err != 0) {
 			cus__print_error_msg("codiff", old_cus, old_filename, err);
 			return EXIT_FAILURE;
@@ -812,7 +812,7 @@ failure:
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
 		filenames[0] = new_filename;
-		err = cus__loadfl(new_cus, filenames);
+		err = cus__loadfl(new_cus, NULL, filenames);
 		if (err != 0) {
 			cus__print_error_msg("codiff", new_cus, new_filename, err);
 			return EXIT_FAILURE;

@@ -517,8 +517,7 @@ int cu__add_tag(struct cu *self, struct tag *tag, long *id)
 }
 
 struct cu *cu__new(const char *name, uint8_t addr_size,
-		   const unsigned char *build_id,
-		   int build_id_len)
+		   const unsigned char *build_id, int build_id_len)
 {
 	struct cu *self = malloc(sizeof(*self) + build_id_len);
 
@@ -541,6 +540,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		INIT_LIST_HEAD(&self->tool_list);
 
 		self->addr_size = addr_size;
+		self->extra_dbg_info = 0;
 
 		self->nr_inline_expansions   = 0;
 		self->size_inline_expansions = 0;
@@ -659,7 +659,7 @@ struct tag *cu__find_base_type_by_name(const struct cu *self,
 
 struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
 						const char *name,
-						size_t bit_size,
+						uint16_t bit_size,
 						uint16_t *idp)
 {
 	uint16_t id;
@@ -1491,7 +1491,7 @@ void lexblock__add_label(struct lexblock *self, struct label *label)
 
 const struct class_member *class__find_bit_hole(const struct class *self,
 					    const struct class_member *trailer,
-						const size_t bit_hole_size)
+						const uint16_t bit_hole_size)
 {
 	struct class_member *pos;
 	const size_t byte_hole_size = bit_hole_size / 8;
@@ -1855,10 +1855,9 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 		printed += function__tag_fprintf(pos, cu, function, indent + 1, fp);
 	printed += fprintf(fp, "%.*s}", indent, tabs);
 
-	if (function->lexblock.low_pc != self->low_pc) {
-		const size_t size = self->high_pc - self->low_pc;
-		printed += fprintf(fp, " /* lexblock size=%zd */", size);
-	}
+	if (function->lexblock.low_pc != self->low_pc)
+		printed += fprintf(fp, " /* lexblock size=%d */", self->size);
+
 	return printed;
 }
 
@@ -1906,7 +1905,7 @@ size_t function__fprintf_stats(const struct tag *tag_self,
 	struct function *self = tag__function(tag_self);
 	size_t printed = lexblock__fprintf(&self->lexblock, cu, self, 0, fp);
 
-	printed += fprintf(fp, "/* size: %zd", function__size(self));
+	printed += fprintf(fp, "/* size: %d", function__size(self));
 	if (self->lexblock.nr_variables > 0)
 		printed += fprintf(fp, ", variables: %u",
 				   self->lexblock.nr_variables);
@@ -1914,7 +1913,7 @@ size_t function__fprintf_stats(const struct tag *tag_self,
 		printed += fprintf(fp, ", goto labels: %u",
 				   self->lexblock.nr_labels);
 	if (self->lexblock.nr_inline_expansions > 0)
-		printed += fprintf(fp, ", inline expansions: %u (%zd bytes)",
+		printed += fprintf(fp, ", inline expansions: %u (%d bytes)",
 			self->lexblock.nr_inline_expansions,
 			self->lexblock.size_inline_expansions);
 	return printed + fprintf(fp, " */\n");
@@ -2301,8 +2300,8 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 
 	if (sum + sum_holes != tself->size - self->padding &&
 	    tself->nr_members != 0)
-		printed += fprintf(fp, "\n\n%.*s/* BRAIN FART ALERT! %zd != %u "
-				   "+ %u(holes), diff = %zd */\n",
+		printed += fprintf(fp, "\n\n%.*s/* BRAIN FART ALERT! %d != %u "
+				   "+ %u(holes), diff = %d */\n",
 				   cconf.indent, tabs,
 				   tself->size, sum, sum_holes,
 				   tself->size - (sum + sum_holes));
@@ -2470,6 +2469,49 @@ int cu__for_each_tag(struct cu *self,
 	return 0;
 }
 
+static int list__for_all_tags(struct list_head *self, struct cu *cu,
+			      int (*iterator)(struct tag *tag,
+					      struct cu *cu, void *cookie),
+			      void *cookie)
+{
+	struct tag *pos;
+
+	list_for_each_entry(pos, self, node) {
+		if (tag__has_namespace(pos)) {
+			if (list__for_all_tags(&tag__namespace(pos)->tags,
+					       cu, iterator, cookie))
+				return 1;
+			if (tag__is_struct(pos)) {
+				if (list__for_all_tags(&tag__class(pos)->vtable,
+						       cu, iterator, cookie))
+					return 1;
+			}
+		} if (tag__is_function(pos)) {
+			if (list__for_all_tags(&tag__ftype(pos)->parms,
+					       cu, iterator, cookie))
+				return 1;
+			if (list__for_all_tags(&tag__function(pos)->lexblock.tags,
+					       cu, iterator, cookie))
+				return 1;
+		} if (pos->tag == DW_TAG_subroutine_type) {
+			if (list__for_all_tags(&tag__ftype(pos)->parms,
+					       cu, iterator, cookie))
+				return 1;
+		}
+		if (iterator(pos, cu, cookie))
+			return 1;
+	}
+	return 0;
+}
+
+int cu__for_all_tags(struct cu *self,
+		     int (*iterator)(struct tag *tag,
+				     struct cu *cu, void *cookie),
+		     void *cookie)
+{
+	return list__for_all_tags(&self->tags, self, iterator, cookie);
+}
+
 void cus__for_each_cu(struct cus *self,
 		      int (*iterator)(struct cu *cu, void *cookie),
 		      void *cookie,
@@ -2546,9 +2588,9 @@ int cus__load(struct cus *self, const char *filename)
 	return err;
 }
 
-int cus__loadfl(struct cus *self, char *filenames[])
+int cus__loadfl(struct cus *self, struct conf_load *conf, char *filenames[])
 {
-	int err = dwarf__load(self, filenames);
+	int err = dwarf__load(self, conf, filenames);
 	/*
 	 * If dwarf__load fails, try ctf__load. Eventually we should just
 	 * register all the shared objects at some directory and ask them
@@ -2559,7 +2601,7 @@ int cus__loadfl(struct cus *self, char *filenames[])
 	 * by looking at the list of CUs found:
 	 */
 	if (list_empty(&self->cus))
-		err = ctf__load(self, filenames);
+		err = ctf__load(self, conf, filenames);
 
 	return err;
 }
@@ -2584,7 +2626,7 @@ struct cus *cus__new(void)
 	return self;
 }
 
-int dwarves__init(size_t user_cacheline_size)
+int dwarves__init(uint16_t user_cacheline_size)
 {
 	strings = strings__new();
 

@@ -29,6 +29,8 @@ static struct type_emissions emissions;
 
 static struct conf_fprintf conf;
 
+static struct conf_load conf_load;
+
 struct fn_stats {
 	struct list_head node;
 	struct tag	 *tag;
@@ -79,7 +81,7 @@ static void fn_stats_inline_exps_fmtr(const struct fn_stats *self)
 {
 	struct function *fn = tag__function(self->tag);
 	if (fn->lexblock.nr_inline_expansions > 0)
-		printf("%s: %u %zd\n", function__name(fn, self->cu),
+		printf("%s: %u %d\n", function__name(fn, self->cu),
 		       fn->lexblock.nr_inline_expansions,
 		       fn->lexblock.size_inline_expansions);
 }
@@ -476,13 +478,16 @@ static error_t pfunct__options_parser(int key, char *arg,
 	case 'g': formatter = fn_stats_labels_fmtr;	 break;
 	case 'G': show_cc_uninlined = 1;		 break;
 	case 'H': show_cc_inlined = 1;			 break;
-	case 'i': show_inline_expansions = verbose = 1;	 break;
+	case 'i': show_inline_expansions = verbose = 1;
+		  conf_load.extra_dbg_info = 1;		 break;
 	case 'I': formatter = fn_stats_inline_exps_fmtr; break;
-	case 'l': conf.show_decl_info = 1;		 break;
+	case 'l': conf.show_decl_info = 1;
+		  conf_load.extra_dbg_info = 1;		 break;
 	case 't': show_total_inline_expansion_stats = 1; break;
 	case 'T': show_variables = 1;			 break;
 	case 'N': formatter = fn_stats_name_len_fmtr;	 break;
-	case 'V': verbose = 1;				 break;
+	case 'V': verbose = 1;
+		  conf_load.extra_dbg_info = 1;		 break;
 	default:  return ARGP_ERR_UNKNOWN;
 	}
 
@@ -513,7 +518,7 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, argv + remaining);
+	err = cus__loadfl(cus, &conf_load, argv + remaining);
 	if (err != 0)
 		return EXIT_FAILURE;
 
