@@ -23,7 +23,7 @@ static size_t prefix_len = 4;
 static struct tag *filter(struct tag *self, struct cu *cu,
 			  void *cookie __unused)
 {
-	if (self->tag == DW_TAG_subprogram) {
+	if (tag__is_function(self)) {
 		struct function *f = tag__function(self);
 
 		if (f->proto.nr_parms != 0) {
@@ -68,8 +68,8 @@ static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
 	int regparm = 0, needs_wrapper = 0;
 
 	function__for_each_parameter(f, parm) {
-		const Dwarf_Off type_id = parameter__type(parm, cu);
-		struct tag *type = cu__find_tag_by_id(cu, type_id);
+		const uint16_t type_id = parm->tag.type;
+		struct tag *type = cu__find_type_by_id(cu, type_id);
 
 		tag__assert_search_result(type);
 		if (type->tag == DW_TAG_base_type) {
@@ -81,8 +81,7 @@ static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
 					printf("wrap_%s:\n", name);
 					needs_wrapper = 1;
 				}
-				zero_extend(regparm, bt,
-					    parameter__name(parm, cu));
+				zero_extend(regparm, bt, parameter__name(parm));
 			}
 		}
 		++regparm;
@@ -104,6 +103,9 @@ static void cus__emit_wrapper(struct cus *self)
 {
 	cus__for_each_cu(self, cu__emit_wrapper, NULL, NULL);
 }
+
+/* Name and version of program.  */
+ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
 static const struct argp_option options[] = {
 	{
@@ -144,7 +146,7 @@ static struct argp argp = {
 
 int main(int argc, char *argv[])
 {
-	int err;
+	int err, remaining;
 	struct cus *cus = cus__new();
 
 	if (cus == NULL) {
@@ -152,7 +154,12 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, &argp, argc, argv);
+	if (argp_parse(&argp, argc, argv, 0, &remaining, NULL) ||
+	    remaining == argc) {
+                argp_help(&argp, stderr, ARGP_HELP_SEE, argv[0]);
+                return EXIT_FAILURE;
+	}
+	err = cus__loadfl(cus, argv + remaining);
 	if (err != 0)
 		return EXIT_FAILURE;
 

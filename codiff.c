@@ -33,6 +33,9 @@ static struct strlist *structs_printed;
 #define TCHANGEF__OFFSET	(1 << 3)
 #define TCHANGEF__BIT_OFFSET	(1 << 4)
 #define TCHANGEF__BIT_SIZE	(1 << 5)
+#define TCHANGEF__PADDING	(1 << 6)
+#define TCHANGEF__NR_HOLES	(1 << 7)
+#define TCHANGEF__NR_BIT_HOLES	(1 << 8)
 
 static uint32_t terse_type_changes;
 
@@ -68,8 +71,6 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 {
 	struct tag *new_tag;
 	const char *name;
-
-	assert(function->proto.tag.tag == DW_TAG_subprogram);
 
 	if (function->inlined || function->abstract_origin != 0)
 		return;
@@ -126,8 +127,8 @@ static int check_print_change(const struct class_member *old,
 {
 	size_t old_size, new_size;
 	char old_type_name[128], new_type_name[128];
-	const struct tag *old_type = cu__find_tag_by_id(old_cu, old->tag.type);
-	const struct tag *new_type = cu__find_tag_by_id(new_cu, new->tag.type);
+	const struct tag *old_type = cu__find_type_by_id(old_cu, old->tag.type);
+	const struct tag *new_type = cu__find_type_by_id(new_cu, new->tag.type);
 	int changes = 0;
 
 	if (old_type == NULL || new_type == NULL)
@@ -163,8 +164,8 @@ static int check_print_change(const struct class_member *old,
 
 	if (changes && print && !show_terse_type_changes)
 		printf("    %s\n"
-		       "     from: %-21s /* %5u(%u) %5zd(%d) */\n"
-		       "     to:   %-21s /* %5u(%u) %5zd(%u) */\n",
+		       "     from:    %-21s /* %5u(%2u) %5zd(%2d) */\n"
+		       "     to:      %-21s /* %5u(%2u) %5zd(%2u) */\n",
 		       class_member__name(old),
 		       old_type_name, old->offset, old->bit_offset,
 		       old_size, old->bit_size,
@@ -182,15 +183,54 @@ static int check_print_members_changes(const struct class *structure,
 {
 	int changes = 0;
 	struct class_member *member;
+	uint16_t nr_twins_found = 0;
 
 	type__for_each_member(&structure->type, member) {
+		const char *member_name = class_member__name(member);
 		struct class_member *twin =
-			class__find_member_by_name(new_structure,
-						   class_member__name(member));
-		if (twin != NULL)
+			class__find_member_by_name(new_structure, member_name);
+		if (twin != NULL) {
+			twin->tag.visited = 1;
+			++nr_twins_found;
 			if (check_print_change(member, cu, twin, new_cu, print))
 				changes = 1;
+		} else {
+			changes = 1;
+			if (print) {
+				char name[128];
+				struct tag *type;
+				type = cu__find_type_by_id(cu, member->tag.type);
+				printf("    %s\n"
+				       "     removed: %-21s /* %5u(%2u) %5zd(%2d) */\n",
+				       class_member__name(member),
+				       tag__name(type, cu, name, sizeof(name)),
+				       member->offset, member->bit_offset,
+				       tag__size(type, cu), member->bit_size);
+			}
+		}
 	}
+
+	if (nr_twins_found == new_structure->type.nr_members)
+		goto out;
+
+	changes = 1;
+	if (!print)
+		goto out;
+
+	type__for_each_member(&new_structure->type, member) {
+		if (!member->tag.visited) {
+			char name[128];
+			struct tag *type;
+			type = cu__find_type_by_id(new_cu, member->tag.type);
+			printf("    %s\n"
+			       "     added:   %-21s /* %5u(%2u) %5zd(%2d) */\n",
+			       class_member__name(member),
+			       tag__name(type, new_cu, name, sizeof(name)),
+			       member->offset, member->bit_offset,
+			       tag__size(type, new_cu), member->bit_size);
+		}
+	}
+out:
 	return changes;
 }
 
@@ -204,10 +244,11 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 
 	assert(class__is_struct(structure));
 
-	if (class__size(structure) == 0 || class__name(structure, cu) == NULL)
+	if (class__size(structure) == 0 || class__name(structure) == NULL)
 		return;
 
-	new_tag = cu__find_struct_by_name(new_cu, class__name(structure, cu), 0);
+	new_tag = cu__find_struct_by_name(new_cu,
+					  class__name(structure), 0, NULL);
 	if (new_tag == NULL)
 		return;
 
@@ -220,12 +261,16 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 	diff = class__size(structure) != class__size(new_structure) ||
 	       class__nr_members(structure) != class__nr_members(new_structure) ||
 	       check_print_members_changes(structure, cu,
-			       		   new_structure, new_cu, 0);
+			       		   new_structure, new_cu, 0) ||
+	       structure->padding != new_structure->padding ||
+	       structure->nr_holes != new_structure->nr_holes ||
+	       structure->nr_bit_holes != new_structure->nr_bit_holes;
+
 	if (diff == 0)
 		return;
 
 	++cu->nr_structures_changed;
-	len = strlen(class__name(structure, cu)) + sizeof("struct");
+	len = strlen(class__name(structure)) + sizeof("struct");
 	if (len > cu->max_len_changed_item)
 		cu->max_len_changed_item = len;
 	structure->priv = diff_info__new(class__tag(new_structure),
@@ -236,7 +281,7 @@ static int diff_tag_iterator(struct tag *tag, struct cu *cu, void *new_cu)
 {
 	if (tag__is_struct(tag))
 		diff_struct(new_cu, tag__class(tag), cu);
-	else if (tag->tag == DW_TAG_subprogram)
+	else if (tag__is_function(tag))
 		diff_function(new_cu, tag__function(tag), cu);
 
 	return 0;
@@ -248,8 +293,6 @@ static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
 	struct function *function = tag__function(tfunction);
 	struct tag *old_function;
 	const char *name;
-
-	assert(function->proto.tag.tag == DW_TAG_subprogram);
 
 	if (function->inlined)
 		return 0;
@@ -280,19 +323,20 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 		return 0;
 
 	class = tag__class(tag);
-	if (class__name(class, cu) == NULL)
+	if (class__name(class) == NULL)
 		return 0;
 
 	if (class__size(class) == 0)
 		return 0;
 
-	if (cu__find_struct_by_name(old_cu, class__name(class, cu), 0) != NULL)
+	if (cu__find_struct_by_name(old_cu,
+				    class__name(class), 0, NULL) != NULL)
 		return 0;
 
 	class->priv = diff_info__new(NULL, NULL, 1);
 	++cu->nr_structures_changed;
 
-	len = strlen(class__name(class, cu)) + sizeof("struct");
+	len = strlen(class__name(class)) + sizeof("struct");
 	if (len > cu->max_len_changed_item)
 		cu->max_len_changed_item = len;
 	return 0;
@@ -300,7 +344,7 @@ static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_c
 
 static int find_new_tags_iterator(struct tag *tag, struct cu *cu, void *old_cu)
 {
-	if (tag->tag == DW_TAG_subprogram) {
+	if (tag__is_function(tag)) {
 		/*
 		 * We're not interested in aliases, just real function definitions,
 		 * where we'll know if the kind of inlining
@@ -319,8 +363,7 @@ static int cu_find_new_tags_iterator(struct cu *new_cu, void *old_cus)
 	if (old_cu != NULL && cu__same_build_id(old_cu, new_cu))
 		return 0;
 
-	cu__for_each_tag(new_cu, find_new_tags_iterator,
-			 old_cu, NULL);
+	cu__for_each_tag(new_cu, find_new_tags_iterator, old_cu, NULL);
 	return 0;
 }
 
@@ -396,7 +439,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 static void show_changed_member(char change, const struct class_member *member,
 				const struct cu *cu)
 {
-	const struct tag *type = cu__find_tag_by_id(cu, member->tag.type);
+	const struct tag *type = cu__find_type_by_id(cu, member->tag.type);
 	char bf[128];
 
 	tag__assert_search_result(type);
@@ -432,12 +475,11 @@ static void show_nr_members_changes(const struct class *structure,
 	}
 }
 
-static void print_terse_type_changes(struct class *structure,
-				     const struct cu *cu)
+static void print_terse_type_changes(struct class *structure)
 {
 	const char *sep = "";
 
-	printf("struct %s: ", class__name(structure, cu));
+	printf("struct %s: ", class__name(structure));
 
 	if (terse_type_changes & TCHANGEF__SIZE) {
 		fputs("size", stdout);
@@ -459,8 +501,20 @@ static void print_terse_type_changes(struct class *structure,
 		printf("%sbit_offset", sep);
 		sep = ", ";
 	}
-	if (terse_type_changes & TCHANGEF__BIT_SIZE)
+	if (terse_type_changes & TCHANGEF__BIT_SIZE) {
 		printf("%sbit_size", sep);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__PADDING) {
+		printf("%spadding", sep);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__NR_HOLES) {
+		printf("%snr_holes", sep);
+		sep = ", ";
+	}
+	if (terse_type_changes & TCHANGEF__NR_BIT_HOLES)
+		printf("%snr_bit_holes", sep);
 
 	putchar('\n');
 }
@@ -495,7 +549,7 @@ static void show_diffs_structure(struct class *structure,
 		printf("  struct %-*.*s | %+4d\n",
 		       (int)(cu->max_len_changed_item - sizeof("struct")),
 		       (int)(cu->max_len_changed_item - sizeof("struct")),
-		       class__name(structure, cu), diff);
+		       class__name(structure), diff);
 
 	if (diff != 0)
 		terse_type_changes |= TCHANGEF__SIZE;
@@ -517,11 +571,31 @@ static void show_diffs_structure(struct class *structure,
 							new_structure, di->cu);
 		}
 	}
-	if (new_structure != NULL)
+	if (new_structure != NULL) {
+		diff = (int)new_structure->padding - (int)structure->padding;
+		if (diff) {
+			terse_type_changes |= TCHANGEF__PADDING;
+			if (!show_terse_type_changes)
+				printf("   padding: %+d\n", diff);
+		}
+		diff = (int)new_structure->nr_holes - (int)structure->nr_holes;
+		if (diff) {
+			terse_type_changes |= TCHANGEF__NR_HOLES;
+			if (!show_terse_type_changes)
+				printf("   nr_holes: %+d\n", diff);
+		}
+		diff = ((int)new_structure->nr_bit_holes -
+			(int)structure->nr_bit_holes);
+		if (structure->nr_bit_holes != new_structure->nr_bit_holes) {
+			terse_type_changes |= TCHANGEF__NR_BIT_HOLES;
+			if (!show_terse_type_changes)
+				printf("   nr_bit_holes: %+d\n", diff);
+		}
 		check_print_members_changes(structure, cu,
 					    new_structure, di->cu, 1);
+	}
 	if (show_terse_type_changes)
-		print_terse_type_changes(structure, cu);
+		print_terse_type_changes(structure);
 }
 
 static int show_function_diffs_iterator(struct tag *tag, struct cu *cu,
@@ -529,7 +603,7 @@ static int show_function_diffs_iterator(struct tag *tag, struct cu *cu,
 {
 	struct function *function = tag__function(tag);
 
-	if (tag->tag == DW_TAG_subprogram && function->priv != NULL)
+	if (tag__is_function(tag) && function->priv != NULL)
 		show_diffs_function(function, cu, cookie);
 	return 0;
 }
@@ -544,7 +618,7 @@ static int show_structure_diffs_iterator(struct tag *tag, struct cu *cu,
 
 	class = tag__class(tag);
 	if (class->priv != NULL) {
-		const char *name = class__name(class, cu);
+		const char *name = class__name(class);
 		if (!strlist__has_entry(structs_printed, name)) {
 			show_diffs_structure(class, cu);
 			strlist__add(structs_printed, name);
@@ -624,6 +698,9 @@ static void print_total_function_diff(const char *filename)
 	putchar('\n');
 }
 
+/* Name and version of program.  */
+ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
+
 static const struct argp_option codiff__options[] = {
 	{
 		.key  = 's',
@@ -676,7 +753,7 @@ int main(int argc, char *argv[])
 	int remaining, err;
 	struct cus *old_cus, *new_cus;
 	char *old_filename, *new_filename;
-	char *dwfl_argv[4];
+	char *filenames[2];
 	struct stat st;
 
 	if (dwarves__init(0)) {
@@ -684,9 +761,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	argp_parse(&codiff__argp, argc, argv, 0, &remaining, NULL);
-
-	if (remaining < argc) {
+	if (argp_parse(&codiff__argp, argc, argv, 0, &remaining, NULL) ||
+	    remaining < argc) {
 		switch (argc - remaining) {
 		case 2:	 old_filename = argv[remaining++];
 			 new_filename = argv[remaining++]; break;
@@ -695,7 +771,7 @@ int main(int argc, char *argv[])
 		}
 	} else {
 failure:
-		argp_help(&codiff__argp, stderr, ARGP_HELP_SEE, "codiff");
+		argp_help(&codiff__argp, stderr, ARGP_HELP_SEE, argv[0]);
 		return EXIT_FAILURE;
 	}
 
@@ -716,14 +792,12 @@ failure:
 		return EXIT_FAILURE;
 	}
 
-	dwfl_argv[0] = argv[0];
-	dwfl_argv[1] = "-e";
-	dwfl_argv[3] = NULL;
+	filenames[1] = NULL;
 
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
-		dwfl_argv[2] = old_filename;
-		err = cus__loadfl(old_cus, NULL, 3, dwfl_argv);
+		filenames[0] = old_filename;
+		err = cus__loadfl(old_cus, filenames);
 		if (err != 0) {
 			cus__print_error_msg("codiff", old_cus, old_filename, err);
 			return EXIT_FAILURE;
@@ -737,8 +811,8 @@ failure:
 
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
-		dwfl_argv[2] = new_filename;
-		err = cus__loadfl(new_cus, NULL, 3, dwfl_argv);
+		filenames[0] = new_filename;
+		err = cus__loadfl(new_cus, filenames);
 		if (err != 0) {
 			cus__print_error_msg("codiff", new_cus, new_filename, err);
 			return EXIT_FAILURE;

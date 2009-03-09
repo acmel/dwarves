@@ -446,7 +446,8 @@ static void class__demote_bitfield_members(struct class *class,
 					   struct class_member *from,
 					   struct class_member *to,
 					   const struct base_type *old_type,
-					   const struct base_type *new_type)
+					   const struct base_type *new_type,
+					   uint16_t new_type_id)
 {
 	const uint8_t bit_diff = old_type->bit_size - new_type->bit_size;
 	struct class_member *member =
@@ -459,7 +460,7 @@ static void class__demote_bitfield_members(struct class *class,
 		 * Assume IA32 bitfield layout
 		 */
 		member->bit_offset -= bit_diff;
-		member->tag.type = new_type->tag.id;
+		member->tag.type = new_type_id;
 		if (member == to)
 			break;
 		member->bit_hole = 0;
@@ -467,28 +468,34 @@ static void class__demote_bitfield_members(struct class *class,
 }
 
 static struct tag *cu__find_base_type_of_size(const struct cu *cu,
-					      const size_t size)
+					      const size_t size, uint16_t *id)
 {
-	const char *type_name;
+	const char *type_name, *type_name_alt = NULL;
 
 	switch (size) {
 	case sizeof(unsigned char):
 		type_name = "unsigned char"; break;
 	case sizeof(unsigned short int):
-		type_name = "short unsigned int"; break;
+		type_name = "short unsigned int";
+		type_name = "unsigned short"; break;
 	case sizeof(unsigned int):
-		type_name = "unsigned int"; break;
+		type_name = "unsigned int";
+		type_name_alt = "unsigned"; break;
 	case sizeof(unsigned long long):
-		if (cu->addr_size == 8)
+		if (cu->addr_size == 8) {
 			type_name = "long unsigned int";
-		else
+			type_name_alt = "unsigned long";
+		} else {
 			type_name = "long long unsigned int";
+			type_name_alt = "unsigned long long";
+		}
 		break;
 	default:
 		return NULL;
 	}
 
-	return cu__find_base_type_by_name(cu, type_name);
+	struct tag *ret = cu__find_base_type_by_name(cu, type_name, id);
+	return ret ?: cu__find_base_type_by_name(cu, type_name_alt, id);
 }
 
 static int class__demote_bitfields(struct class *class, const struct cu *cu,
@@ -537,8 +544,10 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		if (bytes_needed == size)
 			continue;
 
-		old_type_tag = cu__find_tag_by_id(cu, member->tag.type);
-		new_type_tag = cu__find_base_type_of_size(cu, bytes_needed);
+		uint16_t new_type_id;
+		old_type_tag = cu__find_type_by_id(cu, member->tag.type);
+		new_type_tag = cu__find_base_type_of_size(cu, bytes_needed,
+							  &new_type_id);
 
 		if (new_type_tag == NULL) {
 			fprintf(fp, "/* BRAIN FART ALERT! couldn't find a "
@@ -556,7 +565,8 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		class__demote_bitfield_members(class,
 					       bitfield_head, member,	
 					       tag__base_type(old_type_tag),
-					       tag__base_type(new_type_tag));
+					       tag__base_type(new_type_tag),
+					       new_type_id);
 		new_size = class_member__size(member, cu);
 		member->hole = size - new_size;
 		if (member->hole != 0)
@@ -586,9 +596,11 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 	    	bytes_needed = (member->bit_size + 7) / 8;
 		if (bytes_needed < size) {
 			old_type_tag =
-				cu__find_tag_by_id(cu, member->tag.type);
+				cu__find_type_by_id(cu, member->tag.type);
+			uint16_t new_type_id;
 			new_type_tag =
-				cu__find_base_type_of_size(cu, bytes_needed);
+				cu__find_base_type_of_size(cu, bytes_needed,
+							   &new_type_id);
 
 			tag__assert_search_result(old_type_tag);
 			tag__assert_search_result(new_type_tag);
@@ -602,7 +614,8 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			class__demote_bitfield_members(class,
 						       member, member,	
 						 tag__base_type(old_type_tag),
-						 tag__base_type(new_type_tag));
+						 tag__base_type(new_type_tag),
+						       new_type_id);
 			new_size = class_member__size(member, cu);
 			member->hole = 0;
 			/*
@@ -661,7 +674,7 @@ restart:
 static void class__fixup_bitfield_types(struct class *self,
 					struct class_member *from,
 					struct class_member *to_before,
-					Dwarf_Off type)
+					uint16_t type)
 {
 	struct class_member *member =
 		list_prepare_entry(from, class__tags(self), tag.node);
@@ -727,9 +740,11 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 			const size_t size = class_member__size(bitfield_head,
 							       cu);
 			if (real_size != size) {
+				uint16_t new_type_id;				
 				struct tag *new_type_tag =
 					cu__find_base_type_of_size(cu,
-								   real_size);
+								   real_size,
+								   &new_type_id);
 				if (new_type_tag == NULL) {
 					fprintf(stderr, "pahole: couldn't find"
 						" a base_type of %d bytes!\n",
@@ -738,7 +753,7 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 				}
 				class__fixup_bitfield_types(self,
 							    bitfield_head, pos,
-							    new_type_tag->id);
+							    new_type_id);
 				fixup_was_done = 1;
 			}
 		}

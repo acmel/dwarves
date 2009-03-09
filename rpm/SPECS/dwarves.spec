@@ -2,13 +2,13 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.6
-Release: 1
+Version: 1.7
+Release: 2
 License: GPLv2
 Summary: Dwarf Tools
 Group: Development/Tools
 URL: http://oops.ghostprotocols.net:81/blog
-Source: http://userweb.kernel.org/~acme/dwarves/%{name}-%{version}.tar.bz2
+Source: http://fedorapeople.org/~acme/dwarves/%{name}-%{version}.tar.bz2
 BuildRequires: cmake
 BuildRequires: elfutils-devel >= 0.130
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
@@ -82,9 +82,11 @@ rm -rf %{buildroot}
 %{_bindir}/prefcnt
 %{_bindir}/syscse
 %{_bindir}/ostra-cg
+%dir %{_datadir}/dwarves/
 %dir %{_datadir}/dwarves/runtime/
 %dir %{_datadir}/dwarves/runtime/python/
 %defattr(0644,root,root,0755)
+%{_mandir}/man1/pahole.1*
 %{_datadir}/dwarves/runtime/Makefile
 %{_datadir}/dwarves/runtime/linux.blacklist.cu
 %{_datadir}/dwarves/runtime/ctracer_relay.c
@@ -108,6 +110,24 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Fri Feb 13 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.7-2
+- Own /usr/share/dwarves, fixes #473645 
+
+* Fri Feb 13 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.7-1
+- A CTF decoder based on work done by David S. Miller
+- Handle DW_TAG_class_type,
+- Add support for showing classes with a prefix
+- Add support to DW_TAG_ptr_to_member_type
+- Handle typedef definitions in functions
+- Print the number of members in a struct/class
+- Handle the empty base optimization trick (Zero sized C++ class)
+- codiff detect changes in the prototype even when function size doesn't change
+- pfunct: Implement --expand_types
+- Reduce memory consumption by using a strings table
+- Speed up struct search by name
+- Several minor bug fixes and infrastructure improvements.
+- Initial man page for pahole
+
 * Mon Feb 11 2008 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.6-1
 - c83d935a4fd561a3807f520c126c2a61ae1f4d83
 - [DWARVES]: Use a hash table for the tags in a CU

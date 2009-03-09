@@ -125,7 +125,7 @@ static struct structure *structures__find(struct list_head *list, const char *na
 		return NULL;
 
 	list_for_each_entry(pos, list, node)
-		if (strcmp(class__name(tag__class(pos->class), pos->cu), name) == 0)
+		if (strcmp(class__name(tag__class(pos->class)), name) == 0)
 			return pos;
 
 	return NULL;
@@ -165,59 +165,51 @@ static int methods__add(void **table, const char *str)
 	return 0;
 }
 
-static void method__add(struct cu *cu, struct function *function)
+static void method__add(struct cu *cu, struct function *function, uint32_t id)
 {
 	list_add(&function->tool_node, &cu->tool_list);
+	function->priv = (void *)(long)id;
 }
 
 /* 
- * We want just the DW_TAG_subprogram tags that have as one of its parameters
+ * We want just the function tags that have as one of its parameters
  * a pointer to the specified "class" (a struct, unions can be added later).
  */
-static struct tag *function__filter(struct tag *tag, struct cu *cu, void *cookie)
+static struct function *function__filter(struct function *function,
+					 struct cu *cu, uint16_t target_type_id)
 {
-	struct function *function;
-
-	if (tag->tag != DW_TAG_subprogram)
-		return NULL;
-
-	function = tag__function(tag);
 	if (function__inlined(function) ||
 	    function->abstract_origin != 0 ||
 	    !list_empty(&function->tool_node) ||
-	    !ftype__has_parm_of_type(&function->proto, cookie, cu))
+	    !ftype__has_parm_of_type(&function->proto, target_type_id, cu))
 		return NULL;
 
-	return tag;
-}
-
-/*
- * Add the function to the list of methods since it matches function__filter
- * criteria.
- */
-static int find_methods_iterator(struct tag *tag, struct cu *cu,
-				 void *cookie __unused)
-{
-	struct function *function = tag__function(tag);
-	method__add(cu, function);
-	return 0;
+	return function;
 }
 
 /*
  * Iterate thru all the tags in the compilation unit, looking just for the
- * DW_TAG_subprogram tags that have as one of its parameters a pointer to
+ * function tags that have as one of its parameters a pointer to
  * the specified "class" (struct).
  */
 static int cu_find_methods_iterator(struct cu *cu, void *cookie)
 {
-	struct tag *target = cu__find_struct_by_name(cu, cookie, 0);
+	uint16_t target_type_id;
+	uint32_t function_id;
+	struct function *function;
+	struct tag *target = cu__find_struct_by_name(cu, cookie, 0,
+						     &target_type_id);
 
 	INIT_LIST_HEAD(&cu->tool_list);
 
 	if (target == NULL)
 		return 0;
 
-	return cu__for_each_tag(cu, find_methods_iterator, target, function__filter);
+	cu__for_each_function(cu, function_id, function)
+		if (function__filter(function, cu, target_type_id))
+			method__add(cu, function, function_id);
+
+	return 0;
 }
 
 static struct class_member *class_member__bitfield_tail(struct class_member *head,
@@ -316,8 +308,7 @@ static size_t class__find_biggest_member_name(const struct class *self)
 }
 
 static void class__emit_class_state_collector(struct class *self,
-					      struct class *clone,
-					      const struct cu *cu)
+					      struct class *clone)
 {
 	struct class_member *pos;
 	int len = class__find_biggest_member_name(clone);
@@ -327,7 +318,7 @@ static void class__emit_class_state_collector(struct class *self,
 	        "{\n"
 		"\tconst struct %s *obj = from;\n"
 		"\tstruct %s *mini_obj = to;\n\n",
-		class__name(self, cu), class__name(clone, cu));
+		class__name(self), class__name(clone));
 	type__for_each_data_member(&clone->type, pos)
 		fprintf(fp_collector, "\tmini_obj->%-*s = obj->%s;\n",
 			len, class_member__name(pos), class_member__name(pos));
@@ -341,7 +332,7 @@ static int tag__is_base_type(const struct tag *self, const struct cu *cu)
 		return 1;
 
 	case DW_TAG_typedef: {
-		const struct tag *type = cu__find_tag_by_id(cu, self->type);
+		const struct tag *type = cu__find_type_by_id(cu, self->type);
 
 		if (type == NULL)
 			return 0;
@@ -362,10 +353,8 @@ static struct class *class__clone_base_types(const struct tag *tag_self,
 	if (clone == NULL)
 		return NULL;
 
-	class__find_holes(clone, cu);
-
 	type__for_each_data_member_safe(&clone->type, pos, next) {
-		struct tag *member_type = cu__find_tag_by_id(cu, pos->tag.type);
+		struct tag *member_type = cu__find_type_by_id(cu, pos->tag.type);
 
 		tag__assert_search_result(member_type);
 		if (!tag__is_base_type(member_type, cu)) {
@@ -373,7 +362,6 @@ static struct class *class__clone_base_types(const struct tag *tag_self,
 			class_member__delete(pos);
 		}
 	}
-	class__find_holes(clone, cu);
 	class__fixup_alignment(clone, cu);
 	class__reorganize(clone, cu, 0, NULL);
 	return clone;
@@ -398,8 +386,7 @@ static void emit_struct_member_table_entry(FILE *fp,
  * ostra-cg to preprocess the raw data collected from the debugfs/relay
  * channel.
  */
-static int class__emit_ostra_converter(struct tag *tag_self,
-				       struct cu *cu)
+static int class__emit_ostra_converter(struct tag *tag_self)
 {
 	struct class *self = tag__class(tag_self);
 	struct class_member *pos;
@@ -411,7 +398,7 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	size_t n;
 	size_t plen = sizeof(parm_list);
 	FILE *fp_fields, *fp_converter;
-	const char *name = class__name(self, cu);
+	const char *name = class__name(self);
 
 	snprintf(filename, sizeof(filename), "%s/%s.fields", src_dir, name);
 	fp_fields = fopen(filename, "w");
@@ -489,9 +476,10 @@ static int class__emit_ostra_converter(struct tag *tag_self,
  * We want just the DW_TAG_structure_type tags that have a member that is a pointer
  * to the target class.
  */
-static struct tag *pointer_filter(struct tag *tag, struct cu *cu, void *target_tag)
+static struct tag *pointer_filter(struct tag *tag, struct cu *cu,
+				  uint16_t target_type_id)
 {
-	struct type *type, *target_type;
+	struct type *type;
 	struct class_member *pos;
 	const char *class_name;
 
@@ -502,31 +490,20 @@ static struct tag *pointer_filter(struct tag *tag, struct cu *cu, void *target_t
 	if (type->nr_members == 0)
 		return NULL;
 
-	class_name = class__name(tag__class(tag), cu);
+	class_name = class__name(tag__class(tag));
 	if (class_name == NULL || structures__find(&pointers, class_name))
 		return NULL;
 
-	target_type = tag__type(target_tag);
 	type__for_each_member(type, pos) {
-		struct tag *ctype = cu__find_tag_by_id(cu, pos->tag.type);
+		struct tag *ctype = cu__find_type_by_id(cu, pos->tag.type);
 
 		tag__assert_search_result(ctype);
-		if (ctype->tag == DW_TAG_pointer_type && ctype->type == target_type->namespace.tag.id)
+		if (ctype->tag == DW_TAG_pointer_type &&
+		    ctype->type == target_type_id)
 			return tag;
 	}
 
 	return NULL;
-}
-
-/*
- * Add the struct to the list of pointers since it matches pointer_filter
- * criteria.
- */
-static int find_pointers_iterator(struct tag *tag, struct cu *cu,
-				  void *cookie __unused)
-{
-	structures__add(&pointers, tag, cu);
-	return 0;
 }
 
 /*
@@ -535,12 +512,18 @@ static int find_pointers_iterator(struct tag *tag, struct cu *cu,
  */
 static int cu_find_pointers_iterator(struct cu *cu, void *class_name)
 {
-	struct tag *target = cu__find_struct_by_name(cu, class_name, 0);
+	uint16_t target_type_id, id;
+	struct tag *target = cu__find_struct_by_name(cu, class_name, 0,
+						     &target_type_id), *pos;
 
 	if (target == NULL)
 		return 0;
 
-	return cu__for_each_tag(cu, find_pointers_iterator, target, pointer_filter);
+	cu__for_each_type(cu, id, pos)
+		if (pointer_filter(pos, cu, target_type_id))
+			structures__add(&pointers, pos, cu);
+
+	return 0;
 }
 
 static void class__find_pointers(const char *class_name)
@@ -552,9 +535,9 @@ static void class__find_pointers(const char *class_name)
  * We want just the DW_TAG_structure_type tags that have as its first member
  * a struct of type target.
  */
-static struct tag *alias_filter(struct tag *tag, struct cu *cu, void *target_tag)
+static struct tag *alias_filter(struct tag *tag, uint16_t target_type_id)
 {
-	struct type *type, *target_type;
+	struct type *type;
 	struct class_member *first_member;
 
 	if (!tag__is_struct(tag))
@@ -566,11 +549,10 @@ static struct tag *alias_filter(struct tag *tag, struct cu *cu, void *target_tag
 
 	first_member = list_first_entry(&type->namespace.tags,
 					struct class_member, tag.node);
-	target_type = tag__type(target_tag);
-	if (first_member->tag.type != target_type->namespace.tag.id)
+	if (first_member->tag.type != target_type_id)
 		return NULL;
 
-	if (structures__find(&aliases, class__name(tag__class(tag), cu)))
+	if (structures__find(&aliases, class__name(tag__class(tag))))
 		return NULL;
 
 	return tag;
@@ -579,44 +561,40 @@ static struct tag *alias_filter(struct tag *tag, struct cu *cu, void *target_tag
 static void class__find_aliases(const char *class_name);
 
 /*
- * Add the struct to the list of aliases since it matches alias_filter
- * criteria.
- */
-static int find_aliases_iterator(struct tag *tag, struct cu *cu,
-				 void *cookie __unused)
-{
-	const char *alias_name = class__name(tag__class(tag), cu);
-
-	structures__add(&aliases, tag, cu);
-
-	/*
-	 * Now find aliases to this alias, e.g.:
-	 *
-	 * struct tcp_sock {
-	 * 	struct inet_connection_sock {
-	 * 		struct inet_sock {
-	 * 			struct sock {
-	 * 			}
-	 * 		}
-	 * 	}
-	 * }
-	 */
-	class__find_aliases(alias_name);
-	return 0;
-}
-
-/*
  * Iterate thru all the tags in the compilation unit, looking for classes
  * that have as its first member the specified "class" (struct).
  */
 static int cu_find_aliases_iterator(struct cu *cu, void *class_name)
 {
-	struct tag *target = cu__find_struct_by_name(cu, class_name, 0);
-
+	uint16_t target_type_id, id;
+	struct tag *target = cu__find_struct_by_name(cu, class_name, 0,
+						     &target_type_id), *pos;
 	if (target == NULL)
 		return 0;
 
-	return cu__for_each_tag(cu, find_aliases_iterator, target, alias_filter);
+	cu__for_each_type(cu, id, pos) {
+		if (alias_filter(pos, target_type_id)) {
+			const char *alias_name = class__name(tag__class(pos));
+
+			structures__add(&aliases, pos, cu);
+
+			/*
+			 * Now find aliases to this alias, e.g.:
+			 *
+			 * struct tcp_sock {
+			 * 	struct inet_connection_sock {
+			 * 		struct inet_sock {
+			 * 			struct sock {
+			 * 			}
+			 * 		}
+			 * 	}
+			 * }
+			 */
+			class__find_aliases(alias_name);
+		}
+	}
+
+	return 0;
 }
 
 static void class__find_aliases(const char *class_name)
@@ -635,8 +613,7 @@ static void emit_list_of_types(struct list_head *list)
 		 * emmited this one
 		 */
 		if (type_emissions__find_definition(&emissions,
-						    class__name(tag__class(pos->class),
-							        pos->cu))) {
+						    class__name(tag__class(pos->class)))) {
 			type->definition_emitted = 1;
 			continue;
 		}
@@ -656,7 +633,7 @@ static int class__emit_classes(struct tag *tag_self, struct cu *cu)
 	char mini_class_name[128];
 
 	snprintf(mini_class_name, sizeof(mini_class_name), "ctracer__mini_%s",
-		 class__name(self, cu));
+		 class__name(self));
 
 	mini_class = class__clone_base_types(tag_self, cu, mini_class_name);
 	if (mini_class == NULL)
@@ -675,7 +652,7 @@ static int class__emit_classes(struct tag *tag_self, struct cu *cu)
 
 	class__fprintf(mini_class, cu, NULL, fp_classes);
 	fputs(";\n\n", fp_classes);
-	class__emit_class_state_collector(self, mini_class, cu);
+	class__emit_class_state_collector(self, mini_class);
 	err = 0;
 out:
 	return err;
@@ -688,8 +665,9 @@ out:
  * This marks the function entry, function__emit_kretprobes will emit the
  * probe for the function exit.
  */
-static int function__emit_probes(struct function *self, const struct cu *cu,
-				 const struct tag *target, int probe_type,
+static int function__emit_probes(struct function *self, uint32_t function_id,
+				 const struct cu *cu,
+				 const uint16_t target_type_id, int probe_type,
 				 const char *member)
 {
 	struct parameter *pos;
@@ -708,25 +686,22 @@ static int function__emit_probes(struct function *self, const struct cu *cu,
 			    probe_type == 0 ? "" : "__return");
 
 	list_for_each_entry(pos, &self->proto.parms, tag.node) {
-		struct tag *type = cu__find_tag_by_id(cu, pos->tag.type);
+		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
 
 		tag__assert_search_result(type);
-		if (type->tag != DW_TAG_pointer_type)
-			continue;
-
-		type = cu__find_tag_by_id(cu, type->type);
-		if (type == NULL || type->id != target->id)
+		if (type->tag != DW_TAG_pointer_type ||
+		    type->type != target_type_id)
 			continue;
 
 		if (member != NULL)
 			fprintf(fp_methods, "\tif ($%s)\n\t",
-				parameter__name(pos, cu));
+				parameter__name(pos));
 
 		fprintf(fp_methods,
-			"\tctracer__method_hook(%d, %#llx, $%s%s%s, %zd);\n",
+			"\tctracer__method_hook(%d, %d, $%s%s%s, %zd);\n",
 			probe_type,
-			(unsigned long long)self->proto.tag.id,
-			parameter__name(pos, cu),
+			function_id,
+			parameter__name(pos),
 			member ? "->" : "", member ?: "",
 			class__size(mini_class));
 		break;
@@ -744,16 +719,18 @@ static int function__emit_probes(struct function *self, const struct cu *cu,
  */
 static int cu_emit_probes_iterator(struct cu *cu, void *cookie)
 {
-	struct tag *target = cu__find_struct_by_name(cu, cookie, 0);
+	uint16_t target_type_id;
+	struct tag *target = cu__find_struct_by_name(cu, cookie, 0, &target_type_id);
 	struct function *pos;
 
 	tag__assert_search_result(target);
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
+		uint32_t function_id = (long)pos->priv;
+
 		if (methods__add(&probes_emitted, function__name(pos, cu)) != 0)
 			continue;
-		pos->priv = (void *)1; /* Mark as visited, for the table iterator */
-		function__emit_probes(pos, cu, target, 0, NULL); /* entry */
-		function__emit_probes(pos, cu, target, 1, NULL); /* exit */ 
+		function__emit_probes(pos, function_id, cu, target_type_id, 0, NULL); /* entry */
+		function__emit_probes(pos, function_id, cu, target_type_id, 1, NULL); /* exit */ 
 	}
 
 	return 0;
@@ -765,6 +742,7 @@ static int cu_emit_probes_iterator(struct cu *cu, void *cookie)
  */
 static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 {
+	uint16_t target_type_id, pointer_id;
 	struct tag *target, *pointer;
 	struct function *pos_tag;
 	struct class_member *pos_member;
@@ -773,28 +751,29 @@ static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 	if (list_empty(&cu->tool_list))
 		return 0;
 
-	target = cu__find_struct_by_name(cu, class_name, 1);
-	pointer = cu__find_struct_by_name(cu, cookie, 0);
+	target = cu__find_struct_by_name(cu, class_name, 1, &target_type_id);
+	pointer = cu__find_struct_by_name(cu, cookie, 0, &pointer_id);
 	tag__assert_search_result(target);
 	tag__assert_search_result(pointer);
 
 	/* for now just for the first member that is a pointer */
 	type__for_each_member(tag__type(pointer), pos_member) {
-		struct tag *ctype = cu__find_tag_by_id(cu, pos_member->tag.type);
+		struct tag *ctype = cu__find_type_by_id(cu, pos_member->tag.type);
 
 		tag__assert_search_result(ctype);
-		if (ctype->tag == DW_TAG_pointer_type && ctype->type == target->id)
+		if (ctype->tag == DW_TAG_pointer_type && ctype->type == target_type_id)
 			break;
 	}
 
 	list_for_each_entry(pos_tag, &cu->tool_list, tool_node) {
+		uint32_t function_id = (long)pos_tag->priv;
+
 		if (methods__add(&probes_emitted, function__name(pos_tag, cu)) != 0)
 			continue;
-		pos_tag->priv = (void *)1; /* Mark as visited, for the table iterator */
 
-		function__emit_probes(pos_tag, cu, pointer, 0,
+		function__emit_probes(pos_tag, function_id, cu, target_type_id, 0,
 				      class_member__name(pos_member)); /* entry */
-		function__emit_probes(pos_tag, cu, pointer, 1,
+		function__emit_probes(pos_tag, function_id, cu, target_type_id, 1,
 				      class_member__name(pos_member)); /* exit */ 
 	}
 
@@ -812,14 +791,17 @@ static int cu_emit_functions_table(struct cu *cu, void *fp)
 
        list_for_each_entry(pos, &cu->tool_list, tool_node)
                if (pos->priv != NULL) {
-                       fprintf(fp, "%llu:%s\n",
-                               (unsigned long long)pos->proto.tag.id,
+			uint32_t function_id = (long)pos->priv;			
+                       fprintf(fp, "%d:%s\n", function_id,
 			       function__name(pos, cu));
 			pos->priv = NULL;
 		}
 
        return 0;
 }
+
+/* Name and version of program.  */
+ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
 static const struct argp_option ctracer__options[] = {
 	{
@@ -899,9 +881,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL);
-
-	if (remaining < argc) {
+	if (argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL) ||
+	    remaining < argc) {
 		switch (argc - remaining) {
 		case 1:	 goto failure;
 		case 2:	 filename  = argv[remaining++];
@@ -910,7 +891,7 @@ int main(int argc, char *argv[])
 		}
 	} else {
 failure:
-		argp_help(&ctracer__argp, stderr, ARGP_HELP_SEE, "ctracer");
+		argp_help(&ctracer__argp, stderr, ARGP_HELP_SEE, argv[0]);
 		return EXIT_FAILURE;
 	}
 
@@ -956,15 +937,14 @@ failure:
 	/*
 	 * See if the specified struct exists:
 	 */
-	class = cus__find_struct_by_name(methods_cus, &cu, class_name, 0);
+	class = cus__find_struct_by_name(methods_cus, &cu, class_name, 0, NULL);
 	if (class == NULL) {
 		fprintf(stderr, "ctracer: struct %s not found!\n", class_name);
 		return EXIT_FAILURE;
 	}
 
 	snprintf(functions_filename, sizeof(functions_filename),
-		 "%s/%s.functions", src_dir,
-		 class__name(tag__class(class), cu));
+		 "%s/%s.functions", src_dir, class__name(tag__class(class)));
 	fp_functions = fopen(functions_filename, "w");
 	if (fp_functions == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n",
@@ -1017,7 +997,7 @@ failure:
 	class__emit_classes(class, cu);
 	fputc('\n', fp_collector);
 
-	class__emit_ostra_converter(class, cu);
+	class__emit_ostra_converter(class);
 
 	cu_blacklist = strlist__new(true);
 	if (cu_blacklist != NULL)
@@ -1031,7 +1011,7 @@ failure:
 			 fp_functions, cu_filter);
 
 	list_for_each_entry(pos, &aliases, node) {
-		const char *alias_name = class__name(tag__class(pos->class), pos->cu);
+		const char *alias_name = class__name(tag__class(pos->class));
 
 		cus__for_each_cu(methods_cus, cu_find_methods_iterator,
 				 (void *)alias_name, cu_filter);
@@ -1042,7 +1022,7 @@ failure:
 	}
 
 	list_for_each_entry(pos, &pointers, node) {
-		const char *pointer_name = class__name(tag__class(pos->class), pos->cu);
+		const char *pointer_name = class__name(tag__class(pos->class));
 		cus__for_each_cu(methods_cus, cu_find_methods_iterator,
 				 (void *)pointer_name, cu_filter);
 		cus__for_each_cu(methods_cus, cu_emit_pointer_probes_iterator,

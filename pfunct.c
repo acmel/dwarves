@@ -215,7 +215,10 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 	struct fn_stats *fstats;
 	const char *name;
 
-	if (tag->tag != DW_TAG_subprogram)
+	if (!tag__is_function(tag))
+		return NULL;
+
+	if (!tag->top_level)
 		return NULL;
 
 	function = tag__function(tag);
@@ -258,7 +261,7 @@ static struct tag *function__filter(struct tag *tag, struct cu *cu,
 static int unique_iterator(struct tag *tag, struct cu *cu,
 			   void *cookie __unused)
 {
-	if (tag->tag == DW_TAG_subprogram)
+	if (tag__is_function(tag))
 		fn_stats__add(tag, cu);
 	return 0;
 }
@@ -271,16 +274,17 @@ static int cu_unique_iterator(struct cu *cu, void *cookie)
 
 static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
+	uint16_t *target_id = cookie;
 	struct function *function;
 
-	if (tag->tag != DW_TAG_subprogram)
+	if (!tag__is_function(tag))
 		return 0;
 
 	function = tag__function(tag);
 	if (function->inlined)
 		return 0;
 
-	if (ftype__has_parm_of_type(&function->proto, cookie, cu)) {
+	if (ftype__has_parm_of_type(&function->proto, *target_id, cu)) {
 		if (verbose)
 			tag__fprintf(tag, cu, &conf, stdout);
 		else
@@ -292,12 +296,13 @@ static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
 
 static int cu_class_iterator(struct cu *cu, void *cookie)
 {
-	struct tag *target = cu__find_struct_by_name(cu, cookie, 0);
+	uint16_t target_id;
+	struct tag *target = cu__find_struct_by_name(cu, cookie, 0, &target_id);
 
 	if (target == NULL)
 		return 0;
 
-	return cu__for_each_tag(cu, class_iterator, target, NULL);
+	return cu__for_each_tag(cu, class_iterator, &target_id, NULL);
 }
 
 static int function__emit_type_definitions(struct function *self,
@@ -306,13 +311,13 @@ static int function__emit_type_definitions(struct function *self,
 	struct parameter *pos;
 
 	function__for_each_parameter(self, pos) {
-		struct tag *type = cu__find_tag_by_id(cu, parameter__type(pos, cu));
+		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
 	try_again:
 		if (type == NULL)
 			continue;
 
 		if (type->tag == DW_TAG_pointer_type) {
-			type = cu__find_tag_by_id(cu, type->type);
+			type = cu__find_type_by_id(cu, type->type);
 			goto try_again;
 		}
 
@@ -330,7 +335,7 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 {
 	struct function *function;
 
-	if (tag->tag != DW_TAG_subprogram)
+	if (!tag__is_function(tag))
 		return 0;
 
 	function = tag__function(tag);
@@ -350,6 +355,9 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 {
 	return cu__for_each_tag(cu, function_iterator, cookie, NULL);
 }
+
+/* Name and version of program.  */
+ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
 static const struct argp_option pfunct__options[] = {
 	{
@@ -491,7 +499,7 @@ static struct argp pfunct__argp = {
 
 int main(int argc, char *argv[])
 {
-	int err;
+	int err, remaining;
 	struct cus *cus = cus__new();
 
 	if (dwarves__init(0) || cus == NULL) {
@@ -499,7 +507,13 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	err = cus__loadfl(cus, &pfunct__argp, argc, argv);
+	if (argp_parse(&pfunct__argp, argc, argv, 0, &remaining, NULL) ||
+	    remaining == argc) {
+                argp_help(&pfunct__argp, stderr, ARGP_HELP_SEE, argv[0]);
+                return EXIT_FAILURE;
+	}
+
+	err = cus__loadfl(cus, argv + remaining);
 	if (err != 0)
 		return EXIT_FAILURE;
 

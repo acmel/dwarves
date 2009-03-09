@@ -9,10 +9,8 @@
 */
 
 struct cus;
-struct argp;
 
 int dwarf__load_filename(struct cus *self, const char *filename);
-int dwarf__load(struct cus *self, struct argp *argp, int argc, char *argv[],
-		bool parsed);
+int dwarf__load(struct cus *self, char *filenames[]);
 
 #endif /* _DWARF_LOADER_H_ */

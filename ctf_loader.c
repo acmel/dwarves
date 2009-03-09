@@ -14,7 +14,6 @@
 #include <string.h>
 #include <limits.h>
 #include <libgen.h>
-#include <argp.h>
 #include <zlib.h>
 
 #include <gelf.h>
@@ -36,6 +35,16 @@ static void *zalloc(const size_t size)
 	if (s != NULL)
 		memset(s, 0, size);
 	return s;
+}
+
+static void *tag__alloc(const size_t size)
+{
+	struct tag *self = zalloc(size);
+
+	if (self != NULL)
+		self->top_level = 1;
+
+	return self;
 }
 
 static void oom(const char *msg)
@@ -130,7 +139,7 @@ static void elf_symbol_iterate(struct ctf_state *sp,
 }
 #endif
 
-static int parse_elf(struct ctf_state *sp)
+static int parse_elf(struct ctf_state *sp, int *wordsizep)
 {
 	GElf_Ehdr ehdr;
 	GElf_Shdr shdr;
@@ -162,6 +171,12 @@ static int parse_elf(struct ctf_state *sp)
 		sec = elf_getscn(sp->elf, shdr.sh_link);
 	else
 		sec = elf_section_by_name(sp->elf, &ehdr, &shdr, ".symtab");
+
+	switch (ehdr.e_ident[EI_CLASS]) {
+	case ELFCLASS32: *wordsizep = 4; break;
+	case ELFCLASS64: *wordsizep = 8; break;
+	default:	 *wordsizep = 0; break;
+	}
 
 	if (!sec)
 		return 0;
@@ -321,7 +336,7 @@ static void dump_funcs(struct ctf_state *sp)
 
 static struct base_type *base_type__new(const char *name, size_t size)
 {
-        struct base_type *self = zalloc(sizeof(*self));
+        struct base_type *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
 		self->name = strings__add(strings, name);
@@ -330,34 +345,32 @@ static struct base_type *base_type__new(const char *name, size_t size)
 	return self;
 }
 
-static void type__init(struct type *self, uint16_t tag, unsigned int id,
+static void type__init(struct type *self, uint16_t tag,
 		       const char *name, size_t size)
 {
 	INIT_LIST_HEAD(&self->node);
 	INIT_LIST_HEAD(&self->namespace.tags);
 	self->size = size;
-	self->namespace.tag.id = id;
 	self->namespace.tag.tag = tag;
 	self->namespace.name = strings__add(strings, name[0] == '(' ? NULL : name);
 }
 
-static struct type *type__new(uint16_t tag, unsigned int id,
-			      const char *name, size_t size)
+static struct type *type__new(uint16_t tag, const char *name, size_t size)
 {
-        struct type *self = zalloc(sizeof(*self));
+        struct type *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL)
-		type__init(self, tag, id, name, size);
+		type__init(self, tag, name, size);
 
 	return self;
 }
 
-static struct class *class__new(const char *name, unsigned int id, size_t size)
+static struct class *class__new(const char *name, size_t size)
 {
-	struct class *self = zalloc(sizeof(*self));
+	struct class *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
-		type__init(&self->type, DW_TAG_structure_type, id, name, size);
+		type__init(&self->type, DW_TAG_structure_type, name, size);
 		INIT_LIST_HEAD(&self->vtable);
 	}
 
@@ -366,7 +379,7 @@ static struct class *class__new(const char *name, unsigned int id, size_t size)
 
 static int create_new_base_type(struct ctf_state *sp, void *ptr,
 				int vlen __unused, struct ctf_full_type *tp,
-				unsigned int id)
+				long id)
 {
 	uint32_t *enc = ptr, name_idx;
 	char name[64], *buf = name;
@@ -376,8 +389,6 @@ static int create_new_base_type(struct ctf_state *sp, void *ptr,
 
 	if (attrs & CTF_TYPE_INT_SIGNED)
 		buf += sprintf(buf, "signed ");
-	if (attrs & CTF_TYPE_INT_CHAR)
-		buf += sprintf(buf, "char ");
 	if (attrs & CTF_TYPE_INT_BOOL)
 		buf += sprintf(buf, "bool ");
 	if (attrs & CTF_TYPE_INT_VARARGS)
@@ -390,8 +401,7 @@ static int create_new_base_type(struct ctf_state *sp, void *ptr,
 		oom("base_type__new");
 		
 	base->tag.tag = DW_TAG_base_type;
-	base->tag.id = id;
-	cu__add_tag(sp->cu, &base->tag);
+	cu__add_tag(sp->cu, &base->tag, &id);
 
 	return sizeof(*enc);
 }
@@ -399,7 +409,7 @@ static int create_new_base_type(struct ctf_state *sp, void *ptr,
 static int create_new_base_type_float(struct ctf_state *sp, void *ptr,
 				      int vlen __unused,
 				      struct ctf_full_type *tp,
-				      unsigned int id)
+				      long id)
 {
 	uint32_t *enc = ptr, eval;
 	char name[64];
@@ -414,8 +424,7 @@ static int create_new_base_type_float(struct ctf_state *sp, void *ptr,
 		oom("base_type__new");
 		
 	base->tag.tag = DW_TAG_base_type;
-	base->tag.id = id;
-	cu__add_tag(sp->cu, &base->tag);
+	cu__add_tag(sp->cu, &base->tag, &id);
 
 	return sizeof(*enc);
 }
@@ -423,10 +432,10 @@ static int create_new_base_type_float(struct ctf_state *sp, void *ptr,
 static int create_new_array(struct ctf_state *sp, void *ptr,
 			    int vlen __unused,
 			    struct ctf_full_type *tp __unused,
-			    unsigned int id)
+			    long id)
 {
 	struct ctf_array *ap = ptr;
-	struct array_type *self = zalloc(sizeof(*self));
+	struct array_type *self = tag__alloc(sizeof(*self));
 
 	if (self == NULL)
 		oom("array_type");
@@ -441,23 +450,22 @@ static int create_new_array(struct ctf_state *sp, void *ptr,
 
 	self->nr_entries[0] = ctf__get32(sp->ctf, &ap->ctf_array_nelems);
 	self->tag.tag = DW_TAG_array_type;
-	self->tag.id = id;
 	self->tag.type = ctf__get16(sp->ctf, &ap->ctf_array_type);
 
-	cu__add_tag(sp->cu, &self->tag);
+	cu__add_tag(sp->cu, &self->tag, &id);
 
 	return sizeof(*ap);
 }
 
 static int create_new_subroutine_type(struct ctf_state *sp, void *ptr,
 				      int vlen, struct ctf_full_type *tp,
-				      unsigned int id)
+				      long id)
 {
 	uint16_t *args = ptr;
 	uint16_t i;
 	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
 	unsigned int type = ctf__get16(sp->ctf, &tp->base.ctf_type);
-	struct function *self = zalloc(sizeof(*self));
+	struct function *self = tag__alloc(sizeof(*self));
 
 	if (self == NULL)
 		oom("function__new");
@@ -467,12 +475,11 @@ static int create_new_subroutine_type(struct ctf_state *sp, void *ptr,
 	INIT_LIST_HEAD(&self->tool_node);
 	INIT_LIST_HEAD(&self->proto.parms);
 	self->proto.tag.tag = DW_TAG_subroutine_type;
-	self->proto.tag.id = id;
 	self->proto.tag.type = type;
 	INIT_LIST_HEAD(&self->lexblock.tags);
 
 	for (i = 0; i < vlen; i++) {
-		struct parameter *p = zalloc(sizeof(*p));
+		struct parameter *p = tag__alloc(sizeof(*p));
 
 		p->tag.tag  = DW_TAG_formal_parameter;
 		p->tag.type = ctf__get16(sp->ctf, &args[i]);
@@ -487,7 +494,7 @@ static int create_new_subroutine_type(struct ctf_state *sp, void *ptr,
 	if (vlen & 0x2)
 		vlen += 0x2;
 
-	cu__add_tag(sp->cu, &self->proto.tag);
+	cu__add_tag(sp->cu, &self->proto.tag, &id);
 
 	return vlen;
 }
@@ -513,7 +520,6 @@ static unsigned long create_full_members(struct ctf_state *sp, void *ptr,
 		member->offset = bit_offset / 8;
 		member->bit_offset = bit_offset % 8;
 		type__add_member(class, member);
-		hashtags__hash(sp->cu->hash_tags, &member->tag);
 	}
 
 	return sizeof(*mp);
@@ -540,7 +546,6 @@ static unsigned long create_short_members(struct ctf_state *sp, void *ptr,
 		member->bit_offset = bit_offset % 8;
 
 		type__add_member(class, member);
-		hashtags__hash(sp->cu->hash_tags, &member->tag);
 	}
 
 	return sizeof(*mp);
@@ -548,11 +553,11 @@ static unsigned long create_short_members(struct ctf_state *sp, void *ptr,
 
 static int create_new_class(struct ctf_state *sp, void *ptr,
 			    int vlen, struct ctf_full_type *tp,
-			    uint64_t size, unsigned int id)
+			    uint64_t size, long id)
 {
 	unsigned long member_size;
 	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
-	struct class *self = class__new(name, id, size);
+	struct class *self = class__new(name, size);
 
 	if (size >= CTF_SHORT_MEMBER_LIMIT) {
 		member_size = create_full_members(sp, ptr, vlen, &self->type);
@@ -560,18 +565,18 @@ static int create_new_class(struct ctf_state *sp, void *ptr,
 		member_size = create_short_members(sp, ptr, vlen, &self->type);
 	}
 
-	cu__add_tag(sp->cu, &self->type.namespace.tag);
+	cu__add_tag(sp->cu, &self->type.namespace.tag, &id);
 
 	return (vlen * member_size);
 }
 
 static int create_new_union(struct ctf_state *sp, void *ptr,
 			    int vlen, struct ctf_full_type *tp,
-			    uint64_t size, unsigned int id)
+			    uint64_t size, long id)
 {
 	unsigned long member_size;
 	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
-	struct type *self = type__new(DW_TAG_union_type, id, name, size);
+	struct type *self = type__new(DW_TAG_union_type, name, size);
 
 	if (size >= CTF_SHORT_MEMBER_LIMIT) {
 		member_size = create_full_members(sp, ptr, vlen, self);
@@ -579,7 +584,7 @@ static int create_new_union(struct ctf_state *sp, void *ptr,
 		member_size = create_short_members(sp, ptr, vlen, self);
 	}
 
-	cu__add_tag(sp->cu, &self->namespace.tag);
+	cu__add_tag(sp->cu, &self->namespace.tag, &id);
 
 	return (vlen * member_size);
 }
@@ -587,7 +592,7 @@ static int create_new_union(struct ctf_state *sp, void *ptr,
 static struct enumerator *enumerator__new(const char *name,
 					  uint32_t value)
 {
-	struct enumerator *self = zalloc(sizeof(*self));
+	struct enumerator *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
 		self->name = strings__add(strings, name);
@@ -600,11 +605,11 @@ static struct enumerator *enumerator__new(const char *name,
 
 static int create_new_enumeration(struct ctf_state *sp, void *ptr,
 				  int vlen, struct ctf_full_type *tp,
-				  unsigned int id)
+				  long id)
 {
 	struct ctf_enum *ep = ptr;
 	uint16_t i;
-	struct type *enumeration = type__new(DW_TAG_enumeration_type, id,
+	struct type *enumeration = type__new(DW_TAG_enumeration_type,
 					     ctf_string(ctf__get32(sp->ctf,
 							&tp->base.ctf_name), sp),
 					     sizeof(int)); /* FIXME: is this always the case? */
@@ -621,32 +626,31 @@ static int create_new_enumeration(struct ctf_state *sp, void *ptr,
 			oom("enumerator__new");
 
 		enumeration__add(enumeration, enumerator);
-		hashtags__hash(sp->cu->hash_tags, &enumerator->tag);
 	}
 
-	cu__add_tag(sp->cu, &enumeration->namespace.tag);
+	cu__add_tag(sp->cu, &enumeration->namespace.tag, &id);
 
 	return (vlen * sizeof(*ep));
 }
 
 static int create_new_forward_decl(struct ctf_state *sp, void *ptr __unused,
 				   int vlen __unused, struct ctf_full_type *tp,
-				   uint64_t size, unsigned int id)
+				   uint64_t size, long id)
 {
 	char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
-	struct class *self = class__new(name, id, size);
+	struct class *self = class__new(name, size);
 
 	if (self == NULL)
 		oom("class foward decl");
 	self->type.declaration = 1;
-	cu__add_tag(sp->cu, &self->type.namespace.tag);
+	cu__add_tag(sp->cu, &self->type.namespace.tag, &id);
 	return 0;
 }
 
 static int create_new_typedef(struct ctf_state *sp, int type,
 			      void *ptr __unused, int vlen __unused,
 			      struct ctf_full_type *tp,
-			      uint64_t size, unsigned int id)
+			      uint64_t size, long id)
 {
 	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
 	unsigned int type_id = ctf__get16(sp->ctf, &tp->base.ctf_type);
@@ -660,18 +664,18 @@ static int create_new_typedef(struct ctf_state *sp, int type,
 		return 0;
 	}
 
-	self = type__new(tag, id, name, size);
+	self = type__new(tag, name, size);
 	if (self == NULL)
 		oom("type__new");
 	self->namespace.tag.type = type_id;
-	cu__add_tag(sp->cu, &self->namespace.tag);
+	cu__add_tag(sp->cu, &self->namespace.tag, &id);
 
 	return 0;
 }
 
 static int create_new_tag(struct ctf_state *sp, int type,
 			  void *ptr __unused, int vlen __unused,
-			  struct ctf_full_type *tp, unsigned int id)
+			  struct ctf_full_type *tp, long id)
 {
 	unsigned int type_id = ctf__get16(sp->ctf, &tp->base.ctf_type);
 	struct tag *self = zalloc(sizeof(*self));
@@ -689,9 +693,8 @@ static int create_new_tag(struct ctf_state *sp, int type,
 		return 0;
 	}
 
-	self->id = id;
 	self->type = type_id;
-	cu__add_tag(sp->cu, self);
+	cu__add_tag(sp->cu, self, &id);
 
 	return 0;
 }
@@ -759,6 +762,7 @@ static void load_types(struct ctf_state *sp)
 			   type == CTF_TYPE_KIND_RESTRICT) {
 			vlen = create_new_tag(sp, type, ptr, vlen, type_ptr, type_index);
 		} else if (type == CTF_TYPE_KIND_UNKN) {
+			cu__table_nullify_type_entry(sp->cu, type_index);
 			printf("CTF: [%#6x] %1d Unknown\n", type_index, CTF_ISROOT(val));
 			vlen = 0;
 		} else {
@@ -788,18 +792,101 @@ static void open_files(struct ctf_state *sp, const char *in_filename)
 	}
 }
 
-int ctf__load(struct cus *self, struct argp *argp, int argc, char *argv[],
-	      bool parsed)
+static size_t base_type__name_to_size(struct base_type *self)
+{
+	if (strcmp(base_type__name(self), "unsigned") == 0)
+		return 32;
+
+	/* FIXME */
+	return 0;
+}
+
+static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
+{
+	struct class_member *pos;
+	struct type *type_self = tag__type(self);
+	uint16_t bit_offset = 0;
+	long last_offset = -1;
+
+	type__for_each_data_member(type_self, pos) {
+		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
+
+		if (type->tag != DW_TAG_base_type)
+			continue;
+		
+		struct base_type *bt = tag__base_type(type);
+		size_t bit_size = base_type__name_to_size(bt);
+
+		if (bit_size == 0 || bt->bit_size == bit_size) {
+			bit_offset = 0;
+			last_offset = -1;
+			continue;
+		}
+
+		if (last_offset == -1)
+			last_offset = pos->offset;
+
+		uint16_t fixed_tag_id;
+
+		if (cu__find_base_type_by_name_and_size(cu, base_type__name(bt),
+							bit_size, &fixed_tag_id) == NULL) {
+			fprintf(stderr,
+				"%s: BRAIN FART ALERT!: class: %s, member: %s\n",
+				__func__, type__name(type_self),
+				class_member__name(pos));
+			continue;
+		}
+
+		pos->offset	= last_offset;
+		pos->tag.type	= fixed_tag_id;
+		pos->bit_size	= bt->bit_size;
+		pos->bit_offset = bit_offset;
+		bit_offset	+= bt->bit_size;
+		if (bit_offset == bit_size) {
+			bit_offset = 0;
+			last_offset = -1;
+		}
+	}
+
+	return 0;
+}
+
+static int cu__fixup_ctf_bitfields(struct cu *self)
+{
+	int err = 0;
+	struct tag *pos;
+
+	list_for_each_entry(pos, &self->tags, node)
+		if (tag__is_struct(pos)) {
+			err = class__fixup_ctf_bitfields(pos, self);
+			if (err)
+				break;
+		}
+
+	return err;
+}
+
+static int cus__fixup_ctf_bitfields(struct cus *self)
+{
+	int err = 0;
+	struct cu *pos;
+
+	list_for_each_entry(pos, &self->cus, node) {
+		err = cu__fixup_ctf_bitfields(pos);
+		if (err)
+			break;
+	}
+	return err;
+}
+
+int ctf__load(struct cus *self, char *filenames[])
 {
 	struct ctf_state state;
+	int wordsize;
 
 	memset(&state, 0, sizeof(state));
 
-	if (argc > 2 && !parsed &&
-	    argp_parse(argp, argc - 1, argv, 0, NULL, NULL))
-		return -1;
-
-	open_files(&state, argv[argc - 1]);
+	open_files(&state, filenames[0]);
 
 	if (elf_version(EV_CURRENT) == EV_NONE) {
 		fprintf(stderr, "Cannot set libelf version.\n");
@@ -812,10 +899,10 @@ int ctf__load(struct cus *self, struct argp *argp, int argc, char *argv[],
 		return -1;
 	}
 
-	if (parse_elf(&state))
+	if (parse_elf(&state, &wordsize))
 		return -1;
 
-	state.cu = cu__new("FIXME.c", 8, NULL, 0);
+	state.cu = cu__new("FIXME.c", wordsize, NULL, 0);
 	if (state.cu == NULL)
 		oom("cu__new");
 
@@ -827,5 +914,5 @@ int ctf__load(struct cus *self, struct argp *argp, int argc, char *argv[],
 
 	close(state.in_fd);
 
-	return 0;
+	return cus__fixup_ctf_bitfields(self);
 }

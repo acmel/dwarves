@@ -1,0 +1,201 @@
+.\" Man page for pahole
+.\" Arnaldo Carvalho de Melo, 2009
+.\" Licensed under version 2 of the GNU General Public License.
+.TH pahole 1 "February 13, 2009" "dwarves" "dwarves"
+.\"
+.SH NAME
+pahole \- Shows and manipulates data structure layout.
+.SH SYNOPSIS
+\fBpahole\fR [\fIoptions\fR] \fIfiles\fR
+.SH DESCRIPTION
+.B pahole
+shows data structure layouts encoded in debugging information formats,
+DWARF and CTF being supported.
+
+This is useful for, among other things: optimizing important data structures by
+reducing its size, figuring out what is the field sitting at an offset from the
+start of a data structure, investigating ABI changes and more generally
+understanding a new codebase you have to work with.
+
+The files must have associated debugging information.  This information may be
+inside the file itself, in ELF sections, or in another file.
+
+One way to have this information is to specify the \fB\-g\fR option to the
+compiler when building it. When this is done the information will be stored in
+an ELF section. For the DWARF debugging information format this, adds, among
+others, the \fB.debug_info\fR ELF section. For the CTF it is found in just one
+ELF section, \fB.SUNW_ctf\fR.
+
+The \fBdebuginfo\fR packages available in most Linux distributions are also
+supported by \fBpahole\fR, where the debugging information is available in a
+separate file.
+
+By default, \fBpahole\fR shows the layout of all named structs in the files
+specified.
+
+.SH OPTIONS
+pahole supports the following options.
+
+.TP
+.B \-C, \-\-class_name=CLASS_NAME
+Show just this class.
+
+.TP
+.B \-c, \-\-cacheline_size=SIZE
+Set cacheline size to SIZE bytes.
+
+.TP
+.B \-E, \-\-expand_types
+Expand class members. Useful to find in what member of inner structs where an
+offset from the beginning of a struct is.
+
+.TP
+.B \-r, \-\-rel_offset
+Show relative offsets of members in inner structs.
+
+.TP
+.B \-p, \-\-expand_pointers
+Expand class pointer members.
+
+.TP
+.B \-R, \-\-reorganize
+Reorganize struct, demoting and combining bitfields, moving members to remove
+alignment holes and padding.
+
+.TP
+.B \-S, \-\-show_reorg_steps
+Show the struct layout at each reorganization step.
+
+.TP
+.B \-i, \-\-contains=CLASS_NAME
+Show classes that contains CLASS_NAME.
+
+.TP
+.B \-a, \-\-anon_include
+Include anonymous classes.
+
+.TP
+.B \-A, \-\-nested_anon_include
+Include nested (inside other structs) anonymous classes.
+
+.TP
+.B \-B, \-\-bit_holes=NR_HOLES
+Show only structs at least NR_HOLES bit holes.
+
+.TP
+.B \-d, \-\-recursive
+Recursive mode, affects several other flags.
+
+.TP
+.B \-D, \-\-decl_exclude=PREFIX
+exclude classes declared in files with PREFIX.
+
+.TP
+.B \-f, \-\-find_pointers_to=CLASS_NAME
+Find pointers to CLASS_NAME.
+
+.TP
+.B \-H, \-\-holes=NR_HOLES
+Show only structs with at least NR_HOLES holes.
+
+.TP
+.B \-I, \-\-show_decl_info
+Show the file and line number where the tags were defined, if available in
+the debugging information.
+
+.TP
+.B \-l, \-\-show_first_biggest_size_base_type_member
+Show first biggest size base_type member.
+
+.TP
+.B \-m, \-\-nr_methods
+Show number of methods.
+
+.TP
+.B \-M, \-\-show_only_data_members
+Show only the members that use space in the class layout. C++ methods will be
+suppressed.
+
+.TP
+.B \-n, \-\-nr_members
+Show number of members.
+
+.TP
+.B \-N, \-\-class_name_len
+Show size of classes.
+
+.TP
+.B \-O, \-\-dwarf_offset=OFFSET
+Show tag with DWARF OFFSET.
+
+.TP
+.B \-P, \-\-packable
+Show only structs that has holes that can be packed if members are reorganized,
+for instance when using the \fB\-\-reorganize\fR option.
+
+.TP
+.B \-q, \-\-quiet
+Be quieter.
+
+.TP
+.B \-s, \-\-sizes
+Show size of classes.
+
+.TP
+.B \-t, \-\-separator=SEP
+Use SEP as the field separator.
+
+.TP
+.B \-T, \-\-nr_definitions
+Show how many times struct was defined.
+
+.TP
+.B \-u, \-\-defined_in
+Show CUs where CLASS_NAME (-C) is defined.
+
+.TP
+.B \-V, \-\-verbose
+be verbose
+
+.TP
+.B \-w, \-\-word_size=WORD_SIZE
+Change the arch word size to WORD_SIZE.
+
+.TP
+.B \-x, \-\-exclude=PREFIX
+Exclude PREFIXed classes.
+
+.TP
+.B \-X, \-\-cu_exclude=PREFIX
+Exclude PREFIXed compilation units.
+
+.TP
+.B \-y, \-\-prefix_filter=PREFIX
+Include PREFIXed classes.
+
+.TP
+.B \-z, \-\-hole_size_ge=HOLE_SIZE
+Show only structs with at least one hole greater or equal to HOLE_SIZE.
+
+.SH NOTES
+
+To enable the generation of debugging information in the Linux kernel build
+process select CONFIG_DEBUG_INFO. This can be done using make menuconfig by
+this path: "Kernel Hacking" -> "Kernel Debugging" -> "Compile the kernel with
+debug info".
+
+Many distributions also come with debuginfo packages, so just enable it in your
+package manager repository configuration and install the kernel-debuginfo, or
+any other userspace program written in a language that the compiler generates
+debuginfo (C, C++, for instance).
+
+.SH SEE ALSO
+\fIeu-readelf\fR(1), \fIreadelf\fR(1), \fIobjdump\fR(1).
+.P
+\fIhttp://oops.ghostprotocols.net:81/acme/7dwarves.pdf\fR.
+.SH AUTHOR
+\fBpahole\fR was written by Arnaldo Carvalho de Melo <acme@ghostprotocols.net>.
+
+Please send bug reports to <dwarves@vger.kernel.org>.
+.P
+No\ subscription is required.
