@@ -875,10 +875,11 @@ int main(int argc, char *argv[])
 	char classes_filename[PATH_MAX];
 	struct structure *pos;
 	FILE *fp_functions;
+	int rc = EXIT_FAILURE;
 
 	if (dwarves__init(0)) {
 		fputs("ctracer: insufficient memory\n", stderr);
-		return EXIT_FAILURE;
+		goto out;
 	}
 
 	if (argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL) ||
@@ -892,7 +893,7 @@ int main(int argc, char *argv[])
 	} else {
 failure:
 		argp_help(&ctracer__argp, stderr, ARGP_HELP_SEE, argv[0]);
-		return EXIT_FAILURE;
+		goto out;
 	}
 
 	type_emissions__init(&emissions);
@@ -906,7 +907,7 @@ failure:
 	methods_cus = cus__new();
 	if (methods_cus == NULL) {
 		fputs("ctracer: insufficient memory\n", stderr);
-		return EXIT_FAILURE;
+		goto out;
 	}
 	
 	/*
@@ -920,7 +921,7 @@ failure:
 		fprintf(stderr, "ctracer: couldn't load DWARF info "
 				"from %s dir with glob %s\n",
 			dirname, glob);
-		return EXIT_FAILURE;
+		goto out;
 	}
 
         /*
@@ -930,7 +931,7 @@ failure:
 		err = cus__load(methods_cus, filename);
 		if (err != 0) {
 			cus__print_error_msg("ctracer", methods_cus, filename, err);
-			return EXIT_FAILURE;
+			goto out;
 		}
 	}
 
@@ -940,7 +941,7 @@ failure:
 	class = cus__find_struct_by_name(methods_cus, &cu, class_name, 0, NULL);
 	if (class == NULL) {
 		fprintf(stderr, "ctracer: struct %s not found!\n", class_name);
-		return EXIT_FAILURE;
+		goto out;
 	}
 
 	snprintf(functions_filename, sizeof(functions_filename),
@@ -949,7 +950,7 @@ failure:
 	if (fp_functions == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n",
 			functions_filename);
-		exit(EXIT_FAILURE);
+		goto out;
 	}
 
 	snprintf(methods_filename, sizeof(methods_filename),
@@ -958,7 +959,7 @@ failure:
 	if (fp_methods == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n",
 			methods_filename);
-		exit(EXIT_FAILURE);
+		goto out;
 	}
 
 	snprintf(collector_filename, sizeof(collector_filename),
@@ -967,7 +968,7 @@ failure:
 	if (fp_collector == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n",
 			collector_filename);
-		exit(EXIT_FAILURE);
+		goto out;
 	}
 
 	snprintf(classes_filename, sizeof(classes_filename),
@@ -976,7 +977,7 @@ failure:
 	if (fp_classes == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n",
 			classes_filename);
-		exit(EXIT_FAILURE);
+		goto out;
 	}
 
 	fputs("%{\n"
@@ -1037,5 +1038,9 @@ failure:
 	fclose(fp_classes);
 	strlist__delete(cu_blacklist);
 
-	return EXIT_SUCCESS;
+	rc = EXIT_SUCCESS;
+out:
+	cus__delete(methods_cus);
+	dwarves__exit();
+	return rc;
 }

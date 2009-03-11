@@ -57,6 +57,11 @@ static struct fn_stats *fn_stats__new(struct tag *tag, const struct cu *cu)
 	return self;
 }
 
+static void fn_stats__delete(struct fn_stats *self)
+{
+	free(self);
+}
+
 static LIST_HEAD(fn_stats__list);
 
 static struct fn_stats *fn_stats__find(const char *name)
@@ -68,6 +73,16 @@ static struct fn_stats *fn_stats__find(const char *name)
 			   name) == 0)
 			return pos;
 	return NULL;
+}
+
+static void fn_stats__delete_list(void)
+{
+	struct fn_stats *pos, *n;
+
+	list_for_each_entry_safe(pos, n, &fn_stats__list, node) {
+		list_del_init(&pos->node);
+		fn_stats__delete(pos);
+	}
 }
 
 static void fn_stats__add(struct tag *tag, const struct cu *cu)
@@ -504,23 +519,24 @@ static struct argp pfunct__argp = {
 
 int main(int argc, char *argv[])
 {
-	int err, remaining;
-	struct cus *cus = cus__new();
-
-	if (dwarves__init(0) || cus == NULL) {
-		fputs("pfunct: insufficient memory\n", stderr);
-		return EXIT_FAILURE;
-	}
+	int err, remaining, rc = EXIT_FAILURE;
+	struct cus *cus;
 
 	if (argp_parse(&pfunct__argp, argc, argv, 0, &remaining, NULL) ||
 	    remaining == argc) {
                 argp_help(&pfunct__argp, stderr, ARGP_HELP_SEE, argv[0]);
-                return EXIT_FAILURE;
+                goto out;
+	}
+
+	cus = cus__new();
+	if (dwarves__init(0) || cus == NULL) {
+		fputs("pfunct: insufficient memory\n", stderr);
+		goto out;
 	}
 
 	err = cus__loadfl(cus, &conf_load, argv + remaining);
 	if (err != 0)
-		return EXIT_FAILURE;
+		goto out;
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, NULL);
 
@@ -534,5 +550,10 @@ int main(int argc, char *argv[])
 	else
 		print_fn_stats(formatter);
 
-	return EXIT_SUCCESS;
+	rc = EXIT_SUCCESS;
+out:
+	cus__delete(cus);
+	fn_stats__delete_list();
+	dwarves__exit();
+	return rc;
 }

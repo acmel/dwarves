@@ -316,23 +316,24 @@ static struct argp pglobal__argp = {
 
 int main(int argc, char *argv[])
 {
-	int err, remaining;
-	struct cus *cus = cus__new();
-
-	if (dwarves__init(0) || cus == NULL) {
-		fputs("pglobal: insufficient memory\n", stderr);
-		return EXIT_FAILURE;
-	}
+	int err, remaining, rc = EXIT_FAILURE;
 
 	if (argp_parse(&pglobal__argp, argc, argv, 0, &remaining, NULL) ||
 	    remaining == argc) {
                 argp_help(&pglobal__argp, stderr, ARGP_HELP_SEE, argv[0]);
-                return EXIT_FAILURE;
+                goto out;
+	}
+
+	struct cus *cus = cus__new();
+
+	if (dwarves__init(0) || cus == NULL) {
+		fputs("pglobal: insufficient memory\n", stderr);
+		goto out;
 	}
 
 	err = cus__loadfl(cus, NULL, argv + remaining);
 	if (err != 0)
-		return EXIT_FAILURE;
+		goto out;
 
 	if (walk_var) {
 		cus__for_each_cu(cus, cu_extvar_iterator, NULL, NULL);
@@ -343,6 +344,9 @@ int main(int argc, char *argv[])
 	}
 
 	tdestroy(tree, free_node);
-
-	return EXIT_SUCCESS;
+	rc = EXIT_SUCCESS;
+out:
+	cus__delete(cus);
+	dwarves__exit();
+	return rc;
 }

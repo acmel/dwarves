@@ -563,20 +563,31 @@ out_free:
 	goto out;
 }
 
+static void array_type__delete(struct tag *self)
+{
+	free(tag__array_type(self)->nr_entries);
+	free(self);
+}
+
+static int cu__delete_tag(struct tag *self, struct cu *cu __unused,
+			  void *cookie __unused)
+{
+	tag__free_orig_info(self, cu);
+	switch (self->tag) {
+	case DW_TAG_array_type:
+		array_type__delete(self); break;
+	default:
+		free(self);		  break;
+	}
+	return 0;
+}
+
 void cu__delete(struct cu *self)
 {
-	struct tag *pos, *n;
-
-	list_for_each_entry_safe(pos, n, &self->tags, node) {
-		list_del_init(&pos->node);
-
-		/* Look for nested namespaces */
-		if (tag__has_namespace(pos))
-		    	namespace__delete(tag__namespace(pos));
-	}
-	
+	cu__for_all_tags(self, cu__delete_tag, NULL);
 	ptr_table__exit(&self->tags_table);
 	ptr_table__exit(&self->types_table);
+	free(self->name);
 	free(self);
 }
 
@@ -2474,9 +2485,9 @@ static int list__for_all_tags(struct list_head *self, struct cu *cu,
 					      struct cu *cu, void *cookie),
 			      void *cookie)
 {
-	struct tag *pos;
+	struct tag *pos, *n;
 
-	list_for_each_entry(pos, self, node) {
+	list_for_each_entry_safe(pos, n, self, node) {
 		if (tag__has_namespace(pos)) {
 			if (list__for_all_tags(&tag__namespace(pos)->tags,
 					       cu, iterator, cookie))
@@ -2486,18 +2497,23 @@ static int list__for_all_tags(struct list_head *self, struct cu *cu,
 						       cu, iterator, cookie))
 					return 1;
 			}
-		} if (tag__is_function(pos)) {
+		} else if (tag__is_function(pos)) {
 			if (list__for_all_tags(&tag__ftype(pos)->parms,
 					       cu, iterator, cookie))
 				return 1;
 			if (list__for_all_tags(&tag__function(pos)->lexblock.tags,
 					       cu, iterator, cookie))
 				return 1;
-		} if (pos->tag == DW_TAG_subroutine_type) {
+		} else if (pos->tag == DW_TAG_subroutine_type) {
 			if (list__for_all_tags(&tag__ftype(pos)->parms,
 					       cu, iterator, cookie))
 				return 1;
+		} else if (pos->tag == DW_TAG_lexical_block) {
+			if (list__for_all_tags(&tag__lexblock(pos)->tags,
+					       cu, iterator, cookie))
+				return 1;
 		}
+
 		if (iterator(pos, cu, cookie))
 			return 1;
 	}
@@ -2626,6 +2642,21 @@ struct cus *cus__new(void)
 	return self;
 }
 
+void cus__delete(struct cus *self)
+{
+	struct cu *pos, *n;
+
+	if (self == NULL)
+		return;
+
+	list_for_each_entry_safe(pos, n, &self->cus, node) {
+		list_del_init(&pos->node);
+		cu__delete(pos);
+	}
+
+	free(self);
+}
+
 int dwarves__init(uint16_t user_cacheline_size)
 {
 	strings = strings__new();
@@ -2644,6 +2675,12 @@ int dwarves__init(uint16_t user_cacheline_size)
 		cacheline_size = user_cacheline_size;
 
 	return 0;
+}
+
+void dwarves__exit(void)
+{
+	strings__delete(strings);
+	strings = NULL;
 }
 
 struct argp_state;

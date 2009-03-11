@@ -34,6 +34,7 @@ struct cus {
 };
 
 struct cus *cus__new(void);
+void cus__delete(struct cus *self);
 
 struct ptr_table {
 	void	 **entries;
@@ -100,6 +101,8 @@ struct cu_orig_info {
 					   const struct cu *cu);
 	unsigned long long (*tag__orig_type)(const struct tag *self,
 					     const struct cu *cu);
+	void		   (*tag__free_orig_info)(struct tag *self,
+						  struct cu *cu);
 };
 
 struct cu {
@@ -226,7 +229,12 @@ static inline unsigned long long tag__orig_type(const struct tag *self,
 {
 	return cu->orig_info ? cu->orig_info->tag__orig_type(self, cu) : 0;
 }
- 
+
+static inline void tag__free_orig_info(struct tag *self, struct cu *cu)
+{
+	return cu->orig_info ? cu->orig_info->tag__free_orig_info(self, cu) : 0;
+}
+
 struct ptr_to_member_type {
 	struct tag tag;
 	Dwarf_Off  containing_type;
@@ -641,6 +649,7 @@ struct conf_fprintf {
 };
 
 int dwarves__init(uint16_t user_cacheline_size);
+void dwarves__exit(void);
 
 extern void class__find_holes(struct class *self, const struct cu *cu);
 extern int class__has_hole_ge(const struct class *self, const uint16_t size);

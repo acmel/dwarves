@@ -98,24 +98,28 @@ static struct argp pdwtags__argp = {
 
 int main(int argc, char *argv[])
 {
-	int err, remaining;
+	int err, remaining, rc = EXIT_FAILURE;
 	struct cus *cus = cus__new();
 
 	if (dwarves__init(0) || cus == NULL) {
 		fputs("pwdtags: insufficient memory\n", stderr);
-		return EXIT_FAILURE;
+		goto out;
 	}
 
 	if (argp_parse(&pdwtags__argp, argc, argv, 0, &remaining, NULL) ||
 	    remaining == argc) {
                 argp_help(&pdwtags__argp, stderr, ARGP_HELP_SEE, argv[0]);
-                return EXIT_FAILURE;
+                goto out;
 	}
 
 	err = cus__loadfl(cus, NULL, argv + remaining);
 	if (err != 0)
-		return EXIT_FAILURE;
+		goto out;
 
 	cus__emit_tags(cus);
-	return EXIT_SUCCESS;
+	rc = EXIT_SUCCESS;
+out:
+	cus__delete(cus);
+	dwarves__exit();
+	return rc;
 }

@@ -41,19 +41,23 @@ static void cus__dump_class_tag_names(struct cus *self)
 
 int main(int argc __unused, char *argv[])
 {
-	int err;
+	int err, rc = EXIT_FAILURE;
 	struct cus *cus = cus__new();
 
 	if (dwarves__init(0) || cus == NULL) {
 		fputs("dtagnames: insufficient memory\n", stderr);
-		return EXIT_FAILURE;
+		goto out;
 	}
 
 	err = cus__loadfl(cus, NULL, argv + 1);
 	if (err != 0)
-		return EXIT_FAILURE;
+		goto out;
 
 	cus__dump_class_tag_names(cus);
 	print_malloc_stats();
-	return EXIT_SUCCESS;
+	rc = EXIT_SUCCESS;
+out:
+	cus__delete(cus);
+	dwarves__exit();
+	return rc;
 }

@@ -84,6 +84,11 @@ static struct structure *structure__new(struct class *class, uint16_t id,
 	return self;
 }
 
+static void structure__delete(struct structure *self)
+{
+	free(self);
+}
+
 static void *structures__tree;
 static LIST_HEAD(structures__anonymous_list);
 static LIST_HEAD(structures__named_list);
@@ -176,6 +181,23 @@ static struct structure *structures__find(strings_t name)
 	}
 
 	return s;
+}
+
+void void_structure__delete(void *structure)
+{
+	structure__delete(structure);
+}
+
+void structures__delete(void)
+{
+	struct structure *pos, *n;
+
+	list_for_each_entry_safe(pos, n, &structures__anonymous_list, node) {
+		list_del_init(&pos->node);
+		structure__delete(pos);
+	}
+
+	tdestroy(structures__tree, void_structure__delete);
 }
 
 static void nr_definitions_formatter(struct structure *self)
@@ -1052,24 +1074,25 @@ static struct argp pahole__argp = {
 
 int main(int argc, char *argv[])
 {
-	int err, remaining;
-	struct cus *cus = cus__new();
-
-	if (dwarves__init(cacheline_size) || cus == NULL) {
-		fputs("pahole: insufficient memory\n", stderr);
-		return EXIT_FAILURE;
-	}
+	int err, remaining, rc = EXIT_FAILURE;
+	struct cus *cus;
 
 	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL) ||
 	    remaining == argc) {
                 argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, argv[0]);
-                return EXIT_FAILURE;
+                goto out;
+	}
+
+	cus = cus__new();
+	if (dwarves__init(cacheline_size) || cus == NULL) {
+		fputs("pahole: insufficient memory\n", stderr);
+		goto out;
 	}
 
 	err = cus__loadfl(cus, &conf_load, argv + remaining);
 	if (err != 0) {
 		fputs("pahole: No debugging information found\n", stderr);
-		return EXIT_FAILURE;
+		goto out;
 	}
 
 	if (word_size != 0) {
@@ -1080,7 +1103,7 @@ int main(int argc, char *argv[])
 		if (long_int_str_t == 0 || long_unsigned_int_str_t == 0) {
 			fputs("pahole: couldn't find one of \"long int\" or "
 			      "\"long unsigned int\" types", stderr);
-			return EXIT_FAILURE;
+			goto out;
 		}
 
 		cus__for_each_cu(cus, cu_fixup_word_size_iterator, NULL, NULL);
@@ -1098,7 +1121,8 @@ int main(int argc, char *argv[])
 
  		tag__fprintf(tag, cu, &conf, stdout);
 		putchar('\n');
-		return EXIT_SUCCESS;
+		rc = EXIT_SUCCESS;
+		goto out;
 	}
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, cu__filter);
@@ -1106,8 +1130,10 @@ int main(int argc, char *argv[])
 	 * Done on cu_unique_iterator, we just want to print the CUs
 	 * that have class_name defined
 	 */
-	if (defined_in)
-		return EXIT_SUCCESS;
+	if (defined_in) {
+		rc = EXIT_SUCCESS;
+		goto out;
+	}
 	if (formatter == nr_methods_formatter)
 		cus__for_each_cu(cus, cu_nr_methods_iterator, NULL, cu__filter);
 
@@ -1119,13 +1145,13 @@ int main(int argc, char *argv[])
 
 		if (!stname) {
 			fprintf(stderr, "struct %s not found!\n", class_name);
-			return EXIT_FAILURE;
+			goto out;
 		}
 
 		s = structures__find(stname);
 		if (s == NULL) {
 			fprintf(stderr, "struct %s not found!\n", class_name);
-			return EXIT_FAILURE;
+			goto out;
 		}
 
  		if (reorganize) {
@@ -1135,7 +1161,7 @@ int main(int argc, char *argv[])
  			struct class *clone = class__clone(s->class, NULL);
  			if (clone == NULL) {
  				fprintf(stderr, "pahole: out of memory!\n");
- 				return EXIT_FAILURE;
+ 				goto out;
  			}
  			class__reorganize(clone, s->cu, reorg_verbose, stdout);
 			savings = class__size(s->class) - class__size(clone);
@@ -1171,6 +1197,10 @@ int main(int argc, char *argv[])
 		}
 	} else
 		print_classes(formatter);
-
-	return EXIT_SUCCESS;
+	rc = EXIT_SUCCESS;
+out:
+	cus__delete(cus);
+	structures__delete();
+	dwarves__exit();
+	return rc;
 }

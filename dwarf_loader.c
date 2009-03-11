@@ -1530,11 +1530,18 @@ static unsigned long long dwarf_tag__orig_type(const struct tag *self,
 	return cu->extra_dbg_info ? dtag->type : 0;
 }
 
+static void dwarf_tag__free_orig_info(struct tag *self, struct cu *cu __unused)
+{
+	free(self->priv);
+	self->priv = NULL;
+}
+
 static struct cu_orig_info dwarf_orig_info_ops = {
 	.tag__decl_file	= dwarf_tag__decl_file,
 	.tag__decl_line	= dwarf_tag__decl_line,
 	.tag__orig_id	= dwarf_tag__orig_id,
 	.tag__orig_type	= dwarf_tag__orig_type,
+	.tag__free_orig_info = dwarf_tag__free_orig_info,
 };
 
 static int tag__delete_priv(struct tag *self, struct cu *cu __unused,

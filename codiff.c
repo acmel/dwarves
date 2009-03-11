@@ -679,6 +679,21 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
+static int cu_delete_priv(struct cu *cu, void *cookie __unused)
+{
+	struct class *c;
+	struct function *f;
+	uint32_t id;
+
+	cu__for_each_struct(cu, id, c)
+		free(c->priv);
+
+	cu__for_each_function(cu, id, f)
+		free(f->priv);
+
+	return 0;
+}
+
 static void print_total_function_diff(const char *filename)
 {
 	printf("\n%s:\n", filename);
@@ -750,16 +765,11 @@ static struct argp codiff__argp = {
 
 int main(int argc, char *argv[])
 {
-	int remaining, err;
+	int remaining, err, rc = EXIT_FAILURE;
 	struct cus *old_cus, *new_cus;
 	char *old_filename, *new_filename;
 	char *filenames[2];
 	struct stat st;
-
-	if (dwarves__init(0)) {
-		fputs("codiff: insufficient memory\n", stderr);
-		return EXIT_FAILURE;
-	}
 
 	if (argp_parse(&codiff__argp, argc, argv, 0, &remaining, NULL) ||
 	    remaining < argc) {
@@ -772,6 +782,11 @@ int main(int argc, char *argv[])
 	} else {
 failure:
 		argp_help(&codiff__argp, stderr, ARGP_HELP_SEE, argv[0]);
+		goto out;
+	}
+
+	if (dwarves__init(0)) {
+		fputs("codiff: insufficient memory\n", stderr);
 		return EXIT_FAILURE;
 	}
 
@@ -829,5 +844,13 @@ failure:
 			print_total_function_diff(new_filename);
 	}
 
-	return EXIT_SUCCESS;
+	rc = EXIT_SUCCESS;
+out:
+	cus__for_each_cu(old_cus, cu_delete_priv, NULL, NULL);
+	cus__for_each_cu(new_cus, cu_delete_priv, NULL, NULL);
+	cus__delete(old_cus);
+	cus__delete(new_cus);
+	strlist__delete(structs_printed);
+	dwarves__exit();
+	return rc;
 }
