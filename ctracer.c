@@ -723,7 +723,10 @@ static int cu_emit_probes_iterator(struct cu *cu, void *cookie)
 	struct tag *target = cu__find_struct_by_name(cu, cookie, 0, &target_type_id);
 	struct function *pos;
 
-	tag__assert_search_result(target);
+	/* OK, this type is not present in this compile unit */
+	if (target == NULL)
+		return 0;
+		
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
 		uint32_t function_id = (long)pos->priv;
 
@@ -753,8 +756,10 @@ static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 
 	target = cu__find_struct_by_name(cu, class_name, 1, &target_type_id);
 	pointer = cu__find_struct_by_name(cu, cookie, 0, &pointer_id);
-	tag__assert_search_result(target);
-	tag__assert_search_result(pointer);
+
+	/* OK, this type is not present in this compile unit */
+	if (target == NULL || pointer == NULL)
+		return 0;
 
 	/* for now just for the first member that is a pointer */
 	type__for_each_member(tag__type(pointer), pos_member) {
