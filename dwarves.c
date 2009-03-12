@@ -720,18 +720,20 @@ struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
 
 		type = tag__type(pos);
 		if (type->namespace.name == sname) {
-			if (type->declaration) {
-				if (include_decls) {
-					if (idp != NULL)
-						*idp = id;
-					return pos;
-				}
-			} else
-				return pos;
+			if (!type->declaration)
+				goto found;
+
+			if (include_decls)
+				goto found;
 		}
 	}
 
 	return NULL;
+found:
+	if (idp != NULL)
+		*idp = id;
+	return pos;
+
 }
 
 struct tag *cus__find_struct_by_name(const struct cus *self,
