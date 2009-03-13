@@ -11,6 +11,6 @@
 struct cus;
 struct conf_load;
 
-int dwarf__load(struct cus *self, struct conf_load *conf, char *filenames[]);
+int dwarf__load(struct cus *self, struct conf_load *conf, const char *filename);
 
 #endif /* _DWARF_LOADER_H_ */

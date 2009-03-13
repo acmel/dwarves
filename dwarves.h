@@ -683,8 +683,9 @@ extern size_t lexblock__fprintf(const struct lexblock *self,
 				const struct cu *cu, struct function *function,
 				uint16_t indent, FILE *fp);
 
-extern int cus__loadfl(struct cus *self, struct conf_load *conf,
-		       char *filenames[]);
+int cus__load(struct cus *self, struct conf_load *conf, char *filename);
+int cus__load_files(struct cus *self, struct conf_load *conf,
+		    char *filenames[]);
 int cus__load_dir(struct cus *self, struct conf_load *conf,
 		  const char *dirname, const char *filename_mask,
 		  const int recursive);

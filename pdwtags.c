@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
                 goto out;
 	}
 
-	err = cus__loadfl(cus, NULL, argv + remaining);
+	err = cus__load_files(cus, NULL, argv + remaining);
 	if (err != 0)
 		goto out;
 

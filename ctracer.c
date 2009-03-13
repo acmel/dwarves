@@ -933,8 +933,7 @@ failure:
          * If a filename was specified, for instance "vmlinux", load it too.
          */
 	if (filename != NULL) {
-		char *paths[2] = { filename, NULL };
-		err = cus__loadfl(methods_cus, NULL, paths);
+		err = cus__load(methods_cus, NULL, filename);
 		if (err != 0) {
 			cus__print_error_msg("ctracer", methods_cus, filename, err);
 			goto out;

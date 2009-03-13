@@ -1619,6 +1619,7 @@ static void cus__load_module(struct cus *self, struct conf_load *conf,
 struct process_dwflmod_parms {
 	struct cus	 *cus;
 	struct conf_load *conf;
+	uint32_t	 nr_dwarf_sections_found;
 };
 
 static int cus__process_dwflmod(Dwfl_Module *dwflmod,
@@ -1640,8 +1641,10 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 	Dwarf_Addr dwbias;
 	Dwarf *dw = dwfl_module_getdwarf(dwflmod, &dwbias);
 
-	if (dw != NULL)
+	if (dw != NULL) {
+		++parms->nr_dwarf_sections_found;
 		cus__load_module(self, parms->conf, dwflmod, dw);
+	}
 	/*
 	 * XXX We will fall back to try finding other debugging
 	 * formats (CTF), so no point in telling this to the user
@@ -1687,33 +1690,28 @@ static int cus__process_file(struct cus *self, struct conf_load *conf, int fd,
 	struct process_dwflmod_parms parms = {
 		.cus  = self,
 		.conf = conf,
+		.nr_dwarf_sections_found = 0,
 	};
 
 	/* Process the one or more modules gleaned from this file. */
 	dwfl_getmodules(dwfl, cus__process_dwflmod, &parms, 0);
 	dwfl_end(dwfl);
-	return 0;
+	return parms.nr_dwarf_sections_found ? 0 : -1;
 }
 
-int dwarf__load(struct cus *self, struct conf_load *conf, char *filenames[])
+int dwarf__load(struct cus *self, struct conf_load *conf, const char *filename)
 {
-	int err = 0, i = 0;
+	int fd, err;
 
 	elf_version(EV_CURRENT);
 
-	while (filenames[i] != NULL) {
-		int fd = open(filenames[i], O_RDONLY);
+	fd = open(filename, O_RDONLY);
 
-		if (fd == -1) {
-			fprintf(stderr, "%s: couldn't open %s\n", __func__,
-				filenames[i]);
-			++i;
-			continue;
-		}
-		cus__process_file(self, conf, fd, filenames[i]);
-		close(fd);
-		++i;
-	}
+	if (fd == -1)
+		return -1;
+
+	err = cus__process_file(self, conf, fd, filename);
+	close(fd);
 
 	return err;
 }

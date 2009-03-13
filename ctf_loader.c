@@ -880,14 +880,14 @@ static int cus__fixup_ctf_bitfields(struct cus *self)
 }
 
 int ctf__load(struct cus *self, struct conf_load *conf __unused,
-	      char *filenames[])
+	      const char *filename)
 {
 	struct ctf_state state;
 	int wordsize;
 
 	memset(&state, 0, sizeof(state));
 
-	open_files(&state, filenames[0]);
+	open_files(&state, filename);
 
 	if (elf_version(EV_CURRENT) == EV_NONE) {
 		fprintf(stderr, "Cannot set libelf version.\n");

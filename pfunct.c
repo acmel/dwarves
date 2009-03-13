@@ -534,7 +534,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	err = cus__loadfl(cus, &conf_load, argv + remaining);
+	err = cus__load_files(cus, &conf_load, argv + remaining);
 	if (err != 0)
 		goto out;
 

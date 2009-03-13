@@ -49,7 +49,7 @@ int main(int argc __unused, char *argv[])
 		goto out;
 	}
 
-	err = cus__loadfl(cus, NULL, argv + 1);
+	err = cus__load_files(cus, NULL, argv + 1);
 	if (err != 0)
 		goto out;
 

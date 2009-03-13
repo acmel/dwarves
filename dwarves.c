@@ -2585,8 +2585,7 @@ int cus__load_dir(struct cus *self, struct conf_load *conf,
 			if (err != 0)
 				break;
 		} else if (fnmatch(filename_mask, entry->d_name, 0) == 0) {
-			char *paths[2] = { pathname, NULL, };
-			err = cus__loadfl(self, conf, paths);
+			err = cus__load(self, conf, pathname);
 			if (err != 0)
 				break;
 		}
@@ -2599,22 +2598,34 @@ out:
 	return err;
 }
 
-int cus__loadfl(struct cus *self, struct conf_load *conf, char *filenames[])
+int cus__load(struct cus *self, struct conf_load *conf, char *filename)
 {
-	int err = dwarf__load(self, conf, filenames);
+	int err = dwarf__load(self, conf, filename);
 	/*
 	 * If dwarf__load fails, try ctf__load. Eventually we should just
 	 * register all the shared objects at some directory and ask them
 	 * for the magic types they support or just pass them the file,
 	 * unloading the shared object if it says its not the type they
 	 * support.
-	 * FIXME: for now we just check if no DWARF info was found
-	 * by looking at the list of CUs found:
 	 */
-	if (list_empty(&self->cus))
-		err = ctf__load(self, conf, filenames);
+	if (err != 0)
+		err = ctf__load(self, conf, filename);
 
 	return err;
+}
+
+int cus__load_files(struct cus *self, struct conf_load *conf,
+		    char *filenames[])
+{
+	int i = 0;
+
+	while (filenames[i] != NULL) {
+		if (cus__load(self, conf, filenames[i]))
+			return -i;
+		++i;
+	}
+
+	return 0;
 }
 
 void cus__print_error_msg(const char *progname, const struct cus *cus,
