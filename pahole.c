@@ -61,24 +61,19 @@ static struct conf_load conf_load;
 
 struct structure {
 	struct list_head  node;
-	struct class	  *class;
-	const struct cu	  *cu;
+	strings_t 	  name;
 	uint32_t	  nr_files;
 	uint32_t	  nr_methods;
-	uint16_t	  id;
 };
 
-static struct structure *structure__new(struct class *class, uint16_t id,
-					const struct cu *cu)
+static struct structure *structure__new(strings_t name)
 {
 	struct structure *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->class      = class;
-		self->cu         = cu;
+		self->name	 = name;
 		self->nr_files   = 1;
 		self->nr_methods = 0;
-		self->id	 = id;
 	}
 
 	return self;
@@ -90,81 +85,39 @@ static void structure__delete(struct structure *self)
 }
 
 static void *structures__tree;
-static LIST_HEAD(structures__anonymous_list);
-static LIST_HEAD(structures__named_list);
-
-static void structures__add_anonymous(struct class *class, uint16_t id,
-				      const struct cu *cu)
-{
-	struct structure *str = structure__new(class, id, cu);
-
-	if (str != NULL)
-		list_add_tail(&str->node, &structures__anonymous_list);
-}
+static LIST_HEAD(structures__list);
 
 static int structure__compare(const void *a, const void *b)
 {
 	const strings_t *key = a;
 	const struct structure *pos = b;
 
-	return strings__cmp(strings, *key, pos->class->type.namespace.name);
+	return strings__cmp(strings, *key, pos->name);
 }
 
-static int structures__add_named(struct class *class, uint16_t id,
-				 const struct cu *cu)
+static struct structure *structures__add(struct class *class)
 {
 	struct structure *str;
 	strings_t *s = tsearch(&class->type.namespace.name, &structures__tree,
 			       structure__compare);
 
 	if (s == NULL)
-		return -ENOMEM;
+		return NULL;
 
 	/* Should not be there since we already did a structures__find before
 	 * calling structures__add_named */
 	assert(*s != class->type.namespace.name);
 
-	str = structure__new(class, id, cu);
+	str = structure__new(class->type.namespace.name);
 	if (str == NULL)
-		return -ENOMEM;
+		return NULL;
 
 	/* Insert the new structure */
 	*(struct structure **)s = str;
 
 	/* For linear traversals */
-	list_add_tail(&str->node, &structures__named_list);
-	return 0;
-}
-
-static int structures__add(struct class *class, uint16_t id,
-			   const struct cu *cu)
-{
-	if (!class->type.namespace.name) {
-		structures__add_anonymous(class, id, cu);
-		return 0;
-	}
-
-	return structures__add_named(class, id, cu);
-}
-
-static struct structure *structures__find_anonymous(strings_t name)
-{
-	struct structure *pos;
-
-	list_for_each_entry(pos, &structures__anonymous_list, node) {
-		struct class *c;
-		const struct tag *tdef = cu__find_first_typedef_of_type(pos->cu, pos->id);
-
-		if (tdef == NULL)
-			continue;
-
-		c = tag__class(tdef);
-
-			if (c->type.namespace.name == name)
-				return pos;
-		}
-
-	return NULL;
+	list_add_tail(&str->node, &structures__list);
+	return str;
 }
 
 static struct structure *structures__find(strings_t name)
@@ -176,8 +129,6 @@ static struct structure *structures__find(strings_t name)
 
 		if (key != NULL)
 			s = *key;
-		else if (class__include_anonymous)
-			s = structures__find_anonymous(name);
 	}
 
 	return s;
@@ -190,57 +141,54 @@ void void_structure__delete(void *structure)
 
 void structures__delete(void)
 {
-	struct structure *pos, *n;
-
-	list_for_each_entry_safe(pos, n, &structures__anonymous_list, node) {
-		list_del_init(&pos->node);
-		structure__delete(pos);
-	}
-
 	tdestroy(structures__tree, void_structure__delete);
 }
 
 static void nr_definitions_formatter(struct structure *self)
 {
-	printf("%s%c%u\n", class__name(self->class), separator,
+	printf("%s%c%u\n", strings__ptr(strings, self->name), separator,
 	       self->nr_files);
 }
 
-static void nr_members_formatter(struct structure *self)
+static void nr_members_formatter(struct class *self,
+				 struct cu *cu __unused, uint16_t id __unused)
 {
-	printf("%s%c%u\n", class__name(self->class), separator,
-	       class__nr_members(self->class));
+	printf("%s%c%u\n", class__name(self), separator,
+	       class__nr_members(self));
 }
 
 static void nr_methods_formatter(struct structure *self)
 {
-	printf("%s%c%u\n", class__name(self->class), separator,
+	printf("%s%c%u\n", strings__ptr(strings, self->name), separator,
 	       self->nr_methods);
 }
 
-static void size_formatter(struct structure *self)
+static void size_formatter(struct class *self,
+			   struct cu *cu __unused, uint16_t id __unused)
 {
-	printf("%s%c%d%c%u\n", class__name(self->class), separator,
-	       class__size(self->class), separator,
-	       self->class->nr_holes);
+	printf("%s%c%d%c%u\n", class__name(self), separator,
+	       class__size(self), separator, self->nr_holes);
 }
 
-static void class_name_len_formatter(struct structure *self)
+static void class_name_len_formatter(struct class *self,
+				     struct cu *cu __unused,
+				     uint16_t id __unused)
 {
-	const char *name = class__name(self->class);
+	const char *name = class__name(self);
 	printf("%s%c%zd\n", name, separator, strlen(name));
 }
 
-static void class_name_formatter(struct structure *self)
+static void class_name_formatter(struct class *self,
+				 struct cu *cu __unused, uint16_t id __unused)
 {
-	puts(class__name(self->class));
+	puts(class__name(self));
 }
 
-static void class_formatter(struct structure *self)
+static void class_formatter(struct class *self, struct cu *cu, uint16_t id)
 {
 	struct tag *typedef_alias = NULL;
-	struct tag *tag = class__tag(self->class);
-	const char *name = class__name(self->class);
+	struct tag *tag = class__tag(self);
+	const char *name = class__name(self);
 
 	if (name == NULL) {
 		/*
@@ -248,8 +196,7 @@ static void class_formatter(struct structure *self)
 		 * as if we optimize the struct all the typedefs will be
 		 * affected.
 		 */
-		typedef_alias = cu__find_first_typedef_of_type(self->cu,
-							       self->id);
+		typedef_alias = cu__find_first_typedef_of_type(cu, id);
 		/*
 		 * If there is no typedefs for this anonymous struct it is
 		 * found just inside another struct, and in this case it'll
@@ -269,17 +216,13 @@ static void class_formatter(struct structure *self)
 	} else
 		conf.prefix = conf.suffix = NULL;
 
-	tag__fprintf(tag, self->cu, &conf, stdout);
-
-	if (conf.emit_stats)
-		printf("\t/* definitions: %u */\n", self->nr_files);
+	tag__fprintf(tag, cu, &conf, stdout);
 
 	putchar('\n');
 }
 
-static void print_packable_info(struct structure *pos)
+static void print_packable_info(struct class *c, struct cu *cu, uint16_t id)
 {
-	struct class *c = pos->class;
 	const struct tag *t = class__tag(c);
 	const size_t orig_size = class__size(c);
 	const size_t new_size = class__size(c->priv);
@@ -289,7 +232,7 @@ static void print_packable_info(struct structure *pos)
 	/* Anonymous struct? Try finding a typedef */
 	if (name == NULL) {
 		const struct tag *tdef =
-		      cu__find_first_typedef_of_type(pos->cu, pos->id);
+		      cu__find_first_typedef_of_type(cu, id);
 
 		if (tdef != NULL)
 			name = class__name(tag__class(tdef));
@@ -302,32 +245,57 @@ static void print_packable_info(struct structure *pos)
 		       savings);
 	else
 		printf("%s(%d)%c%zd%c%zd%c%zd\n",
-		       tag__decl_file(t, pos->cu),
-		       tag__decl_line(t, pos->cu),
+		       tag__decl_file(t, cu),
+		       tag__decl_line(t, cu),
 		       separator,
 		       orig_size, separator,
 		       new_size, separator,
 		       savings);
 }
 
-static void print_classes(void (*formatter)(struct structure *s))
+static void (*stats_formatter)(struct structure *self) = NULL;
+
+static void print_stats(void)
 {
 	struct structure *pos;
 
-	list_for_each_entry(pos, &structures__named_list, node)
-		if (show_packable && !global_verbose)
-			print_packable_info(pos);
-		else
-			formatter(pos);
+	list_for_each_entry(pos, &structures__list, node)
+		stats_formatter(pos);
+}
 
-	if (!(class__include_anonymous || class__include_nested_anonymous))
-		return;
+static struct class *class__filter(struct class *class, struct cu *cu,
+				   uint16_t tag_id);
 
-	list_for_each_entry(pos, &structures__anonymous_list, node)
+static void (*formatter)(struct class *self,
+			 struct cu *cu, uint16_t id) = class_formatter;
+
+static void print_classes(struct cu *cu)
+{
+	uint16_t id;
+	struct class *pos;
+
+	cu__for_each_struct(cu, id, pos) {
+		if (pos->type.namespace.name == 0 &&
+		    !(class__include_anonymous ||
+		      class__include_nested_anonymous))
+			continue;
+
+		class__find_holes(pos, cu);
+
+		if (!class__filter(pos, cu, id))
+			continue;
+
 		if (show_packable && !global_verbose)
-			print_packable_info(pos);
-		else
-			formatter(pos);
+			print_packable_info(pos, cu, id);
+		else if (formatter != NULL)
+			formatter(pos, cu, id);
+		
+		if (structures__add(pos) == NULL) {
+			fprintf(stderr, "pahole: insufficient memory for "
+				"processing %s, skipping it...\n", cu->name);
+			return;
+		}
+	}
 }
 
 static struct cu *cu__filter(struct cu *cu)
@@ -362,74 +330,17 @@ static int class__packable(struct class *self, const struct cu *cu)
 	return 0;
 }
 
-static void class__dupmsg(struct class *self, const struct cu *cu,
-			  const struct class *dup __unused,
-			  const struct cu *dup_cu,
-			  char *hdr, const char *fmt, ...)
+static struct class *class__filter(struct class *class, struct cu *cu,
+				   uint16_t tag_id)
 {
-	va_list args;
-
-	if (!*hdr)
-		printf("class: %s\nfirst: %s\ncurrent: %s\n",
-		       class__name(self), cu->name, dup_cu->name);
-
-	va_start(args, fmt);
-	vprintf(fmt, args);
-	va_end(args);
-	*hdr = 1;
-}
-
-static void class__chkdupdef(struct class *self, const struct cu *cu,
-			     struct class *dup, const struct cu *dup_cu)
-{
-	char hdr = 0;
-
-	if (class__size(self) != class__size(dup))
-		class__dupmsg(self, cu, dup, dup_cu,
-			      &hdr, "size: %u != %u\n",
-			      class__size(self), class__size(dup));
-
-	if (class__nr_members(self) != class__nr_members(dup))
-		class__dupmsg(self, cu, dup, dup_cu,
-			      &hdr, "nr_members: %u != %u\n",
-			      class__nr_members(self), class__nr_members(dup));
-
-	if (self->nr_holes != dup->nr_holes)
-		class__dupmsg(self, cu, dup, dup_cu,
-			      &hdr, "nr_holes: %u != %u\n",
-			      self->nr_holes, dup->nr_holes);
-
-	if (self->nr_bit_holes != dup->nr_bit_holes)
-		class__dupmsg(self, cu, dup, dup_cu,
-			      &hdr, "nr_bit_holes: %u != %u\n",
-			      self->nr_bit_holes, dup->nr_bit_holes);
-
-	if (self->padding != dup->padding)
-		class__dupmsg(self, cu, dup, dup_cu,
-			      &hdr, "padding: %u != %u\n",
-			      self->padding, dup->padding);
-
-	/* XXX put more checks here: member types, member ordering, etc */
-
-	if (hdr)
-		putchar('\n');
-}
-
-static struct tag *tag__filter(struct tag *tag, struct cu *cu,
-			       uint16_t tag_id)
-{
+	struct tag *tag = class__tag(class);
 	struct structure *str;
-	struct class *class;
 	const char *name;
 	strings_t stname;
-
-	if (!tag__is_struct(tag))
-		return NULL;
 
 	if (!tag->top_level)
 		return NULL;
 
-	class = tag__class(tag);
 	name = class__name(class);
 	stname = class->type.namespace.name;
 
@@ -485,8 +396,6 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 
 	str = structures__find(stname);
 	if (str != NULL) {
-		if (global_verbose)
-			class__chkdupdef(str->class, str->cu, class, cu);
 		str->nr_files++;
 		return NULL;
 	}
@@ -494,27 +403,7 @@ static struct tag *tag__filter(struct tag *tag, struct cu *cu,
 	if (show_packable && !class__packable(class, cu))
 		return NULL;
 
-	return tag;
-}
-
-static int cu_unique_iterator(struct cu *cu, void *cookie __unused)
-{
-	uint16_t id;
-	struct tag *tag;
-
-	if (defined_in) {
-		tag = cu__find_struct_by_name(cu, class_name, 0, &id);
-		if (tag != NULL)
-			puts(cu->name);
-	} else {
-		cu__for_each_type(cu, id, tag) {
-			if (tag__filter(tag, cu, id) &&
-			    structures__add(tag__class(tag), id, cu))
-				fprintf(stderr, "pahole: not enough memory! "
-						"Continuing with partial results\n");
-		}
-	}
-	return 0;
+	return class;
 }
 
 static strings_t long_int_str_t, long_unsigned_int_str_t;
@@ -690,114 +579,121 @@ static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
 	return 0;
 }
 
-static int cu_fixup_word_size_iterator(struct cu *cu, void *cookie __unused)
+static void cu_fixup_word_size_iterator(struct cu *cu)
 {
 	original_word_size = cu->addr_size;
 	cu->addr_size = word_size;
-	return cu__for_each_tag(cu, tag_fixup_word_size_iterator, NULL, NULL);
+	cu__for_each_tag(cu, tag_fixup_word_size_iterator, NULL, NULL);
 }
 
-static struct tag *nr_methods__filter(struct tag *tag, struct cu *cu __unused,
-				      void *cookie __unused)
+static void cu__account_nr_methods(struct cu *self)
 {
-	if (!tag__is_function(tag))
-		return NULL;
-
-	if (function__declared_inline(tag__function(tag)))
-		return NULL;
-
-	return tag;
-}
-
-static int nr_methods_iterator(struct tag *tag, struct cu *cu,
-			       void *cookie __unused)
-{
-	struct parameter *pos;
+	struct function *pos_function;
 	struct structure *str;
-	struct type *ctype;
+	uint32_t id;
 
-	list_for_each_entry(pos, &tag__ftype(tag)->parms, tag.node) {
-		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
+	cu__for_each_function(self, id, pos_function) {
+		struct class_member *pos;
+		list_for_each_entry(pos, &pos_function->proto.parms, tag.node) {
+			struct tag *type = cu__find_type_by_id(self, pos->tag.type);
 
-		if (type == NULL || type->tag != DW_TAG_pointer_type)
-			continue;
+			if (type == NULL || type->tag != DW_TAG_pointer_type)
+				continue;
 
-		type = cu__find_type_by_id(cu, type->type);
-		if (type == NULL || !tag__is_struct(type))
-			continue;
+			type = cu__find_type_by_id(self, type->type);
+			if (type == NULL || !tag__is_struct(type))
+				continue;
 
-		ctype = tag__type(type);
-		if (type__name(ctype) == NULL)
-			continue;
+			struct type *ctype = tag__type(type);
+			if (ctype->namespace.name == 0)
+				continue;
 
-		str = structures__find(ctype->namespace.name);
-		if (str != NULL)
+			str = structures__find(ctype->namespace.name);
+			if (str == NULL) {
+				struct class *class = tag__class(type);
+				class__find_holes(class, self);
+
+				if (!class__filter(class, self, 0))
+					continue;
+				
+				str = structures__add(class);
+				if (str == NULL) {
+					fprintf(stderr, "pahole: insufficient memory for "
+						"processing %s, skipping it...\n",
+						self->name);
+					return;
+				}
+			}
 			++str->nr_methods;
+		}
 	}
-
-	return 0;
-}
-
-static int cu_nr_methods_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_tag(cu, nr_methods_iterator, cookie,
-				nr_methods__filter);
 }
 
 static char tab[128];
 
-static void print_structs_with_pointer_to(const struct structure *s)
+static void print_structs_with_pointer_to(const struct cu *cu, uint16_t type)
 {
-	struct structure *pos_structure;
-	uint16_t type;
-	const char *class_name = class__name(s->class);
-	const struct cu *current_cu = NULL;
+	struct class *pos;
+	struct class_member *pos_member;
+	uint16_t id;
 
-	list_for_each_entry(pos_structure, &structures__named_list, node) {
-		struct class *c = pos_structure->class;
-		struct class_member *pos_member;
+	cu__for_each_struct(cu, id, pos) {
+		if (pos->type.namespace.name == 0)
+			continue;
 
-		if (pos_structure->cu != current_cu) {
-			uint16_t class_id;
-			struct tag *class;
-
-			class = cu__find_struct_by_name(pos_structure->cu,
-							class_name, 1,
-							&class_id);
-			if (class == NULL)
-				continue;
-			current_cu = pos_structure->cu;
-			type = class_id;
-		}
-
-		type__for_each_member(&c->type, pos_member) {
-			struct tag *ctype = cu__find_type_by_id(pos_structure->cu, pos_member->tag.type);
+		type__for_each_member(&pos->type, pos_member) {
+			struct tag *ctype = cu__find_type_by_id(cu, pos_member->tag.type);
 
 			tag__assert_search_result(ctype);
-			if (ctype->tag == DW_TAG_pointer_type && ctype->type == type)
-				printf("%s: %s\n", class__name(c),
-				       class_member__name(pos_member));
+			if (ctype->tag != DW_TAG_pointer_type || ctype->type != type)
+				continue;
+
+			if (structures__find(pos->type.namespace.name))
+				break;
+
+			if (structures__add(pos) == NULL) {
+				fprintf(stderr, "pahole: insufficient memory for "
+					"processing %s, skipping it...\n",
+					cu->name);
+				return;
+			}
+			printf("%s: %s\n", class__name(pos),
+			       class_member__name(pos_member));
 		}
 	}
 }
 
-static void print_containers(const struct structure *s, int ident)
+static void print_containers(const struct cu *cu, uint16_t type, int ident)
 {
-	struct structure *pos;
-	const uint16_t type = s->id;
+	struct class *pos;
+	uint16_t id;
 
-	list_for_each_entry(pos, &structures__named_list, node) {
-		struct class *c = pos->class;
-		const uint32_t n = type__nr_members_of_type(&c->type, type);
+	cu__for_each_struct(cu, id, pos) {
+		if (pos->type.namespace.name == 0)
+			continue;
 
-		if (n != 0) {
-			printf("%.*s%s", ident * 2, tab, class__name(c));
-			if (global_verbose)
-				printf(": %u", n);
-			putchar('\n');
-			if (recursive)
-				print_containers(pos, ident + 1);
+		const uint32_t n = type__nr_members_of_type(&pos->type, type);
+		if (n == 0)
+			continue;
+
+		if (ident == 0) {
+			if (structures__find(pos->type.namespace.name))
+				continue;
+
+			if (structures__add(pos) == NULL) {
+				fprintf(stderr, "pahole: insufficient memory for "
+					"processing %s, skipping it...\n",
+					cu->name);
+				return;
+			}
 		}
+
+		printf("%.*s%s", ident * 2, tab, class__name(pos));
+		if (global_verbose)
+			printf(": %u", n);
+		putchar('\n');
+		if (recursive)
+			print_containers(cu, id, ident + 1);
 	}
 }
 
@@ -995,8 +891,6 @@ static const struct argp_option pahole__options[] = {
 	}
 };
 
-static void (*formatter)(struct structure *s) = class_formatter;
-
 static error_t pahole__options_parser(int key, char *arg,
 				      struct argp_state *state)
 {
@@ -1024,7 +918,7 @@ static error_t pahole__options_parser(int key, char *arg,
 		  class_name = arg;			break;
 	case 'l': conf.show_first_biggest_size_base_type_member = 1;	break;
 	case 'M': conf.show_only_data_members = 1;	break;
-	case 'm': formatter = nr_methods_formatter;	break;
+	case 'm': stats_formatter = nr_methods_formatter; break;
 	case 'N': formatter = class_name_len_formatter;	break;
 	case 'n': formatter = nr_members_formatter;	break;
 	case 'O': class_dwarf_offset = strtoul(arg, NULL, 0);
@@ -1039,7 +933,8 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'r': conf.rel_offset = 1;			break;
 	case 'S': show_reorg_steps = 1;			break;
 	case 's': formatter = size_formatter;		break;
-	case 'T': formatter = nr_definitions_formatter;	break;
+	case 'T': stats_formatter = nr_definitions_formatter;
+		  formatter = NULL;			break;
 	case 't': separator = arg[0];			break;
 	case 'u': defined_in = 1;			break;
 	case 'V': global_verbose = 1;			break;
@@ -1050,9 +945,9 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'x': class__exclude_prefix = arg;
 		  class__exclude_prefix_len = strlen(class__exclude_prefix);
 							break;
-        case 'y': class__include_prefix = arg;
-                  class__include_prefix_len = strlen(class__include_prefix);
-                                                        break;
+	case 'y': class__include_prefix = arg;
+		  class__include_prefix_len = strlen(class__include_prefix);
+							break;
 	case 'z':
 		hole_size_ge = atoi(arg);
 		if (!global_verbose)
@@ -1072,47 +967,71 @@ static struct argp pahole__argp = {
 	.args_doc = pahole__args_doc,
 };
 
-int main(int argc, char *argv[])
+static strings_t class_sname;
+static struct tag *class;
+static uint16_t class_id;
+
+static enum load_steal_kind class_stealer(struct cu *cu)
 {
-	int err, remaining, rc = EXIT_FAILURE;
-	struct cus *cus;
-
-	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL) ||
-	    remaining == argc) {
-                argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, argv[0]);
-                goto out;
+	if (class_sname == 0) {
+		class_sname = strings__find(strings, class_name);
+		if (class_sname == 0)
+			return LSK__STOLEN;
 	}
 
-	cus = cus__new();
-	if (dwarves__init(cacheline_size) || cus == NULL) {
-		fputs("pahole: insufficient memory\n", stderr);
-		goto out;
+	int include_decls = find_pointers_in_structs != 0 ||
+			    stats_formatter == nr_methods_formatter;
+	class = cu__find_struct_by_sname(cu, class_sname,
+					 include_decls, &class_id);
+	if (class == NULL)
+		return LSK__STOLEN;
+
+	class__find_holes(tag__class(class), cu);
+	return LSK__STOP_LOADING;
+}
+
+static enum load_steal_kind pahole_stealer(struct cu *cu,
+					   struct conf_load *conf_load __unused)
+{
+	if (!cu__filter(cu))
+		goto dump_it;
+
+	if (defined_in) {
+		if (class_sname == 0)
+			class_sname = strings__find(strings, class_name);
+		
+		if (cu__find_struct_by_sname(cu, class_sname, 0, NULL))
+			puts(cu->name);
+
+		goto dump_it;
 	}
 
-	err = cus__load_files(cus, &conf_load, argv + remaining);
-	if (err != 0) {
-		fputs("pahole: No debugging information found\n", stderr);
-		goto out;
+	if (class_name != NULL && class_stealer(cu) == LSK__STOLEN)
+		goto dump_it;
+
+	if (stats_formatter == nr_methods_formatter) {
+		cu__account_nr_methods(cu);
+		goto dump_it;
 	}
 
 	if (word_size != 0) {
-		long_int_str_t = strings__find(strings, "long int"),
-		long_unsigned_int_str_t =
-				 strings__find(strings, "long unsigned int");
-
 		if (long_int_str_t == 0 || long_unsigned_int_str_t == 0) {
-			fputs("pahole: couldn't find one of \"long int\" or "
-			      "\"long unsigned int\" types", stderr);
-			goto out;
+			long_int_str_t = strings__find(strings, "long int"),
+			long_unsigned_int_str_t =
+					 strings__find(strings, "long unsigned int");
+
+			if (long_int_str_t == 0 || long_unsigned_int_str_t == 0) {
+				fputs("pahole: couldn't find one of \"long int\" or "
+				      "\"long unsigned int\" types", stderr);
+				exit(EXIT_FAILURE);
+			}
 		}
 
-		cus__for_each_cu(cus, cu_fixup_word_size_iterator, NULL, NULL);
+		cu_fixup_word_size_iterator(cu);
 	}
 
 	if (class_dwarf_offset != 0) {
-		struct cu *cu;
-		struct tag *tag = cus__find_tag_by_id(cus, &cu,
-						      class_dwarf_offset);
+		struct tag *tag = cu__find_tag_by_id(cu, class_dwarf_offset);
 		if (tag == NULL) {
 			fprintf(stderr, "id %llx not found!\n",
 				(unsigned long long)class_dwarf_offset);
@@ -1121,82 +1040,98 @@ int main(int argc, char *argv[])
 
  		tag__fprintf(tag, cu, &conf, stdout);
 		putchar('\n');
-		rc = EXIT_SUCCESS;
-		goto out;
+		cu__delete(cu);
+		return LSK__STOP_LOADING;
 	}
-
-	cus__for_each_cu(cus, cu_unique_iterator, NULL, cu__filter);
-	/*
-	 * Done on cu_unique_iterator, we just want to print the CUs
-	 * that have class_name defined
-	 */
-	if (defined_in) {
-		rc = EXIT_SUCCESS;
-		goto out;
-	}
-	if (formatter == nr_methods_formatter)
-		cus__for_each_cu(cus, cu_nr_methods_iterator, NULL, cu__filter);
 
 	memset(tab, ' ', sizeof(tab) - 1);
 
-	if (class_name != NULL) {
-		struct structure *s;
-		strings_t stname = strings__find(strings, class_name);
+	if (class == NULL) {
+		print_classes(cu);
+		goto dump_it;
+	}
 
-		if (!stname) {
-			fprintf(stderr, "struct %s not found!\n", class_name);
-			goto out;
+ 	if (reorganize) {
+		size_t savings;
+		const uint8_t reorg_verbose =
+				show_reorg_steps ? 2 : global_verbose;
+		struct class *clone = class__clone(tag__class(class), NULL);
+		if (clone == NULL) {
+			fprintf(stderr, "pahole: out of memory!\n");
+			exit(EXIT_FAILURE);
 		}
-
-		s = structures__find(stname);
-		if (s == NULL) {
-			fprintf(stderr, "struct %s not found!\n", class_name);
-			goto out;
-		}
-
- 		if (reorganize) {
-			size_t savings;
-			const uint8_t reorg_verbose =
-					show_reorg_steps ? 2 : global_verbose;
- 			struct class *clone = class__clone(s->class, NULL);
- 			if (clone == NULL) {
- 				fprintf(stderr, "pahole: out of memory!\n");
- 				goto out;
- 			}
- 			class__reorganize(clone, s->cu, reorg_verbose, stdout);
-			savings = class__size(s->class) - class__size(clone);
-			if (savings != 0 && reorg_verbose) {
-				putchar('\n');
-				if (show_reorg_steps)
-					puts("/* Final reorganized struct: */");
-			}
- 			tag__fprintf(class__tag(clone), s->cu, &conf, stdout);
-			if (savings != 0) {
-				const size_t cacheline_savings =
-				      (tag__nr_cachelines(class__tag(s->class),
-					 		  s->cu) -
-				       tag__nr_cachelines(class__tag(clone),
-							  s->cu));
-
-				printf("   /* saved %zd byte%s", savings,
-				       savings != 1 ? "s" : "");
-				if (cacheline_savings != 0)
-					printf(" and %zu cacheline%s",
-					       cacheline_savings,
-					       cacheline_savings != 1 ?
-					       		"s" : "");
-				puts("! */");
-			}
- 		} else if (find_containers)
-			print_containers(s, 0);
- 		else if (find_pointers_in_structs)
-			print_structs_with_pointer_to(s);
-		else {
- 			tag__fprintf(class__tag(s->class), s->cu, &conf, stdout);
+		class__reorganize(clone, cu, reorg_verbose, stdout);
+		savings = class__size(tag__class(class)) - class__size(clone);
+		if (savings != 0 && reorg_verbose) {
 			putchar('\n');
+			if (show_reorg_steps)
+				puts("/* Final reorganized struct: */");
 		}
-	} else
-		print_classes(formatter);
+		tag__fprintf(class__tag(clone), cu, &conf, stdout);
+		if (savings != 0) {
+			const size_t cacheline_savings =
+			      (tag__nr_cachelines(class, cu) -
+			       tag__nr_cachelines(class__tag(clone), cu));
+
+			printf("   /* saved %zd byte%s", savings,
+			       savings != 1 ? "s" : "");
+			if (cacheline_savings != 0)
+				printf(" and %zu cacheline%s",
+				       cacheline_savings,
+				       cacheline_savings != 1 ?
+						"s" : "");
+			puts("! */");
+		}
+		class__delete(clone);
+	} else if (find_containers) {
+		print_containers(cu, class_id, 0);
+		goto dump_it;
+	} else if (find_pointers_in_structs) {
+		print_structs_with_pointer_to(cu, class_id);
+		goto dump_it;
+ 	} else {
+		/*
+		 * We don't need to print it for every compile unit
+		 * but the previous options need
+		 */
+		tag__fprintf(class, cu, &conf, stdout);
+		putchar('\n');
+	}
+
+	cu__delete(cu);
+	return LSK__STOP_LOADING;
+dump_it:
+	cu__delete(cu);
+	return LSK__STOLEN;
+}
+
+int main(int argc, char *argv[])
+{
+	int err, remaining, rc = EXIT_FAILURE;
+	struct cus *cus;
+
+	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL) ||
+	    remaining == argc) {
+		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, argv[0]);
+		goto out;
+	}
+
+	cus = cus__new();
+	if (dwarves__init(cacheline_size) || cus == NULL) {
+		fputs("pahole: insufficient memory\n", stderr);
+		goto out;
+	}
+
+	conf_load.steal = pahole_stealer;
+
+	err = cus__load_files(cus, &conf_load, argv + remaining);
+	if (err != 0) {
+		fputs("pahole: No debugging information found\n", stderr);
+		goto out;
+	}
+
+	if (stats_formatter != NULL)
+		print_stats();
 	rc = EXIT_SUCCESS;
 out:
 	cus__delete(cus);
