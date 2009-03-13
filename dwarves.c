@@ -2549,8 +2549,9 @@ void cus__for_each_cu(struct cus *self,
 	}
 }
 
-int cus__load_dir(struct cus *self, const char *dirname,
-		  const char *filename_mask, const int recursive)
+int cus__load_dir(struct cus *self, struct conf_load *conf,
+		  const char *dirname, const char *filename_mask,
+		  const int recursive)
 {
 	struct dirent *entry;
 	int err = -1;
@@ -2579,12 +2580,13 @@ int cus__load_dir(struct cus *self, const char *dirname,
 			if (!recursive)
 				continue;
 
-			err = cus__load_dir(self, pathname,
+			err = cus__load_dir(self, conf, pathname,
 					    filename_mask, recursive);
 			if (err != 0)
 				break;
 		} else if (fnmatch(filename_mask, entry->d_name, 0) == 0) {
-			err = cus__load(self, pathname);
+			char *paths[2] = { pathname, NULL, };
+			err = cus__loadfl(self, conf, paths);
 			if (err != 0)
 				break;
 		}
@@ -2594,15 +2596,6 @@ int cus__load_dir(struct cus *self, const char *dirname,
 		puts(dirname);
 	closedir(dir);
 out:
-	return err;
-}
-
-int cus__load(struct cus *self, const char *filename)
-{
-	int err = dwarf__load_filename(self, filename);
-	/* 
-	 * See cus__loadfl.
-	 */
 	return err;
 }
 

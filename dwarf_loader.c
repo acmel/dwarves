@@ -1695,50 +1695,6 @@ static int cus__process_file(struct cus *self, struct conf_load *conf, int fd,
 	return 0;
 }
 
-int dwarf__load_filename(struct cus *self, const char *filename)
-{
-	Dwarf_Off offset, last_offset, abbrev_offset;
-	uint8_t addr_size, offset_size;
-	size_t hdr_size;
-	Dwarf *dwarf;
-	int fd = open(filename, O_RDONLY);	
-	int err;
-
-	if (fd < 0) {
-		err = errno;
-		goto out;
-	}
-
-	err = -EINVAL;
-	dwarf = dwarf_begin(fd, DWARF_C_READ);
-	if (dwarf == NULL)
-		goto out_close;
-
-	offset = last_offset = 0;
-	while (dwarf_nextcu(dwarf, offset, &offset, &hdr_size,
-			    &abbrev_offset, &addr_size, &offset_size) == 0) {
-		Dwarf_Die die;
-
-		if (dwarf_offdie(dwarf, last_offset + hdr_size, &die) != NULL) {
-			struct cu *cu = cu__new(attr_string(&die, DW_AT_name),
-						addr_size, NULL, 0);
-			if (cu == NULL)
-				oom("cu__new");
-			die__process(&die, cu);
-			cus__add(self, cu);
-		}
-
-		last_offset = offset;
-	}
-
-	dwarf_end(dwarf);
-	err = 0;
-out_close:
-	close(fd);
-out:
-	return err;
-}
-
 int dwarf__load(struct cus *self, struct conf_load *conf, char *filenames[])
 {
 	int err = 0, i = 0;

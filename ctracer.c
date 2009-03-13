@@ -873,7 +873,7 @@ int main(int argc, char *argv[])
 	int remaining, err;
 	struct tag *class;
 	struct cu *cu;
-	const char *filename;
+	char *filename;
 	char functions_filename[PATH_MAX];
 	char methods_filename[PATH_MAX];
 	char collector_filename[PATH_MAX];
@@ -921,7 +921,7 @@ failure:
          * for kernel modules, but could be "*.o" in the future when we support
          * uprobes for user space tracing.
 	 */
-	if (dirname != NULL && cus__load_dir(methods_cus, dirname, glob,
+	if (dirname != NULL && cus__load_dir(methods_cus, NULL, dirname, glob,
 					     recursive) != 0) {
 		fprintf(stderr, "ctracer: couldn't load DWARF info "
 				"from %s dir with glob %s\n",
@@ -933,7 +933,8 @@ failure:
          * If a filename was specified, for instance "vmlinux", load it too.
          */
 	if (filename != NULL) {
-		err = cus__load(methods_cus, filename);
+		char *paths[2] = { filename, NULL };
+		err = cus__loadfl(methods_cus, NULL, paths);
 		if (err != 0) {
 			cus__print_error_msg("ctracer", methods_cus, filename, err);
 			goto out;
