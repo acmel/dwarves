@@ -866,24 +866,10 @@ static int cu__fixup_ctf_bitfields(struct cu *self)
 	return err;
 }
 
-static int cus__fixup_ctf_bitfields(struct cus *self)
-{
-	int err = 0;
-	struct cu *pos;
-
-	list_for_each_entry(pos, &self->cus, node) {
-		err = cu__fixup_ctf_bitfields(pos);
-		if (err)
-			break;
-	}
-	return err;
-}
-
-int ctf__load(struct cus *self, struct conf_load *conf __unused,
-	      const char *filename)
+int ctf__load(struct cus *self, struct conf_load *conf, const char *filename)
 {
 	struct ctf_state state;
-	int wordsize;
+	int wordsize, err;
 
 	memset(&state, 0, sizeof(state));
 
@@ -907,13 +893,20 @@ int ctf__load(struct cus *self, struct conf_load *conf __unused,
 	if (state.cu == NULL)
 		oom("cu__new");
 
-	cus__add(self, state.cu);
-
 	dump_ctf(&state);
 
 	elf_end(state.elf);
 
 	close(state.in_fd);
 
-	return cus__fixup_ctf_bitfields(self);
+	err = cu__fixup_ctf_bitfields(state.cu);
+	/*
+	 * The app stole this cu, possibly deleting it,
+	 * so forget about it
+	 */
+	if (conf->steal && conf->steal(state.cu, conf))
+		return 0;
+
+	cus__add(self, state.cu);
+	return err;
 }

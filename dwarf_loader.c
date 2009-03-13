@@ -1582,8 +1582,8 @@ static void die__process(Dwarf_Die *die, struct cu *cu)
 	cu__recode_dwarf_types(cu);
 }
 
-static void cus__load_module(struct cus *self, struct conf_load *conf,
-			     Dwfl_Module *mod, Dwarf *dw)
+static int cus__load_module(struct cus *self, struct conf_load *conf,
+			    Dwfl_Module *mod, Dwarf *dw)
 {
 	Dwarf_Off off = 0, noff;
 	size_t cuhl;
@@ -1609,11 +1609,29 @@ static void cus__load_module(struct cus *self, struct conf_load *conf,
 			oom("cu__new");
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
 		die__process(cu_die, cu);
-		cus__add(self, cu);
+		off = noff;
+		if (conf->steal != NULL) {
+			switch (conf->steal(cu, conf)) {
+			case LSK__STOP_LOADING:
+				return DWARF_CB_ABORT;
+			case LSK__STOLEN:
+				/*
+				 * The app stole this cu, possibly deleting it,
+				 * so forget about it:
+				 */
+				continue;
+			case LSK__KEEPIT:
+				break;
+			}
+		}
+
 		if (!cu->extra_dbg_info)
 			cu__for_all_tags(cu, tag__delete_priv, NULL);
-		off = noff;
+
+		cus__add(self, cu);
 	}
+	
+	return DWARF_CB_OK;
 }
 
 struct process_dwflmod_parms {
@@ -1641,9 +1659,10 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 	Dwarf_Addr dwbias;
 	Dwarf *dw = dwfl_module_getdwarf(dwflmod, &dwbias);
 
+	int err = DWARF_CB_OK;
 	if (dw != NULL) {
 		++parms->nr_dwarf_sections_found;
-		cus__load_module(self, parms->conf, dwflmod, dw);
+		err = cus__load_module(self, parms->conf, dwflmod, dw);
 	}
 	/*
 	 * XXX We will fall back to try finding other debugging
@@ -1655,7 +1674,7 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 	 *	__func__, dwfl_errmsg(-1));
 	 */
 
-	return DWARF_CB_OK;
+	return err;
 }
 
 static int cus__process_file(struct cus *self, struct conf_load *conf, int fd,

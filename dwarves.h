@@ -21,12 +21,23 @@
 
 extern struct strings *strings;
 
+struct cu;
+
+enum load_steal_kind {
+	LSK__KEEPIT,
+	LSK__STOLEN,
+	LSK__STOP_LOADING,
+};
+
 /** struct conf_load - load configuration
  * @extra_dbg_info - keep original debugging format extra info
  *		     (e.g. DWARF's decl_{line,file}, id, etc)
  */
 struct conf_load {
-	bool	   extra_dbg_info;
+	bool			extra_dbg_info;
+	enum load_steal_kind	(*steal)(struct cu *self,
+					 struct conf_load *conf);
+	void			*cookie;
 };
 
 struct cus {
