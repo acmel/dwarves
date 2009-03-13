@@ -80,13 +80,11 @@ struct ptr_table {
  * @pos: struct function iterator
  * @id: uint32_t tag id
  */
-#define cu__for_each_function(cu, id, pos)				\
-	for (id = 0, pos = tag__function(cu->tags_table.entries[id]);	\
-	     id < cu->tags_table.nr_entries;				\
-	     pos = tag__function(cu->tags_table.entries[++id]))		\
-		if (pos == NULL ||					\
-		    pos->proto.tag.tag != DW_TAG_subprogram)		\
-			continue;					\
+#define cu__for_each_function(cu, id, pos)				  \
+	for (id = 0; id < cu->tags_table.nr_entries; ++id)		  \
+		if (!(pos = tag__function(cu->tags_table.entries[id])) || \
+		    pos->proto.tag.tag != DW_TAG_subprogram)		  \
+			continue;					  \
 		else
 
 struct tag;
