@@ -699,16 +699,12 @@ struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
 	return NULL;
 }
 
-struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
-				    const int include_decls, uint16_t *idp)
+struct tag *cu__find_struct_by_sname(const struct cu *self, strings_t sname,
+				     const int include_decls, uint16_t *idp)
 {
 	uint16_t id;
 	struct tag *pos;
 
-	if (self == NULL || name == NULL)
-		return NULL;
-
-	strings_t sname = strings__find(strings, name);
 	if (sname == 0)
 		return NULL;
 
@@ -734,6 +730,19 @@ found:
 		*idp = id;
 	return pos;
 
+}
+
+struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
+				    const int include_decls, uint16_t *idp)
+{
+	if (self == NULL || name == NULL)
+		return NULL;
+
+	strings_t sname = strings__find(strings, name);
+	if (sname == 0)
+		return NULL;
+
+	return cu__find_struct_by_sname(self, sname, include_decls, idp);
 }
 
 struct tag *cus__find_struct_by_name(const struct cus *self,
