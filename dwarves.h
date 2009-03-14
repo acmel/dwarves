@@ -79,10 +79,6 @@ struct cu *cus__find_cu_by_name(const struct cus *self, const char *name);
 struct tag *cus__find_struct_by_name(const struct cus *self, struct cu **cu,
 				     const char *name, const int include_decls,
 				     uint16_t *id);
-struct tag *cus__find_function_by_name(const struct cus *self, struct cu **cu,
-				       const char *name);
-struct tag *cus__find_tag_by_id(const struct cus *self, struct cu **cu,
-				const Dwarf_Off id);
 void cus__for_each_cu(struct cus *self, int (*iterator)(struct cu *cu,
 							void *cookie),
 		      void *cookie,
