@@ -1610,7 +1610,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
 		die__process(cu_die, cu);
 		off = noff;
-		if (conf->steal != NULL) {
+		if (conf && conf->steal) {
 			switch (conf->steal(cu, conf)) {
 			case LSK__STOP_LOADING:
 				return DWARF_CB_ABORT;
