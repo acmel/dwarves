@@ -954,42 +954,12 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	return bf;
 }
 
-static struct tag *variable__type(const struct variable *self,
-				  const struct cu *cu)
-{
-	struct tag *var;
-
-	if (self->tag.type != 0)
-		return cu__find_type_by_id(cu, self->tag.type);
-	else if (self->abstract_origin != 0) {
-		var = cu__find_tag_by_id(cu, self->abstract_origin);
-		if (var)
-			return variable__type(tag__variable(var), cu);
-	}
-
-	return NULL;
-}
-
 const char *variable__type_name(const struct variable *self,
 				const struct cu *cu,
 				char *bf, size_t len)
 {
-	const struct tag *tag = variable__type(self, cu);
+	const struct tag *tag = cu__find_type_by_id(cu, self->tag.type);
 	return tag != NULL ? tag__name(tag, cu, bf, len) : NULL;
-}
-
-const char *variable__name(const struct variable *self, const struct cu *cu)
-{
-	if (self->name)
-		return s(self->name);
-
-	if (self->abstract_origin != 0) {
-		struct tag *var =
-			cu__find_tag_by_id(cu, self->abstract_origin);
-		if (var != NULL)
-			return s(tag__variable(var)->name);
-	}
-	return NULL;
 }
 
 static const char *variable__prefix(const struct variable *var)
@@ -1793,7 +1763,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		n = fprintf(fp, "%s %s;",
 			    variable__type_name(vtag, cu, bf, sizeof(bf)),
-			    variable__name(vtag, cu));
+			    variable__name(vtag));
 		c += n;
 		printed += n;
 		break;
@@ -2307,11 +2277,11 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 				const struct conf_fprintf *conf, FILE *fp)
 {
 	const struct variable *var = tag__variable(tag);
-	const char *name = variable__name(var, cu);
+	const char *name = variable__name(var);
 	size_t printed = 0;
 
 	if (name != NULL) {
-		struct tag *type = variable__type(var, cu);
+		struct tag *type = cu__find_type_by_id(cu, var->tag.type);
 		if (type != NULL) {
 			const char *varprefix = variable__prefix(var);
 

@@ -426,7 +426,11 @@ static inline struct variable *tag__variable(const struct tag *self)
 	return (struct variable *)self;
 }
 
-const char *variable__name(const struct variable *self, const struct cu *cu);
+static inline const char *variable__name(const struct variable *self)
+{
+	return strings__ptr(strings, self->name);
+}
+
 const char *variable__type_name(const struct variable *self,
 				const struct cu *cu, char *bf, size_t len);
 
