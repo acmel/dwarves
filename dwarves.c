@@ -668,18 +668,14 @@ struct tag *cu__find_base_type_by_name(const struct cu *self,
 	return NULL;
 }
 
-struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
-						const char *name,
-						uint16_t bit_size,
-						uint16_t *idp)
+struct tag *cu__find_base_type_by_sname_and_size(const struct cu *self,
+						 strings_t sname,
+						 uint16_t bit_size,
+						 uint16_t *idp)
 {
 	uint16_t id;
 	struct tag *pos;
 
-	if (self == NULL || name == NULL)
-		return NULL;
-
-	strings_t sname = strings__find(strings, name);
 	if (sname == 0)
 		return NULL;
 
@@ -697,6 +693,19 @@ struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
 	}
 
 	return NULL;
+}
+
+struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
+						const char *name,
+						uint16_t bit_size,
+						uint16_t *idp)
+{
+	if (self == NULL || name == NULL)
+		return NULL;
+
+	strings_t sname = strings__find(strings, name);
+
+	return cu__find_base_type_by_sname_and_size(self, sname, bit_size, idp);
 }
 
 struct tag *cu__find_struct_by_sname(const struct cu *self, strings_t sname,

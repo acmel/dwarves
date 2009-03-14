@@ -706,6 +706,10 @@ extern struct cu *cus__find_cu_by_name(const struct cus *self,
 extern struct tag *cu__find_base_type_by_name(const struct cu *self,
 					      const char *name,
 					      uint16_t *id);
+struct tag *cu__find_base_type_by_sname_and_size(const struct cu *self,
+						 strings_t name,
+						 uint16_t bit_size,
+						 uint16_t *idp);
 struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
 						const char *name,
 						uint16_t bit_size,
