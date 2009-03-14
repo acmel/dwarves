@@ -249,11 +249,11 @@ static void *tag__alloc(size_t size)
 {
 	struct dwarf_tag *dtag = malloc(sizeof(*dtag));
 
-	if (dtag == NULL) 
+	if (dtag == NULL)
 		return NULL;
 
 	struct tag *self = malloc(size);
-	
+
 	if (self == NULL) {
 		free(dtag);
 		return NULL;
@@ -566,7 +566,7 @@ static void lexblock__init(struct lexblock *self, Dwarf_Die *die)
 	self->size_inline_expansions =
 	self->nr_inline_expansions =
 		self->nr_labels =
-		self->nr_lexblocks = 
+		self->nr_lexblocks =
 		self->nr_variables = 0;
 }
 
@@ -917,7 +917,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die)
 		oom("class__new");
 
 	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
-		/* Seen on libQtCore.so.4.3.4.debug, 
+		/* Seen on libQtCore.so.4.3.4.debug,
 		 * class QAbstractFileEngineIterator, enum EntryInfoType */
 		goto out;
 	}
@@ -1152,7 +1152,7 @@ static void die__process_unit(Dwarf_Die *die, struct cu *cu)
 			cu__hash(cu, tag);
 			struct dwarf_tag *dtag = tag->priv;
 			dtag->small_id = id;
-			
+
 		}
 	} while (dwarf_siblingof(die, die) == 0);
 }
@@ -1330,7 +1330,7 @@ static void lexblock__recode_dwarf_types(struct lexblock *self, struct cu *cu)
 				break;
 
 			struct variable *var = tag__variable(pos);
-			
+
 			if (var->abstract_origin == 0) {
 				/*
 				 * DW_TAG_variable completely empty was
@@ -1630,7 +1630,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 
 		cus__add(self, cu);
 	}
-	
+
 	return DWARF_CB_OK;
 }
 
@@ -1652,7 +1652,7 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 	 * WARNING: Don't remove the seemingly useless call to
 	 * dwfl_module_getelf, as it will change dwflmod internal state in a
 	 * way that is required by dwfl_module_getdwarf.
- 	 */
+	 */
 	GElf_Addr dwflbias;
 	dwfl_module_getelf(dwflmod, &dwflbias);
 

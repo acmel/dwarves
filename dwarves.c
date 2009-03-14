@@ -284,7 +284,7 @@ reevaluate:
 			member_size = tag__type(type)->size;
 			break;
 		}
-		
+
 		/* long long */
 		if (member_size > cu->addr_size)
 			return pos;
@@ -428,7 +428,7 @@ void cus__add(struct cus *self, struct cu *cu)
 	list_add_tail(&cu->node, &self->cus);
 	cu__find_class_holes(cu);
 }
- 
+
 static void ptr_table__init(struct ptr_table *self)
 {
 	self->entries = NULL;
@@ -616,12 +616,12 @@ static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
 
 struct tag *cu__find_tag_by_id(const struct cu *self, const uint32_t id)
 {
-	return self ? ptr_table__entry(&self->tags_table, id) : NULL; 
+	return self ? ptr_table__entry(&self->tags_table, id) : NULL;
 }
 
 struct tag *cu__find_type_by_id(const struct cu *self, const uint16_t id)
 {
-	return self ? ptr_table__entry(&self->types_table, id) : NULL; 
+	return self ? ptr_table__entry(&self->types_table, id) : NULL;
 }
 
 struct tag *cu__find_first_typedef_of_type(const struct cu *self,
@@ -1300,7 +1300,7 @@ static size_t union_member__fprintf(struct class_member *self,
 {
 	const size_t size = tag__size(type, cu);
 	size_t printed = type__fprintf(type, cu, s(self->name), conf, fp);
-	
+
 	if ((tag__is_union(type) || tag__is_struct(type) ||
 	     tag__is_enumeration(type)) &&
 		/* Look if is a type defined inline */
@@ -1319,7 +1319,7 @@ static size_t union_member__fprintf(struct class_member *self,
 		}
 	} else {
 		printed += fprintf(fp, ";");
-		
+
 		if (!conf->suppress_offset_comment) {
 			const int spacing = conf->type_spacing + conf->name_spacing - printed;
 			printed += fprintf(fp, "%*s/* %11zd */",
@@ -1460,7 +1460,7 @@ const char *function__name(struct function *self, const struct cu *cu __unused)
 }
 
 const char *function__prototype(const struct function *self,
-				const struct cu *cu, char *bf, size_t len) 
+				const struct cu *cu, char *bf, size_t len)
 {
 	FILE *bfp = fmemopen(bf, len, "w");
 
@@ -2131,7 +2131,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 				}
 				if (pos->offset != last->offset)
 					bitfield_real_offset = last->offset + last_size;
-			} else { 
+			} else {
 				const ssize_t cc_last_size = ((ssize_t)pos->offset -
 							      (ssize_t)last->offset);
 
@@ -2173,7 +2173,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 			const uint16_t padding = tag__class(type)->padding;
 			if (padding > 0) {
 				++nr_paddings;
-				sum_paddings += padding; 
+				sum_paddings += padding;
 				if (!newline++) {
 					fputc('\n', fp);
 					++printed;
@@ -2390,7 +2390,7 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 
 	if (conf == NULL) {
 		tconf = conf_fprintf__defaults;
-		pconf = &tconf; 
+		pconf = &tconf;
 
 		if (tconf.expand_types)
 			tconf.name_spacing = 55;
@@ -2398,7 +2398,7 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 			tconf.name_spacing = 21;
 	} else if (conf->name_spacing == 0 || conf->type_spacing == 0) {
 		tconf = *conf;
-		pconf = &tconf; 
+		pconf = &tconf;
 
 		if (tconf.name_spacing == 0) {
 			if (tconf.expand_types)

@@ -1,6 +1,6 @@
 #ifndef _CTF_LOADER_H_
 #define _CTF_LOADER_H_ 1
-/* 
+/*
   Copyright (C) 2008 Arnaldo Carvalho de Melo <acme@redhat.com>
 
   This program is free software; you can redistribute it and/or modify it

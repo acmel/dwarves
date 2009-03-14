@@ -289,7 +289,7 @@ static void print_classes(struct cu *cu)
 			print_packable_info(pos, cu, id);
 		else if (formatter != NULL)
 			formatter(pos, cu, id);
-		
+
 		if (structures__add(pos) == NULL) {
 			fprintf(stderr, "pahole: insufficient memory for "
 				"processing %s, skipping it...\n", cu->name);
@@ -311,16 +311,16 @@ static struct cu *cu__filter(struct cu *cu)
 
 static int class__packable(struct class *self, const struct cu *cu)
 {
- 	struct class *clone;
+	struct class *clone;
 	size_t savings;
 
 	if (self->nr_holes == 0 && self->nr_bit_holes == 0)
 		return 0;
 
- 	clone = class__clone(self, NULL);
- 	if (clone == NULL)
+	clone = class__clone(self, NULL);
+	if (clone == NULL)
 		return 0;
- 	class__reorganize(clone, cu, 0, stdout);
+	class__reorganize(clone, cu, 0, stdout);
 	savings = class__size(self) - class__size(clone);
 	if (savings != 0) {
 		self->priv = clone;
@@ -533,7 +533,7 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 			max_size = size;
 	}
 
-	if (max_size > self->size) 
+	if (max_size > self->size)
 		self->size_diff = max_size - self->size;
 	else
 		self->size_diff = self->size - max_size;
@@ -615,7 +615,7 @@ static void cu__account_nr_methods(struct cu *self)
 
 				if (!class__filter(class, self, 0))
 					continue;
-				
+
 				str = structures__add(class);
 				if (str == NULL) {
 					fprintf(stderr, "pahole: insufficient memory for "
@@ -999,7 +999,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 	if (defined_in) {
 		if (class_sname == 0)
 			class_sname = strings__find(strings, class_name);
-		
+
 		if (cu__find_struct_by_sname(cu, class_sname, 0, NULL))
 			puts(cu->name);
 
@@ -1038,7 +1038,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			return EXIT_FAILURE;
 		}
 
- 		tag__fprintf(tag, cu, &conf, stdout);
+		tag__fprintf(tag, cu, &conf, stdout);
 		putchar('\n');
 		cu__delete(cu);
 		return LSK__STOP_LOADING;
@@ -1051,7 +1051,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto dump_it;
 	}
 
- 	if (reorganize) {
+	if (reorganize) {
 		size_t savings;
 		const uint8_t reorg_verbose =
 				show_reorg_steps ? 2 : global_verbose;
@@ -1089,7 +1089,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 	} else if (find_pointers_in_structs) {
 		print_structs_with_pointer_to(cu, class_id);
 		goto dump_it;
- 	} else {
+	} else {
 		/*
 		 * We don't need to print it for every compile unit
 		 * but the previous options need

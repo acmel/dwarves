@@ -193,7 +193,7 @@ static void fn_stats__dupmsg(struct function *self,
 		       function__name(self, self_cu),
 		       self_cu->name,
 		       dup_cu->name);
-	
+
 	va_start(args, fmt);
 	vprintf(fmt, args);
 	va_end(args);

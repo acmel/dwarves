@@ -1,4 +1,4 @@
-/* 
+/*
   Copyright (C) 2006 Mandriva Conectiva S.A.
   Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
 
@@ -706,7 +706,7 @@ static void print_total_function_diff(const char *filename)
 
 	if (total_function_bytes_removed != 0)
 		printf(", %u bytes removed", total_function_bytes_removed);
-  
+
 	printf(", diff: %+d",
 	       (total_function_bytes_added -
 	        total_function_bytes_removed));

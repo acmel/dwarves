@@ -1,6 +1,6 @@
 #ifndef _DWARVES_H_
 #define _DWARVES_H_ 1
-/* 
+/*
   Copyright (C) 2006 Mandriva Conectiva S.A.
   Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
 
@@ -139,7 +139,7 @@ struct cu {
 
 /** struct tag - basic representation of a debug info element
  * @priv - extra data, for instance, DWARF offset, id, decl_{file,line}
- * @top_level - 
+ * @top_level -
  */
 struct tag {
 	struct list_head node;
@@ -196,7 +196,7 @@ static inline int tag__is_type(const struct tag *self)
 	       tag__is_typedef(self) ||
 	       tag__is_enumeration(self);
 }
- 
+
 /**
  * tag__is_tag_type - is this one of the possible types for a tag?
  * @tag - tag queried
@@ -254,7 +254,7 @@ static inline struct ptr_to_member_type *
 {
 	return (struct ptr_to_member_type *)self;
 }
- 
+
 struct namespace {
 	struct tag	 tag;
 	strings_t	 name;
@@ -308,7 +308,7 @@ static inline struct class *type__class(const struct type *self)
 	return (struct class *)self;
 }
 
-/** 
+/**
  * type__for_each_tag - iterate thru all the tags
  * @self: struct type instance to iterate
  * @pos: struct tag iterator
@@ -316,7 +316,7 @@ static inline struct class *type__class(const struct type *self)
 #define type__for_each_tag(self, pos) \
 	list_for_each_entry(pos, &(self)->namespace.tags, node)
 
-/** 
+/**
  * type__for_each_enumerator - iterate thru the enumerator entries
  * @self: struct type instance to iterate
  * @pos: struct enumerator iterator
@@ -324,7 +324,7 @@ static inline struct class *type__class(const struct type *self)
 #define type__for_each_enumerator(self, pos) \
 	list_for_each_entry(pos, &(self)->namespace.tags, tag.node)
 
-/** 
+/**
  * type__for_each_member - iterate thru the entries that use space
  *                         (data members and inheritance entries)
  * @self: struct type instance to iterate
@@ -337,7 +337,7 @@ static inline struct class *type__class(const struct type *self)
 			continue; \
 		else
 
-/** 
+/**
  * type__for_each_data_member - iterate thru the data member entries
  * @self: struct type instance to iterate
  * @pos: struct class_member iterator
@@ -348,7 +348,7 @@ static inline struct class *type__class(const struct type *self)
 			continue; \
 		else
 
-/** 
+/**
  * type__for_each_member_safe - safely iterate thru the entries that use space
  *                              (data members and inheritance entries)
  * @self: struct type instance to iterate
@@ -361,7 +361,7 @@ static inline struct class *type__class(const struct type *self)
 			continue; \
 		else
 
-/** 
+/**
  * type__for_each_data_member_safe - safely iterate thru the data member entries
  * @self: struct type instance to iterate
  * @pos: struct class_member iterator
@@ -517,7 +517,7 @@ static inline struct ftype *tag__ftype(const struct tag *self)
 	return (struct ftype *)self;
 }
 
-/** 
+/**
  * ftype__for_each_parameter - iterate thru all the parameters
  * @self: struct ftype instance to iterate
  * @pos: struct parameter iterator
@@ -560,7 +560,7 @@ static __pure inline int tag__is_function(const struct tag *self)
 	return self->tag == DW_TAG_subprogram;
 }
 
-/** 
+/**
  * function__for_each_parameter - iterate thru all the parameters
  * @self: struct function instance to iterate
  * @pos: struct parameter iterator

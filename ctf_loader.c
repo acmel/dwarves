@@ -399,7 +399,7 @@ static int create_new_base_type(struct ctf_state *sp, void *ptr,
 	base = base_type__new(name, CTF_TYPE_INT_BITS(eval));
 	if (base == NULL)
 		oom("base_type__new");
-		
+
 	base->tag.tag = DW_TAG_base_type;
 	cu__add_tag(sp->cu, &base->tag, &id);
 
@@ -422,7 +422,7 @@ static int create_new_base_type_float(struct ctf_state *sp, void *ptr,
 	base = base_type__new(name, CTF_TYPE_FP_BITS(eval));
 	if (base == NULL)
 		oom("base_type__new");
-		
+
 	base->tag.tag = DW_TAG_base_type;
 	cu__add_tag(sp->cu, &base->tag, &id);
 
@@ -813,7 +813,7 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 
 		if (type->tag != DW_TAG_base_type)
 			continue;
-		
+
 		struct base_type *bt = tag__base_type(type);
 		size_t bit_size = base_type__name_to_size(bt);
 

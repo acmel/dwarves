@@ -1,4 +1,4 @@
-/* 
+/*
   Copyright (C) 2006 Mandriva Conectiva S.A.
   Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
 
@@ -171,7 +171,7 @@ static void method__add(struct cu *cu, struct function *function, uint32_t id)
 	function->priv = (void *)(long)id;
 }
 
-/* 
+/*
  * We want just the function tags that have as one of its parameters
  * a pointer to the specified "class" (a struct, unions can be added later).
  */
@@ -238,7 +238,7 @@ static struct class_member *class__remove_member(struct class *self, const struc
 	struct class_member *bitfield_tail = NULL;
 	struct list_head *next;
 	uint16_t member_hole = member->hole;
-	 
+
 	if (member->bit_size != 0) {
 		bitfield_tail = class_member__bitfield_tail(member, self);
 		member_hole = bitfield_tail->hole;
@@ -472,7 +472,7 @@ static int class__emit_ostra_converter(struct tag *tag_self)
 	return 0;
 }
 
-/* 
+/*
  * We want just the DW_TAG_structure_type tags that have a member that is a pointer
  * to the target class.
  */
@@ -531,7 +531,7 @@ static void class__find_pointers(const char *class_name)
 	cus__for_each_cu(methods_cus, cu_find_pointers_iterator, (void *)class_name, cu_filter);
 }
 
-/* 
+/*
  * We want just the DW_TAG_structure_type tags that have as its first member
  * a struct of type target.
  */
@@ -726,14 +726,14 @@ static int cu_emit_probes_iterator(struct cu *cu, void *cookie)
 	/* OK, this type is not present in this compile unit */
 	if (target == NULL)
 		return 0;
-		
+
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
 		uint32_t function_id = (long)pos->priv;
 
 		if (methods__add(&probes_emitted, function__name(pos, cu)) != 0)
 			continue;
 		function__emit_probes(pos, function_id, cu, target_type_id, 0, NULL); /* entry */
-		function__emit_probes(pos, function_id, cu, target_type_id, 1, NULL); /* exit */ 
+		function__emit_probes(pos, function_id, cu, target_type_id, 1, NULL); /* exit */
 	}
 
 	return 0;
@@ -779,7 +779,7 @@ static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 		function__emit_probes(pos_tag, function_id, cu, target_type_id, 0,
 				      class_member__name(pos_member)); /* entry */
 		function__emit_probes(pos_tag, function_id, cu, target_type_id, 1,
-				      class_member__name(pos_member)); /* exit */ 
+				      class_member__name(pos_member)); /* exit */
 	}
 
 	return 0;
@@ -796,7 +796,7 @@ static int cu_emit_functions_table(struct cu *cu, void *fp)
 
        list_for_each_entry(pos, &cu->tool_list, tool_node)
                if (pos->priv != NULL) {
-			uint32_t function_id = (long)pos->priv;			
+			uint32_t function_id = (long)pos->priv;
                        fprintf(fp, "%d:%s\n", function_id,
 			       function__name(pos, cu));
 			pos->priv = NULL;
@@ -914,7 +914,7 @@ failure:
 		fputs("ctracer: insufficient memory\n", stderr);
 		goto out;
 	}
-	
+
 	/*
          * if --dir/-D was specified, recursively traverse the path looking for
          * object files (compilation units) that match the glob specified (*.ko)

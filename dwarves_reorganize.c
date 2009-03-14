@@ -103,7 +103,7 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 				}
 			}
 		}
-		 	
+
 		last_member = pos;
 	}
 
@@ -144,7 +144,7 @@ static struct class_member *
 			bitfield_head = NULL;
 		if (member->hole != 0) {
 			const size_t member_size = class_member__size(member, cu);
-			
+
 			if (member_size != 0 && member_size <= size)
 				return bitfield_head ? : member;
 		}
@@ -296,7 +296,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 			   dest->tag.node.next);
 		from->offset = new_from_offset;
 	}
-		
+
 	if (verbose)
 		fprintf(fp, " from after '%s' to after '%s' */\n",
 		        class_member__name(from_prev),
@@ -563,7 +563,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 				base_type__name(tag__base_type(new_type_tag)));
 
 		class__demote_bitfield_members(class,
-					       bitfield_head, member,	
+					       bitfield_head, member,
 					       tag__base_type(old_type_tag),
 					       tag__base_type(new_type_tag),
 					       new_type_id);
@@ -612,7 +612,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 					base_type__name(tag__base_type(old_type_tag)),
 					base_type__name(tag__base_type(new_type_tag)));
 			class__demote_bitfield_members(class,
-						       member, member,	
+						       member, member,
 						 tag__base_type(old_type_tag),
 						 tag__base_type(new_type_tag),
 						       new_type_id);
@@ -703,7 +703,7 @@ static void class__fixup_bitfield_types(struct class *self,
  *
  *       short int   d;             / * 66 2 * /
  * <SNIP>
- * 
+ *
  * The compiler (gcc 4.1.1 20070105 (Red Hat 4.1.1-51) in the above example),
  * Decided to combine what was declared as an int (4 bytes) bitfield but doesn't
  * uses even one byte with the next field, that is a short int (2 bytes),
@@ -740,7 +740,7 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 			const size_t size = class_member__size(bitfield_head,
 							       cu);
 			if (real_size != size) {
-				uint16_t new_type_id;				
+				uint16_t new_type_id;
 				struct tag *new_type_tag =
 					cu__find_base_type_of_size(cu,
 								   real_size,
@@ -779,7 +779,7 @@ void class__reorganize(struct class *self, const struct cu *cu,
 
 	while (class__demote_bitfields(self, cu, verbose, fp))
 		class__reorganize_bitfields(self, cu, verbose, fp);
-	
+
 	/* Now try to combine holes */
 restart:
 	class__find_holes(self, cu);

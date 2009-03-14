@@ -1,4 +1,4 @@
-/* 
+/*
   Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 
   This program is free software; you can redistribute it and/or modify it

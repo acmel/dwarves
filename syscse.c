@@ -1,4 +1,4 @@
-/* 
+/*
   Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 
   System call sign extender

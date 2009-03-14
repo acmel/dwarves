@@ -1,6 +1,6 @@
 #ifndef _LINUX_LIST_H
 #define _LINUX_LIST_H
-/* 
+/*
   Copyright (C) Cast of dozens, comes from the Linux kernel
 
   This program is free software; you can redistribute it and/or modify it

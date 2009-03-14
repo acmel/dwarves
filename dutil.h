@@ -1,6 +1,6 @@
 #ifndef _DUTIL_H_
 #define _DUTIL_H_ 1
-/* 
+/*
   Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 
   This program is free software; you can redistribute it and/or modify it

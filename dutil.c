@@ -1,4 +1,4 @@
-/* 
+/*
   Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 
   This program is free software; you can redistribute it and/or modify it
@@ -57,11 +57,11 @@ int strlist__load(struct strlist *self, const char *filename)
 		if (len == 0)
 			continue;
 		entry[len - 1] = '\0';
-		
+
 		if (strlist__add(self, entry) != 0)
 			goto out;
 	}
-		
+
 	err = 0;
 out:
 	fclose(fp);

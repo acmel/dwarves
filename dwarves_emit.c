@@ -99,7 +99,7 @@ static int tag__emit_definitions(struct tag *tag, struct cu *cu,
 
 static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 				     struct type_emissions *emissions, FILE *fp)
-{					 
+{
 	struct type *def = tag__type(tdef);
 	struct tag *type, *ptr_type;
 	int is_pointer = 0;
@@ -151,7 +151,7 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 			conf.suffix = type__name(def);
 			enumeration__emit_definitions(type, emissions, &conf, fp);
 			goto out;
-		} else 
+		} else
 			enumeration__emit_definitions(type, emissions, &conf, fp);
 	}
 		break;

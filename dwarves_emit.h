@@ -1,6 +1,6 @@
 #ifndef _DWARVES_EMIT_H_
 #define _DWARVES_EMIT_H_ 1
-/* 
+/*
   Copyright (C) 2006 Mandriva Conectiva S.A.
   Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
   Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
