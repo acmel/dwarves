@@ -399,9 +399,9 @@ static inline struct tag *class__tag(const struct class *self)
 	return (struct tag *)self;
 }
 
-extern struct class *class__clone(const struct class *from,
-				  const char *new_class_name);
-extern void class__delete(struct class *self);
+struct class *class__clone(const struct class *from,
+			   const char *new_class_name);
+void class__delete(struct class *self);
 
 static inline struct list_head *class__tags(struct class *self)
 {
@@ -476,15 +476,14 @@ static inline struct class_member *tag__class_member(const struct tag *self)
 	return (struct class_member *)self;
 }
 
-extern size_t class_member__size(const struct class_member *self,
-				 const struct cu *cu);
+size_t class_member__size(const struct class_member *self, const struct cu *cu);
 
 static inline const char *class_member__name(const struct class_member *self)
 {
 	return strings__ptr(strings, self->name);
 }
 
-extern void class_member__delete(struct class_member *self);
+void class_member__delete(struct class_member *self);
 
 struct lexblock {
 	struct tag	 tag;
@@ -660,27 +659,25 @@ struct conf_fprintf {
 int dwarves__init(uint16_t user_cacheline_size);
 void dwarves__exit(void);
 
-extern void class__find_holes(struct class *self, const struct cu *cu);
-extern int class__has_hole_ge(const struct class *self, const uint16_t size);
-extern size_t class__fprintf(struct class *self, const struct cu *cu,
-			     const struct conf_fprintf *conf, FILE *fp);
+void class__find_holes(struct class *self, const struct cu *cu);
+int class__has_hole_ge(const struct class *self, const uint16_t size);
+size_t class__fprintf(struct class *self, const struct cu *cu,
+		      const struct conf_fprintf *conf, FILE *fp);
 void enumeration__add(struct type *self, struct enumerator *enumerator);
-extern size_t enumeration__fprintf(const struct tag *tag_self,
-				   const struct conf_fprintf *conf, FILE *fp);
-extern size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
-			       const struct conf_fprintf *conf, FILE *fp);
+size_t enumeration__fprintf(const struct tag *tag_self,
+			    const struct conf_fprintf *conf, FILE *fp);
+size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
+			const struct conf_fprintf *conf, FILE *fp);
 size_t tag__fprintf_decl_info(const struct tag *self,
 			      const struct cu *cu, FILE *fp);
-extern size_t tag__fprintf(struct tag *self, const struct cu *cu,
-			   const struct conf_fprintf *conf, FILE *fp);
+size_t tag__fprintf(struct tag *self, const struct cu *cu,
+		    const struct conf_fprintf *conf, FILE *fp);
 
-extern const char *function__name(struct function *self, const struct cu *cu);
-extern size_t function__fprintf_stats(const struct tag *tag_self,
-				      const struct cu *cu,
-				      FILE *fp);
-extern const char *function__prototype(const struct function *self,
-				       const struct cu *cu,
-				       char *bf, size_t len);
+const char *function__name(struct function *self, const struct cu *cu);
+size_t function__fprintf_stats(const struct tag *tag_self,
+			       const struct cu *cu, FILE *fp);
+const char *function__prototype(const struct function *self,
+				const struct cu *cu, char *bf, size_t len);
 
 void lexblock__add_inline_expansion(struct lexblock *self,
 				    struct inline_expansion *exp);
@@ -688,9 +685,8 @@ void lexblock__add_label(struct lexblock *self, struct label *label);
 void lexblock__add_lexblock(struct lexblock *self, struct lexblock *child);
 void lexblock__add_tag(struct lexblock *self, struct tag *tag);
 void lexblock__add_variable(struct lexblock *self, struct variable *var);
-extern size_t lexblock__fprintf(const struct lexblock *self,
-				const struct cu *cu, struct function *function,
-				uint16_t indent, FILE *fp);
+size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
+			 struct function *function, uint16_t indent, FILE *fp);
 
 int cus__load(struct cus *self, struct conf_load *conf, char *filename);
 int cus__load_files(struct cus *self, struct conf_load *conf,
@@ -699,13 +695,11 @@ int cus__load_dir(struct cus *self, struct conf_load *conf,
 		  const char *dirname, const char *filename_mask,
 		  const int recursive);
 void cus__add(struct cus *self, struct cu *cu);
-extern void cus__print_error_msg(const char *progname, const struct cus *cus,
-				 const char *filename, const int err);
-extern struct cu *cus__find_cu_by_name(const struct cus *self,
-				       const char *name);
-extern struct tag *cu__find_base_type_by_name(const struct cu *self,
-					      const char *name,
-					      uint16_t *id);
+void cus__print_error_msg(const char *progname, const struct cus *cus,
+			  const char *filename, const int err);
+struct cu *cus__find_cu_by_name(const struct cus *self, const char *name);
+struct tag *cu__find_base_type_by_name(const struct cu *self, const char *name,
+				       uint16_t *id);
 struct tag *cu__find_base_type_by_sname_and_size(const struct cu *self,
 						 strings_t name,
 						 uint16_t bit_size,
@@ -716,60 +710,49 @@ struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
 						uint16_t *id);
 struct tag *cu__find_struct_by_sname(const struct cu *self, strings_t sname,
 				     const int include_decls, uint16_t *idp);
-extern struct tag *cus__find_struct_by_name(const struct cus *self,
-					    struct cu **cu,
-					    const char *name,
-					    const int include_decls,
-					    uint16_t *id);
-extern struct tag *cus__find_function_by_name(const struct cus *self,
-					      struct cu **cu,
-					      const char *name);
-extern struct tag *cus__find_tag_by_id(const struct cus *self,
-				       struct cu **cu, const Dwarf_Off id);
+struct tag *cus__find_struct_by_name(const struct cus *self, struct cu **cu,
+				     const char *name, const int include_decls,
+				     uint16_t *id);
+struct tag *cus__find_function_by_name(const struct cus *self, struct cu **cu,
+				       const char *name);
+struct tag *cus__find_tag_by_id(const struct cus *self, struct cu **cu,
+				const Dwarf_Off id);
 
 struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id, int build_id_len);
-extern void cu__delete(struct cu *self);
+void cu__delete(struct cu *self);
 
 int cu__add_tag(struct cu *self, struct tag *tag, long *id);
 int cu__table_add_tag(struct cu *self, struct tag *tag, long *id);
 int cu__table_nullify_type_entry(struct cu *self, uint32_t id);
-extern struct tag *cu__find_tag_by_id(const struct cu *self,
-				      const uint32_t id);
+struct tag *cu__find_tag_by_id(const struct cu *self, const uint32_t id);
 struct tag *cu__find_type_by_id(const struct cu *self, const uint16_t id);
-extern struct tag *cu__find_first_typedef_of_type(const struct cu *self,
-						  const Dwarf_Off type);
-extern struct tag *cu__find_struct_by_name(const struct cu *cu,
-					   const char *name,
-					   const int include_decls,
-					   uint16_t *id);
-extern bool cu__same_build_id(const struct cu *self, const struct cu *other);
-extern void	    cu__account_inline_expansions(struct cu *self);
-extern int	    cu__for_each_tag(struct cu *self,
-				     int (*iterator)(struct tag *tag,
-					     	     struct cu *cu,
-						     void *cookie),
-				     void *cookie,
-				     struct tag *(*filter)(struct tag *tag,
-							   struct cu *cu,
-							   void *cookie));
+struct tag *cu__find_first_typedef_of_type(const struct cu *self,
+					   const Dwarf_Off type);
+struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
+				    const int include_decls, uint16_t *id);
+bool cu__same_build_id(const struct cu *self, const struct cu *other);
+void cu__account_inline_expansions(struct cu *self);
+int cu__for_each_tag(struct cu *self, int (*iterator)(struct tag *tag,
+						      struct cu *cu,
+						      void *cookie),
+		     void *cookie,
+		     struct tag *(*filter)(struct tag *tag, struct cu *cu,
+					   void *cookie));
 int cu__for_all_tags(struct cu *self,
 		     int (*iterator)(struct tag *tag,
 				     struct cu *cu, void *cookie),
 		     void *cookie);
-extern void	    cus__for_each_cu(struct cus *self,
-				     int (*iterator)(struct cu *cu,
-						     void *cookie),
-				     void *cookie,
-				     struct cu *(*filter)(struct cu *cu));
+void cus__for_each_cu(struct cus *self, int (*iterator)(struct cu *cu,
+							void *cookie),
+		      void *cookie,
+		      struct cu *(*filter)(struct cu *cu));
 
-extern const struct class_member *
-		class__find_bit_hole(const struct class *self,
-				     const struct class_member *trailer,
-				     const uint16_t bit_hole_size);
+const struct class_member *class__find_bit_hole(const struct class *self,
+					   const struct class_member *trailer,
+						const uint16_t bit_hole_size);
 
-extern struct tag *cu__find_function_by_name(const struct cu *cu,
-					     const char *name);
+struct tag *cu__find_function_by_name(const struct cu *cu, const char *name);
 
 static __pure inline uint32_t function__size(const struct function *self)
 {
@@ -789,36 +772,34 @@ static inline int function__inlined(const struct function *self)
 }
 
 void ftype__add_parameter(struct ftype *self, struct parameter *parm);
-extern size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
-			     const char *name, const int inlined,
-			     const int is_pointer, const int type_spacing,
-			     FILE *fp);
-extern int ftype__has_parm_of_type(const struct ftype *self,
-				   const uint16_t target,
-				   const struct cu *cu);
+size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
+		      const char *name, const int inlined,
+		      const int is_pointer, const int type_spacing, FILE *fp);
+int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
+			    const struct cu *cu);
 
 void type__add_member(struct type *self, struct class_member *member);
-extern struct class_member *
+struct class_member *
 	type__find_first_biggest_size_base_type_member(struct type *self,
 						       const struct cu *cu);
 
-extern const char *tag__name(const struct tag *self, const struct cu *cu,
-			     char *bf, size_t len);
-extern void tag__not_found_die(const char *file, int line, const char *func);
+const char *tag__name(const struct tag *self, const struct cu *cu,
+		      char *bf, size_t len);
+void tag__not_found_die(const char *file, int line, const char *func);
 
 #define tag__assert_search_result(tag) \
 	do { if (!tag) tag__not_found_die(__FILE__,\
 					  __LINE__, __func__); } while (0)
 
-extern size_t tag__size(const struct tag *self, const struct cu *cu);
-extern size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu);
-extern struct tag *tag__follow_typedef(struct tag *tag, const struct cu *cu);
+size_t tag__size(const struct tag *self, const struct cu *cu);
+size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu);
+struct tag *tag__follow_typedef(struct tag *tag, const struct cu *cu);
 
-extern struct class_member *type__find_member_by_name(const struct type *self,
-						      const char *name);
-extern uint32_t type__nr_members_of_type(const struct type *self,
-					 const Dwarf_Off type);
-extern struct class_member *type__last_member(struct type *self);
+struct class_member *type__find_member_by_name(const struct type *self,
+					       const char *name);
+uint32_t type__nr_members_of_type(const struct type *self,
+				  const Dwarf_Off type);
+struct class_member *type__last_member(struct type *self);
 
 void class__add_vtable_entry(struct class *self, struct function *vtable_entry);
 static inline struct class_member *
@@ -844,13 +825,11 @@ static inline int class__is_declaration(const struct class *self)
 
 void namespace__add_tag(struct namespace *self, struct tag *tag);
 
-extern const char *variable__name(const struct variable *self,
-				  const struct cu *cu);
-extern const char *variable__type_name(const struct variable *self,
-				       const struct cu *cu,
-				       char *bf, size_t len);
+const char *variable__name(const struct variable *self, const struct cu *cu);
+const char *variable__type_name(const struct variable *self,
+				const struct cu *cu, char *bf, size_t len);
 
-extern const char *dwarf_tag_name(const uint32_t tag);
+const char *dwarf_tag_name(const uint32_t tag);
 
 struct argp_state;
 
