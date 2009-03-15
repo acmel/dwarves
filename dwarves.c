@@ -572,6 +572,7 @@ static void array_type__delete(struct tag *self)
 static int cu__delete_tag(struct tag *self, struct cu *cu __unused,
 			  void *cookie __unused)
 {
+	list_del_init(&self->node);
 	tag__free_orig_info(self, cu);
 	switch (self->tag) {
 	case DW_TAG_array_type:
@@ -2443,11 +2444,9 @@ static int list__for_all_tags(struct list_head *self, struct cu *cu,
 			if (list__for_all_tags(&tag__namespace(pos)->tags,
 					       cu, iterator, cookie))
 				return 1;
-			if (tag__is_struct(pos)) {
-				if (list__for_all_tags(&tag__class(pos)->vtable,
-						       cu, iterator, cookie))
-					return 1;
-			}
+			/*
+			 * vtable functions are already in the class tags list
+			 */
 		} else if (tag__is_function(pos)) {
 			if (list__for_all_tags(&tag__ftype(pos)->parms,
 					       cu, iterator, cookie))
