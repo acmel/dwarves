@@ -396,7 +396,6 @@ struct label {
 	struct tag	 tag;
 	strings_t	 name;
 	Dwarf_Addr	 low_pc;
-	Dwarf_Off	 abstract_origin;
 };
 
 static inline struct label *tag__label(const struct tag *self)
@@ -414,7 +413,6 @@ enum vlocation {
 
 struct variable {
 	struct tag	 tag;
-	Dwarf_Off	 abstract_origin;
 	strings_t	 name;
 	uint8_t		 external:1;
 	uint8_t		 declaration:1;
@@ -465,7 +463,6 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 struct parameter {
 	struct tag	 tag;
 	strings_t	 name;
-	Dwarf_Off	 abstract_origin;
 };
 
 static inline struct parameter *tag__parameter(const struct tag *self)
@@ -511,13 +508,13 @@ int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
 struct function {
 	struct ftype	 proto;
 	struct lexblock	 lexblock;
-	Dwarf_Off	 abstract_origin;
 	Dwarf_Off	 specification;
 	strings_t	 name;
 	strings_t	 linkage_name;
 	uint32_t	 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;
 	uint8_t		 inlined:2;
+	uint8_t		 abstract_origin:1;
 	uint8_t		 external:1;
 	uint8_t		 accessibility:2; /* DW_ACCESS_{public,protected,private} */
 	uint8_t		 virtuality:2; /* DW_VIRTUALITY_{none,virtual,pure_virtual} */

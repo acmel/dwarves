@@ -33,6 +33,7 @@ struct dwarf_tag {
 	struct hlist_node hash_node;
 	Dwarf_Off	 type;
 	Dwarf_Off	 id;
+	Dwarf_Off	 abstract_origin;
 	struct tag	 *tag;
 	strings_t        decl_file;
 	uint16_t         decl_line;
@@ -291,6 +292,7 @@ static void tag__init(struct tag *self, Dwarf_Die *die)
 		last_decl_file = decl_file;
 	}
 
+	dtag->abstract_origin = attr_type(die, DW_AT_abstract_origin);
 	dtag->decl_file = last_decl_file_idx;
 	dwarf_decl_line(die, &decl_line);
 	dtag->decl_line = decl_line;
@@ -428,7 +430,6 @@ static struct variable *variable__new(Dwarf_Die *die)
 	if (self != NULL) {
 		tag__init(&self->tag, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
-		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
 		/* variable is visible outside of its enclosing cu */
 		self->external = dwarf_hasattr(die, DW_AT_external);
 		/* non-defining declaration of an object */
@@ -468,9 +469,7 @@ static struct parameter *parameter__new(Dwarf_Die *die)
 
 	if (self != NULL) {
 		tag__init(&self->tag, die);
-		self->name	      = strings__add(strings, attr_string(die,
-								 DW_AT_name));
-		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
+		self->name = strings__add(strings, attr_string(die, DW_AT_name));
 	}
 
 	return self;
@@ -523,7 +522,6 @@ static struct label *label__new(Dwarf_Die *die)
 	if (self != NULL) {
 		tag__init(&self->tag, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
-		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
 		if (dwarf_lowpc(die, &self->low_pc))
 			self->low_pc = 0;
 	}
@@ -614,7 +612,7 @@ static struct function *function__new(Dwarf_Die *die)
 		self->linkage_name = strings__add(strings, attr_string(die, DW_AT_MIPS_linkage_name));
 		self->inlined  = attr_numeric(die, DW_AT_inline);
 		self->external = dwarf_hasattr(die, DW_AT_external);
-		self->abstract_origin = attr_type(die, DW_AT_abstract_origin);
+		self->abstract_origin = dwarf_hasattr(die, DW_AT_abstract_origin);
 		self->specification   = attr_type(die, DW_AT_specification);
 		self->accessibility   = attr_numeric(die, DW_AT_accessibility);
 		self->virtuality      = attr_numeric(die, DW_AT_virtuality);
@@ -1238,18 +1236,18 @@ static void type__recode_dwarf_specification(struct tag *self, struct cu *cu)
 }
 
 static void __tag__print_abstract_origin_not_found(struct tag *self,
-						   unsigned long long abstract_origin,
 						   const char *func)
 {
 	struct dwarf_tag *dtag = self->priv;
 	fprintf(stderr,
 		"%s: couldn't find %#llx abstract_origin for %#llx (%s)!\n",
-		func, abstract_origin, (unsigned long long)dtag->id,
+		func, (unsigned long long)dtag->abstract_origin,
+		(unsigned long long)dtag->id,
 		dwarf_tag_name(self->tag));
 }
 
-#define tag__print_abstract_origin_not_found(self, abstract_origin) \
-	__tag__print_abstract_origin_not_found(self, abstract_origin, __func__)
+#define tag__print_abstract_origin_not_found(self ) \
+	__tag__print_abstract_origin_not_found(self, __func__)
 
 static void ftype__recode_dwarf_types(struct tag *self, struct cu *cu)
 {
@@ -1262,15 +1260,14 @@ static void ftype__recode_dwarf_types(struct tag *self, struct cu *cu)
 		struct dwarf_tag *dtype;
 
 		if (dpos->type == 0) {
-			if (pos->abstract_origin == 0) {
+			if (dpos->abstract_origin == 0) {
 				/* Function without parameters */
 				pos->tag.type = 0;
 				continue;
 			}
-			dtype = dwarf_cu__find_tag_by_id(dcu, pos->abstract_origin);
+			dtype = dwarf_cu__find_tag_by_id(dcu, dpos->abstract_origin);
 			if (dtype == NULL) {
-				tag__print_abstract_origin_not_found(&pos->tag,
-								     pos->abstract_origin);
+				tag__print_abstract_origin_not_found(&pos->tag);
 				continue;
 			}
 			pos->name = tag__parameter(dtype->tag)->name;
@@ -1315,10 +1312,9 @@ static void lexblock__recode_dwarf_types(struct lexblock *self, struct cu *cu)
 
 			struct parameter *fp = tag__parameter(pos);
 			dtype = dwarf_cu__find_tag_by_id(dcu,
-							 fp->abstract_origin);
+							 dpos->abstract_origin);
 			if (dtype == NULL) {
-				tag__print_abstract_origin_not_found(pos,
-								     fp->abstract_origin);
+				tag__print_abstract_origin_not_found(pos);
 				continue;
 			}
 			fp->name = tag__parameter(dtype->tag)->name;
@@ -1331,7 +1327,7 @@ static void lexblock__recode_dwarf_types(struct lexblock *self, struct cu *cu)
 
 			struct variable *var = tag__variable(pos);
 
-			if (var->abstract_origin == 0) {
+			if (dpos->abstract_origin == 0) {
 				/*
 				 * DW_TAG_variable completely empty was
 				 * found on libQtGui.so.4.3.4.debug
@@ -1341,10 +1337,9 @@ static void lexblock__recode_dwarf_types(struct lexblock *self, struct cu *cu)
 			}
 
 			dtype = dwarf_cu__find_tag_by_id(dcu,
-							 var->abstract_origin);
+							 dpos->abstract_origin);
 			if (dtype == NULL) {
-				tag__print_abstract_origin_not_found(pos,
-								     var->abstract_origin);
+				tag__print_abstract_origin_not_found(pos);
 				continue;
 			}
 			var->name = tag__variable(dtype->tag)->name;
@@ -1354,15 +1349,14 @@ static void lexblock__recode_dwarf_types(struct lexblock *self, struct cu *cu)
 		case DW_TAG_label: {
 			struct label *l = tag__label(pos);
 
-			if (l->abstract_origin == 0)
+			if (dpos->abstract_origin == 0)
 				continue;
 
-			dtype = dwarf_cu__find_tag_by_id(dcu, l->abstract_origin);
+			dtype = dwarf_cu__find_tag_by_id(dcu, dpos->abstract_origin);
 			if (dtype != NULL)
 				l->name = tag__label(dtype->tag)->name;
 			else
-				tag__print_abstract_origin_not_found(pos,
-								     l->abstract_origin);
+				tag__print_abstract_origin_not_found(pos);
 		}
 			continue;
 		}
@@ -1394,7 +1388,7 @@ static void tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 		struct function *fn = tag__function(self);
 
 		if (fn->name == 0)  {
-			if (fn->abstract_origin == 0 &&
+			if (dtag->abstract_origin == 0 &&
 			    fn->specification == 0) {
 				/*
 				 * Found on libQtGui.so.4.3.4.debug
@@ -1403,7 +1397,7 @@ static void tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 				 */
 				return;
 			}
-			dtype = dwarf_cu__find_tag_by_id(cu->priv, fn->abstract_origin);
+			dtype = dwarf_cu__find_tag_by_id(cu->priv, dtag->abstract_origin);
 			if (dtype == NULL)
 				dtype = dwarf_cu__find_tag_by_id(cu->priv, fn->specification);
 			if (dtype != NULL)
@@ -1414,7 +1408,7 @@ static void tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 					"function %#llx, abstract_origin=%#llx,"
 					" specification=%#llx\n", __func__,
 					(unsigned long long)dtag->id,
-					(unsigned long long)fn->abstract_origin,
+					(unsigned long long)dtag->abstract_origin,
 					(unsigned long long)fn->specification);
 			}
 		}
