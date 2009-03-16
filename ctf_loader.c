@@ -904,7 +904,7 @@ int ctf__load(struct cus *self, struct conf_load *conf, const char *filename)
 	 * The app stole this cu, possibly deleting it,
 	 * so forget about it
 	 */
-	if (conf->steal && conf->steal(state.cu, conf))
+	if (conf && conf->steal && conf->steal(state.cu, conf))
 		return 0;
 
 	cus__add(self, state.cu);
