@@ -50,6 +50,9 @@ static int cu__emit_tags(struct cu *self, void *cookie __unused)
 
 	for (i = 1; i < self->types_table.nr_entries; ++i) {
 		struct tag *tag = self->types_table.entries[i];
+		if (tag == NULL) /* CTF can have empty slots, see
+				    cu__table_nullify_type_entry */
+			continue;
 		emit_tag(tag, i, self);
 	}
 	return 0;
