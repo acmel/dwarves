@@ -517,8 +517,8 @@ static unsigned long create_full_members(struct ctf_state *sp, void *ptr,
 		member->name = strings__add(strings, ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
 		bit_offset = (ctf__get32(sp->ctf, &mp[i].ctf_member_offset_high) << 16) |
 			      ctf__get32(sp->ctf, &mp[i].ctf_member_offset_low);
-		member->offset = bit_offset / 8;
-		member->bit_offset = bit_offset % 8;
+		member->byte_offset = bit_offset / 8;
+		member->bitfield_offset = bit_offset % 8;
 		type__add_member(class, member);
 	}
 
@@ -542,8 +542,8 @@ static unsigned long create_short_members(struct ctf_state *sp, void *ptr,
 		member->tag.type = ctf__get16(sp->ctf, &mp[i].ctf_member_type);
 		member->name = strings__add(strings, ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
 		bit_offset = ctf__get16(sp->ctf, &mp[i].ctf_member_offset);
-		member->offset = bit_offset / 8;
-		member->bit_offset = bit_offset % 8;
+		member->byte_offset = bit_offset / 8;
+		member->bitfield_offset = bit_offset % 8;
 
 		type__add_member(class, member);
 	}
@@ -824,7 +824,7 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 		}
 
 		if (last_offset == -1)
-			last_offset = pos->offset;
+			last_offset = pos->byte_offset;
 
 		uint16_t fixed_tag_id;
 
@@ -837,10 +837,10 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 			continue;
 		}
 
-		pos->offset	= last_offset;
-		pos->tag.type	= fixed_tag_id;
-		pos->bit_size	= bt->bit_size;
-		pos->bit_offset = bit_offset;
+		pos->byte_offset = last_offset;
+		pos->tag.type = fixed_tag_id;
+		pos->bitfield_size = bt->bit_size;
+		pos->bitfield_offset = bit_offset;
 		bit_offset	+= bt->bit_size;
 		if (bit_offset == bit_size) {
 			bit_offset = 0;

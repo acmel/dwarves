@@ -22,7 +22,7 @@ void class__subtract_offsets_from(struct class *self, const struct cu *cu,
 
 	list_for_each_entry_continue(member, class__tags(self), tag.node)
 		if (member->tag.tag == DW_TAG_member)
-			member->offset -= size;
+			member->byte_offset -= size;
 
 	if (self->padding != 0) {
 		struct class_member *last_member =
@@ -31,7 +31,7 @@ void class__subtract_offsets_from(struct class *self, const struct cu *cu,
 			class_member__size(last_member, cu);
 		const ssize_t new_padding =
 			(class__size(self) -
-			 (last_member->offset + last_member_size));
+			 (last_member->byte_offset + last_member_size));
 		if (new_padding > 0)
 			self->padding = new_padding;
 		else
@@ -47,7 +47,7 @@ void class__add_offsets_from(struct class *self, struct class_member *from,
 
 	list_for_each_entry_continue(member, class__tags(self), tag.node)
 		if (member->tag.tag == DW_TAG_member)
-			member->offset += size;
+			member->byte_offset += size;
 }
 
 /*
@@ -64,10 +64,10 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 	type__for_each_data_member(&self->type, pos) {
 		member_size = class_member__size(pos, cu);
 
-		if (last_member == NULL && pos->offset != 0) { /* paranoid! */
+		if (last_member == NULL && pos->byte_offset != 0) { /* paranoid! */
 			class__subtract_offsets_from(self, cu, pos,
-						     pos->offset - member_size);
-			pos->offset = 0;
+						     pos->byte_offset - member_size);
+			pos->byte_offset = 0;
 		} else if (last_member != NULL &&
 			   last_member->hole >= cu->addr_size) {
 			size_t dec = (last_member->hole / cu->addr_size) *
@@ -76,11 +76,11 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 			last_member->hole -= dec;
 			if (last_member->hole == 0)
 				--self->nr_holes;
-			pos->offset -= dec;
+			pos->byte_offset -= dec;
 			self->type.size -= dec;
 			class__subtract_offsets_from(self, cu, pos, dec);
 		} else for (power2 = cu->addr_size; power2 >= 2; power2 /= 2) {
-			const size_t remainder = pos->offset % power2;
+			const size_t remainder = pos->byte_offset % power2;
 
 			if (member_size == power2) {
 				if (remainder == 0) /* perfectly aligned */
@@ -89,7 +89,7 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 					last_member->hole -= remainder;
 					if (last_member->hole == 0)
 						--self->nr_holes;
-					pos->offset -= remainder;
+					pos->byte_offset -= remainder;
 					class__subtract_offsets_from(self, cu, pos, remainder);
 				} else {
 					const size_t inc = power2 - remainder;
@@ -97,7 +97,7 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 					if (last_member->hole == 0)
 						++self->nr_holes;
 					last_member->hole += inc;
-					pos->offset += inc;
+					pos->byte_offset += inc;
 					self->type.size += inc;
 					class__add_offsets_from(self, pos, inc);
 				}
@@ -110,7 +110,7 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 	if (last_member != NULL) {
 		struct class_member *m =
 		 type__find_first_biggest_size_base_type_member(&self->type, cu);
-		size_t unpadded_size = last_member->offset + class_member__size(last_member, cu);
+		size_t unpadded_size = last_member->byte_offset + class_member__size(last_member, cu);
 		size_t m_size = class_member__size(m, cu), remainder;
 
 		/* google for struct zone_padding in the linux kernel for an example */
@@ -137,7 +137,7 @@ static struct class_member *
 	list_for_each_entry_continue(member, class__tags(class), tag.node) {
 		if (member->tag.tag != DW_TAG_member)
 			continue;
-		if (member->bit_size != 0) {
+		if (member->bitfield_size != 0) {
 			if (bitfield_head == NULL)
 				bitfield_head = member;
 		} else
@@ -173,12 +173,12 @@ static struct class_member *
 		 * has another member before it that is not part of the current
 		 * bitfield or it is the first member of the struct.
 		 */
-		if (member->bit_size != 0 && member->offset != 0) {
+		if (member->bitfield_size != 0 && member->byte_offset != 0) {
 			struct class_member *prev =
 					list_entry(member->tag.node.prev,
 						   struct class_member,
 						   tag.node);
-			if (prev->bit_size != 0)
+			if (prev->bitfield_size != 0)
 				continue;
 
 		}
@@ -203,7 +203,7 @@ static struct class_member *
 		if (member->tag.tag != DW_TAG_member)
 			continue;
 		if (member->bit_hole != 0 &&
-		    member->bit_size <= size)
+		    member->bitfield_size <= size)
 		    return member;
 	}
 #if 0
@@ -237,21 +237,21 @@ static void class__move_member(struct class *class, struct class_member *dest,
 						    struct class_member,
 						    tag.node);
 	uint16_t orig_tail_from_hole = tail_from->hole;
-	const uint16_t orig_from_offset = from->offset;
+	const uint16_t orig_from_offset = from->byte_offset;
 	/*
 	 * Align 'from' after 'dest':
 	 */
 	const uint16_t offset = dest->hole % (from_size > cu->addr_size ?
 						cu->addr_size : from_size);
 	/*
-	 * Set new 'from' offset, after 'dest->offset', aligned
+	 * Set new 'from' offset, after 'dest->byte_offset', aligned
 	 */
-	const uint16_t new_from_offset = dest->offset + dest_size + offset;
+	const uint16_t new_from_offset = dest->byte_offset + dest_size + offset;
 
 	if (verbose)
 		fputs("/* Moving", fp);
 
-	if (from->bit_size != 0) {
+	if (from->bitfield_size != 0) {
 		struct class_member *pos =
 				list_prepare_entry(from, class__tags(class),
 						   tag.node);
@@ -268,12 +268,12 @@ static void class__move_member(struct class *class, struct class_member *dest,
 			/*
 			 * Have we reached the end of the bitfield?
 			 */
-			if (pos->offset != orig_from_offset)
+			if (pos->byte_offset != orig_from_offset)
 				break;
 			tail_from = pos;
 			orig_tail_from_hole = tail_from->hole;
 			orig_tail_from_bit_hole = tail_from->bit_hole;
-			pos->offset = new_from_offset;
+			pos->byte_offset = new_from_offset;
 			pos->hole = 0;
 			pos->bit_hole = 0;
 			list_move_tail(&pos->tag.node, &from_list);
@@ -294,7 +294,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 		 */
 		__list_add(&from->tag.node, &dest->tag.node,
 			   dest->tag.node.next);
-		from->offset = new_from_offset;
+		from->byte_offset = new_from_offset;
 	}
 
 	if (verbose)
@@ -379,9 +379,9 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 	if (verbose)
 		fprintf(fp, "/* Moving '%s:%u' from after '%s' to "
 			"after '%s:%u' */\n",
-			class_member__name(from), from->bit_size,
+			class_member__name(from), from->bitfield_size,
 			class_member__name(from_prev),
-			class_member__name(dest), dest->bit_size);
+			class_member__name(dest), dest->bitfield_size);
 	/*
 	 *  Remove 'from' from the list
 	 */
@@ -394,7 +394,7 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 		   dest->tag.node.next);
 
 	/* Check if this was the last entry in the bitfield */
-	if (from_prev->bit_size == 0) {
+	if (from_prev->bitfield_size == 0) {
 		size_t from_size = class_member__size(from, cu);
 		/*
 		 * Are we shrinking the struct?
@@ -419,19 +419,19 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 		 * Add add the holes after from + its size to the member
 		 * before it:
 		 */
-		from_prev->bit_hole += from->bit_hole + from->bit_size;
+		from_prev->bit_hole += from->bit_hole + from->bitfield_size;
 		from_prev->hole = from->hole;
 	}
-	from->bit_hole = dest->bit_hole - from->bit_size;
+	from->bit_hole = dest->bit_hole - from->bitfield_size;
 	/*
 	 * Tricky, what are the rules for bitfield layouts on this arch?
 	 * Assume its IA32
 	 */
-	from->bit_offset = dest->bit_offset + dest->bit_size;
+	from->bitfield_offset = dest->bitfield_offset + dest->bitfield_size;
 	/*
 	 * Now both have the some offset:
 	 */
-	from->offset = dest->offset;
+	from->byte_offset = dest->byte_offset;
 	dest->bit_hole = 0;
 	from->hole = dest->hole;
 	dest->hole = 0;
@@ -459,7 +459,7 @@ static void class__demote_bitfield_members(struct class *class,
 		/*
 		 * Assume IA32 bitfield layout
 		 */
-		member->bit_offset -= bit_diff;
+		member->bitfield_offset -= bit_diff;
 		member->tag.type = new_type_id;
 		if (member == to)
 			break;
@@ -511,14 +511,14 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		/*
 		 * Check if we are moving away from a bitfield
 		 */
-		if (member->bit_size == 0) {
+		if (member->bitfield_size == 0) {
 			current_bitfield_size = 0;
 			bitfield_head = NULL;
 		} else {
 			if (bitfield_head == NULL) {
 				bitfield_head = member;
-				current_bitfield_size = member->bit_size;
-			} else if (bitfield_head->offset != member->offset) {
+				current_bitfield_size = member->bitfield_size;
+			} else if (bitfield_head->byte_offset != member->byte_offset) {
 				/*
 				 * We moved from one bitfield to another, for
 				 * now don't handle this case, just move on to
@@ -528,9 +528,9 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 				 * pass.
 				 */
 				bitfield_head = member;
-				current_bitfield_size = member->bit_size;
+				current_bitfield_size = member->bitfield_size;
 			} else
-				current_bitfield_size += member->bit_size;
+				current_bitfield_size += member->bitfield_size;
 		}
 
 		/*
@@ -593,7 +593,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 	member = type__last_member(&class->type);
 	if (class->bit_padding != 0 && bitfield_head == member) {
 		size = class_member__size(member, cu);
-	    	bytes_needed = (member->bit_size + 7) / 8;
+		bytes_needed = (member->bitfield_size + 7) / 8;
 		if (bytes_needed < size) {
 			old_type_tag =
 				cu__find_type_by_id(cu, member->tag.type);
@@ -621,16 +621,16 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			/*
 			 * Do we need byte padding?
 			 */
-			if (member->offset + new_size < class__size(class)) {
+			if (member->byte_offset + new_size < class__size(class)) {
 				class->padding = (class__size(class) -
-						  (member->offset + new_size));
+						  (member->byte_offset + new_size));
 				class->bit_padding = 0;
 				member->bit_hole = (new_size * 8 -
-						    member->bit_size);
+						    member->bitfield_size);
 			} else {
 				class->padding = 0;
 				class->bit_padding = (new_size * 8 -
-						      member->bit_size);
+						      member->bitfield_size);
 				member->bit_hole = 0;
 			}
 			some_was_demoted = 1;
@@ -722,7 +722,7 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 		/*
 		 * Is this bitfield member?
 		 */
-		if (pos->bit_size != 0) {
+		if (pos->bitfield_size != 0) {
 			/*
 			 * The first entry in a bitfield?
 			 */
@@ -735,8 +735,8 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 		 * by a bitfield?
 		 */
 		if (bitfield_head != NULL) {
-			const uint16_t real_size = (pos->offset -
-						  bitfield_head->offset);
+			const uint16_t real_size = (pos->byte_offset -
+						  bitfield_head->byte_offset);
 			const size_t size = class_member__size(bitfield_head,
 							       cu);
 			if (real_size != size) {

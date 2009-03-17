@@ -139,17 +139,17 @@ static int check_print_change(const struct class_member *old,
 	if (old_size != new_size)
 		changes = 1;
 
-	if (old->offset != new->offset) {
+	if (old->byte_offset != new->byte_offset) {
 		changes = 1;
 		terse_type_changes |= TCHANGEF__OFFSET;
 	}
 
-	if (old->bit_offset != new->bit_offset) {
+	if (old->bitfield_offset != new->bitfield_offset) {
 		changes = 1;
 		terse_type_changes |= TCHANGEF__BIT_OFFSET;
 	}
 
-	if (old->bit_size != new->bit_size) {
+	if (old->bitfield_size != new->bitfield_size) {
 		changes = 1;
 		terse_type_changes |= TCHANGEF__BIT_SIZE;
 	}
@@ -167,10 +167,10 @@ static int check_print_change(const struct class_member *old,
 		       "     from:    %-21s /* %5u(%2u) %5zd(%2d) */\n"
 		       "     to:      %-21s /* %5u(%2u) %5zd(%2u) */\n",
 		       class_member__name(old),
-		       old_type_name, old->offset, old->bit_offset,
-		       old_size, old->bit_size,
-		       new_type_name, new->offset, new->bit_offset,
-		       new_size, new->bit_size);
+		       old_type_name, old->byte_offset, old->bitfield_offset,
+		       old_size, old->bitfield_size,
+		       new_type_name, new->byte_offset, new->bitfield_offset,
+		       new_size, new->bitfield_size);
 
 	return changes;
 }
@@ -204,8 +204,8 @@ static int check_print_members_changes(const struct class *structure,
 				       "     removed: %-21s /* %5u(%2u) %5zd(%2d) */\n",
 				       class_member__name(member),
 				       tag__name(type, cu, name, sizeof(name)),
-				       member->offset, member->bit_offset,
-				       tag__size(type, cu), member->bit_size);
+				       member->byte_offset, member->bitfield_offset,
+				       tag__size(type, cu), member->bitfield_size);
 			}
 		}
 	}
@@ -226,8 +226,8 @@ static int check_print_members_changes(const struct class *structure,
 			       "     added:   %-21s /* %5u(%2u) %5zd(%2d) */\n",
 			       class_member__name(member),
 			       tag__name(type, new_cu, name, sizeof(name)),
-			       member->offset, member->bit_offset,
-			       tag__size(type, new_cu), member->bit_size);
+			       member->byte_offset, member->bitfield_offset,
+			       tag__size(type, new_cu), member->bitfield_size);
 		}
 	}
 out:
@@ -446,7 +446,7 @@ static void show_changed_member(char change, const struct class_member *member,
 	printf("    %c%-26s %-21s /* %5u %5zd */\n",
 	       change, tag__name(type, cu, bf, sizeof(bf)),
 	       class_member__name(member),
-	       member->offset, tag__size(type, cu));
+	       member->byte_offset, tag__size(type, cu));
 }
 
 static void show_nr_members_changes(const struct class *structure,

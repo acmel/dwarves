@@ -449,9 +449,9 @@ static struct class_member *class_member__new(Dwarf_Die *die)
 	if (self != NULL) {
 		tag__init(&self->tag, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
-		self->offset	 = attr_offset(die, DW_AT_data_member_location);
-		self->bit_offset = attr_numeric(die, DW_AT_bit_offset);
-		self->bit_size	 = attr_numeric(die, DW_AT_bit_size);
+		self->byte_offset = attr_offset(die, DW_AT_data_member_location);
+		self->bitfield_offset = attr_numeric(die, DW_AT_bit_offset);
+		self->bitfield_size = attr_numeric(die, DW_AT_bit_size);
 		self->bit_hole	 = 0;
 		self->bitfield_end = 0;
 		self->visited = 0;

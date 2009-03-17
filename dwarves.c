@@ -1164,12 +1164,12 @@ static size_t struct_member__fprintf(struct class_member *self,
 {
 	const int size = tag__size(type, cu);
 	struct conf_fprintf sconf = *conf;
-	uint32_t offset = self->offset;
+	uint32_t offset = self->byte_offset;
 	size_t printed = 0;
 	const char *name = s(self->name);
 
 	if (!sconf.rel_offset) {
-		sconf.base_offset += self->offset;
+		sconf.base_offset += self->byte_offset;
 		offset = sconf.base_offset;
 	}
 
@@ -1180,8 +1180,8 @@ static size_t struct_member__fprintf(struct class_member *self,
 
 	printed += type__fprintf(type, cu, name, &sconf, fp);
 
-	if (self->bit_size != 0)
-		printed += fprintf(fp, ":%u;", self->bit_size);
+	if (self->bitfield_size != 0)
+		printed += fprintf(fp, ":%u;", self->bitfield_size);
 	else {
 		fputc(';', fp);
 		++printed;
@@ -1215,8 +1215,9 @@ static size_t struct_member__fprintf(struct class_member *self,
 					   spacing > 0 ? spacing : 0, " ",
 					   offset);
 
-			if (self->bit_size != 0) {
-				printed += fprintf(fp, ":%2d", self->bit_offset);
+			if (self->bitfield_size != 0) {
+				printed += fprintf(fp, ":%2d",
+						   self->bitfield_offset);
 				size_spacing -= 3;
 			}
 
@@ -1493,8 +1494,8 @@ void class__find_holes(struct class *self, const struct cu *cu)
 			 * when we are starting a bitfield that combines with
 			 * the previous, small size fields.
 			 */
-			const ssize_t cc_last_size = ((int64_t)pos->offset -
-						      (int64_t)last->offset);
+			const ssize_t cc_last_size = ((int64_t)pos->byte_offset -
+						      (int64_t)last->byte_offset);
 
 			/*
 			 * If the offset is the same this better be a bitfield
@@ -1517,7 +1518,7 @@ void class__find_holes(struct class *self, const struct cu *cu)
 
 				if (bit_sum != 0) {
 					if (bitfield_real_offset != 0) {
-						last_size = bitfield_real_offset - last->offset;
+						last_size = bitfield_real_offset - last->byte_offset;
 						bitfield_real_offset = 0;
 					}
 
@@ -1530,10 +1531,10 @@ void class__find_holes(struct class *self, const struct cu *cu)
 					bit_sum = 0;
 				}
 			} else if (cc_last_size < 0 && bit_sum == 0)
-				bitfield_real_offset = last->offset + last_size;
+				bitfield_real_offset = last->byte_offset + last_size;
 		}
 
-		bit_sum += pos->bit_size;
+		bit_sum += pos->bitfield_size;
 		size = class_member__size(pos, cu);
 
 		/*
@@ -1541,8 +1542,8 @@ void class__find_holes(struct class *self, const struct cu *cu)
 		 * byte_size in the fields in each bitfield set.
 		 */
 
-		if (last == NULL || last->offset != pos->offset ||
-		    pos->bit_size == 0 || last->bit_size == 0) {
+		if (last == NULL || last->byte_offset != pos->byte_offset ||
+		    pos->bitfield_size == 0 || last->bitfield_size == 0) {
 			last_size = size;
 		} else if (size > last_size)
 			last_size = size;
@@ -1551,10 +1552,10 @@ void class__find_holes(struct class *self, const struct cu *cu)
 	}
 
 	if (last != NULL) {
-		if (last->offset + last_size != ctype->size)
+		if (last->byte_offset + last_size != ctype->size)
 			self->padding = ctype->size -
-					(last->offset + last_size);
-		if (last->bit_size != 0)
+					(last->byte_offset + last_size);
+		if (last->bitfield_size != 0)
 			self->bit_padding = (last_size * 8) - bit_sum;
 	} else
 		/* No members? Zero sized C++ class */
@@ -2028,7 +2029,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		pos = tag__class_member(tag_pos);
 
 		if (last != NULL &&
-		    pos->offset != last->offset &&
+		    pos->byte_offset != last->byte_offset &&
 		    !cconf.suppress_comments)
 			printed +=
 			    class__fprintf_cacheline_boundary(last_cacheline,
@@ -2043,15 +2044,15 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		 * ancestors make the offset go backwards...
 		 */
 		if (last != NULL && tag_pos->tag == DW_TAG_member) {
-			if (pos->offset < last->offset ||
-			    (pos->offset == last->offset &&
-			     last->bit_size == 0 &&
+			if (pos->byte_offset < last->byte_offset ||
+			    (pos->byte_offset == last->byte_offset &&
+			     last->bitfield_size == 0 &&
 			     /*
 			      * This is just when transitioning from a non-bitfield to
 			      * a bitfield, think about zero sized arrays in the middle
 			      * of a struct.
 			      */
-			     pos->bit_size != 0)) {
+			     pos->bitfield_size != 0)) {
 				if (!cconf.suppress_comments) {
 					if (!newline++) {
 						fputc('\n', fp);
@@ -2061,11 +2062,11 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 							   " with previous fields */\n",
 							   cconf.indent, tabs);
 				}
-				if (pos->offset != last->offset)
-					bitfield_real_offset = last->offset + last_size;
+				if (pos->byte_offset != last->byte_offset)
+					bitfield_real_offset = last->byte_offset + last_size;
 			} else {
-				const ssize_t cc_last_size = ((ssize_t)pos->offset -
-							      (ssize_t)last->offset);
+				const ssize_t cc_last_size = ((ssize_t)pos->byte_offset -
+							      (ssize_t)last->byte_offset);
 
 				if (cc_last_size > 0 &&
 				   (size_t)cc_last_size < last_size) {
@@ -2156,7 +2157,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		 * combined with previous fields.
 		 */
 		if (bitfield_real_offset != 0 && last->bitfield_end) {
-			size_t real_last_size = pos->offset - bitfield_real_offset;
+			size_t real_last_size = pos->byte_offset - bitfield_real_offset;
 			sum -= last_size;
 			sum += real_last_size;
 			bitfield_real_offset = 0;
@@ -2170,10 +2171,10 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		    /*
 		     * We moved to a new offset
 		     */
-		    last->offset != pos->offset) {
+		    last->byte_offset != pos->byte_offset) {
 			sum += size;
 			last_size = size;
-		} else if (last->bit_size == 0 && pos->bit_size != 0) {
+		} else if (last->bitfield_size == 0 && pos->bitfield_size != 0) {
 			/*
 			 * Transitioned from from a non-bitfield to a
 			 * bitfield sharing the same offset
@@ -2257,7 +2258,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 
 		printed += fprintf(fp, "\n%.*s/* first biggest size base type member: %s %u %zd */",
 				   cconf.indent, tabs,
-				   s(m->name), m->offset,
+				   s(m->name), m->byte_offset,
 				   class_member__size(m, cu));
 	}
 

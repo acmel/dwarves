@@ -220,7 +220,7 @@ static struct class_member *class_member__bitfield_tail(struct class_member *hea
 							 class__tags(class),
 							 tag.node);
         list_for_each_entry_continue(member, class__tags(class), tag.node)
-		if (member->offset == head->offset)
+		if (member->byte_offset == head->byte_offset)
 			tail = member;
 		else
 			break;
@@ -239,7 +239,7 @@ static struct class_member *class__remove_member(struct class *self, const struc
 	struct list_head *next;
 	uint16_t member_hole = member->hole;
 
-	if (member->bit_size != 0) {
+	if (member->bitfield_size != 0) {
 		bitfield_tail = class_member__bitfield_tail(member, self);
 		member_hole = bitfield_tail->hole;
 	}

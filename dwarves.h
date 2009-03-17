@@ -571,20 +571,29 @@ static inline int function__inlined(const struct function *self)
 	        self->inlined == DW_INL_declared_inlined);
 }
 
+/* struct class_member - struct, union, class member
+ *
+ * @byte_offset - offset in bytes from the start of the struct
+ * @bitfield_offset - offset in the current bitfield
+ * @bitfield_offset - size in the current bitfield
+ * @bit_hole - If there is a bit hole before the next one (or the end of the struct)
+ * @bitfield_end - Is this the last entry in a bitfield?
+ * @accessibility - DW_ACCESS_{public,protected,private}
+ * @virtuality - DW_VIRTUALITY_{none,virtual,pure_virtual}
+ * @hole - If there is a hole before the next one (or the end of the struct)
+ */
 struct class_member {
 	struct tag	 tag;
 	strings_t	 name;
-	uint32_t	 offset;
-	uint8_t		 bit_offset;
-	uint8_t		 bit_size;
-	uint8_t		 bit_hole;	/* If there is a bit hole before the next
-					   one (or the end of the struct) */
-	uint8_t		 bitfield_end:1; /* Is this the last entry in a bitfield? */
+	uint32_t	 byte_offset;
+	uint8_t		 bitfield_offset;
+	uint8_t		 bitfield_size;
+	uint8_t		 bit_hole;
+	uint8_t		 bitfield_end:1;
 	uint8_t		 visited:1;
-	uint8_t		 accessibility:2; /* DW_ACCESS_{public,protected,private} */
-	uint8_t		 virtuality:2; /* DW_VIRTUALITY_{none,virtual,pure_virtual} */
-	uint16_t	 hole;		/* If there is a hole before the next
-					   one (or the end of the struct) */
+	uint8_t		 accessibility:2;
+	uint8_t		 virtuality:2;
+	uint16_t	 hole;
 };
 
 void class_member__delete(struct class_member *self);
