@@ -605,12 +605,6 @@ static inline struct class_member *tag__class_member(const struct tag *self)
 	return (struct class_member *)self;
 }
 
-static inline size_t class_member__size(const struct class_member *self,
-					const struct cu *cu __unused)
-{
-	return self->byte_size;
-}
-
 static inline const char *class_member__name(const struct class_member *self)
 {
 	return strings__ptr(strings, self->name);
@@ -769,7 +763,7 @@ static inline int class__is_struct(const struct class *self)
 	return tag__is_struct(&self->type.namespace.tag);
 }
 
-void class__find_holes(struct class *self, const struct cu *cu);
+void class__find_holes(struct class *self);
 int class__has_hole_ge(const struct class *self, const uint16_t size);
 size_t class__fprintf(struct class *self, const struct cu *cu,
 		      const struct conf_fprintf *conf, FILE *fp);

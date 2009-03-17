@@ -280,7 +280,7 @@ static void print_classes(struct cu *cu)
 		      class__include_nested_anonymous))
 			continue;
 
-		class__find_holes(pos, cu);
+		class__find_holes(pos);
 
 		if (!class__filter(pos, cu, id))
 			continue;
@@ -481,7 +481,7 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 			struct class_member *m = tag__class_member(tag_pos);
 			if (original_word_size > word_size) {
 				self->type.size -= diff;
-				class__subtract_offsets_from(self, cu, m, diff);
+				class__subtract_offsets_from(self, m, diff);
 			} else {
 				self->type.size += diff;
 				class__add_offsets_from(self, m, diff);
@@ -494,7 +494,7 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 	else
 		tag__type(tag)->size_diff = self->type.size - orig_size;
 
-	class__find_holes(self, cu);
+	class__find_holes(self);
 	class__fixup_alignment(self, cu);
 }
 
@@ -611,7 +611,7 @@ static void cu__account_nr_methods(struct cu *self)
 			str = structures__find(ctype->namespace.name);
 			if (str == NULL) {
 				struct class *class = tag__class(type);
-				class__find_holes(class, self);
+				class__find_holes(class);
 
 				if (!class__filter(class, self, 0))
 					continue;
@@ -986,7 +986,7 @@ static enum load_steal_kind class_stealer(struct cu *cu)
 	if (class == NULL)
 		return LSK__STOLEN;
 
-	class__find_holes(tag__class(class), cu);
+	class__find_holes(tag__class(class));
 	return LSK__STOP_LOADING;
 }
 

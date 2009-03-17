@@ -266,7 +266,7 @@ reevaluate:
 			if (tag__type(type)->nr_members == 0)
 				continue;
 			inner = type__find_first_biggest_size_base_type_member(tag__type(type), cu);
-			member_size = class_member__size(inner, cu);
+			member_size = inner->byte_size;
 			break;
 		case DW_TAG_array_type:
 		case DW_TAG_const_type:
@@ -420,7 +420,7 @@ static void cu__find_class_holes(struct cu *self)
 	struct class *pos;
 
 	cu__for_each_struct(self, id, pos)
-		class__find_holes(pos, self);
+		class__find_holes(pos);
 }
 
 void cus__add(struct cus *self, struct cu *cu)
@@ -1466,11 +1466,11 @@ const struct class_member *class__find_bit_hole(const struct class *self,
 	return NULL;
 }
 
-void class__find_holes(struct class *self, const struct cu *cu)
+void class__find_holes(struct class *self)
 {
 	const struct type *ctype = &self->type;
 	struct class_member *pos, *last = NULL;
-	size_t last_size = 0, size;
+	size_t last_size = 0;
 	uint32_t bit_sum = 0;
 	uint32_t bitfield_real_offset = 0;
 
@@ -1531,7 +1531,6 @@ void class__find_holes(struct class *self, const struct cu *cu)
 		}
 
 		bit_sum += pos->bitfield_size;
-		size = class_member__size(pos, cu);
 
 		/*
 		 * check for bitfields, accounting for only the biggest of the
@@ -1540,9 +1539,9 @@ void class__find_holes(struct class *self, const struct cu *cu)
 
 		if (last == NULL || last->byte_offset != pos->byte_offset ||
 		    pos->bitfield_size == 0 || last->bitfield_size == 0) {
-			last_size = size;
-		} else if (size > last_size)
-			last_size = size;
+			last_size = pos->byte_size;
+		} else if (pos->byte_size > last_size)
+			last_size = pos->byte_size;
 
 		last = pos;
 	}
@@ -2255,7 +2254,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		printed += fprintf(fp, "\n%.*s/* first biggest size base type member: %s %u %zd */",
 				   cconf.indent, tabs,
 				   s(m->name), m->byte_offset,
-				   class_member__size(m, cu));
+				   m->byte_size);
 	}
 
 	if (sum + sum_holes != tself->size - self->padding &&

@@ -18,8 +18,7 @@ struct class;
 struct cu;
 struct class_member;
 
-void class__subtract_offsets_from(struct class *self, const struct cu *cu,
-				  struct class_member *from,
+void class__subtract_offsets_from(struct class *self, struct class_member *from,
 				  const uint16_t size);
 
 void class__add_offsets_from(struct class *self, struct class_member *from,

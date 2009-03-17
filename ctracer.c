@@ -234,7 +234,7 @@ static struct class_member *class_member__bitfield_tail(struct class_member *hea
 static struct class_member *class__remove_member(struct class *self, const struct cu *cu,
 						 struct class_member *member)
 {
-	size_t size = class_member__size(member, cu);
+	size_t size = member->byte_size;
 	struct class_member *bitfield_tail = NULL;
 	struct list_head *next;
 	uint16_t member_hole = member->hole;
@@ -248,7 +248,7 @@ static struct class_member *class__remove_member(struct class *self, const struc
 	 */
 	if (member->tag.node.prev == class__tags(self)) {
 		self->type.size -= size + member_hole;
-		class__subtract_offsets_from(self, cu, bitfield_tail ?: member,
+		class__subtract_offsets_from(self, bitfield_tail ?: member,
 					     size + member_hole);
 	/*
 	 * Is this the last member?
@@ -262,7 +262,7 @@ static struct class_member *class__remove_member(struct class *self, const struc
 	} else {
 		if (size + member_hole >= cu->addr_size) {
 			self->type.size -= size + member_hole;
-			class__subtract_offsets_from(self, cu,
+			class__subtract_offsets_from(self,
 						     bitfield_tail ?: member,
 						     size + member_hole);
 		} else {
