@@ -574,6 +574,7 @@ static inline int function__inlined(const struct function *self)
 /* struct class_member - struct, union, class member
  *
  * @byte_offset - offset in bytes from the start of the struct
+ * @byte_size - cached byte size, integral type byte size for bitfields
  * @bitfield_offset - offset in the current bitfield
  * @bitfield_offset - size in the current bitfield
  * @bit_hole - If there is a bit hole before the next one (or the end of the struct)
@@ -586,6 +587,7 @@ struct class_member {
 	struct tag	 tag;
 	strings_t	 name;
 	uint32_t	 byte_offset;
+	size_t		 byte_size;
 	uint8_t		 bitfield_offset;
 	uint8_t		 bitfield_size;
 	uint8_t		 bit_hole;
@@ -603,7 +605,11 @@ static inline struct class_member *tag__class_member(const struct tag *self)
 	return (struct class_member *)self;
 }
 
-size_t class_member__size(const struct class_member *self, const struct cu *cu);
+static inline size_t class_member__size(const struct class_member *self,
+					const struct cu *cu __unused)
+{
+	return self->byte_size;
+}
 
 static inline const char *class_member__name(const struct class_member *self)
 {

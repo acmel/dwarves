@@ -863,11 +863,15 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 	type__for_each_data_member(type_self, pos) {
 		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
 
-		if (type->tag != DW_TAG_base_type)
+		if (type->tag != DW_TAG_base_type) {
+			pos->byte_size = tag__size(type, cu);
 			continue;
+		}
 
 		struct base_type *bt = tag__base_type(type);
 		size_t bit_size = base_type__name_to_size(bt, cu);
+
+		pos->byte_size = bit_size / 8;
 
 		if (bit_size == 0 || bt->bit_size == bit_size) {
 			bit_offset = 0;
@@ -909,7 +913,7 @@ static int cu__fixup_ctf_bitfields(struct cu *self)
 	struct tag *pos;
 
 	list_for_each_entry(pos, &self->tags, node)
-		if (tag__is_struct(pos)) {
+		if (tag__is_struct(pos) || tag__is_union(pos)) {
 			err = class__fixup_ctf_bitfields(pos, self);
 			if (err)
 				break;

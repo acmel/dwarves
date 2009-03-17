@@ -821,6 +821,13 @@ size_t tag__size(const struct tag *self, const struct cu *cu)
 	size_t size;
 
 	switch (self->tag) {
+	case DW_TAG_member: {
+		/* Is it cached already? */
+		size = tag__class_member(self)->byte_size;
+		if (size != 0)
+			return size;
+		break;
+	}
 	case DW_TAG_pointer_type:
 	case DW_TAG_reference_type:	return cu->addr_size;
 	case DW_TAG_base_type:		return base_type__size(self);
@@ -998,17 +1005,6 @@ static struct class_member *class_member__clone(const struct class_member *from)
 	return self;
 }
 
-size_t class_member__size(const struct class_member *self,
-			  const struct cu *cu)
-{
-	struct tag *type = cu__find_type_by_id(cu, self->tag.type);
-	if (type == NULL) {
-		tag__id_not_found_fprintf(stderr, self->tag.type);
-		return -1;
-	}
-	return tag__size(type, cu);
-}
-
 static size_t union__fprintf(struct type *self, const struct cu *cu,
 			     const struct conf_fprintf *conf, FILE *fp);
 
@@ -1162,7 +1158,7 @@ static size_t struct_member__fprintf(struct class_member *self,
 				     struct tag *type, const struct cu *cu,
 				     const struct conf_fprintf *conf, FILE *fp)
 {
-	const int size = tag__size(type, cu);
+	const int size = self->byte_size;
 	struct conf_fprintf sconf = *conf;
 	uint32_t offset = self->byte_offset;
 	size_t printed = 0;
@@ -1231,7 +1227,7 @@ static size_t union_member__fprintf(struct class_member *self,
 				    struct tag *type, const struct cu *cu,
 				    const struct conf_fprintf *conf, FILE *fp)
 {
-	const size_t size = tag__size(type, cu);
+	const size_t size = self->byte_size;
 	size_t printed = type__fprintf(type, cu, s(self->name), conf, fp);
 
 	if ((tag__is_union(type) || tag__is_struct(type) ||
@@ -2098,7 +2094,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 			continue;
 		}
 
-		size = tag__size(type, cu);
+		size = pos->byte_size;
 		printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 		printed += struct_member__fprintf(pos, type, cu, &cconf, fp);
 

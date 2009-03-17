@@ -134,8 +134,8 @@ static int check_print_change(const struct class_member *old,
 	if (old_type == NULL || new_type == NULL)
 		return 0;
 
-	old_size = tag__size(old_type, old_cu);
-	new_size = tag__size(new_type, new_cu);
+	old_size = old->byte_size;
+	new_size = new->byte_size;
 	if (old_size != new_size)
 		changes = 1;
 
@@ -205,7 +205,7 @@ static int check_print_members_changes(const struct class *structure,
 				       class_member__name(member),
 				       tag__name(type, cu, name, sizeof(name)),
 				       member->byte_offset, member->bitfield_offset,
-				       tag__size(type, cu), member->bitfield_size);
+				       member->byte_size, member->bitfield_size);
 			}
 		}
 	}
@@ -227,7 +227,7 @@ static int check_print_members_changes(const struct class *structure,
 			       class_member__name(member),
 			       tag__name(type, new_cu, name, sizeof(name)),
 			       member->byte_offset, member->bitfield_offset,
-			       tag__size(type, new_cu), member->bitfield_size);
+			       member->byte_size, member->bitfield_size);
 		}
 	}
 out:
@@ -446,7 +446,7 @@ static void show_changed_member(char change, const struct class_member *member,
 	printf("    %c%-26s %-21s /* %5u %5zd */\n",
 	       change, tag__name(type, cu, bf, sizeof(bf)),
 	       class_member__name(member),
-	       member->byte_offset, tag__size(type, cu));
+	       member->byte_offset, member->byte_size);
 }
 
 static void show_nr_members_changes(const struct class *structure,

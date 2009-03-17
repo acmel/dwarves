@@ -450,6 +450,10 @@ static struct class_member *class_member__new(Dwarf_Die *die)
 		tag__init(&self->tag, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
 		self->byte_offset = attr_offset(die, DW_AT_data_member_location);
+		/*
+		 * Will be cached later, in class_member__cache_byte_size
+		 */
+		self->byte_size = 0;
 		self->bitfield_offset = attr_numeric(die, DW_AT_bit_offset);
 		self->bitfield_size = attr_numeric(die, DW_AT_bit_size);
 		self->bit_hole	 = 0;
@@ -1576,6 +1580,15 @@ static void die__process(Dwarf_Die *die, struct cu *cu)
 	cu__recode_dwarf_types(cu);
 }
 
+static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
+					 void *cookie __unused)
+{
+	if (self->tag == DW_TAG_member || self->tag == DW_TAG_inheritance)
+		tag__class_member(self)->byte_size = tag__size(self, cu);
+
+	return 0;
+}
+
 static int cus__load_module(struct cus *self, struct conf_load *conf,
 			    Dwfl_Module *mod, Dwarf *dw)
 {
@@ -1603,6 +1616,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 			oom("cu__new");
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
 		die__process(cu_die, cu);
+		cu__for_all_tags(cu, class_member__cache_byte_size, NULL);
 		off = noff;
 		if (conf && conf->steal) {
 			switch (conf->steal(cu, conf)) {
