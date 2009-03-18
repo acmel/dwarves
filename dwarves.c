@@ -770,6 +770,33 @@ struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
 	return cu__find_base_type_by_sname_and_size(self, sname, bit_size, idp);
 }
 
+struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *self,
+						   strings_t sname,
+						   uint16_t bit_size,
+						   uint16_t *idp)
+{
+	uint16_t id;
+	struct tag *pos;
+
+	if (sname == 0)
+		return NULL;
+
+	cu__for_each_type(self, id, pos) {
+		if (pos->tag == DW_TAG_enumeration_type) {
+			const struct type *t = tag__type(pos);
+
+			if (t->size == bit_size &&
+			    t->namespace.name == sname) {
+				if (idp != NULL)
+					*idp = id;
+				return pos;
+			}
+		}
+	}
+
+	return NULL;
+}
+
 struct tag *cu__find_struct_by_sname(const struct cu *self, strings_t sname,
 				     const int include_decls, uint16_t *idp)
 {

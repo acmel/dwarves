@@ -191,6 +191,10 @@ struct tag *cu__find_base_type_by_sname_and_size(const struct cu *self,
 						 strings_t name,
 						 uint16_t bit_size,
 						 uint16_t *idp);
+struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *self,
+						   strings_t sname,
+						   uint16_t bit_size,
+						   uint16_t *idp);
 struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 					   const Dwarf_Off type);
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name);
