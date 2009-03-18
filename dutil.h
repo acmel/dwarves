@@ -9,6 +9,7 @@
 */
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifndef __unused
 #define __unused __attribute__ ((unused))
@@ -43,5 +44,7 @@ int strlist__load(struct strlist *self, const char *filename);
 int strlist__add(struct strlist *self, const char *str);
 
 int strlist__has_entry(const struct strlist *self, const char *entry);
+
+void *zalloc(const size_t size);
 
 #endif /* _DUTIL_H_ */

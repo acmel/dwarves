@@ -15,6 +15,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+void *zalloc(const size_t size)
+{
+	void *s = malloc(size);
+	if (s != NULL)
+		memset(s, 0, size);
+	return s;
+}
+
 static int str_compare(const void *a, const void *b)
 {
 	return strcmp(a, b);

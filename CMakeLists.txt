@@ -32,7 +32,7 @@ find_package(ZLIB REQUIRED)
 
 _set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${__LIB}" "libdir")
 
-set(dwarves_LIB_SRCS dwarves.c gobuffer strings ctf_loader.c libctf.c dwarf_loader.c)
+set(dwarves_LIB_SRCS dwarves.c gobuffer strings ctf_loader.c libctf.c dwarf_loader.c dutil.c)
 add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES})
@@ -47,11 +47,11 @@ add_library(dwarves_reorganize SHARED ${dwarves_reorganize_LIB_SRCS})
 set_target_properties(dwarves_reorganize PROPERTIES VERSION 1.0.0 SOVERSION 1)
 target_link_libraries(dwarves_reorganize ${DWARF_LIBRARIES} dwarves)
 
-set(codiff_SRCS codiff.c dutil.c)
+set(codiff_SRCS codiff.c)
 add_executable(codiff ${codiff_SRCS})
 target_link_libraries(codiff dwarves)
 
-set(ctracer_SRCS ctracer.c dutil.c)
+set(ctracer_SRCS ctracer.c)
 add_executable(ctracer ${ctracer_SRCS})
 target_link_libraries(ctracer dwarves dwarves_emit dwarves_reorganize)
 

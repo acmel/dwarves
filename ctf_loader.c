@@ -29,14 +29,6 @@
  */
 extern struct strings *strings;
 
-static void *zalloc(const size_t size)
-{
-	void *s = malloc(size);
-	if (s != NULL)
-		memset(s, 0, size);
-	return s;
-}
-
 static void *tag__alloc(const size_t size)
 {
 	struct tag *self = zalloc(size);
