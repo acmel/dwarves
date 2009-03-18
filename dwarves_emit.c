@@ -119,7 +119,7 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 		return 0;
 	}
 
-	type = cu__find_type_by_id(cu, tdef->type);
+	type = cu__type(cu, tdef->type);
 	tag__assert_search_result(type);
 
 	switch (type->tag) {
@@ -130,7 +130,7 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 		typedef__emit_definitions(type, cu, emissions, fp);
 		break;
 	case DW_TAG_pointer_type:
-		ptr_type = cu__find_type_by_id(cu, type->type);
+		ptr_type = cu__type(cu, type->type);
 		tag__assert_search_result(ptr_type);
 		if (ptr_type->tag != DW_TAG_subroutine_type)
 			break;
@@ -214,7 +214,7 @@ int type__emit_fwd_decl(struct type *ctype,
 static int tag__emit_definitions(struct tag *self, struct cu *cu,
 				 struct type_emissions *emissions, FILE *fp)
 {
-	struct tag *type = cu__find_type_by_id(cu, self->type);
+	struct tag *type = cu__type(cu, self->type);
 	int pointer = 0;
 
 	if (type == NULL)
@@ -228,7 +228,7 @@ next_indirection:
 	case DW_TAG_array_type:
 	case DW_TAG_const_type:
 	case DW_TAG_volatile_type:
-		type = cu__find_type_by_id(cu, type->type);
+		type = cu__type(cu, type->type);
 		if (type == NULL)
 			return 0;
 		goto next_indirection;

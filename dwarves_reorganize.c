@@ -534,7 +534,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			continue;
 
 		uint16_t new_type_id;
-		old_type_tag = cu__find_type_by_id(cu, member->tag.type);
+		old_type_tag = cu__type(cu, member->tag.type);
 		new_type_tag = cu__find_base_type_of_size(cu, bytes_needed,
 							  &new_type_id);
 
@@ -584,8 +584,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		size = member->byte_size;
 		bytes_needed = (member->bitfield_size + 7) / 8;
 		if (bytes_needed < size) {
-			old_type_tag =
-				cu__find_type_by_id(cu, member->tag.type);
+			old_type_tag = cu__type(cu, member->tag.type);
 			uint16_t new_type_id;
 			new_type_tag =
 				cu__find_base_type_of_size(cu, bytes_needed,

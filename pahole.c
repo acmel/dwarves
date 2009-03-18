@@ -437,14 +437,14 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		    tag_pos->tag != DW_TAG_inheritance)
 		    	continue;
 
-		type = cu__find_type_by_id(cu, tag_pos->type);
+		type = cu__type(cu, tag_pos->type);
 		tag__assert_search_result(type);
 		if (type->tag == DW_TAG_array_type) {
 			int i;
 			for (i = 0; i < tag__array_type(type)->dimensions; ++i)
 				array_multiplier *= tag__array_type(type)->nr_entries[i];
 
-			type = cu__find_type_by_id(cu, type->type);
+			type = cu__type(cu, type->type);
 			tag__assert_search_result(type);
 		}
 
@@ -518,7 +518,7 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 		    tag_pos->tag != DW_TAG_inheritance)
 		    	continue;
 
-		type = cu__find_type_by_id(cu, tag_pos->type);
+		type = cu__type(cu, tag_pos->type);
 		tag__assert_search_result(type);
 		if (tag__is_typedef(type))
 			type = tag__follow_typedef(type, cu);
@@ -595,12 +595,12 @@ static void cu__account_nr_methods(struct cu *self)
 	cu__for_each_function(self, id, pos_function) {
 		struct class_member *pos;
 		list_for_each_entry(pos, &pos_function->proto.parms, tag.node) {
-			struct tag *type = cu__find_type_by_id(self, pos->tag.type);
+			struct tag *type = cu__type(self, pos->tag.type);
 
 			if (type == NULL || type->tag != DW_TAG_pointer_type)
 				continue;
 
-			type = cu__find_type_by_id(self, type->type);
+			type = cu__type(self, type->type);
 			if (type == NULL || !tag__is_struct(type))
 				continue;
 
@@ -642,7 +642,7 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint16_t type)
 			continue;
 
 		type__for_each_member(&pos->type, pos_member) {
-			struct tag *ctype = cu__find_type_by_id(cu, pos_member->tag.type);
+			struct tag *ctype = cu__type(cu, pos_member->tag.type);
 
 			tag__assert_search_result(ctype);
 			if (ctype->tag != DW_TAG_pointer_type || ctype->type != type)
@@ -1031,7 +1031,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 	}
 
 	if (class_dwarf_offset != 0) {
-		struct tag *tag = cu__find_tag_by_id(cu, class_dwarf_offset);
+		struct tag *tag = cu__tag(cu, class_dwarf_offset);
 		if (tag == NULL) {
 			fprintf(stderr, "id %llx not found!\n",
 				(unsigned long long)class_dwarf_offset);

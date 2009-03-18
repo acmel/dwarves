@@ -130,7 +130,7 @@ void tag__not_found_die(const char *file, int line, const char *func)
 
 struct tag *tag__follow_typedef(struct tag *tag, const struct cu *cu)
 {
-	struct tag *type = cu__find_type_by_id(cu, tag->type);
+	struct tag *type = cu__type(cu, tag->type);
 
 	if (type != NULL && tag__is_typedef(type))
 		return tag__follow_typedef(type, cu);
@@ -267,7 +267,7 @@ static size_t array_type__fprintf(const struct tag *tag_self,
 				  FILE *fp)
 {
 	struct array_type *self = tag__array_type(tag_self);
-	struct tag *type = cu__find_type_by_id(cu, tag_self->type);
+	struct tag *type = cu__type(cu, tag_self->type);
 	size_t printed;
 	int i;
 
@@ -304,7 +304,7 @@ struct class_member *
 	size_t result_size = 0;
 
 	type__for_each_data_member(self, pos) {
-		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
+		struct tag *type = cu__type(cu, pos->tag.type);
 		size_t member_size = 0, power2;
 		struct class_member *inner = NULL;
 
@@ -333,8 +333,7 @@ reevaluate:
 		case DW_TAG_const_type:
 		case DW_TAG_typedef:
 		case DW_TAG_volatile_type: {
-			struct tag *tag = type;
-			type = cu__find_type_by_id(cu, tag->type);
+			struct tag *tag = type = cu__type(cu, tag->type);
 			if (type == NULL) {
 				tag__id_not_found_fprintf(stderr, tag->type);
 				continue;
@@ -380,7 +379,7 @@ size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 	if (tag_self->type == 0)
 		return fprintf(fp, "typedef void %s", type__name(self));
 
-	type = cu__find_type_by_id(cu, tag_self->type);
+	type = cu__type(cu, tag_self->type);
 	if (type == NULL) {
 		printed = fprintf(fp, "typedef ");
 		printed += tag__id_not_found_fprintf(fp, tag_self->type);
@@ -396,7 +395,7 @@ size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 	case DW_TAG_pointer_type:
 		if (type->type == 0) /* void pointer */
 			break;
-		ptr_type = cu__find_type_by_id(cu, type->type);
+		ptr_type = cu__type(cu, type->type);
 		if (ptr_type == NULL) {
 			printed = fprintf(fp, "typedef ");
 			printed += tag__id_not_found_fprintf(fp, type->type);
@@ -434,7 +433,7 @@ static size_t imported_declaration__fprintf(const struct tag *self,
 {
 	char bf[512];
 	size_t printed = fprintf(fp, "using ::");
-	const struct tag *decl = cu__find_tag_by_id(cu, self->type);
+	const struct tag *decl = cu__tag(cu, self->type);
 
 	if (decl == NULL)
 		return printed + tag__id_not_found_fprintf(fp, self->type);
@@ -445,7 +444,7 @@ static size_t imported_declaration__fprintf(const struct tag *self,
 static size_t imported_module__fprintf(const struct tag *self,
 				       const struct cu *cu, FILE *fp)
 {
-	const struct tag *module = cu__find_tag_by_id(cu, self->type);
+	const struct tag *module = cu__tag(cu, self->type);
 	const char *name = "<IMPORTED MODULE ERROR!>";
 
 	if (tag__is_namespace(module))
@@ -676,12 +675,12 @@ static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
 	return "";
 }
 
-struct tag *cu__find_tag_by_id(const struct cu *self, const uint32_t id)
+struct tag *cu__tag(const struct cu *self, const uint32_t id)
 {
 	return self ? ptr_table__entry(&self->tags_table, id) : NULL;
 }
 
-struct tag *cu__find_type_by_id(const struct cu *self, const uint16_t id)
+struct tag *cu__type(const struct cu *self, const uint16_t id)
 {
 	return self ? ptr_table__entry(&self->types_table, id) : NULL;
 }
@@ -931,7 +930,7 @@ size_t tag__size(const struct tag *self, const struct cu *cu)
 		else
 			size = tag__type(self)->size;
 	} else {
-		const struct tag *type = cu__find_type_by_id(cu, self->type);
+		const struct tag *type = cu__type(cu, self->type);
 
 		if (type == NULL) {
 			tag__id_not_found_fprintf(stderr, self->type);
@@ -952,7 +951,7 @@ static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
 	if (self->type == 0) /* No type == void */
 		snprintf(bf, len, "void %s", ptr_suffix);
 	else {
-		const struct tag *type = cu__find_type_by_id(cu, self->type);
+		const struct tag *type = cu__type(cu, self->type);
 
 		if (type == NULL) {
 			size_t l = tag__id_not_found_snprintf(bf, len,
@@ -998,7 +997,7 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		char suffix[512];
 		Dwarf_Off id = tag__ptr_to_member_type(self)->containing_type;
 
-		type = cu__find_type_by_id(cu, id);
+		type = cu__type(cu, id);
 		if (type != NULL)
 			snprintf(suffix, sizeof(suffix), "%s::*",
 				 class__name(tag__class(type)));
@@ -1013,7 +1012,7 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	}
 	case DW_TAG_volatile_type:
 	case DW_TAG_const_type:
-		type = cu__find_type_by_id(cu, self->type);
+		type = cu__type(cu, self->type);
 		if (type == NULL && self->type != 0)
 			tag__id_not_found_snprintf(bf, len, self->type);
 		else {
@@ -1025,7 +1024,7 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		}
 		break;
 	case DW_TAG_array_type:
-		type = cu__find_type_by_id(cu, self->type);
+		type = cu__type(cu, self->type);
 		if (type == NULL)
 			tag__id_not_found_snprintf(bf, len, self->type);
 		else
@@ -1054,7 +1053,7 @@ const char *variable__type_name(const struct variable *self,
 				const struct cu *cu,
 				char *bf, size_t len)
 {
-	const struct tag *tag = cu__find_type_by_id(cu, self->tag.type);
+	const struct tag *tag = cu__type(cu, self->tag.type);
 	return tag != NULL ? tag__name(tag, cu, bf, len) : NULL;
 }
 
@@ -1115,7 +1114,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		int nr_indirections = 0;
 
 		while (type->tag == DW_TAG_pointer_type && type->type != 0) {
-			type = cu__find_type_by_id(cu, type->type);
+			type = cu__type(cu, type->type);
 			if (type == NULL)
 				goto out_type_not_found;
 			++nr_indirections;
@@ -1154,7 +1153,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 						   type__name(ctype));
 				typedef_expanded = 1;
 			}
-			type = cu__find_type_by_id(cu, type->type);
+			type = cu__type(cu, type->type);
 			if (type == NULL)
 				goto out_type_not_found;
 		}
@@ -1175,7 +1174,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	switch (type->tag) {
 	case DW_TAG_pointer_type:
 		if (type->type != 0) {
-			struct tag *ptype = cu__find_type_by_id(cu, type->type);
+			struct tag *ptype = cu__type(cu, type->type);
 			if (ptype == NULL)
 				goto out_type_not_found;
 			if (ptype->tag == DW_TAG_subroutine_type) {
@@ -1366,7 +1365,7 @@ static size_t union__fprintf(struct type *self, const struct cu *cu,
 	uconf = *conf;
 	uconf.indent = indent + 1;
 	type__for_each_member(self, pos) {
-		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
+		struct tag *type = cu__type(cu, pos->tag.type);
 
 		if (type == NULL) {
 			printed += fprintf(fp, "%.*s", uconf.indent, tabs);
@@ -1496,7 +1495,7 @@ int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
 	struct parameter *pos;
 
 	ftype__for_each_parameter(self, pos) {
-		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
+		struct tag *type = cu__type(cu, pos->tag.type);
 
 		if (type != NULL && type->tag == DW_TAG_pointer_type) {
 			if (type->type == target)
@@ -1709,7 +1708,7 @@ static void lexblock__account_inline_expansions(struct lexblock *self,
 		} else if (pos->tag != DW_TAG_inlined_subroutine)
 			continue;
 
-		type = cu__find_tag_by_id(cu, pos->type);
+		type = cu__tag(cu, pos->type);
 		if (type != NULL) {
 			struct function *ftype = tag__function(type);
 
@@ -1757,7 +1756,7 @@ static size_t ftype__fprintf_parms(const struct ftype *self,
 		} else
 			first_parm = 0;
 		name = parameter__name(pos);
-		type = cu__find_type_by_id(cu, pos->tag.type);
+		type = cu__type(cu, pos->tag.type);
 		if (type == NULL) {
 			snprintf(sbf, sizeof(sbf),
 				 "<ERROR: type %d not found>", pos->tag.type);
@@ -1766,8 +1765,7 @@ static size_t ftype__fprintf_parms(const struct ftype *self,
 		}
 		if (type->tag == DW_TAG_pointer_type) {
 			if (type->type != 0) {
-				struct tag *ptype =
-					cu__find_type_by_id(cu, type->type);
+				struct tag *ptype = cu__type(cu, type->type);
 				if (ptype == NULL) {
 					printed +=
 					    tag__id_not_found_fprintf(fp, type->type);
@@ -1818,8 +1816,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 	switch (tag->tag) {
 	case DW_TAG_inlined_subroutine: {
 		const struct inline_expansion *exp = vtag;
-		const struct tag *talias =
-				cu__find_tag_by_id(cu, exp->tag.type);
+		const struct tag *talias = cu__tag(cu, exp->tag.type);
 		struct function *alias = tag__function(talias);
 		const char *name;
 
@@ -1912,7 +1909,7 @@ size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 		      const char *name, const int inlined,
 		      const int is_pointer, int type_spacing, FILE *fp)
 {
-	struct tag *type = cu__find_type_by_id(cu, self->tag.type);
+	struct tag *type = cu__type(cu, self->tag.type);
 	char sbf[128];
 	const char *stype = tag__name(type, cu, sbf, sizeof(sbf));
 	size_t printed = fprintf(fp, "%s%-*s %s%s%s%s",
@@ -2080,7 +2077,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		if (accessibility != NULL)
 			printed += fprintf(fp, " %s", accessibility);
 
-		type = cu__find_type_by_id(cu, tag_pos->type);
+		type = cu__type(cu, tag_pos->type);
 		if (type != NULL)
 			printed += fprintf(fp, " %s", type__name(tag__type(type)));
 		else
@@ -2174,7 +2171,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 			++printed;
 		}
 
-		type = cu__find_type_by_id(cu, pos->tag.type);
+		type = cu__type(cu, pos->tag.type);
 		if (type == NULL) {
 			printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 			printed += tag__id_not_found_fprintf(fp, pos->tag.type);
@@ -2366,7 +2363,7 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 	size_t printed = 0;
 
 	if (name != NULL) {
-		struct tag *type = cu__find_type_by_id(cu, var->tag.type);
+		struct tag *type = cu__type(cu, var->tag.type);
 		if (type != NULL) {
 			const char *varprefix = variable__prefix(var);
 

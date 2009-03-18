@@ -69,7 +69,7 @@ static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
 
 	function__for_each_parameter(f, parm) {
 		const uint16_t type_id = parm->tag.type;
-		struct tag *type = cu__find_type_by_id(cu, type_id);
+		struct tag *type = cu__type(cu, type_id);
 
 		tag__assert_search_result(type);
 		if (type->tag == DW_TAG_base_type) {

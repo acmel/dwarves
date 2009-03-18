@@ -24,7 +24,7 @@ static void refcnt_member(struct class_member *member, const struct cu *cu)
 		return;
 	member->visited = 1;
 	if (member->tag.type != 0) { /* if not void */
-		struct tag *type = cu__find_type_by_id(cu, member->tag.type);
+		struct tag *type = cu__type(cu, member->tag.type);
 		if (type != NULL)
 			refcnt_tag(type, cu);
 	}
@@ -34,7 +34,7 @@ static void refcnt_parameter(const struct parameter *parameter,
 			     const struct cu *cu)
 {
 	if (parameter->tag.type != 0) { /* if not void */
-		struct tag *type = cu__find_type_by_id(cu, parameter->tag.type);
+		struct tag *type = cu__type(cu, parameter->tag.type);
 		if (type != NULL)
 			refcnt_tag(type, cu);
 	}
@@ -44,7 +44,7 @@ static void refcnt_variable(const struct variable *variable,
 			    const struct cu *cu)
 {
 	if (variable->tag.type != 0) { /* if not void */
-		struct tag *type = cu__find_type_by_id(cu, variable->tag.type);
+		struct tag *type = cu__type(cu, variable->tag.type);
 		if (type != NULL)
 			refcnt_tag(type, cu);
 	}
@@ -54,7 +54,7 @@ static void refcnt_inline_expansion(const struct inline_expansion *exp,
 				    const struct cu *cu)
 {
 	if (exp->tag.type != 0) { /* if not void */
-		struct tag *type = cu__find_tag_by_id(cu, exp->tag.type);
+		struct tag *type = cu__tag(cu, exp->tag.type);
 		if (type != NULL)
 			refcnt_tag(type, cu);
 	}
@@ -96,8 +96,7 @@ static void refcnt_function(struct function *function, const struct cu *cu)
 	function->proto.tag.visited = 1;
 
 	if (function->proto.tag.type != 0) /* if not void */ {
-		struct tag *type =
-			cu__find_type_by_id(cu, function->proto.tag.type);
+		struct tag *type = cu__type(cu, function->proto.tag.type);
 		if (type != NULL)
 			refcnt_tag(type, cu);
 	}

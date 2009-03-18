@@ -200,8 +200,8 @@ struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name);
 struct tag *cu__find_struct_by_sname(const struct cu *self, strings_t sname,
 				     const int include_decls, uint16_t *idp);
-struct tag *cu__find_tag_by_id(const struct cu *self, const uint32_t id);
-struct tag *cu__find_type_by_id(const struct cu *self, const uint16_t id);
+struct tag *cu__tag(const struct cu *self, const uint32_t id);
+struct tag *cu__type(const struct cu *self, const uint16_t id);
 struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
 				    const int include_decls, uint16_t *id);
 bool cu__same_build_id(const struct cu *self, const struct cu *other);
