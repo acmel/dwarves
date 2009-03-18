@@ -442,7 +442,108 @@ static struct variable *variable__new(Dwarf_Die *die)
 	return self;
 }
 
-static struct class_member *class_member__new(Dwarf_Die *die)
+int tag__recode_dwarf_bitfield(struct tag *self, struct cu *cu, uint16_t bit_size)
+{
+	uint16_t id;
+	struct tag *recoded;
+	/* in all the cases the name is at the same offset */
+	strings_t name = tag__namespace(self)->name;
+
+	switch (self->tag) {
+	case DW_TAG_typedef: {
+		const struct dwarf_tag *dself = self->priv;
+		struct dwarf_tag *dtype = dwarf_cu__find_type_by_id(cu->priv,
+								    dself->type);
+		struct tag *type = dtype->tag;
+
+		id = tag__recode_dwarf_bitfield(type, cu, bit_size);
+		if (id == self->type)
+			return id;
+
+		struct type *new_typedef = zalloc(sizeof(*new_typedef));
+		if (new_typedef == NULL)
+			return -ENOMEM;
+
+		recoded = (struct tag *)new_typedef;
+		recoded->tag = DW_TAG_typedef;
+		recoded->type = id;
+		new_typedef->namespace.name = tag__namespace(self)->name;
+	}
+		break;
+
+	case DW_TAG_base_type:
+		/*
+		 * Here we must search on the final, core cu, not on
+		 * the dwarf_cu as in dwarf there are no such things
+		 * as base_types of less than 8 bits, etc.
+		 */
+		recoded = cu__find_base_type_by_sname_and_size(cu, name, bit_size, &id);
+		if (recoded != NULL)
+			return id;
+
+
+		struct base_type *new_bt = zalloc(sizeof(*new_bt));
+		if (new_bt == NULL)
+			return -ENOMEM;
+
+		recoded = (struct tag *)new_bt;
+		recoded->tag = DW_TAG_base_type;
+		recoded->top_level = 1;
+		new_bt->name = name;
+		new_bt->bit_size = bit_size;
+		break;
+
+	case DW_TAG_enumeration_type:
+		/*
+		 * Here we must search on the final, core cu, not on
+		 * the dwarf_cu as in dwarf there are no such things
+		 * as enumeration_types of less than 8 bits, etc.
+		 */
+		recoded = cu__find_enumeration_by_sname_and_size(cu, name,
+								 bit_size, &id);
+		if (recoded != NULL)
+			return id;
+
+		struct type *new_enum = zalloc(sizeof(*new_enum));
+		if (new_enum == NULL)
+			return -ENOMEM;
+
+		recoded = (struct tag *)new_enum;
+		recoded->tag = DW_TAG_enumeration_type;
+		recoded->top_level = 1;
+		new_enum->namespace.name = name;
+		new_enum->size = bit_size;
+		break;
+	default:
+		fprintf(stderr, "%s: tag=%s, name=%s, bit_size=%d\n",
+			__func__, dwarf_tag_name(self->tag),
+			strings__ptr(strings, name), bit_size);
+		return -EINVAL;
+	}
+
+	long new_id = -1;
+	if (cu__table_add_tag(cu, recoded, &new_id) == 0)
+		return new_id;
+
+	free(recoded);
+	return -ENOMEM;
+}
+
+int class_member__dwarf_recode_bitfield(struct class_member *self,
+					struct cu *cu)
+{
+	struct dwarf_tag *dtag = self->tag.priv;
+	struct dwarf_tag *type = dwarf_cu__find_type_by_id(cu->priv, dtag->type);
+	int recoded_type_id = tag__recode_dwarf_bitfield(type->tag, cu,
+							 self->bitfield_size);
+	if (recoded_type_id < 0)
+		return recoded_type_id;
+
+	self->tag.type = recoded_type_id;
+	return 0;
+}
+
+static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu)
 {
 	struct class_member *self = tag__alloc(sizeof(*self));
 
@@ -450,13 +551,25 @@ static struct class_member *class_member__new(Dwarf_Die *die)
 		tag__init(&self->tag, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
 		self->byte_offset = attr_offset(die, DW_AT_data_member_location);
+		self->bit_offset = self->byte_offset * 8 + self->bitfield_offset;
 		/*
 		 * Will be cached later, in class_member__cache_byte_size
 		 */
 		self->byte_size = 0;
 		self->bitfield_offset = attr_numeric(die, DW_AT_bit_offset);
 		self->bitfield_size = attr_numeric(die, DW_AT_bit_size);
-		self->bit_hole	 = 0;
+		if (self->bitfield_size != 0)
+		/*
+		 * We may need to recode the type, possibly creating a suitably
+		 * sized new base_type
+		 */
+		if (self->bitfield_size != 0 &&
+		    class_member__dwarf_recode_bitfield(self, cu)) {
+			free(self->tag.priv);
+			free(self);
+			return NULL;
+		}
+		self->bit_hole = 0;
 		self->bitfield_end = 0;
 		self->visited = 0;
 		self->accessibility = attr_numeric(die, DW_AT_accessibility);
@@ -918,6 +1031,9 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die)
 	if (enumeration == NULL)
 		oom("class__new");
 
+	if (enumeration->size == 0)
+		enumeration->size = sizeof(int) * 8;
+
 	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
 		/* Seen on libQtCore.so.4.3.4.debug,
 		 * class QAbstractFileEngineIterator, enum EntryInfoType */
@@ -949,7 +1065,7 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 		switch (dwarf_tag(die)) {
 		case DW_TAG_inheritance:
 		case DW_TAG_member: {
-			struct class_member *member = class_member__new(die);
+			struct class_member *member = class_member__new(die, cu);
 
 			if (member == NULL)
 				oom("class_member__new");
@@ -1378,6 +1494,10 @@ static void tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 {
 	struct dwarf_tag *dtag = self->priv;
 	struct dwarf_tag *dtype;
+
+	/* Check if this is an already recoded bitfield */
+	if (dtag == NULL)
+		return;
 
 	if (tag__is_type(self))
 		type__recode_dwarf_specification(self, cu);

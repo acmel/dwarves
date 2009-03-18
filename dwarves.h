@@ -577,6 +577,8 @@ static inline int function__inlined(const struct function *self)
 
 /* struct class_member - struct, union, class member
  *
+ * @bit_offset - offset in bits from the start of the struct
+ * @bit_size - cached bit size, can be smaller than the integral type if in a bitfield
  * @byte_offset - offset in bytes from the start of the struct
  * @byte_size - cached byte size, integral type byte size for bitfields
  * @bitfield_offset - offset in the current bitfield
@@ -590,6 +592,8 @@ static inline int function__inlined(const struct function *self)
 struct class_member {
 	struct tag	 tag;
 	strings_t	 name;
+	uint32_t	 bit_offset;
+	uint32_t	 bit_size;
 	uint32_t	 byte_offset;
 	size_t		 byte_size;
 	uint8_t		 bitfield_offset;

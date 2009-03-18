@@ -499,7 +499,6 @@ static unsigned long create_full_members(struct ctf_state *sp, void *ptr,
 
 	for (i = 0; i < vlen; i++) {
 		struct class_member *member = zalloc(sizeof(*member));
-		uint32_t bit_offset;
 
 		if (member == NULL)
 			oom("class_member");
@@ -507,10 +506,9 @@ static unsigned long create_full_members(struct ctf_state *sp, void *ptr,
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(sp->ctf, &mp[i].ctf_member_type);
 		member->name = strings__add(strings, ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
-		bit_offset = (ctf__get32(sp->ctf, &mp[i].ctf_member_offset_high) << 16) |
-			      ctf__get32(sp->ctf, &mp[i].ctf_member_offset_low);
-		member->byte_offset = bit_offset / 8;
-		member->bitfield_offset = bit_offset % 8;
+		member->bit_offset = (ctf__get32(sp->ctf, &mp[i].ctf_member_offset_high) << 16) |
+				      ctf__get32(sp->ctf, &mp[i].ctf_member_offset_low);
+		/* sizes and offsets will be corrected at class__fixup_ctf_bitfields */
 		type__add_member(class, member);
 	}
 
@@ -525,7 +523,6 @@ static unsigned long create_short_members(struct ctf_state *sp, void *ptr,
 
 	for (i = 0; i < vlen; i++) {
 		struct class_member *member = zalloc(sizeof(*member));
-		uint32_t bit_offset;
 
 		if (member == NULL)
 			oom("class_member");
@@ -533,9 +530,8 @@ static unsigned long create_short_members(struct ctf_state *sp, void *ptr,
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(sp->ctf, &mp[i].ctf_member_type);
 		member->name = strings__add(strings, ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
-		bit_offset = ctf__get16(sp->ctf, &mp[i].ctf_member_offset);
-		member->byte_offset = bit_offset / 8;
-		member->bitfield_offset = bit_offset % 8;
+		member->bit_offset = ctf__get16(sp->ctf, &mp[i].ctf_member_offset);
+		/* sizes and offsets will be corrected at class__fixup_ctf_bitfields */
 
 		type__add_member(class, member);
 	}
@@ -788,51 +784,41 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 {
 	struct class_member *pos;
 	struct type *type_self = tag__type(self);
-	uint16_t bit_offset = 0;
-	long last_offset = -1;
 
 	type__for_each_data_member(type_self, pos) {
-		struct tag *type = cu__find_type_by_id(cu, pos->tag.type);
+		struct tag *type = tag__follow_typedef(&pos->tag, cu);
+
+		pos->bitfield_offset = 0;
+		pos->bitfield_size = 0;
+		pos->byte_offset = pos->bit_offset / 8;
 
 		if (type->tag != DW_TAG_base_type) {
 			pos->byte_size = tag__size(type, cu);
+			pos->bit_size = pos->byte_size * 8;
 			continue;
 		}
 
 		struct base_type *bt = tag__base_type(type);
-		size_t bit_size = base_type__name_to_size(bt, cu);
+		size_t integral_bit_size = base_type__name_to_size(bt, cu);
 
-		pos->byte_size = bit_size / 8;
+		/*
+		 * XXX: integral_bit_size can be zero if base_type__name_to_size doesn't
+		 * know about the base_type name, so one has to add there when
+		 * such base_type isn't found. pahole will put zero on the
+		 * struct output so it should be easy to spot the name when
+		 * such unlikely thing happens.
+		 */
+		pos->byte_size = integral_bit_size / 8;
 
-		if (bit_size == 0 || bt->bit_size == bit_size) {
-			bit_offset = 0;
-			last_offset = -1;
+		if (integral_bit_size == 0 || bt->bit_size == integral_bit_size) {
+			pos->bit_size = integral_bit_size;
 			continue;
 		}
 
-		if (last_offset == -1)
-			last_offset = pos->byte_offset;
-
-		uint16_t fixed_tag_id;
-
-		if (cu__find_base_type_by_name_and_size(cu, base_type__name(bt),
-							bit_size, &fixed_tag_id) == NULL) {
-			fprintf(stderr,
-				"%s: BRAIN FART ALERT!: class: %s, member: %s\n",
-				__func__, type__name(type_self),
-				class_member__name(pos));
-			continue;
-		}
-
-		pos->byte_offset = last_offset;
-		pos->tag.type = fixed_tag_id;
+		pos->bitfield_offset = pos->bit_offset % integral_bit_size;
 		pos->bitfield_size = bt->bit_size;
-		pos->bitfield_offset = bit_offset;
-		bit_offset	+= bt->bit_size;
-		if (bit_offset == bit_size) {
-			bit_offset = 0;
-			last_offset = -1;
-		}
+		pos->byte_offset = (((pos->bit_offset / integral_bit_size) *
+				     integral_bit_size) / 8);
 	}
 
 	return 0;
