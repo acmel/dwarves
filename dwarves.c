@@ -196,6 +196,67 @@ size_t tag__fprintf_decl_info(const struct tag *self,
 	return 0;
 }
 
+static struct base_type_name_to_size {
+	const char *name;
+	strings_t  sname;
+	size_t	   size;
+} base_type_name_to_size_table[] = {
+	{ .name = "unsigned",		    .size = 32, },
+	{ .name = "signed int",		    .size = 32, },
+	{ .name = "unsigned int",  	    .size = 32, },
+	{ .name = "int",		    .size = 32, },
+	{ .name = "short unsigned int",	    .size = 16, },
+	{ .name = "signed short",	    .size = 16, },
+	{ .name = "unsigned short",	    .size = 16, },
+	{ .name = "short int",		    .size = 16, },
+	{ .name = "char",		    .size =  8, },
+	{ .name = "signed char",	    .size =  8, },
+	{ .name = "unsigned char",	    .size =  8, },
+	{ .name = "signed long",	    .size =  0, },
+	{ .name = "long int",		    .size =  0, },
+	{ .name = "signed long",	    .size =  0, },
+	{ .name = "unsigned long",	    .size =  0, },
+	{ .name = "long unsigned int",	    .size =  0, },
+	{ .name = "bool",		    .size =  8, },
+	{ .name = "_Bool",		    .size =  8, },
+	{ .name = "long long unsigned int", .size = 64, },
+	{ .name = "long long int",	    .size = 64, },
+	{ .name = "signed long long",	    .size = 64, },
+	{ .name = "unsigned long long",	    .size = 64, },
+	{ .name = "double",		    .size = 64, },
+	{ .name = "double double",	    .size = 64, },
+	{ .name = "single float",	    .size = 32, },
+	{ .name = NULL },
+};
+
+void base_type_name_to_size_table__init(void)
+{
+	int i = 0;
+
+	while (base_type_name_to_size_table[i].name != NULL) {
+		if (base_type_name_to_size_table[i].sname == 0)
+			base_type_name_to_size_table[i].sname =
+			  strings__find(strings,
+					base_type_name_to_size_table[i].name);
+		++i;
+	}
+}
+
+size_t base_type__name_to_size(struct base_type *self, struct cu *cu)
+{
+	int i = 0;
+
+	while (base_type_name_to_size_table[i].name != NULL) {
+		if (base_type_name_to_size_table[i].sname == self->name) {
+			size_t size = base_type_name_to_size_table[i].size;
+
+			return size ?: ((size_t)cu->addr_size * 8);
+		}
+		++i;
+	}
+	return 0;
+}
+
 static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			    const char *name, const struct conf_fprintf *conf,
 			    FILE *fp);

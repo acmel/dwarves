@@ -815,6 +815,9 @@ static inline const char *base_type__name(const struct base_type *self)
 	return strings__ptr(strings, self->name);
 }
 
+void base_type_name_to_size_table__init(void);
+size_t base_type__name_to_size(struct base_type *self, struct cu *cu);
+
 struct array_type {
 	struct tag	tag;
 	uint32_t	*nr_entries;
