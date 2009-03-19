@@ -255,6 +255,8 @@ size_t base_type__name_to_size(struct base_type *self, struct cu *cu)
 		}
 		++i;
 	}
+	fprintf(stderr, "%s: %s %s\n",
+		 __func__, dwarf_tag_name(self->tag.tag), s(self->name));
 	return 0;
 }
 
