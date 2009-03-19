@@ -1,0 +1,8 @@
+#!/bin/bash
+
+obj=$1
+pahole -Z $obj
+pahole -F ctf $obj > /tmp/$obj.ctf.c
+pahole -F dwarf $obj > /tmp/$obj.dwarf.c
+diff -u /tmp/$obj.ctf.c /tmp/$obj.dwarf.c > /tmp/$obj.diff
+vim /tmp/$obj.diff
