@@ -1033,6 +1033,8 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die)
 
 	if (enumeration->size == 0)
 		enumeration->size = sizeof(int) * 8;
+	else
+		enumeration->size *= 8;
 
 	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
 		/* Seen on libQtCore.so.4.3.4.debug,

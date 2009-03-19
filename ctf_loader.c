@@ -600,7 +600,7 @@ static int create_new_enumeration(struct ctf_state *sp, void *ptr,
 	struct type *enumeration = type__new(DW_TAG_enumeration_type,
 					     ctf_string(ctf__get32(sp->ctf,
 							&tp->base.ctf_name), sp),
-					     sizeof(int)); /* FIXME: is this always the case? */
+					     sizeof(int) * 8); /* FIXME: is this always the case? */
 
 	if (enumeration == NULL)
 		oom("enumeration");

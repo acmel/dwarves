@@ -344,7 +344,7 @@ reevaluate:
 		}
 			goto reevaluate;
 		case DW_TAG_enumeration_type:
-			member_size = tag__type(type)->size;
+			member_size = tag__type(type)->size / 8;
 			break;
 		}
 
@@ -924,7 +924,7 @@ size_t tag__size(const struct tag *self, const struct cu *cu)
 	case DW_TAG_pointer_type:
 	case DW_TAG_reference_type:	return cu->addr_size;
 	case DW_TAG_base_type:		return base_type__size(self);
-	case DW_TAG_enumeration_type:	return tag__type(self)->size;
+	case DW_TAG_enumeration_type:	return tag__type(self)->size / 8;
 	}
 
 	if (self->type == 0) { /* struct class: unions, structs */
