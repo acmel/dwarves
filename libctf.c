@@ -297,10 +297,10 @@ void ctf__add_parameter(struct ctf *self, uint16_t type, int64_t *position)
 }
 
 int ctf__add_function_type(struct ctf *self, uint16_t type, uint16_t nr_parms,
-			   int64_t *position)
+			   bool varargs, int64_t *position)
 {
 	struct ctf_short_type t;
-	int len = sizeof(uint16_t) * nr_parms;
+	int len = sizeof(uint16_t) * (nr_parms + !!varargs);
 
 	/*
 	 * Round up to next multiple of 4 to maintain 32-bit alignment.
@@ -309,11 +309,18 @@ int ctf__add_function_type(struct ctf *self, uint16_t type, uint16_t nr_parms,
 		len += 0x2;
 
 	t.ctf_name = 0;
-	t.ctf_info = CTF_INFO_ENCODE(CTF_TYPE_KIND_FUNC, nr_parms, 0);
+	t.ctf_info = CTF_INFO_ENCODE(CTF_TYPE_KIND_FUNC,
+				     nr_parms + !!varargs, 0);
 	t.ctf_type = type;
 
 	gobuffer__add(&self->types, &t, sizeof(t));
 	*position = gobuffer__allocate(&self->types, len);
+	if (varargs) {
+		unsigned int pos = *position + (nr_parms * sizeof(uint16_t));
+		uint16_t *end_of_args = gobuffer__ptr(&self->types, pos);
+		*end_of_args = 0;
+	}
+
 	return ++self->type_index;
 }
 

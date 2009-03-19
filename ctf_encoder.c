@@ -138,7 +138,7 @@ static int subroutine_type__encode(struct tag *self, uint16_t core_id,
 	int64_t position;
 	struct ftype *ftype = tag__ftype(self);
 	int ctf_id = ctf__add_function_type(ctf, self->type, ftype->nr_parms,
-					    &position);
+					    ftype->unspec_parms, &position);
 
 	if (ctf_id < 0 || tag__check_id_drift(self, core_id, ctf_id))
 		return -1;

@@ -469,11 +469,17 @@ static int create_new_subroutine_type(struct ctf_state *sp, void *ptr,
 	INIT_LIST_HEAD(&self->lexblock.tags);
 
 	for (i = 0; i < vlen; i++) {
-		struct parameter *p = tag__alloc(sizeof(*p));
+		uint16_t type = ctf__get16(sp->ctf, &args[i]);
 
-		p->tag.tag  = DW_TAG_formal_parameter;
-		p->tag.type = ctf__get16(sp->ctf, &args[i]);
-		ftype__add_parameter(&self->proto, p);
+		if (type == 0)
+			self->proto.unspec_parms = 1;
+		else {
+			struct parameter *p = tag__alloc(sizeof(*p));
+
+			p->tag.tag  = DW_TAG_formal_parameter;
+			p->tag.type = ctf__get16(sp->ctf, &args[i]);
+			ftype__add_parameter(&self->proto, p);
+		}
 	}
 
 	vlen *= sizeof(*args);
