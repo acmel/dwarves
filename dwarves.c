@@ -2633,20 +2633,66 @@ out:
 	return err;
 }
 
+/*
+ * This should really do demand loading of DSOs, STABS anyone? 8-)
+ */
+typedef int (*debugging_format_loader_t)(struct cus *self,
+					 struct conf_load *conf,
+					 const char *filename);
+
+static struct debugging_formats {
+	char			  *name;
+	debugging_format_loader_t loader;
+} debugging_formats__table[] = {
+	{
+		.name	= "dwarf",
+		.loader = dwarf__load,
+	},
+	{
+		.name	= "ctf",
+		.loader = ctf__load,
+	},
+	{
+		.name	= NULL,
+	},
+};
+
+static debugging_format_loader_t debugging_formats__loader(const char *name)
+{
+	int i = 0;
+	while (debugging_formats__table[i].name != NULL) {
+		if (strcmp(debugging_formats__table[i].name, name) == 0)
+			return debugging_formats__table[i].loader;
+		++i;
+	}
+	return NULL;
+}
+
 int cus__load(struct cus *self, struct conf_load *conf, char *filename)
 {
-	int err = dwarf__load(self, conf, filename);
-	/*
-	 * If dwarf__load fails, try ctf__load. Eventually we should just
-	 * register all the shared objects at some directory and ask them
-	 * for the magic types they support or just pass them the file,
-	 * unloading the shared object if it says its not the type they
-	 * support.
-	 */
-	if (err != 0)
-		err = ctf__load(self, conf, filename);
+	int i = 0;
+	debugging_format_loader_t loader;
 
-	return err;
+	if (conf && conf->format_path != NULL) {
+		while (conf->format_path[i] != NULL) {
+			loader = debugging_formats__loader(conf->format_path[i]);
+			if (loader == NULL)
+				return -ENOTSUP;
+			if (loader(self, conf, filename) == 0)
+				return 0;
+			++i;
+		}
+		return -EINVAL;
+	}
+
+	while (debugging_formats__table[i].name != NULL) {
+		loader = debugging_formats__table[i].loader;
+		if (loader(self, conf, filename) == 0)
+			return 0;
+		++i;
+	}
+
+	return -EINVAL;
 }
 
 int cus__load_files(struct cus *self, struct conf_load *conf,
