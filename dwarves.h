@@ -38,7 +38,7 @@ struct conf_load {
 	enum load_steal_kind	(*steal)(struct cu *self,
 					 struct conf_load *conf);
 	void			*cookie;
-	char			**format_path;
+	char			*format_path;
 };
 
 struct conf_fprintf {

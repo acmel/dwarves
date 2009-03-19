@@ -50,6 +50,12 @@ Expand class members. Useful to find in what member of inner structs where an
 offset from the beginning of a struct is.
 
 .TP
+.B \-F, \-\-format_path
+Allows specifying a list of debugging formats to try, in order. Right now this
+includes "ctf" and "dwarf". The default format path used is equivalent to
+"-F dwarf,ctf".
+
+.TP
 .B \-r, \-\-rel_offset
 Show relative offsets of members in inner structs.
 

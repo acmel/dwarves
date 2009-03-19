@@ -2670,19 +2670,37 @@ static debugging_format_loader_t debugging_formats__loader(const char *name)
 
 int cus__load(struct cus *self, struct conf_load *conf, char *filename)
 {
-	int i = 0;
+	int i = 0, err = 0;
 	debugging_format_loader_t loader;
 
 	if (conf && conf->format_path != NULL) {
-		while (conf->format_path[i] != NULL) {
-			loader = debugging_formats__loader(conf->format_path[i]);
+		char *fpath = strdup(conf->format_path);
+		if (fpath == NULL)
+			return -ENOMEM;
+		char *fp = fpath;
+		while (1) {
+			char *sep = strchr(fp, ',');
+
+			if (sep != NULL)
+				*sep = '\0';
+
+			err = -ENOTSUP;
+			loader = debugging_formats__loader(fp);
 			if (loader == NULL)
-				return -ENOTSUP;
+				break;
+
+			err = 0;
 			if (loader(self, conf, filename) == 0)
-				return 0;
-			++i;
+				break;
+
+			err = -EINVAL;
+			if (sep == NULL)
+				break;
+
+			fp = sep + 1;
 		}
-		return -EINVAL;
+		free(fpath);
+		return err;
 	}
 
 	while (debugging_formats__table[i].name != NULL) {

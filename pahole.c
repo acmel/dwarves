@@ -729,6 +729,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Find pointers to CLASS_NAME"
 	},
 	{
+		.name = "format_path",
+		.key  = 'F',
+		.arg  = "FORMAT_LIST",
+		.doc  = "List of debugging formats to try"
+	},
+	{
 		.name = "contains",
 		.key  = 'i',
 		.arg  = "CLASS_NAME",
@@ -919,6 +925,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'E': conf.expand_types = 1;		break;
 	case 'f': find_pointers_in_structs = 1;
 		  class_name = arg;			break;
+	case 'F': conf_load.format_path = arg;		break;
 	case 'H': nr_holes = atoi(arg);			break;
 	case 'I': conf.show_decl_info = 1;
 		  conf_load.extra_dbg_info = 1;		break;
