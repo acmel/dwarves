@@ -1,8 +1,10 @@
 #include <fcntl.h>
+#include <gelf.h>
 #include <limits.h>
 #include <malloc.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <zlib.h>
@@ -398,8 +400,8 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 {
 	struct ctf_header *hdr;
 	unsigned int size;
-	const void *bf;
-	int fd;
+	void *bf;
+	int err = -1;
 
 	size = gobuffer__size(&self->types) + gobuffer__size(self->strings);
 	self->size = sizeof(*hdr) + size;
@@ -428,11 +430,19 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 
 	*(char *)(self->buf + sizeof(*hdr) + hdr->ctf_str_off) = '\0';
 	if (flags & CTF_FLAGS_COMPR) {
-		bf = ctf__compress(self->buf + sizeof(*hdr), &size);
+		bf = (void *)ctf__compress(self->buf + sizeof(*hdr), &size);
 		if (bf == NULL) {
-			fprintf(stderr, "%s: ctf__compress failed!\n", __func__);
+			printf("%s: ctf__compress failed!\n", __func__);
 			return -ENOMEM;
 		}
+		void *new_bf = malloc(sizeof(*hdr) + size);
+		if (new_bf == NULL)
+			return -ENOMEM;
+		memcpy(new_bf, hdr, sizeof(*hdr));
+		memcpy(new_bf + sizeof(*hdr), bf, size);
+		free(bf);
+		bf = new_bf;
+		size += sizeof(*hdr);
 	} else {
 		bf   = self->buf;
 		size = self->size;
@@ -445,15 +455,142 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	       gobuffer__nr_entries(self->strings),
 	       gobuffer__size(self->strings), size);
 #endif
+	int fd = open(self->filename, O_RDWR);
+	if (fd < 0) {
+		fprintf(stderr, "Cannot open %s\n", self->filename);
+		return -1;
+	}
+
+	if (elf_version(EV_CURRENT) == EV_NONE) {
+		fprintf(stderr, "Cannot set libelf version.\n");
+		goto out_close;
+	}
+
+	Elf *elf = elf_begin(fd, ELF_C_RDWR, NULL);
+	if (elf == NULL) {
+		fprintf(stderr, "Cannot update ELF file.\n");
+		goto out_close;
+	}
+
+	elf_flagelf(elf, ELF_C_SET, ELF_F_DIRTY);
+
+	GElf_Ehdr ehdr_mem;
+	GElf_Ehdr *ehdr = gelf_getehdr(elf, &ehdr_mem);
+	if (ehdr == NULL) {
+		fprintf(stderr, "%s: elf_getehdr failed.\n", __func__);
+		goto out_close;
+	}
+
+	/*
+	 * First we look if there was already a .SUNW_ctf section to overwrite.
+	 */
+	Elf_Data *data = NULL;
+	size_t strndx;
+	GElf_Shdr shdr_mem;
+	GElf_Shdr *shdr;
+	Elf_Scn *scn = NULL;
+
+	elf_getshstrndx(elf, &strndx);
+
+	while ((scn = elf_nextscn(elf, scn)) != NULL) {
+		shdr = gelf_getshdr(scn, &shdr_mem);
+		if (shdr == NULL)
+			continue;
+		char *secname = elf_strptr(elf, strndx, shdr->sh_name);
+		if (strcmp(secname, ".SUNW_ctf") == 0) {
+			data = elf_getdata(scn, data);
+			goto out_update;
+		}
+	}
+	/* FIXME
+	 * OK, if we have the section, that is ok, we can just replace the
+	 * data, if not, I made a mistake on the small amount of boilerplate
+	 * below, probably .relA.ted to relocations...
+	 */
+#if 0
+	/* Now we look if the ".SUNW_ctf" string is in the strings table */
+	scn = elf_getscn(elf, strndx);
+	shdr = gelf_getshdr(scn, &shdr_mem);
+
+	data = elf_getdata(scn, data);
+
+	fprintf(stderr, "Looking for the string\n");
+	size_t ctf_name_offset = 1; /* First byte is '\0' */
+	while (ctf_name_offset < data->d_size) {
+		const char *cur_str = data->d_buf + ctf_name_offset;
+
+		fprintf(stderr, "*-> %s\n", cur_str);
+		if (strcmp(cur_str, ".SUNW_ctf") == 0)
+			goto found_SUNW_ctf_str;
+
+		ctf_name_offset += strlen(cur_str) + 1;
+	}
+
+	/* Add the section name */
+	const size_t ctf_name_len = strlen(".SUNW_ctf") + 1;
+	char *new_strings_table = malloc(data->d_size + ctf_name_len);
+	if (new_strings_table == NULL)
+		goto out_close;
+
+	memcpy(new_strings_table, data->d_buf, data->d_size);
+	strcpy(new_strings_table + data->d_size, ".SUNW_ctf");
+	ctf_name_offset = data->d_size;
+	data->d_size += ctf_name_len;
+	data->d_buf = new_strings_table;
+	elf_flagdata(data, ELF_C_SET, ELF_F_DIRTY);
+	elf_flagshdr(scn, ELF_C_SET, ELF_F_DIRTY);
+
+	Elf_Scn *newscn;
+found_SUNW_ctf_str:
+	newscn = elf_newscn(elf);
+	if (newscn == NULL)
+		goto out_close;
+
+	data = elf_newdata(newscn);
+	if (data == NULL)
+		goto out_close;
+
+	shdr = gelf_getshdr(newscn, &shdr_mem);
+	shdr->sh_name = ctf_name_offset;
+	shdr->sh_type = SHT_PROGBITS;
+	gelf_update_shdr(newscn, &shdr_mem);
+	elf_flagshdr(newscn, ELF_C_SET, ELF_F_DIRTY);
+#else
 	char pathname[PATH_MAX];
 	snprintf(pathname, sizeof(pathname), "%s.SUNW_ctf", self->filename);
 	fd = creat(pathname, S_IRUSR | S_IWUSR);
 	if (fd == -1) {
 		fprintf(stderr, "%s: open(%s) failed!\n", __func__, pathname);
-		return -1;
+		goto out_close;
 	}
-	write(fd, hdr, sizeof(*hdr));
-	write(fd, bf, size);
+	if (write(fd, bf, size) != size)
+		goto out_close;
+
+	if (close(fd) < 0)
+		goto out_unlink;
+
+	char cmd[PATH_MAX];
+	snprintf(cmd, sizeof(cmd), "objcopy --add-section .SUNW_ctf=%s %s",
+		 pathname, self->filename);
+	if (system(cmd) == 0)
+		err = 0;
+out_unlink:
+	unlink(pathname);
+	return err;
+#endif
+out_update:
+	data->d_buf = bf;
+	data->d_size = size;
+	elf_flagdata(data, ELF_C_SET, ELF_F_DIRTY);
+
+	if (elf_update(elf, ELF_C_NULL) < 0)
+		goto out_close;
+	if (elf_update(elf, ELF_C_WRITE) < 0)
+		goto out_close;
+
+	elf_end(elf);
+	err = 0;
+out_close:
 	close(fd);
-	return 0;
+	return err;
 }
