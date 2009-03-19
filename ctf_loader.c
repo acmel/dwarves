@@ -201,10 +201,8 @@ static char *ctf_string(uint32_t ref, struct ctf_state *sp)
 		return "(string table truncated)";
 
 	name = ((char *)(hp + 1) + ctf__get32(sp->ctf, &hp->ctf_str_off) + off);
-	if (name[0] == '\0')
-		return "(anonymous)";
 
-	return name;
+	return name[0] == '\0' ? NULL : name;
 }
 
 static char *ctf_format_flt_attrs(uint32_t eval, char *buf)
@@ -344,7 +342,7 @@ static void type__init(struct type *self, uint16_t tag,
 	INIT_LIST_HEAD(&self->namespace.tags);
 	self->size = size;
 	self->namespace.tag.tag = tag;
-	self->namespace.name = strings__add(strings, name[0] == '(' ? NULL : name);
+	self->namespace.name = strings__add(strings, name);
 }
 
 static struct type *type__new(uint16_t tag, const char *name, size_t size)
