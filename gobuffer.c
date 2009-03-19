@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <zlib.h>
+#include <errno.h>
 
 #include "dutil.h"
 
@@ -51,17 +52,15 @@ void gobuffer__delete(struct gobuffer *self)
 	free(self);
 }
 
-const void *gobuffer__ptr(const struct gobuffer *self, unsigned int s)
+void *gobuffer__ptr(const struct gobuffer *self, unsigned int s)
 {
 	return s ? self->entries + s : NULL;
 }
 
-unsigned int gobuffer__add(struct gobuffer *self, const void *s,
-			   unsigned int len)
+int gobuffer__allocate(struct gobuffer *self, unsigned int len)
 {
 	const unsigned int rc = self->index;
 	const unsigned int index = self->index + len;
-	char *copy;
 
 	if (index >= self->allocated_size) {
 		const unsigned int allocated_size = (self->allocated_size +
@@ -69,16 +68,24 @@ unsigned int gobuffer__add(struct gobuffer *self, const void *s,
 		char *entries = realloc(self->entries, allocated_size);
 
 		if (entries == NULL)
-			return 0;
+			return -ENOMEM;
 
 		self->allocated_size = allocated_size;
 		self->entries = entries;
 	}
 
-	++self->nr_entries;
-	copy = self->entries + rc;
-	memcpy(copy, s, len);
 	self->index = index;
+	return rc;
+}
+
+int gobuffer__add(struct gobuffer *self, const void *s, unsigned int len)
+{
+	const int rc = gobuffer__allocate(self, len);
+
+	if (rc >= 0) {
+		++self->nr_entries;
+		memcpy(self->entries + rc, s, len);
+	}
 	return rc;
 }
 

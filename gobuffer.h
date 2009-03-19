@@ -21,8 +21,8 @@ void gobuffer__init(struct gobuffer *self);
 void gobuffer__delete(struct gobuffer *self);
 void __gobuffer__delete(struct gobuffer *self);
 
-unsigned int gobuffer__add(struct gobuffer *self, const void *s,
-			   unsigned int len);
+int gobuffer__add(struct gobuffer *self, const void *s, unsigned int len);
+int gobuffer__allocate(struct gobuffer *self, unsigned int len);
 
 static inline const void *gobuffer__entries(const struct gobuffer *self)
 {
@@ -39,7 +39,7 @@ static inline unsigned int gobuffer__size(const struct gobuffer *self)
 	return self->index;
 }
 
-const void *gobuffer__ptr(const struct gobuffer *self, unsigned int s);
+void *gobuffer__ptr(const struct gobuffer *self, unsigned int s);
 
 const void *gobuffer__compress(struct gobuffer *self, unsigned int *size);
 
