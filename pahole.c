@@ -20,6 +20,9 @@
 #include "dwarves_reorganize.h"
 #include "dwarves.h"
 #include "dutil.h"
+#include "ctf_encoder.h"
+
+static bool ctf_encode;
 
 static uint8_t class__include_anonymous;
 static uint8_t class__include_nested_anonymous;
@@ -887,6 +890,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "change the arch word size to WORD_SIZE"
 	},
 	{
+		.name = "ctf_encode",
+		.key  = 'Z',
+		.doc  = "Encode as CTF",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -953,6 +961,9 @@ static error_t pahole__options_parser(int key, char *arg,
 		if (!global_verbose)
 			formatter = class_name_formatter;
 		break;
+	case 'Z':
+		ctf_encode = 1;
+		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -995,6 +1006,16 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 {
 	if (!cu__filter(cu))
 		goto dump_it;
+
+	if (ctf_encode) {
+		cu__encode_ctf(cu);
+		/*
+		 * We still have to get the type signature code merged to eliminate
+		 * dups, reference another CTF file, etc, so for now just encode the
+		 * first cu that is let thru by cu__filter.
+		 */
+		goto dump_and_stop;
+	}
 
 	if (defined_in) {
 		if (class_sname == 0)
@@ -1097,7 +1118,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		tag__fprintf(class, cu, &conf, stdout);
 		putchar('\n');
 	}
-
+dump_and_stop:
 	cu__delete(cu);
 	return LSK__STOP_LOADING;
 dump_it:

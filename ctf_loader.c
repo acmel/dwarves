@@ -131,7 +131,7 @@ static void elf_symbol_iterate(struct ctf_state *sp,
 }
 #endif
 
-static int parse_elf(struct ctf_state *sp, int *wordsizep)
+static int parse_elf(struct ctf_state *sp, const char *filename, int *wordsizep)
 {
 	GElf_Ehdr ehdr;
 	GElf_Shdr shdr;
@@ -153,7 +153,7 @@ static int parse_elf(struct ctf_state *sp, int *wordsizep)
 		return -1;
 	}
 
-	sp->ctf = ctf__new(sp->cu->filename, data->d_buf, data->d_size);
+	sp->ctf = ctf__new(filename, data->d_buf, data->d_size);
 	if (!sp->ctf) {
 		fprintf(stderr, "Cannot initialize CTF state.\n");
 		return -1;
@@ -818,6 +818,8 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 		pos->byte_size = integral_bit_size / 8;
 
 		if (integral_bit_size == 0 || type_bit_size == integral_bit_size) {
+			if (integral_bit_size == 0)
+				fprintf(stderr, "boo!\n");
 			pos->bit_size = integral_bit_size;
 			continue;
 		}
@@ -867,12 +869,12 @@ int ctf__load(struct cus *self, struct conf_load *conf, const char *filename)
 		return -1;
 	}
 
+	if (parse_elf(&state, filename, &wordsize))
+		return -1;
+
 	state.cu = cu__new(filename, wordsize, NULL, 0, filename);
 	if (state.cu == NULL)
 		oom("cu__new");
-
-	if (parse_elf(&state, &wordsize))
-		return -1;
 
 	dump_ctf(&state);
 

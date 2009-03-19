@@ -551,14 +551,13 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu)
 		tag__init(&self->tag, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
 		self->byte_offset = attr_offset(die, DW_AT_data_member_location);
-		self->bit_offset = self->byte_offset * 8 + self->bitfield_offset;
 		/*
 		 * Will be cached later, in class_member__cache_byte_size
 		 */
 		self->byte_size = 0;
 		self->bitfield_offset = attr_numeric(die, DW_AT_bit_offset);
 		self->bitfield_size = attr_numeric(die, DW_AT_bit_size);
-		if (self->bitfield_size != 0)
+		self->bit_offset = self->byte_offset * 8 + self->bitfield_offset;
 		/*
 		 * We may need to recode the type, possibly creating a suitably
 		 * sized new base_type
@@ -1306,6 +1305,11 @@ static void namespace__recode_dwarf_types(struct tag *self, struct cu *cu)
 		}
 
 		switch (pos->tag) {
+		case DW_TAG_member:
+			/* Check if this is an already recoded bitfield */
+			if (pos->type != 0)
+				continue;
+			break;
 		case DW_TAG_subroutine_type:
 		case DW_TAG_subprogram:
 			ftype__recode_dwarf_types(pos, cu);
@@ -1705,8 +1709,42 @@ static void die__process(Dwarf_Die *die, struct cu *cu)
 static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
 					 void *cookie __unused)
 {
-	if (self->tag == DW_TAG_member || self->tag == DW_TAG_inheritance)
-		tag__class_member(self)->byte_size = tag__size(self, cu);
+	if (self->tag == DW_TAG_member || self->tag == DW_TAG_inheritance) {
+		struct class_member *member;
+
+		if (member->bitfield_size != 0) {
+			struct tag *type = tag__follow_typedef(&member->tag, cu);
+			uint16_t type_bit_size;
+			size_t integral_bit_size;
+
+			if (tag__is_enumeration(type)) {
+				type_bit_size = tag__type(type)->size;
+				integral_bit_size = sizeof(int) * 8; /* FIXME: always this size? */
+			} else {
+				struct base_type *bt = tag__base_type(type);
+				type_bit_size = bt->bit_size;
+				integral_bit_size = base_type__name_to_size(bt, cu);
+			}
+			/*
+			 * XXX: integral_bit_size can be zero if base_type__name_to_size doesn't
+			 * know about the base_type name, so one has to add there when
+			 * such base_type isn't found. pahole will put zero on the
+			 * struct output so it should be easy to spot the name when
+			 * such unlikely thing happens.
+			 */
+			member->byte_size = integral_bit_size / 8;
+
+			if (integral_bit_size == 0 || type_bit_size == integral_bit_size) {
+				member->bit_size = integral_bit_size;
+				return 0;
+			}
+
+			member->bit_size = type_bit_size;
+		} else {
+			member->byte_size = tag__size(self, cu);
+			member->bit_size = member->byte_size * 8;
+		}
+	}
 
 	return 0;
 }
@@ -1738,6 +1776,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 			oom("cu__new");
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
 		die__process(cu_die, cu);
+		base_type_name_to_size_table__init();
 		cu__for_all_tags(cu, class_member__cache_byte_size, NULL);
 		off = noff;
 		if (conf && conf->steal) {
