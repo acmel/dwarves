@@ -859,12 +859,12 @@ int ctf__load(struct cus *self, struct conf_load *conf, const char *filename)
 		return -1;
 	}
 
-	if (parse_elf(&state, &wordsize))
-		return -1;
-
-	state.cu = cu__new("FIXME.c", wordsize, NULL, 0);
+	state.cu = cu__new(filename, wordsize, NULL, 0, filename);
 	if (state.cu == NULL)
 		oom("cu__new");
+
+	if (parse_elf(&state, &wordsize))
+		return -1;
 
 	dump_ctf(&state);
 

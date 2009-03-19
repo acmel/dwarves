@@ -577,13 +577,15 @@ int cu__add_tag(struct cu *self, struct tag *tag, long *id)
 }
 
 struct cu *cu__new(const char *name, uint8_t addr_size,
-		   const unsigned char *build_id, int build_id_len)
+		   const unsigned char *build_id, int build_id_len,
+		   const char *filename)
 {
 	struct cu *self = malloc(sizeof(*self) + build_id_len);
 
 	if (self != NULL) {
 		self->name = strdup(name);
-		if (self->name == NULL)
+		self->filename = strdup(filename);
+		if (self->name == NULL || self->filename == NULL)
 			goto out_free;
 
 		ptr_table__init(&self->tags_table);
@@ -617,6 +619,7 @@ out:
 	return self;
 out_free_name:
 	free(self->name);
+	free(self->filename);
 out_free:
 	free(self);
 	self = NULL;

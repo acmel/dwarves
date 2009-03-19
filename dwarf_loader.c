@@ -1710,7 +1710,7 @@ static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
 }
 
 static int cus__load_module(struct cus *self, struct conf_load *conf,
-			    Dwfl_Module *mod, Dwarf *dw)
+			    Dwfl_Module *mod, Dwarf *dw, const char *filename)
 {
 	Dwarf_Off off = 0, noff;
 	size_t cuhl;
@@ -1731,7 +1731,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 		dwarf_diecu(cu_die, &tmp, &pointer_size, &offset_size);
 
 		cu = cu__new(attr_string(cu_die, DW_AT_name), pointer_size,
-			     build_id, build_id_len);
+			     build_id, build_id_len, filename);
 		if (cu == NULL)
 			oom("cu__new");
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
@@ -1765,6 +1765,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 struct process_dwflmod_parms {
 	struct cus	 *cus;
 	struct conf_load *conf;
+	const char	 *filename;
 	uint32_t	 nr_dwarf_sections_found;
 };
 
@@ -1790,7 +1791,8 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 	int err = DWARF_CB_OK;
 	if (dw != NULL) {
 		++parms->nr_dwarf_sections_found;
-		err = cus__load_module(self, parms->conf, dwflmod, dw);
+		err = cus__load_module(self, parms->conf, dwflmod, dw,
+				       parms->filename);
 	}
 	/*
 	 * XXX We will fall back to try finding other debugging
@@ -1837,6 +1839,7 @@ static int cus__process_file(struct cus *self, struct conf_load *conf, int fd,
 	struct process_dwflmod_parms parms = {
 		.cus  = self,
 		.conf = conf,
+		.filename = filename,
 		.nr_dwarf_sections_found = 0,
 	};
 

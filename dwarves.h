@@ -113,6 +113,7 @@ struct cu {
 	struct ptr_table types_table;
 	struct ptr_table tags_table;
 	char		 *name;
+	char		 *filename;
 	void 		 *priv;
 	struct cu_orig_info *orig_info;
 	uint8_t		 addr_size;
@@ -130,7 +131,8 @@ struct cu {
 };
 
 struct cu *cu__new(const char *name, uint8_t addr_size,
-		   const unsigned char *build_id, int build_id_len);
+		   const unsigned char *build_id, int build_id_len,
+		   const char *filename);
 void cu__delete(struct cu *self);
 
 /**
