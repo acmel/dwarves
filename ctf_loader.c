@@ -687,18 +687,18 @@ static int create_new_tag(struct ctf_state *sp, int type,
 
 static void load_types(struct ctf_state *sp)
 {
-	struct ctf_header *hp = ctf__get_buffer(sp->ctf);
-	struct ctf_full_type *type_ptr, *end;
-	unsigned int type_index;
+	void *ctf_buffer = ctf__get_buffer(sp->ctf);
+	struct ctf_header *hp = ctf_buffer;
+	void *ctf_contents = ctf_buffer + sizeof(*hp),
+	     *type_section = (ctf_contents +
+			      ctf__get32(sp->ctf, &hp->ctf_type_off)),
+	     *strings_section = (ctf_contents +
+				 ctf__get32(sp->ctf, &hp->ctf_str_off));
+	struct ctf_full_type *type_ptr = type_section,
+			     *end = strings_section;
+	unsigned int type_index = 0x0001;
 
-	type_ptr = ctf__get_buffer(sp->ctf) + sizeof(*hp) +
-		ctf__get32(sp->ctf, &hp->ctf_type_off);
-	end = ctf__get_buffer(sp->ctf) + sizeof(*hp) +
-		ctf__get32(sp->ctf, &hp->ctf_str_off);
-
-	type_index = 0x0001;
-	if (hp->ctf_parent_name ||
-	    hp->ctf_parent_label)
+	if (hp->ctf_parent_name || hp->ctf_parent_label)
 		type_index += 0x8000;
 
 	while (type_ptr < end) {
@@ -749,7 +749,10 @@ static void load_types(struct ctf_state *sp)
 			vlen = create_new_tag(sp, type, ptr, vlen, type_ptr, type_index);
 		} else if (type == CTF_TYPE_KIND_UNKN) {
 			cu__table_nullify_type_entry(sp->cu, type_index);
-			printf("CTF: [%#6x] %1d Unknown\n", type_index, CTF_ISROOT(val));
+			fprintf(stderr,
+				"CTF: idx: %d, off: %lu, root: %s Unknown\n",
+				type_index, ((void *)type_ptr) - type_section,
+				CTF_ISROOT(val) ? "yes" : "no");
 			vlen = 0;
 		} else {
 			abort();
