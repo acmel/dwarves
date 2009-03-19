@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-struct ctf *ctf__new(void *buf, size_t size);
+struct ctf *ctf__new(const char *filename, void *buf, size_t size);
 void ctf__delete(struct ctf *ctf);
 
 uint16_t ctf__get16(struct ctf *self, uint16_t *p);

@@ -153,7 +153,7 @@ static int parse_elf(struct ctf_state *sp, int *wordsizep)
 		return -1;
 	}
 
-	sp->ctf = ctf__new(data->d_buf, data->d_size);
+	sp->ctf = ctf__new(sp->cu->filename, data->d_buf, data->d_size);
 	if (!sp->ctf) {
 		fprintf(stderr, "Cannot initialize CTF state.\n");
 		return -1;

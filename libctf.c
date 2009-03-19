@@ -6,11 +6,13 @@
 
 #include "libctf.h"
 #include "ctf.h"
+#include "dutil.h"
 
 struct ctf {
 	void	*buf;
 	size_t	size;
 	int	swapped;
+	const char *filename;
 };
 
 uint16_t ctf__get16(struct ctf *self, uint16_t *p)
@@ -135,14 +137,15 @@ out:
 	return err;
 }
 
-struct ctf *ctf__new(void *orig_buf, size_t orig_size)
+struct ctf *ctf__new(const char *filename, void *orig_buf, size_t orig_size)
 {
-	struct ctf *self = malloc(sizeof(*self));
+	struct ctf *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
-		memset(self, 0, sizeof(*self));
-		if (orig_buf != NULL &&
-		    ctf__load(self, orig_buf, orig_size) != 0) {
+		self->filename = strdup(filename);
+		if (self->filename == NULL ||
+		    (orig_buf != NULL &&
+		     ctf__load(self, orig_buf, orig_size) != 0)) {
 			free(self);
 			self = NULL;
 		}
