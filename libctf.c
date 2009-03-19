@@ -372,7 +372,11 @@ static const void *ctf__compress(void *orig_buf, unsigned int *size)
 		bf_size	    = new_bf_size;
 		if (deflate(&z, Z_FULL_FLUSH) == Z_STREAM_ERROR)
 			goto out_close_and_free;
-		printf("%s: size=%d, bf_size=%d, total_out=%ld, total_in=%ld\n", __func__, *size, bf_size, z.total_out, z.total_in);
+#if 0
+		fprintf(stderr,
+			"%s: size=%d, bf_size=%d, total_out=%ld, total_in=%ld\n",
+			__func__, *size, bf_size, z.total_out, z.total_in);
+#endif
 	} while (z.total_in != *size);
 
 	if (deflate(&z, Z_FINISH) == Z_STREAM_ERROR)
@@ -402,7 +406,7 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	self->buf = malloc(self->size);
 
 	if (self->buf == NULL) {
-		printf("%s: malloc failed!\n", __func__);
+		fprintf(stderr, "%s: malloc failed!\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -426,21 +430,21 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	if (flags & CTF_FLAGS_COMPR) {
 		bf = ctf__compress(self->buf + sizeof(*hdr), &size);
 		if (bf == NULL) {
-			printf("%s: ctf__compress failed!\n", __func__);
+			fprintf(stderr, "%s: ctf__compress failed!\n", __func__);
 			return -ENOMEM;
 		}
 	} else {
 		bf   = self->buf;
 		size = self->size;
 	}
-
+#if 0
 	printf("\n\ntypes:\n entries: %d\n size: %u"
 		 "\nstrings:\n entries: %u\n size: %u\ncompressed size: %d\n",
 	       self->type_index,
 	       gobuffer__size(&self->types),
 	       gobuffer__nr_entries(self->strings),
 	       gobuffer__size(self->strings), size);
-
+#endif
 	char pathname[PATH_MAX];
 	snprintf(pathname, sizeof(pathname), "%s.SUNW_ctf", self->filename);
 	fd = creat(pathname, S_IRUSR | S_IWUSR);
