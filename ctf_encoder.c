@@ -155,7 +155,8 @@ static int enumeration_type__encode(struct tag *self, uint16_t core_id,
 	struct type *etype = tag__type(self);
 	int64_t position;
 	int ctf_id = ctf__add_enumeration_type(ctf, etype->namespace.name,
-					       etype->nr_members, &position);
+					       etype->size, etype->nr_members,
+					       &position);
 
 	if (ctf_id < 0 || tag__check_id_drift(self, core_id, ctf_id))
 		return -1;

@@ -324,14 +324,14 @@ int ctf__add_function_type(struct ctf *self, uint16_t type, uint16_t nr_parms,
 	return ++self->type_index;
 }
 
-int ctf__add_enumeration_type(struct ctf *self, uint32_t name,
+int ctf__add_enumeration_type(struct ctf *self, uint32_t name, uint16_t size,
 			      uint16_t nr_entries, int64_t *position)
 {
 	struct ctf_short_type e;
 
 	e.ctf_name = name;
 	e.ctf_info = CTF_INFO_ENCODE(CTF_TYPE_KIND_ENUM, nr_entries, 0);
-	e.ctf_size = 0;
+	e.ctf_size = size;
 
 	gobuffer__add(&self->types, &e, sizeof(e));
 	*position = gobuffer__allocate(&self->types,

@@ -31,7 +31,7 @@ int ctf__add_array(struct ctf *self, uint16_t type, uint16_t index_type,
 void ctf__add_parameter(struct ctf *self, uint16_t type, int64_t *position);
 int ctf__add_function_type(struct ctf *self, uint16_t type,
 			   uint16_t nr_parms, bool varargs, int64_t *position);
-int ctf__add_enumeration_type(struct ctf *self, uint32_t name,
+int ctf__add_enumeration_type(struct ctf *self, uint32_t name, uint16_t size,
 			      uint16_t nr_entries, int64_t *position);
 void ctf__add_enumerator(struct ctf *self, uint32_t name, uint32_t value,
 			 int64_t *position);
