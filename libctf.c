@@ -410,6 +410,10 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	void *bf;
 	int err = -1;
 
+	/* Empty file, nothing to do, so... done! */
+	if (gobuffer__size(&self->types) == 0)
+		return 0;
+
 	size = gobuffer__size(&self->types) + gobuffer__size(self->strings);
 	self->size = sizeof(*hdr) + size;
 	self->buf = malloc(self->size);
