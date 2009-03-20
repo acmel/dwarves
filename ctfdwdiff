@@ -1,15 +1,17 @@
 #!/bin/bash
 
 obj=$1
-diff=/tmp/$obj.diff
-ctf=/tmp/$obj.ctf.c
-dwarf=/tmp/$obj.dwarf.c
+dir=/tmp/ctfdwdiff
+mkdir $dir 2> /dev/null
+diff=$dir/$obj.diff
+ctf=$dir/$obj.ctf.c
+dwarf=$dir/$obj.dwarf.c
 pahole -Z $obj
 pahole -F ctf $obj > $ctf
-pahole --flat_arrays -F dwarf $obj > $dwarf
+pahole --flat_arrays --show_private_classes -F dwarf $obj > $dwarf
 diff -up $ctf $dwarf > $diff
 if [ -s $diff ] ; then
-	# vim /tmp/$obj.diff
+	# vim $dir/$obj.diff
 	exit 0
 else
 	rm -f $diff $ctf $dwarf

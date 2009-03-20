@@ -50,6 +50,7 @@ static size_t cacheline_size;
 static uint8_t find_containers;
 static uint8_t find_pointers_in_structs;
 static int reorganize;
+static bool show_private_classes;
 static bool defined_in;
 static int show_reorg_steps;
 static char *class_name;
@@ -341,7 +342,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	const char *name;
 	strings_t stname;
 
-	if (!tag->top_level)
+	if (!tag->top_level && !show_private_classes)
 		return NULL;
 
 	name = class__name(class);
@@ -703,7 +704,8 @@ static void print_containers(const struct cu *cu, uint16_t type, int ident)
 /* Name and version of program.  */
 ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
-#define ARGP_flat_arrays     300
+#define ARGP_flat_arrays	  300
+#define ARGP_show_private_classes 301
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -908,6 +910,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Flat arrays",
 	},
 	{
+		.name = "show_private_classes",
+		.key  = ARGP_show_private_classes,
+		.doc  = "Show classes that are defined inside other classes or in functions",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -977,6 +984,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		break;
 	case 'Z': ctf_encode = 1;			break;
 	case ARGP_flat_arrays: conf.flat_arrays = 1;	break;
+	case ARGP_show_private_classes:
+		show_private_classes = true;		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
