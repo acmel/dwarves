@@ -225,7 +225,8 @@ static struct base_type_name_to_size {
 	{ .name = "unsigned long long",	    .size = 64, },
 	{ .name = "double",		    .size = 64, },
 	{ .name = "double double",	    .size = 64, },
-	{ .name = "single float",	    .size = 32, },
+	{ .name = "single float",	    .size =  0, },
+	{ .name = "float",		    .size =  0, },
 	{ .name = "long double long double", .size = 64, },
 	{ .name = NULL },
 };
