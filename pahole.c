@@ -703,6 +703,8 @@ static void print_containers(const struct cu *cu, uint16_t type, int ident)
 /* Name and version of program.  */
 ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
+#define ARGP_flat_arrays     300
+
 static const struct argp_option pahole__options[] = {
 	{
 		.name = "bit_holes",
@@ -901,6 +903,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Encode as CTF",
 	},
 	{
+		.name = "flat_arrays",
+		.key  = ARGP_flat_arrays,
+		.doc  = "Flat arrays",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -968,9 +975,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		if (!global_verbose)
 			formatter = class_name_formatter;
 		break;
-	case 'Z':
-		ctf_encode = 1;
-		break;
+	case 'Z': ctf_encode = 1;			break;
+	case ARGP_flat_arrays: conf.flat_arrays = 1;	break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}

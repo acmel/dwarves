@@ -41,6 +41,10 @@ struct conf_load {
 	char			*format_path;
 };
 
+/** struct conf_fprintf - hints to the __fprintf routines
+ *
+ * @flat_arrays - a->foo[10][2] becomes a->foo[20]
+ */
 struct conf_fprintf {
 	const char *prefix;
 	const char *suffix;
@@ -58,6 +62,7 @@ struct conf_fprintf {
 	uint8_t	   show_only_data_members:1;
 	uint8_t	   no_semicolon:1;
 	uint8_t	   show_first_biggest_size_base_type_member:1;
+	uint8_t	   flat_arrays:1;
 };
 
 struct cus {

@@ -6,8 +6,8 @@ ctf=/tmp/$obj.ctf.c
 dwarf=/tmp/$obj.dwarf.c
 pahole -Z $obj
 pahole -F ctf $obj > $ctf
-pahole -F dwarf $obj > $dwarf
-diff -u $ctf $dwarf > $diff
+pahole --flat_arrays -F dwarf $obj > $dwarf
+diff -up $ctf $dwarf > $diff
 if [ -s $diff ] ; then
 	# vim /tmp/$obj.diff
 	exit 0

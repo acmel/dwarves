@@ -273,14 +273,26 @@ static size_t array_type__fprintf(const struct tag *tag_self,
 	struct array_type *self = tag__array_type(tag_self);
 	struct tag *type = cu__type(cu, tag_self->type);
 	size_t printed;
+	unsigned long long flat_dimensions = 0;
 	int i;
 
 	if (type == NULL)
 		return tag__id_not_found_fprintf(fp, tag_self->type);
 
 	printed = type__fprintf(type, cu, name, conf, fp);
-	for (i = 0; i < self->dimensions; ++i)
-		printed += fprintf(fp, "[%u]", self->nr_entries[i]);
+	for (i = 0; i < self->dimensions; ++i) {
+		if (conf->flat_arrays) {
+			if (!flat_dimensions)
+				flat_dimensions = self->nr_entries[i];
+			else
+				flat_dimensions *= self->nr_entries[i];
+		} else
+			printed += fprintf(fp, "[%u]", self->nr_entries[i]);
+	}
+
+	if (conf->flat_arrays)
+		printed += fprintf(fp, "[%llu]", flat_dimensions);
+
 	return printed;
 }
 

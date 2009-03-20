@@ -160,6 +160,12 @@ Show how many times struct was defined.
 Show CUs where CLASS_NAME (-C) is defined.
 
 .TP
+.B     \-\-flat_arrays
+Flatten arrays, so that array[10][2] becomes array[20].
+Useful when generating from both CTF and DWARF encodings
+for the same binary for testing purposes.
+
+.TP
 .B \-V, \-\-verbose
 be verbose
 
