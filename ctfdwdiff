@@ -1,20 +1,39 @@
 #!/bin/bash
 
-obj=$1
-dir=/tmp/ctfdwdiff
-mkdir $dir 2> /dev/null
-diff=$dir/$obj.diff
-ctf=$dir/$obj.ctf.c
-dwarf=$dir/$obj.dwarf.c
-pahole -Z $obj
-pahole -F ctf $obj > $ctf
-pahole --flat_arrays \
-       --show_private_classes \
-       --fixup_silly_bitfields -F dwarf $obj > $dwarf
-diff -up $ctf $dwarf > $diff
-if [ -s $diff ] ; then
-	[ $# -gt 1 ] && vim $dir/$obj.diff
-	exit 0
-else
-	rm -f $diff $ctf $dwarf
-fi
+results_dir=/tmp/ctfdwdiff
+
+diff_one() {
+	local obj=$1
+	diff=$results_dir/$obj.diff
+	ctf=$results_dir/$obj.ctf.c
+	dwarf=$results_dir/$obj.dwarf.c
+	pahole -Z $obj
+	pahole -F ctf $obj > $ctf
+	pahole --flat_arrays \
+	       --show_private_classes \
+	       --fixup_silly_bitfields -F dwarf $obj > $dwarf
+	diff -up $dwarf $ctf > $diff
+	if [ -s $diff ] ; then
+		[ $# -gt 1 ] && vim $results_dir/$obj.diff
+		exit 0
+	else
+		rm -f $diff $ctf $dwarf
+	fi
+}
+
+rm -rf $results_dir
+mkdir $results_dir
+find . -type d | \
+while read dir ; do
+	cd $dir
+	ls *.o 2> /dev/null |
+	while read obj ; do
+		ncus=$(readelf -wi $obj | grep DW_TAG_compile_unit | wc -l)
+		if [ $ncus -gt 1 ] ; then
+			continue
+		fi
+		echo $obj
+		diff_one $obj $1
+	done
+	cd - > /dev/null
+done
