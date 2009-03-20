@@ -704,8 +704,9 @@ static void print_containers(const struct cu *cu, uint16_t type, int ident)
 /* Name and version of program.  */
 ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
-#define ARGP_flat_arrays	  300
-#define ARGP_show_private_classes 301
+#define ARGP_flat_arrays	   300
+#define ARGP_show_private_classes  301
+#define ARGP_fixup_silly_bitfields 302
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -915,6 +916,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Show classes that are defined inside other classes or in functions",
 	},
 	{
+		.name = "fixup_silly_bitfields",
+		.key  = ARGP_fixup_silly_bitfields,
+		.doc  = "Fix silly bitfields such as int foo:32",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -986,6 +992,8 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_flat_arrays: conf.flat_arrays = 1;	break;
 	case ARGP_show_private_classes:
 		show_private_classes = true;		break;
+	case ARGP_fixup_silly_bitfields:
+		conf_load.fixup_silly_bitfields = 1;	break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}

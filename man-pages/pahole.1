@@ -166,6 +166,10 @@ Useful when generating from both CTF and DWARF encodings
 for the same binary for testing purposes.
 
 .TP
+.B     \-\-fixup_silly_bitfields
+Converts silly bitfields such as "int foo:32" to plain "int foo".
+
+.TP
 .B \-V, \-\-verbose
 be verbose
 

@@ -32,13 +32,15 @@ enum load_steal_kind {
 /** struct conf_load - load configuration
  * @extra_dbg_info - keep original debugging format extra info
  *		     (e.g. DWARF's decl_{line,file}, id, etc)
+ * @fixup_silly_bitfields - Fixup silly things such as "int foo:32;"
  */
 struct conf_load {
-	bool			extra_dbg_info;
 	enum load_steal_kind	(*steal)(struct cu *self,
 					 struct conf_load *conf);
 	void			*cookie;
 	char			*format_path;
+	bool			extra_dbg_info;
+	bool			fixup_silly_bitfields;
 };
 
 /** struct conf_fprintf - hints to the __fprintf routines

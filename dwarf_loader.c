@@ -1715,9 +1715,10 @@ static void die__process(Dwarf_Die *die, struct cu *cu)
 }
 
 static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
-					 void *cookie __unused)
+					 void *cookie)
 {
 	if (self->tag == DW_TAG_member || self->tag == DW_TAG_inheritance) {
+		struct conf_load *conf_load = cookie;
 		struct class_member *member;
 
 		if (member->bitfield_size != 0) {
@@ -1742,8 +1743,15 @@ static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
 			 */
 			member->byte_size = integral_bit_size / 8;
 
-			if (integral_bit_size == 0 || type_bit_size == integral_bit_size) {
+			if (integral_bit_size == 0)
+				return 0;
+
+			if (type_bit_size == integral_bit_size) {
 				member->bit_size = integral_bit_size;
+				if (conf_load && conf_load->fixup_silly_bitfields) {
+					member->bitfield_size = 0;
+					member->bitfield_offset = 0;
+				}
 				return 0;
 			}
 
@@ -1785,7 +1793,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
 		die__process(cu_die, cu);
 		base_type_name_to_size_table__init();
-		cu__for_all_tags(cu, class_member__cache_byte_size, NULL);
+		cu__for_all_tags(cu, class_member__cache_byte_size, conf);
 		off = noff;
 		if (conf && conf->steal) {
 			switch (conf->steal(cu, conf)) {
