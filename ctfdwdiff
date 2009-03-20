@@ -1,8 +1,16 @@
 #!/bin/bash
 
 obj=$1
+diff=/tmp/$obj.diff
+ctf=/tmp/$obj.ctf.c
+dwarf=/tmp/$obj.dwarf.c
 pahole -Z $obj
-pahole -F ctf $obj > /tmp/$obj.ctf.c
-pahole -F dwarf $obj > /tmp/$obj.dwarf.c
-diff -u /tmp/$obj.ctf.c /tmp/$obj.dwarf.c > /tmp/$obj.diff
-vim /tmp/$obj.diff
+pahole -F ctf $obj > $ctf
+pahole -F dwarf $obj > $dwarf
+diff -u $ctf $dwarf > $diff
+if [ -s $diff ] ; then
+	# vim /tmp/$obj.diff
+	exit 0
+else
+	rm -f $diff $ctf $dwarf
+fi
