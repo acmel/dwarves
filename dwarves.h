@@ -360,10 +360,16 @@ static inline struct ptr_to_member_type *
 	return (struct ptr_to_member_type *)self;
 }
 
+/** struct namespace - base class for enums, structs, unions, typedefs, etc
+ *
+ * @tags - class_member, enumerators, etc
+ * @shared_tags: if this bit is set, don't free the entries in @tags
+ */
 struct namespace {
 	struct tag	 tag;
 	strings_t	 name;
 	uint16_t	 nr_tags;
+	uint8_t		 shared_tags:1;
 	struct list_head tags;
 };
 
@@ -664,7 +670,11 @@ static inline struct class *type__class(const struct type *self)
  * @pos: struct enumerator iterator
  */
 #define type__for_each_enumerator(self, pos) \
-	list_for_each_entry(pos, &(self)->namespace.tags, tag.node)
+	struct list_head *__type__for_each_enumerator_head = \
+		(self)->namespace.shared_tags ? \
+			(self)->namespace.tags.next : \
+			&(self)->namespace.tags; \
+	list_for_each_entry(pos, __type__for_each_enumerator_head, tag.node)
 
 /**
  * type__for_each_member - iterate thru the entries that use space

@@ -353,6 +353,7 @@ static void namespace__init(struct namespace *self, Dwarf_Die *die)
 	INIT_LIST_HEAD(&self->tags);
 	self->name    = strings__add(strings, attr_string(die, DW_AT_name));
 	self->nr_tags = 0;
+	self->shared_tags = 0;
 }
 
 static struct namespace *namespace__new(Dwarf_Die *die)

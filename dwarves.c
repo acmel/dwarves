@@ -2541,8 +2541,13 @@ static int list__for_all_tags(struct list_head *self, struct cu *cu,
 
 	list_for_each_entry_safe(pos, n, self, node) {
 		if (tag__has_namespace(pos)) {
-			if (list__for_all_tags(&tag__namespace(pos)->tags,
-					       cu, iterator, cookie))
+			struct namespace *space = tag__namespace(pos);
+
+			/* See comment in type__for_each_enumerator */
+			if (space->shared_tags)
+				continue;
+			if (list__for_all_tags(&space->tags, cu,
+					       iterator, cookie))
 				return 1;
 			/*
 			 * vtable functions are already in the class tags list
