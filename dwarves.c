@@ -282,6 +282,13 @@ static size_t array_type__fprintf(const struct tag *tag_self,
 	printed = type__fprintf(type, cu, name, conf, fp);
 	for (i = 0; i < self->dimensions; ++i) {
 		if (conf->flat_arrays) {
+			/*
+			 * Seen on the Linux kernel on tun_filter:
+			 *
+			 * __u8   addr[0][ETH_ALEN];
+			 */
+			if (self->nr_entries[i] == 0 && i == 0)
+				break;
 			if (!flat_dimensions)
 				flat_dimensions = self->nr_entries[i];
 			else
