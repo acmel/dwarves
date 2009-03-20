@@ -991,7 +991,8 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'Z': ctf_encode = 1;			break;
 	case ARGP_flat_arrays: conf.flat_arrays = 1;	break;
 	case ARGP_show_private_classes:
-		show_private_classes = true;		break;
+		show_private_classes = true;
+		conf.show_only_data_members = 1;	break;
 	case ARGP_fixup_silly_bitfields:
 		conf_load.fixup_silly_bitfields = 1;	break;
 	default:
