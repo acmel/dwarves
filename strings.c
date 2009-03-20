@@ -37,6 +37,8 @@ static void do_nothing(void *ptr __unused)
 
 void strings__delete(struct strings *self)
 {
+	if (self == NULL)
+		return;
 	tdestroy(self->tree, do_nothing);
 	__gobuffer__delete(&self->gb);
 	free(self);
