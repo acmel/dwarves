@@ -597,14 +597,14 @@ static struct enumerator *enumerator__new(const char *name,
 
 static int create_new_enumeration(struct ctf_state *sp, void *ptr,
 				  int vlen, struct ctf_full_type *tp,
-				  long id)
+				  uint16_t size, long id)
 {
 	struct ctf_enum *ep = ptr;
 	uint16_t i;
 	struct type *enumeration = type__new(DW_TAG_enumeration_type,
 					     ctf_string(ctf__get32(sp->ctf,
 							&tp->base.ctf_name), sp),
-					     sizeof(int) * 8); /* FIXME: is this always the case? */
+					     size ?: (sizeof(int) * 8));
 
 	if (enumeration == NULL)
 		oom("enumeration");
@@ -743,7 +743,8 @@ static void load_types(struct ctf_state *sp)
 			vlen = create_new_union(sp, ptr,
 					        vlen, type_ptr, size, type_index);
 		} else if (type == CTF_TYPE_KIND_ENUM) {
-			vlen = create_new_enumeration(sp, ptr, vlen, type_ptr, type_index);
+			vlen = create_new_enumeration(sp, ptr, vlen, type_ptr,
+						      size, type_index);
 		} else if (type == CTF_TYPE_KIND_FWD) {
 			vlen = create_new_forward_decl(sp, ptr, vlen, type_ptr, size, type_index);
 		} else if (type == CTF_TYPE_KIND_TYPDEF) {
