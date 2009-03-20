@@ -505,6 +505,7 @@ int tag__recode_dwarf_bitfield(struct tag *self, struct cu *cu, uint16_t bit_siz
 		if (recoded != NULL)
 			return id;
 
+		struct type *alias = tag__type(self);
 		struct type *new_enum = zalloc(sizeof(*new_enum));
 		if (new_enum == NULL)
 			return -ENOMEM;
@@ -512,6 +513,12 @@ int tag__recode_dwarf_bitfield(struct tag *self, struct cu *cu, uint16_t bit_siz
 		recoded = (struct tag *)new_enum;
 		recoded->tag = DW_TAG_enumeration_type;
 		recoded->top_level = 1;
+		new_enum->nr_members = alias->nr_members;
+		/*
+		 * Share the tags
+		 */
+		new_enum->namespace.tags.next = &alias->namespace.tags;
+		new_enum->namespace.shared_tags = 1;
 		new_enum->namespace.name = name;
 		new_enum->size = bit_size;
 		break;
