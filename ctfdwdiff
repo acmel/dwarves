@@ -29,7 +29,7 @@ while read dir ; do
 	ls *.o 2> /dev/null |
 	while read obj ; do
 		ncus=$(readelf -wi $obj | grep DW_TAG_compile_unit | wc -l)
-		if [ $ncus -gt 1 ] ; then
+		if [ $ncus -ne 1 ] ; then
 			continue
 		fi
 		echo $obj
