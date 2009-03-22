@@ -21,19 +21,28 @@ diff_one() {
 	fi
 }
 
+diff_dir() {
+	find . -type d | \
+	while read dir ; do
+		cd $dir
+		ls *.o 2> /dev/null |
+		while read obj ; do
+			ncus=$(readelf -wi $obj | grep DW_TAG_compile_unit | wc -l)
+			if [ $ncus -ne 1 ] ; then
+				continue
+			fi
+			echo $obj
+			diff_one $obj $1
+		done
+		cd - > /dev/null
+	done
+}
+
 rm -rf $results_dir
 mkdir $results_dir
-find . -type d | \
-while read dir ; do
-	cd $dir
-	ls *.o 2> /dev/null |
-	while read obj ; do
-		ncus=$(readelf -wi $obj | grep DW_TAG_compile_unit | wc -l)
-		if [ $ncus -ne 1 ] ; then
-			continue
-		fi
-		echo $obj
-		diff_one $obj $1
-	done
-	cd - > /dev/null
-done
+
+if [ $# -lt 2 ] ; then
+	diff_dir
+else
+	diff_one $*
+fi
