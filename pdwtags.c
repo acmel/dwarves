@@ -41,7 +41,7 @@ static void emit_tag(struct tag *self, uint32_t tag_id, struct cu *cu)
 		putchar('\n');
 		lexblock__fprintf(&fn->lexblock, cu, fn, 0, stdout);
 	}
-	puts("\n");
+	printf(" size: %zd\n\n", tag__size(self, cu));
 }
 
 static int cu__emit_tags(struct cu *self, void *cookie __unused)

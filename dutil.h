@@ -1,12 +1,15 @@
 #ifndef _DUTIL_H_
 #define _DUTIL_H_ 1
 /*
-  Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
-
-  This program is free software; you can redistribute it and/or modify it
-  under the terms of version 2 of the GNU General Public License as
-  published by the Free Software Foundation.
-*/
+ * Copyright (C) 2007..2009 Arnaldo Carvalho de Melo <acme@redhat.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * Some functions came from the Linux Kernel sources, copyrighted by a
+ * cast of dozens, please see the Linux Kernel git history for details.
+ */
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -20,6 +23,11 @@
 #endif
 
 #define roundup(x,y) ((((x) + ((y) - 1)) / (y)) * (y))
+
+static inline __attribute__((const)) bool is_power_of_2(unsigned long n)
+{
+        return (n != 0 && ((n & (n - 1)) == 0));
+}
 
 /* We need define two variables, argp_program_version_hook and
    argp_program_bug_address, in all programs.  argp.h declares these

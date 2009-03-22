@@ -800,24 +800,30 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 		pos->bitfield_size = 0;
 		pos->byte_offset = pos->bit_offset / 8;
 
-		if (type->tag != DW_TAG_base_type &&
-		    !tag__is_enumeration(type)) {
+		uint16_t type_bit_size;
+		size_t integral_bit_size;
+
+		switch (type->tag) {
+		case DW_TAG_enumeration_type:
+			type_bit_size = tag__type(type)->size;
+			/* Best we can do to check if this is a packed enum */
+			if (is_power_of_2(type_bit_size))
+				integral_bit_size = roundup(type_bit_size, 8);
+			else
+				integral_bit_size = sizeof(int) * 8;
+			break;
+		case DW_TAG_base_type: {
+			struct base_type *bt = tag__base_type(type);
+			type_bit_size = bt->bit_size;
+			integral_bit_size = base_type__name_to_size(bt, cu);
+		}
+			break;
+		default:
 			pos->byte_size = tag__size(type, cu);
 			pos->bit_size = pos->byte_size * 8;
 			continue;
 		}
 
-		uint16_t type_bit_size;
-		size_t integral_bit_size;
-
-		if (tag__is_enumeration(type)) {
-			type_bit_size = tag__type(type)->size;
-			integral_bit_size = sizeof(int) * 8; /* FIXME: always this size? */
-		} else {
-			struct base_type *bt = tag__base_type(type);
-			type_bit_size = bt->bit_size;
-			integral_bit_size = base_type__name_to_size(bt, cu);
-		}
 		/*
 		 * XXX: integral_bit_size can be zero if base_type__name_to_size doesn't
 		 * know about the base_type name, so one has to add there when
