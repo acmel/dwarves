@@ -44,7 +44,7 @@ static void emit_tag(struct tag *self, uint32_t tag_id, struct cu *cu)
 	printf(" size: %zd\n\n", tag__size(self, cu));
 }
 
-static int cu__emit_tags(struct cu *self, void *cookie __unused)
+static int cu__emit_tags(struct cu *self)
 {
 	uint16_t i;
 
@@ -58,10 +58,17 @@ static int cu__emit_tags(struct cu *self, void *cookie __unused)
 	return 0;
 }
 
-static void cus__emit_tags(struct cus *self)
+static enum load_steal_kind pdwtags_stealer(struct cu *cu,
+					    struct conf_load *conf_load __unused)
 {
-	cus__for_each_cu(self, cu__emit_tags, NULL, NULL);
+	cu__emit_tags(cu);
+	cu__delete(cu);
+	return LSK__STOLEN;
 }
+
+static struct conf_load pdwtags_conf_load = {
+	.steal = pdwtags_stealer,
+};
 
 /* Name and version of program.  */
 ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
@@ -101,7 +108,7 @@ static struct argp pdwtags__argp = {
 
 int main(int argc, char *argv[])
 {
-	int err, remaining, rc = EXIT_FAILURE;
+	int remaining, rc = EXIT_FAILURE;
 	struct cus *cus = cus__new();
 
 	if (dwarves__init(0) || cus == NULL) {
@@ -115,12 +122,8 @@ int main(int argc, char *argv[])
                 goto out;
 	}
 
-	err = cus__load_files(cus, NULL, argv + remaining);
-	if (err != 0)
-		goto out;
-
-	cus__emit_tags(cus);
-	rc = EXIT_SUCCESS;
+	if (cus__load_files(cus, &pdwtags_conf_load, argv + remaining) == 0)
+		rc = EXIT_SUCCESS;
 out:
 	cus__delete(cus);
 	dwarves__exit();
