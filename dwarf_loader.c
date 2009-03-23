@@ -27,6 +27,10 @@
 #include "strings.h"
 #include "hash.h"
 
+#ifndef DW_AT_GNU_vector
+#define DW_AT_GNU_vector 0x2107
+#endif
+
 #define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
 
 struct dwarf_tag {
@@ -342,6 +346,7 @@ static struct array_type *array_type__new(Dwarf_Die *die)
 		tag__init(&self->tag, die);
 		self->dimensions = 0;
 		self->nr_entries = NULL;
+		self->is_vector	 = dwarf_hasattr(die, DW_AT_GNU_vector);
 	}
 
 	return self;
@@ -901,16 +906,10 @@ static struct tag *die__create_new_array(Dwarf_Die *die)
 	if (array == NULL)
 		oom("array_type__new");
 
-	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0) {
-		struct dwarf_tag *dtag = array->tag.priv;
-		fprintf(stderr,
-			"%s: DW_TAG_array_type %#llx with no children!\n",
-			__func__, (unsigned long long)dtag->id);
-		return NULL;
-	}
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
+		return &array->tag;
 
 	die = &child;
-	array->dimensions = 0;
 	do {
 		if (dwarf_tag(die) == DW_TAG_subrange_type) {
 			nr_entries[array->dimensions++] = attr_upper_bound(die);

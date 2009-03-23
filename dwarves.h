@@ -850,6 +850,7 @@ struct array_type {
 	struct tag	tag;
 	uint32_t	*nr_entries;
 	uint8_t		dimensions;
+	bool		is_vector;
 };
 
 static inline struct array_type *tag__array_type(const struct tag *self)

@@ -281,7 +281,7 @@ static size_t array_type__fprintf(const struct tag *tag_self,
 
 	printed = type__fprintf(type, cu, name, conf, fp);
 	for (i = 0; i < self->dimensions; ++i) {
-		if (conf->flat_arrays) {
+		if (conf->flat_arrays || self->is_vector) {
 			/*
 			 * Seen on the Linux kernel on tun_filter:
 			 *
@@ -297,7 +297,14 @@ static size_t array_type__fprintf(const struct tag *tag_self,
 			printed += fprintf(fp, "[%u]", self->nr_entries[i]);
 	}
 
-	if (conf->flat_arrays)
+	if (self->is_vector) {
+		type = tag__follow_typedef(tag_self, cu);
+
+		if (flat_dimensions == 0)
+			flat_dimensions = 1;
+		printed += fprintf(fp, " __attribute__ ((__vector_size__ (%llu)))",
+				   flat_dimensions * tag__size(type, cu));
+	} else if (conf->flat_arrays)
 		printed += fprintf(fp, "[%llu]", flat_dimensions);
 
 	return printed;
