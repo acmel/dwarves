@@ -349,7 +349,7 @@ void tag__not_found_die(const char *file, int line, const char *func);
 
 size_t tag__size(const struct tag *self, const struct cu *cu);
 size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu);
-struct tag *tag__follow_typedef(struct tag *tag, const struct cu *cu);
+struct tag *tag__follow_typedef(const struct tag *tag, const struct cu *cu);
 
 struct ptr_to_member_type {
 	struct tag tag;

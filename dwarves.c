@@ -128,7 +128,7 @@ void tag__not_found_die(const char *file, int line, const char *func)
 	exit(1);
 }
 
-struct tag *tag__follow_typedef(struct tag *tag, const struct cu *cu)
+struct tag *tag__follow_typedef(const struct tag *tag, const struct cu *cu)
 {
 	struct tag *type = cu__type(cu, tag->type);
 
