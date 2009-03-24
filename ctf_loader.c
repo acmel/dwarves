@@ -55,15 +55,6 @@ struct ctf_state {
 	int		in_fd;
 };
 
-struct elf_sym_iter_state {
-	int (*func)(struct ctf_state *sp, const char *sym_name,
-		    int sym_index, int call_index, void *data);
-	void *data;
-
-	int st_type;
-	int limit;
-};
-
 #if 0
 static int ctf_ignores_elf_symbol(GElf_Sym *sym, char *name, int type)
 {
@@ -78,39 +69,6 @@ static int ctf_ignores_elf_symbol(GElf_Sym *sym, char *name, int type)
 	if (!strcmp(name, "_START_") || !strcmp(name, "_END_"))
 		return 1;
 	return 0;
-}
-
-static void elf_symbol_iterate(struct ctf_state *sp,
-			       struct elf_sym_iter_state *ep)
-{
-	int i, index;
-
-	index = 0;
-	for (i = 0; i < sp->elf_num_syms; i++) {
-		GElf_Sym sym;
-		char *name;
-		int type;
-
-		if (gelf_getsym(sp->elf_syms, i, &sym) == NULL) {
-			fprintf(stderr, "Could not get ELF symbol %d.\n", i);
-			exit(2);
-		}
-		type = GELF_ST_TYPE(sym.st_info);
-		name = (char *)sp->elf_symstrs->d_buf + sym.st_name;
-
-		if ((ep->st_type == -1 || ep->st_type == type) &&
-		    !ctf_ignores_elf_symbol(&sym, name, type)) {
-			if (index >= ep->limit) {
-				fprintf(stderr, "Symbol limit reached "
-					"([%u], %d vs %d).\n",
-					ep->limit, i, sp->elf_num_syms);
-				exit(2);
-			}
-
-			if (ep->func(sp, name, i, index++, ep->data) < 0)
-				return;
-		}
-	}
 }
 #endif
 
