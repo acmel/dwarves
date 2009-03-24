@@ -1860,8 +1860,11 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		name = function__name(alias, cu);
 		n = fprintf(fp, "%s", name);
+		size_t namelen = 0;
+		if (name != NULL)
+			namelen = strlen(name);
 		n += ftype__fprintf_parms(&alias->proto, cu,
-					  indent + (strlen(name) + 7) / 8,
+					  indent + (namelen + 7) / 8,
 					  fp);
 		n += fprintf(fp, "; /* size=%zd, low_pc=%#llx */",
 			     exp->size, (unsigned long long)exp->low_pc);
