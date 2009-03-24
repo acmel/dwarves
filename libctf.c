@@ -14,16 +14,6 @@
 #include "dutil.h"
 #include "gobuffer.h"
 
-struct ctf {
-	void		*buf;
-	struct gobuffer types;
-	struct gobuffer *strings;
-	const char *filename;
-	size_t		size;
-	int		swapped;
-	unsigned int	type_index;
-};
-
 uint16_t ctf__get16(struct ctf *self, uint16_t *p)
 {
 	uint16_t val = *p;
@@ -116,10 +106,25 @@ err:
 	return -EINVAL;
 }
 
-static int ctf__load(struct ctf *self, void *orig_buf, size_t orig_size)
+int ctf__load(struct ctf *self)
 {
-	struct ctf_header *hp = orig_buf;
 	int err = -ENOTSUP;
+	GElf_Shdr shdr;
+	Elf_Scn *sec = elf_section_by_name(self->elf, &self->ehdr,
+					   &shdr, ".SUNW_ctf");
+
+	if (sec == NULL)
+		return -ESRCH;
+
+	Elf_Data *data = elf_getdata(sec, NULL);
+	if (data == NULL) {
+		fprintf(stderr, "%s: cannot get data of CTF section.\n",
+			__func__);
+		return -1;
+	}
+
+	struct ctf_header *hp = data->d_buf;
+	size_t orig_size = data->d_size;
 
 	if (hp->ctf_version != CTF_VERSION)
 		goto out;
@@ -136,37 +141,74 @@ static int ctf__load(struct ctf *self, void *orig_buf, size_t orig_size)
 		err = -ENOMEM;
 		self->buf = malloc(orig_size);
 		if (self->buf != NULL) {
-			memcpy(self->buf, orig_buf, orig_size);
+			memcpy(self->buf, hp, orig_size);
 			self->size = orig_size;
 			err = 0;
 		}
 	} else
-		err = ctf__decompress(self, orig_buf, orig_size);
+		err = ctf__decompress(self, hp, orig_size);
 out:
 	return err;
 }
 
-struct ctf *ctf__new(const char *filename, void *orig_buf, size_t orig_size)
+struct ctf *ctf__new(const char *filename)
 {
 	struct ctf *self = zalloc(sizeof(*self));
 
 	if (self != NULL) {
 		self->filename = strdup(filename);
-		if (self->filename == NULL ||
-		    (orig_buf != NULL &&
-		     ctf__load(self, orig_buf, orig_size) != 0)) {
-			free(self);
-			self = NULL;
+		if (self->filename == NULL)
+			goto out_delete;
+
+		self->in_fd = open(filename, O_RDONLY);
+		if (self->in_fd < 0)
+			goto out_delete_filename;
+
+		if (elf_version(EV_CURRENT) == EV_NONE) {
+			fprintf(stderr, "%s: cannot set libelf version.\n",
+				__func__);
+			goto out_close;
+		}
+
+		self->elf = elf_begin(self->in_fd, ELF_C_READ_MMAP, NULL);
+		if (!self->elf) {
+			fprintf(stderr, "%s: cannot read %s ELF file.\n",
+				__func__, filename);
+			goto out_close;
+		}
+
+		if (gelf_getehdr(self->elf, &self->ehdr) == NULL) {
+			fprintf(stderr, "%s: cannot get elf header.\n", __func__);
+			goto out_elf_end;
+		}
+
+		switch (self->ehdr.e_ident[EI_CLASS]) {
+		case ELFCLASS32: self->wordsize = 4; break;
+		case ELFCLASS64: self->wordsize = 8; break;
+		default:	 self->wordsize = 0; break;
 		}
 	}
 
 	return self;
+out_elf_end:
+	elf_end(self->elf);
+out_close:
+	close(self->in_fd);
+out_delete_filename:
+	free(self->filename);
+out_delete:
+	free(self);
+	return NULL;
 }
 
 void ctf__delete(struct ctf *self)
 {
-	free(self->buf);
-	free(self);
+	if (self != NULL) {
+		elf_end(self->elf);
+		close(self->in_fd);
+		free(self->buf);
+		free(self);
+	}
 }
 
 char *ctf__string(struct ctf *self, uint32_t ref)

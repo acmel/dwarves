@@ -205,7 +205,7 @@ static void tag__encode_ctf(struct tag *self, uint16_t core_id, struct ctf *ctf)
 
 int cu__encode_ctf(struct cu *self)
 {
-	struct ctf *ctf = ctf__new(self->filename, NULL, 0);
+	struct ctf *ctf = ctf__new(self->filename);
 
 	ctf__set_strings(ctf, &strings->gb);
 

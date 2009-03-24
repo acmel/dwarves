@@ -4,9 +4,30 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <elf.h>
 
-struct ctf *ctf__new(const char *filename, void *buf, size_t size);
+#include "gobuffer.h"
+
+struct ctf {
+	void		  *buf;
+	void		  *priv;
+	Elf		  *elf;
+	GElf_Ehdr	  ehdr;
+	struct gobuffer	  types;
+	struct gobuffer	  funcs;
+	struct gobuffer   *strings;
+	char		  *filename;
+	size_t		  size;
+	int		  swapped;
+	int		  in_fd;
+	uint8_t		  wordsize;
+	unsigned int	  type_index;
+};
+
+struct ctf *ctf__new(const char *filename);
 void ctf__delete(struct ctf *ctf);
+
+int ctf__load(struct ctf *self);
 
 uint16_t ctf__get16(struct ctf *self, uint16_t *p);
 uint32_t ctf__get32(struct ctf *self, uint32_t *p);
