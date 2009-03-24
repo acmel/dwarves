@@ -305,32 +305,27 @@ static int create_new_subroutine_type(struct ctf *self, void *ptr,
 {
 	uint16_t *args = ptr;
 	uint16_t i;
-	const char *name = ctf__string32(self, &tp->base.ctf_name);
 	unsigned int type = ctf__get16(self, &tp->base.ctf_type);
-	struct function *function = tag__alloc(sizeof(*function));
+	struct ftype *proto = tag__alloc(sizeof(*proto));
 
-	if (function == NULL)
+	if (proto == NULL)
 		oom("function__new");
 
-	function->name = strings__add(strings, name);
-	INIT_LIST_HEAD(&function->vtable_node);
-	INIT_LIST_HEAD(&function->tool_node);
-	INIT_LIST_HEAD(&function->proto.parms);
-	function->proto.tag.tag = DW_TAG_subroutine_type;
-	function->proto.tag.type = type;
-	INIT_LIST_HEAD(&function->lexblock.tags);
+	proto->tag.tag = DW_TAG_subroutine_type;
+	proto->tag.type = type;
+	INIT_LIST_HEAD(&proto->parms);
 
 	for (i = 0; i < vlen; i++) {
 		uint16_t type = ctf__get16(self, &args[i]);
 
 		if (type == 0)
-			function->proto.unspec_parms = 1;
+			proto->unspec_parms = 1;
 		else {
 			struct parameter *p = tag__alloc(sizeof(*p));
 
 			p->tag.tag  = DW_TAG_formal_parameter;
 			p->tag.type = ctf__get16(self, &args[i]);
-			ftype__add_parameter(&function->proto, p);
+			ftype__add_parameter(proto, p);
 		}
 	}
 
@@ -342,7 +337,7 @@ static int create_new_subroutine_type(struct ctf *self, void *ptr,
 	if (vlen & 0x2)
 		vlen += 0x2;
 
-	cu__add_tag(self->priv, &function->proto.tag, &id);
+	cu__add_tag(self->priv, &proto->tag, &id);
 
 	return vlen;
 }
