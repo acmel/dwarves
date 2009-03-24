@@ -2652,7 +2652,7 @@ int cus__load_dir(struct cus *self, struct conf_load *conf,
 			if (err != 0)
 				break;
 		} else if (fnmatch(filename_mask, entry->d_name, 0) == 0) {
-			err = cus__load(self, conf, pathname);
+			err = cus__load_file(self, conf, pathname);
 			if (err != 0)
 				break;
 		}
@@ -2678,11 +2678,11 @@ static struct debugging_formats {
 } debugging_formats__table[] = {
 	{
 		.name	= "dwarf",
-		.loader = dwarf__load,
+		.loader = dwarf__load_file,
 	},
 	{
 		.name	= "ctf",
-		.loader = ctf__load,
+		.loader = ctf__load_file,
 	},
 	{
 		.name	= NULL,
@@ -2700,7 +2700,7 @@ static debugging_format_loader_t debugging_formats__loader(const char *name)
 	return NULL;
 }
 
-int cus__load(struct cus *self, struct conf_load *conf, char *filename)
+int cus__load_file(struct cus *self, struct conf_load *conf, char *filename)
 {
 	int i = 0, err = 0;
 	debugging_format_loader_t loader;
@@ -2751,7 +2751,7 @@ int cus__load_files(struct cus *self, struct conf_load *conf,
 	int i = 0;
 
 	while (filenames[i] != NULL) {
-		if (cus__load(self, conf, filenames[i]))
+		if (cus__load_file(self, conf, filenames[i]))
 			return -i;
 		++i;
 	}

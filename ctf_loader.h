@@ -11,6 +11,7 @@
 struct cus;
 struct conf_load;
 
-int ctf__load(struct cus *self, struct conf_load *conf, const char *filename);
+int ctf__load_file(struct cus *self, struct conf_load *conf,
+		   const char *filename);
 
 #endif /* _CTF_LOADER_H_ */

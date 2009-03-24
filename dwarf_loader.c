@@ -1905,7 +1905,8 @@ static int cus__process_file(struct cus *self, struct conf_load *conf, int fd,
 	return parms.nr_dwarf_sections_found ? 0 : -1;
 }
 
-int dwarf__load(struct cus *self, struct conf_load *conf, const char *filename)
+int dwarf__load_file(struct cus *self, struct conf_load *conf,
+		     const char *filename)
 {
 	int fd, err;
 
