@@ -167,27 +167,6 @@ static int parse_elf(struct ctf_state *sp, const char *filename, int *wordsizep)
 	return 0;
 }
 
-static char *ctf_string(uint32_t ref, struct ctf_state *sp)
-{
-	struct ctf_header *hp = ctf__get_buffer(sp->ctf);
-	uint32_t off = CTF_REF_OFFSET(ref);
-	char *name;
-
-	if (CTF_REF_TBL_ID(ref) != CTF_STR_TBL_ID_0)
-		return "(external ref)";
-
-	if (off >= ctf__get32(sp->ctf, &hp->ctf_str_len))
-		return "(ref out-of-bounds)";
-
-	if ((off + ctf__get32(sp->ctf, &hp->ctf_str_off)) >=
-	    ctf__get_size(sp->ctf))
-		return "(string table truncated)";
-
-	name = ((char *)(hp + 1) + ctf__get32(sp->ctf, &hp->ctf_str_off) + off);
-
-	return name[0] == '\0' ? NULL : name;
-}
-
 static char *ctf_format_flt_attrs(uint32_t eval, char *buf)
 {
 	uint32_t attrs = CTF_TYPE_FP_ATTRS(eval);
@@ -368,7 +347,7 @@ static int create_new_base_type(struct ctf_state *sp, void *ptr,
 		buf += sprintf(buf, "varargs ");
 
 	name_idx = ctf__get32(sp->ctf, &tp->base.ctf_name);
-	buf += sprintf(buf, "%s", ctf_string(name_idx, sp));
+	buf += sprintf(buf, "%s", ctf__string(sp->ctf, name_idx));
 	base = base_type__new(name, CTF_TYPE_INT_BITS(eval));
 	if (base == NULL)
 		oom("base_type__new");
@@ -390,7 +369,7 @@ static int create_new_base_type_float(struct ctf_state *sp, void *ptr,
 
 	eval = ctf__get32(sp->ctf, enc);
 	sprintf(ctf_format_flt_attrs(eval, name), "%s",
-		ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp));
+		ctf__string32(sp->ctf, &tp->base.ctf_name));
 
 	base = base_type__new(name, CTF_TYPE_FP_BITS(eval));
 	if (base == NULL)
@@ -436,7 +415,7 @@ static int create_new_subroutine_type(struct ctf_state *sp, void *ptr,
 {
 	uint16_t *args = ptr;
 	uint16_t i;
-	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
+	const char *name = ctf__string32(sp->ctf, &tp->base.ctf_name);
 	unsigned int type = ctf__get16(sp->ctf, &tp->base.ctf_type);
 	struct function *self = tag__alloc(sizeof(*self));
 
@@ -492,7 +471,9 @@ static unsigned long create_full_members(struct ctf_state *sp, void *ptr,
 
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(sp->ctf, &mp[i].ctf_member_type);
-		member->name = strings__add(strings, ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
+		member->name = strings__add(strings,
+					    ctf__string32(sp->ctf,
+							  &mp[i].ctf_member_name));
 		member->bit_offset = (ctf__get32(sp->ctf, &mp[i].ctf_member_offset_high) << 16) |
 				      ctf__get32(sp->ctf, &mp[i].ctf_member_offset_low);
 		/* sizes and offsets will be corrected at class__fixup_ctf_bitfields */
@@ -516,7 +497,9 @@ static unsigned long create_short_members(struct ctf_state *sp, void *ptr,
 
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(sp->ctf, &mp[i].ctf_member_type);
-		member->name = strings__add(strings, ctf_string(ctf__get32(sp->ctf, &mp[i].ctf_member_name), sp));
+		member->name = strings__add(strings,
+					    ctf__string32(sp->ctf,
+							  &mp[i].ctf_member_name));
 		member->bit_offset = ctf__get16(sp->ctf, &mp[i].ctf_member_offset);
 		/* sizes and offsets will be corrected at class__fixup_ctf_bitfields */
 
@@ -531,7 +514,7 @@ static int create_new_class(struct ctf_state *sp, void *ptr,
 			    uint64_t size, long id)
 {
 	unsigned long member_size;
-	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
+	const char *name = ctf__string32(sp->ctf, &tp->base.ctf_name);
 	struct class *self = class__new(name, size);
 
 	if (size >= CTF_SHORT_MEMBER_LIMIT) {
@@ -550,7 +533,7 @@ static int create_new_union(struct ctf_state *sp, void *ptr,
 			    uint64_t size, long id)
 {
 	unsigned long member_size;
-	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
+	const char *name = ctf__string32(sp->ctf, &tp->base.ctf_name);
 	struct type *self = type__new(DW_TAG_union_type, name, size);
 
 	if (size >= CTF_SHORT_MEMBER_LIMIT) {
@@ -585,15 +568,15 @@ static int create_new_enumeration(struct ctf_state *sp, void *ptr,
 	struct ctf_enum *ep = ptr;
 	uint16_t i;
 	struct type *enumeration = type__new(DW_TAG_enumeration_type,
-					     ctf_string(ctf__get32(sp->ctf,
-							&tp->base.ctf_name), sp),
+					     ctf__string32(sp->ctf,
+							   &tp->base.ctf_name),
 					     size ?: (sizeof(int) * 8));
 
 	if (enumeration == NULL)
 		oom("enumeration");
 
 	for (i = 0; i < vlen; i++) {
-		char *name = ctf_string(ctf__get32(sp->ctf, &ep[i].ctf_enum_name), sp);
+		char *name = ctf__string32(sp->ctf, &ep[i].ctf_enum_name);
 		uint32_t value = ctf__get32(sp->ctf, &ep[i].ctf_enum_val);
 		struct enumerator *enumerator = enumerator__new(name, value);
 
@@ -612,7 +595,7 @@ static int create_new_forward_decl(struct ctf_state *sp, void *ptr __unused,
 				   int vlen __unused, struct ctf_full_type *tp,
 				   uint64_t size, long id)
 {
-	char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
+	char *name = ctf__string32(sp->ctf, &tp->base.ctf_name);
 	struct class *self = class__new(name, size);
 
 	if (self == NULL)
@@ -627,7 +610,7 @@ static int create_new_typedef(struct ctf_state *sp, int type,
 			      struct ctf_full_type *tp,
 			      uint64_t size, long id)
 {
-	const char *name = ctf_string(ctf__get32(sp->ctf, &tp->base.ctf_name), sp);
+	const char *name = ctf__string32(sp->ctf, &tp->base.ctf_name);
 	unsigned int type_id = ctf__get16(sp->ctf, &tp->base.ctf_type);
 	unsigned int tag;
 	struct type *self;

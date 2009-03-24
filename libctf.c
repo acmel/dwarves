@@ -169,6 +169,31 @@ void ctf__delete(struct ctf *self)
 	free(self);
 }
 
+char *ctf__string(struct ctf *self, uint32_t ref)
+{
+	struct ctf_header *hp = self->buf;
+	uint32_t off = CTF_REF_OFFSET(ref);
+	char *name;
+
+	if (CTF_REF_TBL_ID(ref) != CTF_STR_TBL_ID_0)
+		return "(external ref)";
+
+	if (off >= ctf__get32(self, &hp->ctf_str_len))
+		return "(ref out-of-bounds)";
+
+	if ((off + ctf__get32(self, &hp->ctf_str_off)) >= self->size)
+		return "(string table truncated)";
+
+	name = ((char *)(hp + 1) + ctf__get32(self, &hp->ctf_str_off) + off);
+
+	return name[0] == '\0' ? NULL : name;
+}
+
+char *ctf__string32(struct ctf *self, uint32_t *refp)
+{
+	return ctf__string(self, ctf__get32(self, refp));
+}
+
 void *ctf__get_buffer(struct ctf *self)
 {
 	return self->buf;
