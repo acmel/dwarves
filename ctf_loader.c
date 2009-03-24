@@ -55,23 +55,6 @@ struct ctf_state {
 	int		in_fd;
 };
 
-static Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
-				    GElf_Shdr *shp, const char *name)
-{
-	Elf_Scn *sec = NULL;
-
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		char *str;
-
-		gelf_getshdr(sec, shp);
-		str = elf_strptr(elf, ep->e_shstrndx, shp->sh_name);
-		if (!strcmp(name, str))
-			break;
-	}
-
-	return sec;
-}
-
 struct elf_sym_iter_state {
 	int (*func)(struct ctf_state *sp, const char *sym_name,
 		    int sym_index, int call_index, void *data);

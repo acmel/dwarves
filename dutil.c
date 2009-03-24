@@ -108,3 +108,20 @@ int strlist__has_entry(const struct strlist *self, const char *entry)
 {
 	return tfind(entry, &self->entries, str_compare) != NULL;
 }
+
+Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
+			     GElf_Shdr *shp, const char *name)
+{
+	Elf_Scn *sec = NULL;
+
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+		char *str;
+
+		gelf_getshdr(sec, shp);
+		str = elf_strptr(elf, ep->e_shstrndx, shp->sh_name);
+		if (!strcmp(name, str))
+			break;
+	}
+
+	return sec;
+}

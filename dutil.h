@@ -13,6 +13,8 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <elf.h>
+#include <gelf.h>
 
 #ifndef __unused
 #define __unused __attribute__ ((unused))
@@ -54,5 +56,8 @@ int strlist__add(struct strlist *self, const char *str);
 int strlist__has_entry(const struct strlist *self, const char *entry);
 
 void *zalloc(const size_t size);
+
+Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
+			     GElf_Shdr *shp, const char *name);
 
 #endif /* _DUTIL_H_ */
