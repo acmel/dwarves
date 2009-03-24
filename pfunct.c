@@ -400,6 +400,12 @@ static const struct argp_option pfunct__options[] = {
 		.doc  = "show just FUNCTION",
 	},
 	{
+		.name = "format_path",
+		.key  = 'F',
+		.arg  = "FORMAT_LIST",
+		.doc  = "List of debugging formats to try"
+	},
+	{
 		.key  = 'g',
 		.name = "goto_labels",
 		.doc  = "show number of goto labels",
@@ -486,6 +492,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 		  type_emissions__init(&emissions);	 break;
 	case 'c': class_name = arg;			 break;
 	case 'f': function_name = arg;			 break;
+	case 'F': conf_load.format_path = arg;		 break;
 	case 'E': show_externals = 1;			 break;
 	case 's': formatter = fn_stats_size_fmtr;	 break;
 	case 'S': formatter = fn_stats_variables_fmtr;	 break;
