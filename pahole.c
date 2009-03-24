@@ -55,7 +55,6 @@ static bool defined_in;
 static int show_reorg_steps;
 static char *class_name;
 static char separator = '\t';
-static Dwarf_Off class_dwarf_offset;
 
 static struct conf_fprintf conf = {
 	.emit_stats = 1,
@@ -840,12 +839,6 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "show how many times struct was defined",
 	},
 	{
-		.name = "dwarf_offset",
-		.key  = 'O',
-		.arg  = "OFFSET",
-		.doc  = "Show tag with DWARF OFFSET",
-	},
-	{
 		.name = "decl_exclude",
 		.key  = 'D',
 		.arg  = "PREFIX",
@@ -956,8 +949,6 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'm': stats_formatter = nr_methods_formatter; break;
 	case 'N': formatter = class_name_len_formatter;	break;
 	case 'n': formatter = nr_members_formatter;	break;
-	case 'O': class_dwarf_offset = strtoul(arg, NULL, 0);
-		  conf_load.extra_dbg_info = 1;		break;
 	case 'P': show_packable	= 1;
 		  conf_load.extra_dbg_info = 1;		break;
 	case 'p': conf.expand_pointers = 1;		break;
@@ -1080,20 +1071,6 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		}
 
 		cu_fixup_word_size_iterator(cu);
-	}
-
-	if (class_dwarf_offset != 0) {
-		struct tag *tag = cu__tag(cu, class_dwarf_offset);
-		if (tag == NULL) {
-			fprintf(stderr, "id %llx not found!\n",
-				(unsigned long long)class_dwarf_offset);
-			return EXIT_FAILURE;
-		}
-
-		tag__fprintf(tag, cu, &conf, stdout);
-		putchar('\n');
-		cu__delete(cu);
-		return LSK__STOP_LOADING;
 	}
 
 	memset(tab, ' ', sizeof(tab) - 1);
