@@ -463,7 +463,7 @@ static size_t imported_declaration__fprintf(const struct tag *self,
 {
 	char bf[512];
 	size_t printed = fprintf(fp, "using ::");
-	const struct tag *decl = cu__tag(cu, self->type);
+	const struct tag *decl = cu__function(cu, self->type);
 
 	if (decl == NULL)
 		return printed + tag__id_not_found_fprintf(fp, self->type);
@@ -581,7 +581,9 @@ int cu__table_add_tag(struct cu *self, struct tag *tag, long *id)
 {
 	struct ptr_table *pt = tag__is_tag_type(tag) ?
 					&self->types_table :
-					&self->tags_table;
+						tag__is_function(tag) ?
+							&self->functions_table :
+							&self->tags_table;
 	if (*id < 0) {
 		*id = ptr_table__add(pt, tag);
 		if (*id < 0)
@@ -620,6 +622,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 
 		ptr_table__init(&self->tags_table);
 		ptr_table__init(&self->types_table);
+		ptr_table__init(&self->functions_table);
 		/*
 		 * the first entry is historically associated with void,
 		 * so make sure we don't use it
@@ -681,6 +684,7 @@ void cu__delete(struct cu *self)
 	cu__for_all_tags(self, cu__delete_tag, NULL);
 	ptr_table__exit(&self->tags_table);
 	ptr_table__exit(&self->types_table);
+	ptr_table__exit(&self->functions_table);
 	free(self->name);
 	free(self);
 }
@@ -706,6 +710,11 @@ static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
 	}
 
 	return "";
+}
+
+struct tag *cu__function(const struct cu *self, const uint32_t id)
+{
+	return self ? ptr_table__entry(&self->functions_table, id) : NULL;
 }
 
 struct tag *cu__tag(const struct cu *self, const uint32_t id)
@@ -1741,7 +1750,7 @@ static void lexblock__account_inline_expansions(struct lexblock *self,
 		} else if (pos->tag != DW_TAG_inlined_subroutine)
 			continue;
 
-		type = cu__tag(cu, pos->type);
+		type = cu__function(cu, pos->type);
 		if (type != NULL) {
 			struct function *ftype = tag__function(type);
 
@@ -1849,7 +1858,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 	switch (tag->tag) {
 	case DW_TAG_inlined_subroutine: {
 		const struct inline_expansion *exp = vtag;
-		const struct tag *talias = cu__tag(cu, exp->tag.type);
+		const struct tag *talias = cu__function(cu, exp->tag.type);
 		struct function *alias = tag__function(talias);
 		const char *name;
 

@@ -1614,11 +1614,11 @@ out:
 	self->type = dtype->small_id;
 }
 
-static void cu__recode_dwarf_types_table(struct cu *self, struct ptr_table *pt)
+static void cu__recode_dwarf_types_table(struct cu *self,
+					 struct ptr_table *pt,
+					 uint32_t i)
 {
-	uint32_t i;
-
-	for (i = 1; i < pt->nr_entries; ++i) {
+	for (; i < pt->nr_entries; ++i) {
 		struct tag *tag = pt->entries[i];
 
 		if (tag != NULL) /* void, see cu__new */
@@ -1628,8 +1628,9 @@ static void cu__recode_dwarf_types_table(struct cu *self, struct ptr_table *pt)
 
 static void cu__recode_dwarf_types(struct cu *self)
 {
-	cu__recode_dwarf_types_table(self, &self->types_table);
-	cu__recode_dwarf_types_table(self, &self->tags_table);
+	cu__recode_dwarf_types_table(self, &self->types_table, 1);
+	cu__recode_dwarf_types_table(self, &self->tags_table, 0);
+	cu__recode_dwarf_types_table(self, &self->functions_table, 0);
 }
 
 static const char *dwarf_tag__decl_file(const struct tag *self,

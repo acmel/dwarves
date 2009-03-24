@@ -119,6 +119,7 @@ struct cu {
 	struct list_head tags;
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
 	struct ptr_table types_table;
+	struct ptr_table functions_table;
 	struct ptr_table tags_table;
 	char		 *name;
 	char		 *filename;
@@ -181,11 +182,10 @@ void cu__delete(struct cu *self);
  * @pos: struct function iterator
  * @id: uint32_t tag id
  */
-#define cu__for_each_function(cu, id, pos)				  \
-	for (id = 0; id < cu->tags_table.nr_entries; ++id)		  \
-		if (!(pos = tag__function(cu->tags_table.entries[id])) || \
-		    pos->proto.tag.tag != DW_TAG_subprogram)		  \
-			continue;					  \
+#define cu__for_each_function(cu, id, pos)				     \
+	for (id = 0; id < cu->functions_table.nr_entries; ++id)		     \
+		if (!(pos = tag__function(cu->functions_table.entries[id]))) \
+			continue;					     \
 		else
 
 int cu__add_tag(struct cu *self, struct tag *tag, long *id);
@@ -210,6 +210,7 @@ struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name);
 struct tag *cu__find_struct_by_sname(const struct cu *self, strings_t sname,
 				     const int include_decls, uint16_t *idp);
+struct tag *cu__function(const struct cu *self, const uint32_t id);
 struct tag *cu__tag(const struct cu *self, const uint32_t id);
 struct tag *cu__type(const struct cu *self, const uint16_t id);
 struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,

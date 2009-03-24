@@ -54,7 +54,7 @@ static void refcnt_inline_expansion(const struct inline_expansion *exp,
 				    const struct cu *cu)
 {
 	if (exp->tag.type != 0) { /* if not void */
-		struct tag *type = cu__tag(cu, exp->tag.type);
+		struct tag *type = cu__function(cu, exp->tag.type);
 		if (type != NULL)
 			refcnt_tag(type, cu);
 	}
