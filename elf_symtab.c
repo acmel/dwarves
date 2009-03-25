@@ -17,12 +17,6 @@
 #define HASHSYMS__BITS 8
 #define HASHSYMS__SIZE (1UL << HASHSYMS__BITS)
 
-struct elf_symtab {
-	uint32_t  nr_syms;
-	Elf_Data  *syms;
-	Elf_Data  *symstrs;
-};
-
 struct elf_symtab *elf_symtab__new(Elf *elf, GElf_Ehdr *ehdr)
 {
 	GElf_Shdr shdr;
@@ -63,39 +57,21 @@ void elf_symtab__delete(struct elf_symtab *self)
 	free(self);
 }
 
-int elf_symtab__iterate(struct elf_symtab *self,
-			struct elf_symtab_iter_state *ep,
-			bool (*filter)(GElf_Sym *sym, char *name, int type))
+bool elf_symtab__is_local_function(struct elf_symtab *self,
+				   GElf_Sym *sym)
 {
-	uint32_t i, index = 0;
+	if (elf_sym__type(sym) != STT_OBJECT)
+		return false;
+	if (sym->st_shndx == SHN_ABS &&
+	    sym->st_value == 0)
+                return false;
+        if (sym->st_name == 0)
+                return false;
+        if (sym->st_shndx == SHN_UNDEF)
+                return false;
 
-	for (i = 0; i < self->nr_syms; i++) {
-		GElf_Sym sym;
-		char *name;
-		int type;
-
-		if (gelf_getsym(self->syms, i, &sym) == NULL) {
-			fprintf(stderr,
-				"%s: could not get ELF symbol %d.\n",
-				__func__, i);
-			return -1;
-		}
-		type = GELF_ST_TYPE(sym.st_info);
-		name = self->symstrs->d_buf + sym.st_name;
-
-		if ((ep->st_type == -1 || ep->st_type == type) &&
-		    (filter && !filter(&sym, name, type))) {
-			if (index >= ep->limit) {
-				fprintf(stderr, "%s: symbol limit reached "
-					"([%u], %d vs %d).\n", __func__,
-					ep->limit, i, self->nr_syms);
-				return -1;
-			}
-
-			if (ep->func(ep->priv, name, i, index++, ep->data) < 0)
-				return 0;
-		}
-	}
-
-	return 0;
+	const char *name = elf_sym__name(sym, self);
+        if (!strcmp(name, "_START_") || !strcmp(name, "_END_"))
+                return false;
+	return true;
 }

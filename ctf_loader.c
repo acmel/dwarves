@@ -41,23 +41,6 @@ static void *tag__alloc(const size_t size)
 }
 
 #if 0
-static int ctf_ignores_elf_symbol(GElf_Sym *sym, char *name, int type)
-{
-	if (type == STT_OBJECT &&
-	    sym->st_shndx == SHN_ABS &&
-	    sym->st_value == 0)
-		return 1;
-	if (sym->st_name == 0)
-		return 1;
-	if (sym->st_shndx == SHN_UNDEF)
-		return 1;
-	if (!strcmp(name, "_START_") || !strcmp(name, "_END_"))
-		return 1;
-	return 0;
-}
-#endif
-
-#if 0
 static int dump_one_func(struct ctf_state *sp, const char *sym_name,
 			 int sym_index, int call_index, void *data)
 {
