@@ -383,6 +383,8 @@ static inline struct namespace *tag__namespace(const struct tag *self)
 	return (struct namespace *)self;
 }
 
+void namespace__delete(struct namespace *self);
+
 /**
  * namespace__for_each_tag - iterate thru all the tags
  * @self: struct namespace instance to iterate
@@ -471,6 +473,8 @@ static inline struct lexblock *tag__lexblock(const struct tag *self)
 {
 	return (struct lexblock *)self;
 }
+
+void lexblock__delete(struct lexblock *self);
 
 struct function;
 
@@ -568,6 +572,8 @@ static inline struct tag *function__tag(const struct function *self)
 {
 	return (struct tag *)self;
 }
+
+void function__delete(struct function *self);
 
 static __pure inline int tag__is_function(const struct tag *self)
 {

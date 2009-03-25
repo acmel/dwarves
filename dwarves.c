@@ -115,6 +115,23 @@ static const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
 static size_t cacheline_size;
 
+static void lexblock__delete_tags(struct tag *tself)
+{
+	struct lexblock *self = tag__lexblock(tself);
+	struct tag *pos, *n;
+
+	list_for_each_entry_safe(pos, n, &self->tags, node) {
+		list_del_init(&pos->node);
+		tag__delete(pos);
+	}
+}
+
+void lexblock__delete(struct lexblock *self)
+{
+	lexblock__delete_tags(&self->tag);
+	free(self);
+}
+
 void tag__delete(struct tag *self)
 {
 	assert(list_empty(&self->node));
@@ -129,6 +146,10 @@ void tag__delete(struct tag *self)
 		enumeration__delete(tag__type(self));	break;
 	case DW_TAG_subroutine_type:
 		ftype__delete(tag__ftype(self));	break;
+	case DW_TAG_subprogram:
+		function__delete(tag__function(self));	break;
+	case DW_TAG_lexical_block:
+		lexblock__delete(tag__lexblock(self));	break;
 	default:
 		free(self);
 	}
@@ -1587,6 +1608,12 @@ void ftype__delete(struct ftype *self)
 		parameter__delete(pos);
 	}
 	free(self);
+}
+
+void function__delete(struct function *self)
+{
+	lexblock__delete_tags(&self->lexblock.tag);
+	ftype__delete(&self->proto);
 }
 
 int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
