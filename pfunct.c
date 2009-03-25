@@ -13,10 +13,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "dwarves.h"
 #include "dwarves_emit.h"
 #include "dutil.h"
+#include "elf_symtab.h"
 
 static int verbose;
 static int show_inline_expansions;
@@ -24,6 +29,7 @@ static int show_variables;
 static int show_externals;
 static int show_cc_inlined;
 static int show_cc_uninlined;
+static char *symtab_name;
 static bool expand_types;
 static struct type_emissions emissions;
 
@@ -368,13 +374,96 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 	return 0;
 }
 
-static int cu_function_iterator(struct cu *cu, void *cookie)
+static int cu_function_iterator(struct cu*cu, void *cookie)
 {
 	return cu__for_each_tag(cu, function_iterator, cookie, NULL);
 }
 
+int elf_symtab__show(char *filename)
+{
+	int fd = open(filename, O_RDONLY), err = -1;
+	if (fd < 0)
+		return -1;
+
+	if (elf_version(EV_CURRENT) == EV_NONE) {
+		fprintf(stderr, "%s: cannot set libelf version.\n", __func__);
+		goto out_close;
+	}
+
+	Elf *elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL) {
+		fprintf(stderr, "%s: cannot read %s ELF file.\n",
+			__func__, filename);
+		goto out_close;
+	}
+
+	GElf_Ehdr ehdr;
+	if (gelf_getehdr(elf, &ehdr) == NULL) {
+		fprintf(stderr, "%s: cannot get elf header.\n", __func__);
+		goto out_elf_end;
+	}
+
+	struct elf_symtab *symtab = elf_symtab__new(symtab_name, elf, &ehdr);
+	if (symtab == NULL)
+		goto out_elf_end;
+
+	GElf_Sym sym;
+	uint32_t index;
+	int longest_name = 0;
+	elf_symtab__for_each_symbol(symtab, index, sym) {
+		if (!elf_symtab__is_local_function(symtab, &sym))
+			continue;
+		int len = strlen(elf_sym__name(&sym, symtab));
+		if (len > longest_name)
+			longest_name = len;
+	}
+
+	if (longest_name > 32)
+		longest_name = 32;
+
+	int index_spacing = 0;
+	int nr = elf_symtab__nr_symbols(symtab);
+	while (nr) {
+		++index_spacing;
+		nr /= 10;
+	}
+
+	elf_symtab__for_each_symbol(symtab, index, sym) {
+		if (!elf_symtab__is_local_function(symtab, &sym))
+			continue;
+		printf("%*d: %-*s %#llx %5u\n",
+		       index_spacing, index, longest_name,
+		       elf_sym__name(&sym, symtab),
+		       (unsigned long long)elf_sym__value(&sym),
+		       elf_sym__size(&sym));
+	}
+
+	elf_symtab__delete(symtab);
+	err = 0;
+out_elf_end:
+	elf_end(elf);
+out_close:
+	close(fd);
+	return err;
+}
+
+int elf_symtabs__show(char *filenames[])
+{
+	int i = 0;
+
+	while (filenames[i] != NULL) {
+		if (elf_symtab__show(filenames[i]))
+			return EXIT_FAILURE;
+		++i;
+	}
+
+	return EXIT_SUCCESS;
+}
+
 /* Name and version of program.  */
 ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
+
+#define ARGP_symtab	300
 
 static const struct argp_option pfunct__options[] = {
 	{
@@ -471,6 +560,13 @@ static const struct argp_option pfunct__options[] = {
 		.doc  = "be verbose",
 	},
 	{
+		.name  = "symtab",
+		.key   = ARGP_symtab,
+		.arg   = "NAME",
+		.flags = OPTION_ARG_OPTIONAL,
+		.doc   = "show symbol table NAME (Default .symtab)",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -510,6 +606,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 	case 'N': formatter = fn_stats_name_len_fmtr;	 break;
 	case 'V': verbose = 1;
 		  conf_load.extra_dbg_info = 1;		 break;
+	case ARGP_symtab: symtab_name = arg ?: ".symtab";  break;
 	default:  return ARGP_ERR_UNKNOWN;
 	}
 
@@ -534,6 +631,9 @@ int main(int argc, char *argv[])
                 argp_help(&pfunct__argp, stderr, ARGP_HELP_SEE, argv[0]);
                 goto out;
 	}
+
+	if (symtab_name != NULL)
+		return elf_symtabs__show(argv + remaining);
 
 	cus = cus__new();
 	if (dwarves__init(0) || cus == NULL) {
