@@ -5,6 +5,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -37,12 +38,6 @@ static void *tag__alloc(const size_t size)
 		self->top_level = 1;
 
 	return self;
-}
-
-static void oom(const char *msg)
-{
-	fprintf(stderr, "libclasses: out of memory(%s)\n", msg);
-	exit(EXIT_FAILURE);
 }
 
 #if 0
@@ -191,7 +186,7 @@ static int create_new_base_type(struct ctf *self, void *ptr,
 	buf += sprintf(buf, "%s", ctf__string(self, name_idx));
 	base = base_type__new(name, CTF_TYPE_INT_BITS(eval));
 	if (base == NULL)
-		oom("base_type__new");
+		return -ENOMEM;
 
 	base->tag.tag = DW_TAG_base_type;
 	cu__add_tag(self->priv, &base->tag, &id);
@@ -214,7 +209,7 @@ static int create_new_base_type_float(struct ctf *self, void *ptr,
 
 	base = base_type__new(name, CTF_TYPE_FP_BITS(eval));
 	if (base == NULL)
-		oom("base_type__new");
+		return -ENOMEM;
 
 	base->tag.tag = DW_TAG_base_type;
 	cu__add_tag(self->priv, &base->tag, &id);
@@ -228,15 +223,17 @@ static int create_new_array(struct ctf *self, void *ptr, long id)
 	struct array_type *array = tag__alloc(sizeof(*array));
 
 	if (array == NULL)
-		oom("array_type");
+		return -ENOMEM;
 
 	/* FIXME: where to get the number of dimensions?
 	 * it it flattened? */
 	array->dimensions = 1;
 	array->nr_entries = malloc(sizeof(uint32_t));
 
-	if (array->nr_entries == NULL)
-		oom("array_type->nr_entries");
+	if (array->nr_entries == NULL) {
+		free(array);
+		return -ENOMEM;
+	}
 
 	array->nr_entries[0] = ctf__get32(self, &ap->ctf_array_nelems);
 	array->tag.tag = DW_TAG_array_type;
@@ -257,7 +254,7 @@ static int create_new_subroutine_type(struct ctf *self, void *ptr,
 	struct ftype *proto = tag__alloc(sizeof(*proto));
 
 	if (proto == NULL)
-		oom("function__new");
+		return -ENOMEM;
 
 	proto->tag.tag = DW_TAG_subroutine_type;
 	proto->tag.type = type;
@@ -271,6 +268,8 @@ static int create_new_subroutine_type(struct ctf *self, void *ptr,
 		else {
 			struct parameter *p = tag__alloc(sizeof(*p));
 
+			if (p == NULL)
+				goto out_free_parameters;
 			p->tag.tag  = DW_TAG_formal_parameter;
 			p->tag.type = ctf__get16(self, &args[i]);
 			ftype__add_parameter(proto, p);
@@ -288,10 +287,13 @@ static int create_new_subroutine_type(struct ctf *self, void *ptr,
 	cu__add_tag(self->priv, &proto->tag, &id);
 
 	return vlen;
+out_free_parameters:
+	ftype__delete(proto);
+	return -ENOMEM;
 }
 
-static unsigned long create_full_members(struct ctf *self, void *ptr,
-					 int vlen, struct type *class)
+static int create_full_members(struct ctf *self, void *ptr,
+			       int vlen, struct type *class)
 {
 	struct ctf_full_member *mp = ptr;
 	int i;
@@ -300,7 +302,7 @@ static unsigned long create_full_members(struct ctf *self, void *ptr,
 		struct class_member *member = zalloc(sizeof(*member));
 
 		if (member == NULL)
-			oom("class_member");
+			return -ENOMEM;
 
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(self, &mp[i].ctf_member_type);
@@ -316,8 +318,8 @@ static unsigned long create_full_members(struct ctf *self, void *ptr,
 	return sizeof(*mp);
 }
 
-static unsigned long create_short_members(struct ctf *self, void *ptr,
-					  int vlen, struct type *class)
+static int create_short_members(struct ctf *self, void *ptr,
+				int vlen, struct type *class)
 {
 	struct ctf_short_member *mp = ptr;
 	int i;
@@ -326,7 +328,7 @@ static unsigned long create_short_members(struct ctf *self, void *ptr,
 		struct class_member *member = zalloc(sizeof(*member));
 
 		if (member == NULL)
-			oom("class_member");
+			return -ENOMEM;
 
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(self, &mp[i].ctf_member_type);
@@ -346,7 +348,7 @@ static int create_new_class(struct ctf *self, void *ptr,
 			    int vlen, struct ctf_full_type *tp,
 			    uint64_t size, long id)
 {
-	unsigned long member_size;
+	int member_size;
 	const char *name = ctf__string32(self, &tp->base.ctf_name);
 	struct class *class = class__new(name, size);
 
@@ -356,16 +358,22 @@ static int create_new_class(struct ctf *self, void *ptr,
 		member_size = create_short_members(self, ptr, vlen, &class->type);
 	}
 
+	if (member_size < 0)
+		goto out_free;
+
 	cu__add_tag(self->priv, &class->type.namespace.tag, &id);
 
 	return (vlen * member_size);
+out_free:
+	class__delete(class);
+	return -ENOMEM;
 }
 
 static int create_new_union(struct ctf *self, void *ptr,
 			    int vlen, struct ctf_full_type *tp,
 			    uint64_t size, long id)
 {
-	unsigned long member_size;
+	int member_size;
 	const char *name = ctf__string32(self, &tp->base.ctf_name);
 	struct type *un = type__new(DW_TAG_union_type, name, size);
 
@@ -375,9 +383,15 @@ static int create_new_union(struct ctf *self, void *ptr,
 		member_size = create_short_members(self, ptr, vlen, un);
 	}
 
+	if (member_size < 0)
+		goto out_free;
+
 	cu__add_tag(self->priv, &un->namespace.tag, &id);
 
 	return (vlen * member_size);
+out_free:
+	type__delete(un);
+	return -ENOMEM;
 }
 
 static struct enumerator *enumerator__new(const char *name,
@@ -406,7 +420,7 @@ static int create_new_enumeration(struct ctf *self, void *ptr,
 					     size ?: (sizeof(int) * 8));
 
 	if (enumeration == NULL)
-		oom("enumeration");
+		return -ENOMEM;
 
 	for (i = 0; i < vlen; i++) {
 		char *name = ctf__string32(self, &ep[i].ctf_enum_name);
@@ -414,7 +428,7 @@ static int create_new_enumeration(struct ctf *self, void *ptr,
 		struct enumerator *enumerator = enumerator__new(name, value);
 
 		if (enumerator == NULL)
-			oom("enumerator__new");
+			goto out_free;
 
 		enumeration__add(enumeration, enumerator);
 	}
@@ -422,6 +436,9 @@ static int create_new_enumeration(struct ctf *self, void *ptr,
 	cu__add_tag(self->priv, &enumeration->namespace.tag, &id);
 
 	return (vlen * sizeof(*ep));
+out_free:
+	enumeration__delete(enumeration);
+	return -ENOMEM;
 }
 
 static int create_new_forward_decl(struct ctf *self, struct ctf_full_type *tp,
@@ -431,7 +448,7 @@ static int create_new_forward_decl(struct ctf *self, struct ctf_full_type *tp,
 	struct class *fwd = class__new(name, size);
 
 	if (fwd == NULL)
-		oom("class foward decl");
+		return -ENOMEM;
 	fwd->type.declaration = 1;
 	cu__add_tag(self->priv, &fwd->type.namespace.tag, &id);
 	return 0;
@@ -445,7 +462,7 @@ static int create_new_typedef(struct ctf *self, struct ctf_full_type *tp,
 	struct type *type = type__new(DW_TAG_typedef, name, size);
 
 	if (type == NULL)
-		oom("type__new");
+		return -ENOMEM;
 
 	type->namespace.tag.type = type_id;
 	cu__add_tag(self->priv, &type->namespace.tag, &id);
@@ -460,7 +477,7 @@ static int create_new_tag(struct ctf *self, int type,
 	struct tag *tag = zalloc(sizeof(*tag));
 
 	if (tag == NULL)
-		oom("tag__new");
+		return -ENOMEM;
 
 	switch (type) {
 	case CTF_TYPE_KIND_CONST:	tag->tag = DW_TAG_const_type;	 break;
@@ -478,7 +495,7 @@ static int create_new_tag(struct ctf *self, int type,
 	return 0;
 }
 
-static void ctf__load_types(struct ctf *self)
+static int ctf__load_types(struct ctf *self)
 {
 	void *ctf_buffer = ctf__get_buffer(self);
 	struct ctf_header *hp = ctf_buffer;
@@ -495,25 +512,20 @@ static void ctf__load_types(struct ctf *self)
 		type_index += 0x8000;
 
 	while (type_ptr < end) {
-		uint16_t val, type, vlen, base_size;
-		uint64_t size;
-		void *ptr;
+		uint16_t val	   = ctf__get16(self, &type_ptr->base.ctf_info);
+		uint16_t type	   = CTF_GET_KIND(val);
+		int	 vlen	   = CTF_GET_VLEN(val);
+		void	 *ptr	   = type_ptr;
+		uint16_t base_size = ctf__get16(self, &type_ptr->base.ctf_size);
+		uint64_t size	   = base_size;
 
-		val = ctf__get16(self, &type_ptr->base.ctf_info);
-		type = CTF_GET_KIND(val);
-		vlen = CTF_GET_VLEN(val);
-
-		base_size = ctf__get16(self, &type_ptr->base.ctf_size);
-		ptr = type_ptr;
 		if (base_size == 0xffff) {
 			size = ctf__get32(self, &type_ptr->ctf_size_high);
 			size <<= 32;
 			size |= ctf__get32(self, &type_ptr->ctf_size_low);
 			ptr += sizeof(struct ctf_full_type);
-		} else {
-			size = base_size;
+		} else
 			ptr += sizeof(struct ctf_short_type);
-		}
 
 		if (type == CTF_TYPE_KIND_INT) {
 			vlen = create_new_base_type(self, ptr, type_ptr, type_index);
@@ -548,19 +560,22 @@ static void ctf__load_types(struct ctf *self)
 				type_index, ((void *)type_ptr) - type_section,
 				CTF_ISROOT(val) ? "yes" : "no");
 			vlen = 0;
-		} else {
-			abort();
-		}
+		} else
+			return -EINVAL;
+
+		if (vlen < 0)
+			return vlen;
 
 		type_ptr = ptr + vlen;
 		type_index++;
 	}
+	return 0;
 }
 
-static void ctf__load_sections(struct ctf *self)
+static int ctf__load_sections(struct ctf *self)
 {
 	//dump_funcs(self);
-	ctf__load_types(self);
+	return ctf__load_types(self);
 }
 
 static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
@@ -657,9 +672,14 @@ int ctf__load_file(struct cus *self, struct conf_load *conf,
 	if (ctf__load(state) != 0)
 		return -1;
 
-	ctf__load_sections(state);
+	err = ctf__load_sections(state);
 
 	ctf__delete(state);
+
+	if (err != 0) {
+		cu__delete(cu);
+		return err;
+	}
 
 	base_type_name_to_size_table__init();
 	err = cu__fixup_ctf_bitfields(cu);
