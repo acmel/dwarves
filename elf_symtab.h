@@ -39,6 +39,11 @@ static inline uint8_t elf_sym__type(const GElf_Sym *sym)
 	return GELF_ST_TYPE(sym->st_info);
 }
 
+static inline uint32_t elf_sym__size(const GElf_Sym *sym)
+{
+	return sym->st_size;
+}
+
 static inline uint64_t elf_sym__value(const GElf_Sym *sym)
 {
 	return sym->st_value;
