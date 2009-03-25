@@ -1531,6 +1531,25 @@ const char *function__prototype(const struct function *self,
 	return bf;
 }
 
+static void parameter__delete(struct parameter *self)
+{
+	free(self);
+}
+
+void ftype__delete(struct ftype *self)
+{
+	struct parameter *pos, *n;
+
+	if (self == NULL)
+		return;
+
+	ftype__for_each_parameter_safe(self, pos, n) {
+		list_del_init(&pos->tag.node);
+		parameter__delete(pos);
+	}
+	free(self);
+}
+
 int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
 			    const struct cu *cu)
 {

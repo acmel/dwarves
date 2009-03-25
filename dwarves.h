@@ -511,6 +511,8 @@ static inline struct ftype *tag__ftype(const struct tag *self)
 	return (struct ftype *)self;
 }
 
+void ftype__delete(struct ftype *self);
+
 /**
  * ftype__for_each_parameter - iterate thru all the parameters
  * @self: struct ftype instance to iterate
