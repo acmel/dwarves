@@ -758,12 +758,6 @@ static struct function *function__new(Dwarf_Die *die)
 	return self;
 }
 
-static void oom(const char *msg)
-{
-	fprintf(stderr, "libclasses: out of memory(%s)\n", msg);
-	exit(EXIT_FAILURE);
-}
-
 static uint64_t attr_upper_bound(Dwarf_Die *die)
 {
 	Dwarf_Attribute attr;
@@ -798,12 +792,11 @@ static struct tag *die__create_new_tag(Dwarf_Die *die)
 {
 	struct tag *self = tag__new(die);
 
-	if (self == NULL)
-		oom("tag__new");
-
-	if (dwarf_haschildren(die))
-		fprintf(stderr, "%s: %s WITH children!\n", __FUNCTION__,
-			dwarf_tag_name(self->tag));
+	if (self != NULL) {
+		if (dwarf_haschildren(die))
+			fprintf(stderr, "%s: %s WITH children!\n", __func__,
+				dwarf_tag_name(self->tag));
+	}
 
 	return self;
 }
@@ -812,45 +805,47 @@ static struct tag *die__create_new_ptr_to_member_type(Dwarf_Die *die)
 {
 	struct ptr_to_member_type *self = ptr_to_member_type__new(die);
 
-	if (self == NULL)
-		oom("ptr_to_member_type__new");
-
-	return &self->tag;
+	return self ? &self->tag : NULL;
 }
 
-static void die__process_class(Dwarf_Die *die,
-			       struct type *class, struct cu *cu);
+static int die__process_class(Dwarf_Die *die,
+			      struct type *class, struct cu *cu);
 
 static struct tag *die__create_new_class(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
 	struct class *class = class__new(die);
 
-	if (class == NULL)
-		oom("class__new");
+	if (class != NULL &&
+	    dwarf_haschildren(die) != 0 &&
+	    dwarf_child(die, &child) == 0) {
+		if (die__process_class(&child, &class->type, cu) != 0) {
+			class__delete(class);
+			class = NULL;
+		}
+	}
 
-	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		die__process_class(&child, &class->type, cu);
-
-	return &class->type.namespace.tag;
+	return class ? &class->type.namespace.tag : NULL;
 }
 
-static void die__process_namespace(Dwarf_Die *die,
-				   struct namespace *namespace,
-				   struct cu *cu);
+static int die__process_namespace(Dwarf_Die *die, struct namespace *namespace,
+				  struct cu *cu);
 
 static struct tag *die__create_new_namespace(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
 	struct namespace *namespace = namespace__new(die);
 
-	if (namespace == NULL)
-		oom("namespace__new");
+	if (namespace != NULL &&
+	    dwarf_haschildren(die) != 0 &&
+	    dwarf_child(die, &child) == 0) {
+		if (die__process_namespace(&child, namespace, cu) != 0) {
+			namespace__delete(namespace);
+			namespace = NULL;
+		}
+	}
 
-	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		die__process_namespace(&child, namespace, cu);
-
-	return &namespace->tag;
+	return namespace ? &namespace->tag : NULL;
 }
 
 static struct tag *die__create_new_union(Dwarf_Die *die, struct cu *cu)
@@ -858,13 +853,16 @@ static struct tag *die__create_new_union(Dwarf_Die *die, struct cu *cu)
 	Dwarf_Die child;
 	struct type *utype = type__new(die);
 
-	if (utype == NULL)
-		oom("type__new");
+	if (utype != NULL &&
+	    dwarf_haschildren(die) != 0 &&
+	    dwarf_child(die, &child) == 0) {
+		if (die__process_class(&child, utype, cu) != 0) {
+			type__delete(utype);
+			utype = NULL;
+		}
+	}
 
-	if (dwarf_haschildren(die) != 0 && dwarf_child(die, &child) == 0)
-		die__process_class(&child, utype, cu);
-
-	return &utype->namespace.tag;
+	return utype ? &utype->namespace.tag : NULL;
 }
 
 static struct tag *die__create_new_base_type(Dwarf_Die *die)
@@ -872,11 +870,11 @@ static struct tag *die__create_new_base_type(Dwarf_Die *die)
 	struct base_type *base = base_type__new(die);
 
 	if (base == NULL)
-		oom("base_type__new");
+		return NULL;
 
 	if (dwarf_haschildren(die))
 		fprintf(stderr, "%s: DW_TAG_base_type WITH children!\n",
-			__FUNCTION__);
+			__func__);
 
 	return &base->tag;
 }
@@ -886,7 +884,7 @@ static struct tag *die__create_new_typedef(Dwarf_Die *die)
 	struct type *tdef = type__new(die);
 
 	if (tdef == NULL)
-		oom("type__new");
+		return NULL;
 
 	if (dwarf_haschildren(die))
 		fprintf(stderr, "%s: DW_TAG_typedef WITH children!\n",
@@ -904,7 +902,7 @@ static struct tag *die__create_new_array(Dwarf_Die *die)
 	struct array_type *array = array_type__new(die);
 
 	if (array == NULL)
-		oom("array_type__new");
+		return NULL;
 
 	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
 		return &array->tag;
@@ -926,9 +924,12 @@ static struct tag *die__create_new_array(Dwarf_Die *die)
 	array->nr_entries = memdup(nr_entries,
 				   array->dimensions * sizeof(uint32_t));
 	if (array->nr_entries == NULL)
-		oom("memdup(array.nr_entries)");
+		goto out_free;
 
 	return &array->tag;
+out_free:
+	free(array);
+	return NULL;
 }
 
 static struct tag *die__create_new_parameter(Dwarf_Die *die,
@@ -938,7 +939,7 @@ static struct tag *die__create_new_parameter(Dwarf_Die *die,
 	struct parameter *parm = parameter__new(die);
 
 	if (parm == NULL)
-		oom("parameter__new");
+		return NULL;
 
 	if (ftype != NULL)
 		ftype__add_parameter(ftype, parm);
@@ -964,7 +965,7 @@ static struct tag *die__create_new_label(Dwarf_Die *die,
 	struct label *label = label__new(die);
 
 	if (label == NULL)
-		oom("label__new");
+		return NULL;
 
 	lexblock__add_label(lexblock, label);
 	return &label->tag;
@@ -973,10 +974,8 @@ static struct tag *die__create_new_label(Dwarf_Die *die,
 static struct tag *die__create_new_variable(Dwarf_Die *die)
 {
 	struct variable *var = variable__new(die);
-	if (var == NULL)
-		oom("variable__new");
 
-	return &var->tag;
+	return var ? &var->tag : NULL;
 }
 
 static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
@@ -984,9 +983,10 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 {
 	Dwarf_Die child;
 	struct ftype *ftype = ftype__new(die);
+	struct tag *tag;
 
 	if (ftype == NULL)
-		oom("ftype__new");
+		return NULL;
 
 	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
 		goto out;
@@ -994,7 +994,6 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 	die = &child;
 	do {
 		long id = -1;
-		struct tag *tag;
 
 		switch (dwarf_tag(die)) {
 		case DW_TAG_formal_parameter:
@@ -1008,9 +1007,11 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 			 * First seen in inkscape
 			 */
 			tag = die__create_new_typedef(die);
+			if (tag == NULL)
+				goto out_delete;
 
 			if (cu__add_tag(cu, tag, &id) < 0)
-				oom("die__create_new_subroutine_type:2");
+				goto out_delete_tag;
 
 			goto hash;
 		default:
@@ -1018,8 +1019,11 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 			continue;
 		}
 
+		if (tag == NULL)
+			goto out_delete;
+
 		if (cu__table_add_tag(cu, tag, &id) < 0)
-			oom("die__create_new_subroutine_type");
+			goto out_delete_tag;
 hash:
 		cu__hash(cu, tag);
 		struct dwarf_tag *dtag = tag->priv;
@@ -1027,6 +1031,11 @@ hash:
 	} while (dwarf_siblingof(die, die) == 0);
 out:
 	return &ftype->tag;
+out_delete_tag:
+	tag__delete(tag);
+out_delete:
+	ftype__delete(ftype);
+	return NULL;
 }
 
 static struct tag *die__create_new_enumeration(Dwarf_Die *die)
@@ -1035,7 +1044,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die)
 	struct type *enumeration = type__new(die);
 
 	if (enumeration == NULL)
-		oom("class__new");
+		return NULL;
 
 	if (enumeration->size == 0)
 		enumeration->size = sizeof(int) * 8;
@@ -1058,16 +1067,19 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die)
 		}
 		enumerator = enumerator__new(die);
 		if (enumerator == NULL)
-			oom("enumerator__new");
+			goto out_delete;
 
 		enumeration__add(enumeration, enumerator);
 	} while (dwarf_siblingof(die, die) == 0);
 out:
 	return &enumeration->namespace.tag;
+out_delete:
+	enumeration__delete(enumeration);
+	return NULL;
 }
 
-static void die__process_class(Dwarf_Die *die, struct type *class,
-			       struct cu *cu)
+static int die__process_class(Dwarf_Die *die, struct type *class,
+			      struct cu *cu)
 {
 	do {
 		switch (dwarf_tag(die)) {
@@ -1076,7 +1088,7 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 			struct class_member *member = class_member__new(die, cu);
 
 			if (member == NULL)
-				oom("class_member__new");
+				return -ENOMEM;
 
 			type__add_member(class, member);
 			cu__hash(cu, &member->tag);
@@ -1085,63 +1097,79 @@ static void die__process_class(Dwarf_Die *die, struct type *class,
 		default: {
 			struct tag *tag = die__process_tag(die, cu, 0);
 
-			if (tag != NULL) {
-				long id = -1;
+			if (tag == NULL)
+				return -ENOMEM;
 
-				if (cu__table_add_tag(cu, tag, &id) < 0)
-					oom("die__process_class:2");
+			long id = -1;
 
-				struct dwarf_tag *dtag = tag->priv;
-				dtag->small_id = id;
+			if (cu__table_add_tag(cu, tag, &id) < 0) {
+				tag__delete(tag);
+				return -ENOMEM;
+			}
 
-				namespace__add_tag(&class->namespace, tag);
-				cu__hash(cu, tag);
-				if (tag__is_function(tag)) {
-					struct function *fself = tag__function(tag);
+			struct dwarf_tag *dtag = tag->priv;
+			dtag->small_id = id;
 
-					if (fself->vtable_entry != -1)
-						class__add_vtable_entry(type__class(class), fself);
-				}
+			namespace__add_tag(&class->namespace, tag);
+			cu__hash(cu, tag);
+			if (tag__is_function(tag)) {
+				struct function *fself = tag__function(tag);
+
+				if (fself->vtable_entry != -1)
+					class__add_vtable_entry(type__class(class), fself);
 			}
 			continue;
 		}
 		}
 	} while (dwarf_siblingof(die, die) == 0);
+
+	return 0;
 }
 
-static void die__process_namespace(Dwarf_Die *die,
-				   struct namespace *namespace,
-				   struct cu *cu)
+static int die__process_namespace(Dwarf_Die *die, struct namespace *namespace,
+				  struct cu *cu)
 {
+	struct tag *tag;
 	do {
-		struct tag *tag = die__process_tag(die, cu, 0);
+		tag = die__process_tag(die, cu, 0);
+		if (tag == NULL)
+			goto out_enomem;
 
-		if (tag != NULL) {
-			long id = -1;
-			if (cu__table_add_tag(cu, tag, &id) < 0)
-				oom("die__process_namespace");
+		long id = -1;
+		if (cu__table_add_tag(cu, tag, &id) < 0)
+			goto out_delete_tag;
 
-			struct dwarf_tag *dtag = tag->priv;
-			dtag->small_id = id;
+		struct dwarf_tag *dtag = tag->priv;
+		dtag->small_id = id;
 
-			namespace__add_tag(namespace, tag);
-			cu__hash(cu, tag);
-		}
+		namespace__add_tag(namespace, tag);
+		cu__hash(cu, tag);
 	} while (dwarf_siblingof(die, die) == 0);
+
+	return 0;
+out_delete_tag:
+	tag__delete(tag);
+out_enomem:
+	return -ENOMEM;
 }
 
-static void die__process_function(Dwarf_Die *die, struct ftype *ftype,
+static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 				  struct lexblock *lexblock, struct cu *cu);
 
-static void die__create_new_lexblock(Dwarf_Die *die,
-				     struct cu *cu, struct lexblock *father)
+static int die__create_new_lexblock(Dwarf_Die *die,
+				    struct cu *cu, struct lexblock *father)
 {
 	struct lexblock *lexblock = lexblock__new(die);
 
-	if (lexblock == NULL)
-		oom("lexblock__new");
-	die__process_function(die, NULL, lexblock, cu);
+	if (lexblock != NULL) {
+		if (die__process_function(die, NULL, lexblock, cu) != 0)
+			goto out_delete;
+	}
 	lexblock__add_lexblock(father, lexblock);
+	return 0;
+out_delete:
+	lexblock__delete(lexblock);
+	return -ENOMEM;
 }
 
 static struct tag *die__create_new_inline_expansion(Dwarf_Die *die,
@@ -1150,24 +1178,24 @@ static struct tag *die__create_new_inline_expansion(Dwarf_Die *die,
 	struct inline_expansion *exp = inline_expansion__new(die);
 
 	if (exp == NULL)
-		oom("inline_expansion__new");
+		return NULL;
 
 	lexblock__add_inline_expansion(lexblock, exp);
 	return &exp->tag;
 }
 
-static void die__process_function(Dwarf_Die *die, struct ftype *ftype,
-				  struct lexblock *lexblock, struct cu *cu)
+static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
+				 struct lexblock *lexblock, struct cu *cu)
 {
 	Dwarf_Die child;
+	struct tag *tag;
 
 	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
-		return;
+		return 0;
 
 	die = &child;
 	do {
 		long id = -1;
-		struct tag *tag;
 
 		switch (dwarf_tag(die)) {
 		case DW_TAG_formal_parameter:
@@ -1175,6 +1203,8 @@ static void die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			break;
 		case DW_TAG_variable:
 			tag = die__create_new_variable(die);
+			if (tag == NULL)
+				goto out_enomem;
 			lexblock__add_variable(lexblock, tag__variable(tag));
 			break;
 		case DW_TAG_unspecified_parameters:
@@ -1188,36 +1218,50 @@ static void die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			tag = die__create_new_inline_expansion(die, lexblock);
 			break;
 		case DW_TAG_lexical_block:
-			die__create_new_lexblock(die, cu, lexblock);
+			if (die__create_new_lexblock(die, cu, lexblock) != 0)
+				goto out_enomem;
 			continue;
 		default:
 			tag = die__process_tag(die, cu, 0);
 			if (tag == NULL)
-				oom("die__process_function");
+				goto out_enomem;
 
 			if (cu__add_tag(cu, tag, &id) < 0)
-				oom("die__process_function");
+				goto out_delete_tag;
 
 			goto hash;
 		}
 
+		if (tag == NULL)
+			goto out_enomem;
+
 		if (cu__table_add_tag(cu, tag, &id) < 0)
-			oom("die__process_function");
+			goto out_delete_tag;
 hash:
 		cu__hash(cu, tag);
 		struct dwarf_tag *dtag = tag->priv;
 		dtag->small_id = id;
 	} while (dwarf_siblingof(die, die) == 0);
+
+	return 0;
+out_delete_tag:
+	tag__delete(tag);
+out_enomem:
+	return -ENOMEM;
 }
 
 static struct tag *die__create_new_function(Dwarf_Die *die, struct cu *cu)
 {
 	struct function *function = function__new(die);
 
-	if (function == NULL)
-		oom("function__new");
-	die__process_function(die, &function->proto, &function->lexblock, cu);
-	return &function->proto.tag;
+	if (function != NULL &&
+	    die__process_function(die, &function->proto,
+				  &function->lexblock, cu) != 0) {
+		function__delete(function);
+		function = NULL;
+	}
+
+	return function ? &function->proto.tag : NULL;
 }
 
 static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
@@ -1268,19 +1312,21 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	return tag;
 }
 
-static void die__process_unit(Dwarf_Die *die, struct cu *cu)
+static int die__process_unit(Dwarf_Die *die, struct cu *cu)
 {
 	do {
 		struct tag *tag = die__process_tag(die, cu, 1);
-		if (tag != NULL) {
-			long id = -1;
-			cu__add_tag(cu, tag, &id);
-			cu__hash(cu, tag);
-			struct dwarf_tag *dtag = tag->priv;
-			dtag->small_id = id;
+		if (tag == NULL)
+			return -ENOMEM;
 
-		}
+		long id = -1;
+		cu__add_tag(cu, tag, &id);
+		cu__hash(cu, tag);
+		struct dwarf_tag *dtag = tag->priv;
+		dtag->small_id = id;
 	} while (dwarf_siblingof(die, die) == 0);
+
+	return 0;
 }
 
 static void __tag__print_type_not_found(struct tag *self, const char *func)
@@ -1684,7 +1730,7 @@ static int tag__delete_priv(struct tag *self, struct cu *cu __unused,
 	return 0;
 }
 
-static void die__process(Dwarf_Die *die, struct cu *cu)
+static int die__process(Dwarf_Die *die, struct cu *cu)
 {
 	Dwarf_Die child;
 	const uint16_t tag = dwarf_tag(die);
@@ -1692,7 +1738,7 @@ static void die__process(Dwarf_Die *die, struct cu *cu)
 	if (tag != DW_TAG_compile_unit) {
 		fprintf(stderr, "%s: DW_TAG_compile_unit expected got %s!\n",
 			__FUNCTION__, dwarf_tag_name(tag));
-		return;
+		return -EINVAL;
 	}
 
 	cu->language = attr_numeric(die, DW_AT_language);
@@ -1703,8 +1749,11 @@ static void die__process(Dwarf_Die *die, struct cu *cu)
 	cu->priv = &dcu;
 	cu->orig_info = &dwarf_orig_info_ops;
 
-	if (dwarf_child(die, &child) == 0)
-		die__process_unit(&child, cu);
+	if (dwarf_child(die, &child) == 0) {
+		int err = die__process_unit(&child, cu);
+		if (err)
+			return err;
+	}
 
 	if (dwarf_siblingof(die, die) == 0)
 		fprintf(stderr, "%s: got %s unexpected tag after "
@@ -1712,6 +1761,7 @@ static void die__process(Dwarf_Die *die, struct cu *cu)
 			__FUNCTION__, dwarf_tag_name(tag));
 
 	cu__recode_dwarf_types(cu);
+	return 0;
 }
 
 static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
@@ -1789,9 +1839,10 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 		cu = cu__new(attr_string(cu_die, DW_AT_name), pointer_size,
 			     build_id, build_id_len, filename);
 		if (cu == NULL)
-			oom("cu__new");
+			return DWARF_CB_ABORT;
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
-		die__process(cu_die, cu);
+		if (die__process(cu_die, cu) != 0)
+			return DWARF_CB_ABORT;
 		base_type_name_to_size_table__init();
 		cu__for_all_tags(cu, class_member__cache_byte_size, conf);
 		off = noff;
