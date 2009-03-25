@@ -62,59 +62,6 @@ static int ctf_ignores_elf_symbol(GElf_Sym *sym, char *name, int type)
 }
 #endif
 
-static char *ctf_format_flt_attrs(uint32_t eval, char *buf)
-{
-	uint32_t attrs = CTF_TYPE_FP_ATTRS(eval);
-
-	buf[0] = '\0';
-
-	if (attrs < CTF_TYPE_FP_SINGLE ||
-	    attrs > CTF_TYPE_FP_MAX)
-		buf += sprintf(buf, "0x%02x ", attrs);
-	else {
-		switch (attrs) {
-		case CTF_TYPE_FP_SINGLE:
-			buf += sprintf(buf, "single ");
-			break;
-		case CTF_TYPE_FP_DOUBLE:
-			buf += sprintf(buf, "double ");
-			break;
-		case CTF_TYPE_FP_CMPLX:
-			buf += sprintf(buf, "complex ");
-			break;
-		case CTF_TYPE_FP_CMPLX_DBL:
-			buf += sprintf(buf, "complex double ");
-			break;
-		case CTF_TYPE_FP_CMPLX_LDBL:
-			buf += sprintf(buf, "complex long double ");
-			break;
-		case CTF_TYPE_FP_LDBL:
-			buf += sprintf(buf, "long double ");
-			break;
-		case CTF_TYPE_FP_INTVL:
-			buf += sprintf(buf, "interval ");
-			break;
-		case CTF_TYPE_FP_INTVL_DBL:
-			buf += sprintf(buf, "interval double ");
-			break;
-		case CTF_TYPE_FP_INTVL_LDBL:
-			buf += sprintf(buf, "interval long double ");
-			break;
-		case CTF_TYPE_FP_IMGRY:
-			buf += sprintf(buf, "imaginary ");
-			break;
-		case CTF_TYPE_FP_IMGRY_DBL:
-			buf += sprintf(buf, "imaginary double ");
-			break;
-		case CTF_TYPE_FP_IMGRY_LDBL:
-			buf += sprintf(buf, "imaginary long double ");
-			break;
-		}
-	}
-
-	return buf;
-}
-
 #if 0
 static int dump_one_func(struct ctf_state *sp, const char *sym_name,
 			 int sym_index, int call_index, void *data)
@@ -261,8 +208,9 @@ static int create_new_base_type_float(struct ctf *self, void *ptr,
 	struct base_type *base;
 
 	eval = ctf__get32(self, enc);
-	sprintf(ctf_format_flt_attrs(eval, name), "%s",
-		ctf__string32(self, &tp->base.ctf_name));
+	size_t len = ctf__format_flt_attrs(eval, name, sizeof(name));
+	snprintf(name + len, sizeof(name) - len, "%s",
+		 ctf__string32(self, &tp->base.ctf_name));
 
 	base = base_type__new(name, CTF_TYPE_FP_BITS(eval));
 	if (base == NULL)

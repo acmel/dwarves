@@ -65,4 +65,6 @@ int  ctf__encode(struct ctf *self, uint8_t flags);
 char *ctf__string(struct ctf *self, uint32_t ref);
 char *ctf__string32(struct ctf *self, uint32_t *refp);
 
+size_t ctf__format_flt_attrs(uint32_t eval, char *bf, size_t len);
+
 #endif /* _LIBCTF_H */

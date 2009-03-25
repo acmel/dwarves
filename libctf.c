@@ -14,6 +14,31 @@
 #include "dutil.h"
 #include "gobuffer.h"
 
+static const char *ctf_type_fp_str[] = {
+	[CTF_TYPE_FP_SINGLE]	 = "single",
+	[CTF_TYPE_FP_DOUBLE]	 = "double",
+	[CTF_TYPE_FP_CMPLX]	 = "complex",
+	[CTF_TYPE_FP_CMPLX_DBL]	 = "complex double",
+	[CTF_TYPE_FP_CMPLX_LDBL] = "complex long double",
+	[CTF_TYPE_FP_LDBL]	 = "long double",
+	[CTF_TYPE_FP_INTVL]	 = "interval",
+	[CTF_TYPE_FP_INTVL_DBL]	 = "interval double",
+	[CTF_TYPE_FP_INTVL_LDBL] = "interval long double",
+	[CTF_TYPE_FP_IMGRY]	 = "imaginary",
+	[CTF_TYPE_FP_IMGRY_DBL]	 = "imaginary double",
+	[CTF_TYPE_FP_IMGRY_LDBL] = "imaginary long double",
+};
+
+size_t ctf__format_flt_attrs(uint32_t eval, char *bf, size_t len)
+{
+	const uint32_t attrs = CTF_TYPE_FP_ATTRS(eval);
+
+	if (attrs < CTF_TYPE_FP_SINGLE || attrs > CTF_TYPE_FP_MAX)
+		return snprintf(bf, len, "0x%02x ", attrs);
+
+	return snprintf(bf, len, "%s ", ctf_type_fp_str[attrs]);
+}
+
 uint16_t ctf__get16(struct ctf *self, uint16_t *p)
 {
 	uint16_t val = *p;
