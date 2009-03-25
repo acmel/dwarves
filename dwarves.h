@@ -670,6 +670,8 @@ static inline struct class *type__class(const struct type *self)
 	return (struct class *)self;
 }
 
+void type__delete(struct type *self);
+
 /**
  * type__for_each_tag - iterate thru all the tags
  * @self: struct type instance to iterate

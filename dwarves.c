@@ -1425,13 +1425,25 @@ static size_t union__fprintf(struct type *self, const struct cu *cu,
 				 conf->suffix ? " " : "", conf->suffix ?: "");
 }
 
-void class__delete(struct class *self)
+static void type__delete_class_members(struct type *self)
 {
 	struct class_member *pos, *next;
 
-	type__for_each_member_safe(&self->type, pos, next)
+	type__for_each_data_member_safe(self, pos, next) {
+		list_del_init(&pos->tag.node);
 		class_member__delete(pos);
+	}
+}
 
+void class__delete(struct class *self)
+{
+	type__delete_class_members(&self->type);
+	free(self);
+}
+
+void type__delete(struct type *self)
+{
+	type__delete_class_members(self);
 	free(self);
 }
 
