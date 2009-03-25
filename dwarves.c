@@ -118,7 +118,20 @@ static size_t cacheline_size;
 void tag__delete(struct tag *self)
 {
 	assert(list_empty(&self->node));
-	free(self);
+
+	switch (self->tag) {
+	case DW_TAG_union_type:
+		type__delete(tag__type(self));		break;
+	case DW_TAG_class_type:
+	case DW_TAG_structure_type:
+		class__delete(tag__class(self));	break;
+	case DW_TAG_enumeration_type:
+		enumeration__delete(tag__type(self));	break;
+	case DW_TAG_subroutine_type:
+		ftype__delete(tag__ftype(self));	break;
+	default:
+		free(self);
+	}
 }
 
 void tag__not_found_die(const char *file, int line, const char *func)

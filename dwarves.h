@@ -242,6 +242,8 @@ struct tag {
 	void		 *priv;
 };
 
+void tag__delete(struct tag *self);
+
 static inline int tag__is_enumeration(const struct tag *self)
 {
 	return self->tag == DW_TAG_enumeration_type;
