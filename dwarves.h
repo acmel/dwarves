@@ -519,6 +519,15 @@ static inline struct ftype *tag__ftype(const struct tag *self)
 #define ftype__for_each_parameter(self, pos) \
 	list_for_each_entry(pos, &(self)->parms, tag.node)
 
+/**
+ * ftype__for_each_parameter_safe - safely iterate thru all the parameters
+ * @self: struct ftype instance to iterate
+ * @pos: struct parameter iterator
+ * @n: struct parameter temp iterator
+ */
+#define ftype__for_each_parameter_safe(self, pos, n) \
+	list_for_each_entry_safe(pos, n, &(self)->parms, tag.node)
+
 void ftype__add_parameter(struct ftype *self, struct parameter *parm);
 size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 		      const char *name, const int inlined,
