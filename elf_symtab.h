@@ -18,9 +18,10 @@ struct elf_symtab {
 	uint32_t  nr_syms;
 	Elf_Data  *syms;
 	Elf_Data  *symstrs;
+	char	  *name;
 };
 
-struct elf_symtab *elf_symtab__new(Elf *elf, GElf_Ehdr *ehdr);
+struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr);
 void elf_symtab__delete(struct elf_symtab *self);
 
 static inline uint32_t elf_symtab__nr_symbols(const struct elf_symtab *self)
