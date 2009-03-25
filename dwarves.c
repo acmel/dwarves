@@ -1447,6 +1447,20 @@ void type__delete(struct type *self)
 	free(self);
 }
 
+static void enumerator__delete(struct enumerator *self)
+{
+	free(self);
+}
+
+void enumeration__delete(struct type *self)
+{
+	struct enumerator *pos, *n;
+	type__for_each_enumerator_safe(self, pos, n) {
+		list_del_init(&pos->tag.node);
+		enumerator__delete(pos);
+	}
+}
+
 void class__add_vtable_entry(struct class *self, struct function *vtable_entry)
 {
 	++self->nr_vtable_entries;

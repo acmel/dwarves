@@ -693,6 +693,16 @@ void type__delete(struct type *self);
 	list_for_each_entry(pos, __type__for_each_enumerator_head, tag.node)
 
 /**
+ * type__for_each_enumerator_safe - safely iterate thru the enumerator entries
+ * @self: struct type instance to iterate
+ * @pos: struct enumerator iterator
+ * @n: struct enumerator temp iterator
+ */
+#define type__for_each_enumerator_safe(self, pos, n)		   \
+	if ((self)->namespace.shared_tags) /* Do nothing */ ; else \
+	list_for_each_entry_safe(pos, n, &(self)->namespace.tags, tag.node)
+
+/**
  * type__for_each_member - iterate thru the entries that use space
  *                         (data members and inheritance entries)
  * @self: struct type instance to iterate
@@ -878,6 +888,7 @@ struct enumerator {
 	uint32_t	 value;
 };
 
+void enumeration__delete(struct type *self);
 void enumeration__add(struct type *self, struct enumerator *enumerator);
 size_t enumeration__fprintf(const struct tag *tag_self,
 			    const struct conf_fprintf *conf, FILE *fp);
