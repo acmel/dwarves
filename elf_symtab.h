@@ -50,8 +50,12 @@ static inline uint64_t elf_sym__value(const GElf_Sym *sym)
 	return sym->st_value;
 }
 
-bool elf_symtab__is_local_function(struct elf_symtab *self,
-				   GElf_Sym *sym);
+static inline bool elf_sym__is_local_function(const GElf_Sym *sym)
+{
+	return elf_sym__type(sym) == STT_FUNC &&
+	       sym->st_name != 0 &&
+	       sym->st_shndx != SHN_UNDEF;
+}
 
 /**
  * elf_symtab__for_each_symbol - iterate thru all the symbols

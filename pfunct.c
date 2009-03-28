@@ -411,7 +411,7 @@ int elf_symtab__show(char *filename)
 	uint32_t index;
 	int longest_name = 0;
 	elf_symtab__for_each_symbol(symtab, index, sym) {
-		if (!elf_symtab__is_local_function(symtab, &sym))
+		if (!elf_sym__is_local_function(&sym))
 			continue;
 		int len = strlen(elf_sym__name(&sym, symtab));
 		if (len > longest_name)
@@ -429,7 +429,7 @@ int elf_symtab__show(char *filename)
 	}
 
 	elf_symtab__for_each_symbol(symtab, index, sym) {
-		if (!elf_symtab__is_local_function(symtab, &sym))
+		if (!elf_sym__is_local_function(&sym))
 			continue;
 		printf("%*d: %-*s %#llx %5u\n",
 		       index_spacing, index, longest_name,

@@ -65,22 +65,3 @@ void elf_symtab__delete(struct elf_symtab *self)
 {
 	free(self);
 }
-
-bool elf_symtab__is_local_function(struct elf_symtab *self,
-				   GElf_Sym *sym)
-{
-	if (elf_sym__type(sym) != STT_OBJECT)
-		return false;
-	if (sym->st_shndx == SHN_ABS &&
-	    sym->st_value == 0)
-                return false;
-        if (sym->st_name == 0)
-                return false;
-        if (sym->st_shndx == SHN_UNDEF)
-                return false;
-
-	const char *name = elf_sym__name(sym, self);
-        if (!strcmp(name, "_START_") || !strcmp(name, "_END_"))
-                return false;
-	return true;
-}
