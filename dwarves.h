@@ -210,6 +210,21 @@ static inline void cu__cache_symtab(struct cu *self)
 			continue;					     \
 		else
 
+/**
+ * cu__for_each_variable - iterate thru all the global variable tags
+ * @cu: struct cu instance to iterate
+ * @pos: struct tag iterator
+ * @id: uint32_t tag id
+ */
+#define cu__for_each_variable(cu, id, pos)		\
+	for (id = 0, pos = cu->tags_table.entries[id];	\
+	     id < cu->tags_table.nr_entries;		\
+	     pos = cu->tags_table.entries[++id])	\
+		if (pos == NULL ||			\
+		    !tag__is_variable(pos))		\
+			continue;			\
+		else
+
 int cu__add_tag(struct cu *self, struct tag *tag, long *id);
 int cu__table_add_tag(struct cu *self, struct tag *tag, long *id);
 int cu__table_nullify_type_entry(struct cu *self, uint32_t id);
@@ -290,6 +305,11 @@ static inline int tag__is_typedef(const struct tag *self)
 static inline int tag__is_union(const struct tag *self)
 {
 	return self->tag == DW_TAG_union_type;
+}
+
+static inline bool tag__is_variable(const struct tag *self)
+{
+	return self->tag == DW_TAG_variable;
 }
 
 static inline bool tag__has_namespace(const struct tag *self)
