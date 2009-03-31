@@ -579,7 +579,7 @@ int class_member__dwarf_recode_bitfield(struct class_member *self,
 	return 0;
 }
 
-static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu)
+static struct class_member *class_member__new(Dwarf_Die *die)
 {
 	struct class_member *self = tag__alloc(sizeof(*self));
 
@@ -594,16 +594,6 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu)
 		self->bitfield_offset = attr_numeric(die, DW_AT_bit_offset);
 		self->bitfield_size = attr_numeric(die, DW_AT_bit_size);
 		self->bit_offset = self->byte_offset * 8 + self->bitfield_offset;
-		/*
-		 * We may need to recode the type, possibly creating a suitably
-		 * sized new base_type
-		 */
-		if (self->bitfield_size != 0 &&
-		    class_member__dwarf_recode_bitfield(self, cu)) {
-			free(self->tag.priv);
-			free(self);
-			return NULL;
-		}
 		self->bit_hole = 0;
 		self->bitfield_end = 0;
 		self->visited = 0;
@@ -1108,7 +1098,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 		switch (dwarf_tag(die)) {
 		case DW_TAG_inheritance:
 		case DW_TAG_member: {
-			struct class_member *member = class_member__new(die, cu);
+			struct class_member *member = class_member__new(die);
 
 			if (member == NULL)
 				return -ENOMEM;
@@ -1365,7 +1355,7 @@ static void __tag__print_type_not_found(struct tag *self, const char *func)
 
 static void ftype__recode_dwarf_types(struct tag *self, struct cu *cu);
 
-static void namespace__recode_dwarf_types(struct tag *self, struct cu *cu)
+static int namespace__recode_dwarf_types(struct tag *self, struct cu *cu)
 {
 	struct tag *pos;
 	struct dwarf_cu *dcu = cu->priv;
@@ -1376,15 +1366,24 @@ static void namespace__recode_dwarf_types(struct tag *self, struct cu *cu)
 		struct dwarf_tag *dpos = pos->priv;
 
 		if (tag__has_namespace(pos)) {
-			namespace__recode_dwarf_types(pos, cu);
+			if (namespace__recode_dwarf_types(pos, cu))
+				return -1;
 			continue;
 		}
 
 		switch (pos->tag) {
-		case DW_TAG_member:
-			/* Check if this is an already recoded bitfield */
-			if (pos->type != 0)
+		case DW_TAG_member: {
+			struct class_member *member = tag__class_member(pos);
+			/*
+			 * We may need to recode the type, possibly creating a
+			 * suitably sized new base_type
+			 */
+			if (member->bitfield_size != 0) {
+				if (class_member__dwarf_recode_bitfield(member, cu))
+					return -1;
 				continue;
+			}
+		}
 			break;
 		case DW_TAG_subroutine_type:
 		case DW_TAG_subprogram:
@@ -1413,6 +1412,7 @@ check_type:
 next:
 		pos->type = dtype->small_id;
 	}
+	return 0;
 }
 
 static void type__recode_dwarf_specification(struct tag *self, struct cu *cu)
@@ -1572,22 +1572,20 @@ static void lexblock__recode_dwarf_types(struct lexblock *self, struct cu *cu)
 	}
 }
 
-static void tag__recode_dwarf_type(struct tag *self, struct cu *cu)
+static int tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 {
 	struct dwarf_tag *dtag = self->priv;
 	struct dwarf_tag *dtype;
 
 	/* Check if this is an already recoded bitfield */
 	if (dtag == NULL)
-		return;
+		return 0;
 
 	if (tag__is_type(self))
 		type__recode_dwarf_specification(self, cu);
 
-	if (tag__has_namespace(self)) {
-		namespace__recode_dwarf_types(self, cu);
-		return;
-	}
+	if (tag__has_namespace(self))
+		return namespace__recode_dwarf_types(self, cu);
 
 	switch (self->tag) {
 	case DW_TAG_subprogram: {
@@ -1601,7 +1599,7 @@ static void tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 				 *  <3><1423de>: Abbrev Number: 209 (DW_TAG_subprogram)
 				 *      <1423e0>   DW_AT_declaration : 1
 				 */
-				return;
+				return 0;
 			}
 			dtype = dwarf_cu__find_tag_by_id(cu->priv, dtag->abstract_origin);
 			if (dtype == NULL)
@@ -1629,7 +1627,7 @@ static void tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 
 	case DW_TAG_lexical_block:
 		lexblock__recode_dwarf_types(tag__lexblock(self), cu);
-		return;
+		return 0;
 
 	case DW_TAG_ptr_to_member_type: {
 		struct ptr_to_member_type *pt = tag__ptr_to_member_type(self);
@@ -1649,8 +1647,7 @@ static void tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 		break;
 
 	case DW_TAG_namespace:
-		namespace__recode_dwarf_types(self, cu);
-		return;
+		return namespace__recode_dwarf_types(self, cu);
 	/* Damn, DW_TAG_inlined_subroutine is an special case
            as dwarf_tag->id is in fact an abtract origin, i.e. must be
 	   looked up in the tags_table, not in the types_table.
@@ -1669,7 +1666,7 @@ static void tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 
 	if (dtag->type == 0) {
 		self->type = 0; /* void */
-		return;
+		return 0;
 	}
 
 find_type:
@@ -1677,29 +1674,34 @@ find_type:
 check_type:
 	if (dtype == NULL) {
 		tag__print_type_not_found(self);
-		return;
+		return 0;
 	}
 out:
 	self->type = dtype->small_id;
+	return 0;
 }
 
-static void cu__recode_dwarf_types_table(struct cu *self,
-					 struct ptr_table *pt,
-					 uint32_t i)
+static int cu__recode_dwarf_types_table(struct cu *self,
+					struct ptr_table *pt,
+					uint32_t i)
 {
 	for (; i < pt->nr_entries; ++i) {
 		struct tag *tag = pt->entries[i];
 
 		if (tag != NULL) /* void, see cu__new */
-			tag__recode_dwarf_type(tag, self);
+			if (tag__recode_dwarf_type(tag, self))
+				return -1;
 	}
+	return 0;
 }
 
-static void cu__recode_dwarf_types(struct cu *self)
+static int cu__recode_dwarf_types(struct cu *self)
 {
-	cu__recode_dwarf_types_table(self, &self->types_table, 1);
-	cu__recode_dwarf_types_table(self, &self->tags_table, 0);
-	cu__recode_dwarf_types_table(self, &self->functions_table, 0);
+	if (cu__recode_dwarf_types_table(self, &self->types_table, 1) ||
+	    cu__recode_dwarf_types_table(self, &self->tags_table, 0) ||
+	    cu__recode_dwarf_types_table(self, &self->functions_table, 0))
+		return -1;
+	return 0;
 }
 
 static const char *dwarf_tag__decl_file(const struct tag *self,
@@ -1783,8 +1785,7 @@ static int die__process(Dwarf_Die *die, struct cu *cu)
 				"DW_TAG_compile_unit!\n",
 			__FUNCTION__, dwarf_tag_name(tag));
 
-	cu__recode_dwarf_types(cu);
-	return 0;
+	return cu__recode_dwarf_types(cu);
 }
 
 static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
