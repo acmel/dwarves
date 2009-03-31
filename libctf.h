@@ -15,6 +15,7 @@ struct ctf {
 	Elf		  *elf;
 	struct elf_symtab *symtab;
 	GElf_Ehdr	  ehdr;
+	struct gobuffer	  objects; /* data/variables */
 	struct gobuffer	  types;
 	struct gobuffer	  funcs;
 	struct gobuffer   *strings;
@@ -30,6 +31,7 @@ struct ctf *ctf__new(const char *filename, Elf *elf);
 void ctf__delete(struct ctf *ctf);
 
 bool ctf__ignore_symtab_function(const GElf_Sym *sym, const char *sym_name);
+bool ctf__ignore_symtab_object(const GElf_Sym *sym, const char *sym_name);
 
 int ctf__load(struct ctf *self);
 
@@ -68,6 +70,8 @@ void ctf__add_function_parameter(struct ctf *self, uint16_t type,
 int ctf__add_function(struct ctf *self, uint16_t type, uint16_t nr_parms,
 		      bool varargs, int64_t *position);
 
+int ctf__add_object(struct ctf *self, uint16_t type);
+
 void ctf__set_strings(struct ctf *self, struct gobuffer *strings);
 int  ctf__encode(struct ctf *self, uint8_t flags);
 
@@ -88,6 +92,21 @@ size_t ctf__format_flt_attrs(uint32_t eval, char *bf, size_t len);
 		if (ctf__ignore_symtab_function(&sym,			      \
 						elf_sym__name(&sym,	      \
 							      self->symtab))) \
+			continue;					      \
+		else
+
+/**
+ * ctf__for_each_symtab_object - iterate thru all the symtab objects
+ *
+ * @self: struct ctf instance to iterate
+ * @index: uint32_t index
+ * @sym: GElf_Sym iterator
+ */
+#define ctf__for_each_symtab_object(self, index, sym)			      \
+	elf_symtab__for_each_symbol(self->symtab, index, sym)		      \
+		if (ctf__ignore_symtab_object(&sym,			      \
+					      elf_sym__name(&sym,	      \
+							    self->symtab))) \
 			continue;					      \
 		else
 

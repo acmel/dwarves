@@ -563,6 +563,45 @@ static int ctf__load_types(struct ctf *self)
 	return 0;
 }
 
+static struct variable *variable__new(uint16_t type, GElf_Sym *sym,
+				      struct ctf *ctf)
+{
+	struct variable *self = tag__alloc(sizeof(*self));
+
+	if (self != NULL) {
+		const char *name = elf_sym__name(sym, ctf->symtab);
+
+		self->location = LOCATION_GLOBAL;
+		self->addr = elf_sym__value(sym);
+		/* FIXME: should use the .strtab string */
+		self->name = strings__add(strings, name);
+		self->external = 1;
+		self->tag.tag = DW_TAG_variable;
+		self->tag.type = type;
+		long id = -1; /* FIXME: not needed for variables... */
+		cu__add_tag(ctf->priv, &self->tag, &id);
+	}
+
+	return self;
+}
+
+static int ctf__load_objects(struct ctf *self)
+{
+	struct ctf_header *hp = ctf__get_buffer(self);
+	uint16_t *objp = (ctf__get_buffer(self) + sizeof(*hp) +
+			  ctf__get32(self, &hp->ctf_object_off));
+
+	GElf_Sym sym;
+	uint32_t idx;
+	ctf__for_each_symtab_object(self, idx, sym) {
+		if (variable__new(*objp, &sym, self) == NULL)
+			return -ENOMEM;
+		++objp;
+	}
+
+	return 0;
+}
+
 static int ctf__load_sections(struct ctf *self)
 {
 	int err = ctf__load_symtab(self);
@@ -572,6 +611,8 @@ static int ctf__load_sections(struct ctf *self)
 	err = ctf__load_funcs(self);
 	if (err == 0)
 		err = ctf__load_types(self);
+	if (err == 0)
+		err = ctf__load_objects(self);
 out:
 	return err;
 }

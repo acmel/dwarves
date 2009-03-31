@@ -485,6 +485,7 @@ struct variable {
 	uint8_t		 declaration:1;
 	enum vlocation	 location;
 	uint64_t	 addr;
+	struct hlist_node tool_hnode;
 };
 
 static inline struct variable *tag__variable(const struct tag *self)

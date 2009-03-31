@@ -225,6 +225,21 @@ static struct function *hashaddr__find_function(const struct hlist_head hashtabl
 	return NULL;
 }
 
+static struct variable *hashaddr__find_variable(const struct hlist_head hashtable[],
+						const uint64_t addr)
+{
+	struct variable *variable;
+	struct hlist_node *pos;
+	uint16_t bucket = hashaddr__fn(addr);
+	const struct hlist_head *head = &hashtable[bucket];
+
+	hlist_for_each_entry(variable, pos, head, tool_hnode) {
+		if (variable->addr == addr)
+			return variable;
+	}
+
+	return NULL;
+}
 
 int cu__encode_ctf(struct cu *self)
 {
@@ -287,6 +302,40 @@ int cu__encode_ctf(struct cu *self)
 		struct parameter *pos;
 		ftype__for_each_parameter(ftype, pos)
 			ctf__add_function_parameter(ctf, pos->tag.type, &position);
+	}
+
+	for (id = 0; id < HASHADDR__SIZE; ++id)
+		INIT_HLIST_HEAD(&hash_addr[id]);
+
+	struct variable *var;
+	cu__for_each_variable(self, id, pos) {
+		var = tag__variable(pos);
+		if (var->location != LOCATION_GLOBAL)
+			continue;
+		struct hlist_head *head = &hash_addr[hashaddr__fn(var->addr)];
+		hlist_add_head(&var->tool_hnode, head);
+	}
+
+	cu__for_each_cached_symtab_entry(self, id, sym, sym_name) {
+		if (ctf__ignore_symtab_object(&sym, sym_name))
+			continue;
+		uint64_t addr = elf_sym__value(&sym);
+
+		var = hashaddr__find_variable(hash_addr, addr);
+		if (var == NULL) {
+			fprintf(stderr, "%4d: %-20s %#llx %5u NOT FOUND!\n",
+				id, sym_name, (unsigned long long)addr,
+				elf_sym__size(&sym));
+			continue;
+		}
+
+		err = ctf__add_object(ctf, var->tag.type);
+		if (err != 0) {
+			fprintf(stderr, "%4d: %-20s %#llx %5u failed encoding, "
+				"aborting!\n", id, sym_name,
+				(unsigned long long)addr, elf_sym__size(&sym));
+			goto out_delete;
+		}
 	}
 
 	ctf__encode(ctf, CTF_FLAGS_COMPR);

@@ -37,6 +37,12 @@ bool ctf__ignore_symtab_function(const GElf_Sym *sym, const char *sym_name)
 		       sizeof("__libc_csu_") - 1) == 0);
 }
 
+bool ctf__ignore_symtab_object(const GElf_Sym *sym,
+			       const char *sym_name __unused)
+{
+	return (!elf_sym__is_local_object(sym) || sym->st_size == 0);
+}
+
 size_t ctf__format_flt_attrs(uint32_t eval, char *bf, size_t len)
 {
 	const uint32_t attrs = CTF_TYPE_FP_ATTRS(eval);
@@ -509,6 +515,12 @@ int ctf__add_function(struct ctf *self, uint16_t type, uint16_t nr_parms,
 	return 0;
 }
 
+int ctf__add_object(struct ctf *self, uint16_t type)
+{
+	return gobuffer__add(&self->objects, &type,
+			     sizeof(type)) >= 0 ? 0 : -ENOMEM;
+}
+
 static const void *ctf__compress(void *orig_buf, unsigned int *size)
 {
 	z_stream z = {
@@ -573,6 +585,7 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 		return 0;
 
 	size = (gobuffer__size(&self->types) +
+		gobuffer__size(&self->objects) +
 		gobuffer__size(&self->funcs) +
 		gobuffer__size(self->strings));
 
@@ -591,6 +604,8 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	hdr->ctf_flags    = flags;
 
 	uint32_t offset = 0;
+	hdr->ctf_object_off = offset;
+	offset += gobuffer__size(&self->objects);
 	hdr->ctf_func_off = offset;
 	offset += gobuffer__size(&self->funcs);
 	hdr->ctf_type_off = offset;
@@ -599,6 +614,7 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	hdr->ctf_str_len  = gobuffer__size(self->strings);
 
 	void *payload = self->buf + sizeof(*hdr);
+	gobuffer__copy(&self->objects, payload + hdr->ctf_object_off);
 	gobuffer__copy(&self->funcs, payload + hdr->ctf_func_off);
 	gobuffer__copy(&self->types, payload + hdr->ctf_type_off);
 	gobuffer__copy(self->strings, payload + hdr->ctf_str_off);
