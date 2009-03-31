@@ -124,10 +124,11 @@ struct cu {
 	struct ptr_table tags_table;
 	char		 *name;
 	char		 *filename;
-	Elf		 *elf;
-	Dwfl_Module	 *dwfl;
 	void 		 *priv;
 	struct cu_orig_info *orig_info;
+	Elf		 *elf;
+	Dwfl_Module	 *dwfl;
+	uint32_t	 cached_symtab_nr_entries;
 	uint8_t		 addr_size;
 	uint8_t		 extra_dbg_info:1;
 	uint16_t	 language;
@@ -147,6 +148,11 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const char *filename);
 void cu__delete(struct cu *self);
 
+static inline void cu__cache_symtab(struct cu *self)
+{
+	self->cached_symtab_nr_entries = dwfl_module_getsymtab(self->dwfl);
+}
+
 /**
  * cu__for_each_cached_symtab_entry - iterate thru the cached symtab entries
  * @cu: struct cu instance
@@ -155,10 +161,9 @@ void cu__delete(struct cu *self);
  * @name: char pointer where the symbol_name will be stored
  */
 #define cu__for_each_cached_symtab_entry(cu, id, pos, name)	  \
-	uint32_t n = dwfl_module_getsymtab(cu->dwfl);		  \
 	for (id = 1,						  \
 	     name = dwfl_module_getsym(cu->dwfl, id, &sym, NULL); \
-	     id < n;						  \
+	     id < cu->cached_symtab_nr_entries;						  \
 	     ++id, name = dwfl_module_getsym(cu->dwfl, id, &sym, NULL))
 
 /**

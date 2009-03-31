@@ -253,6 +253,8 @@ int cu__encode_ctf(struct cu *self)
 		hlist_add_head(&function->tool_hnode, head);
 	}
 
+	cu__cache_symtab(self);
+
 	GElf_Sym sym;
 	const char *sym_name;
 	cu__for_each_cached_symtab_entry(self, id, sym, sym_name) {
