@@ -209,8 +209,8 @@ static void tag__encode_ctf(struct tag *self, uint16_t core_id, struct ctf *ctf)
 #define HASHADDR__SIZE (1UL << HASHADDR__BITS)
 #define hashaddr__fn(key) hash_64(key, HASHADDR__BITS)
 
-static struct function *hashaddr__find(const struct hlist_head hashtable[],
-				       const uint64_t addr)
+static struct function *hashaddr__find_function(const struct hlist_head hashtable[],
+						const uint64_t addr)
 {
 	struct function *function;
 	struct hlist_node *pos;
@@ -262,7 +262,7 @@ int cu__encode_ctf(struct cu *self)
 			continue;
 
 		uint64_t addr = elf_sym__value(&sym);
-		function = hashaddr__find(hash_addr, addr);
+		function = hashaddr__find_function(hash_addr, addr);
 		if (function == NULL) {
 			fprintf(stderr, "%4d: %-20s %#llx %5u NOT FOUND!\n",
 				id, sym_name,
