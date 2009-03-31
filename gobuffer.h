@@ -21,6 +21,8 @@ void gobuffer__init(struct gobuffer *self);
 void gobuffer__delete(struct gobuffer *self);
 void __gobuffer__delete(struct gobuffer *self);
 
+void gobuffer__copy(const struct gobuffer *self, void *dest);
+
 int gobuffer__add(struct gobuffer *self, const void *s, unsigned int len);
 int gobuffer__allocate(struct gobuffer *self, unsigned int len);
 

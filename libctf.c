@@ -589,21 +589,19 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	hdr->ctf_magic    = CTF_MAGIC;
 	hdr->ctf_version  = 2;
 	hdr->ctf_flags    = flags;
-	hdr->ctf_func_off = 0;
-	hdr->ctf_type_off = gobuffer__size(&self->funcs);
-	hdr->ctf_str_off  = (gobuffer__size(&self->funcs) +
-			     gobuffer__size(&self->types));
+
+	uint32_t offset = 0;
+	hdr->ctf_func_off = offset;
+	offset += gobuffer__size(&self->funcs);
+	hdr->ctf_type_off = offset;
+	offset += gobuffer__size(&self->types);
+	hdr->ctf_str_off  = offset;
 	hdr->ctf_str_len  = gobuffer__size(self->strings);
 
-	memcpy(self->buf + sizeof(*hdr) + hdr->ctf_func_off,
-	       gobuffer__entries(&self->funcs),
-	       gobuffer__size(&self->funcs));
-	memcpy(self->buf + sizeof(*hdr) + hdr->ctf_type_off,
-	       gobuffer__entries(&self->types),
-	       gobuffer__size(&self->types));
-	memcpy(self->buf + sizeof(*hdr) + hdr->ctf_str_off,
-	       gobuffer__entries(self->strings),
-	       gobuffer__size(self->strings));
+	void *payload = self->buf + sizeof(*hdr);
+	gobuffer__copy(&self->funcs, payload + hdr->ctf_func_off);
+	gobuffer__copy(&self->types, payload + hdr->ctf_type_off);
+	gobuffer__copy(self->strings, payload + hdr->ctf_str_off);
 
 	*(char *)(self->buf + sizeof(*hdr) + hdr->ctf_str_off) = '\0';
 	if (flags & CTF_FLAGS_COMPR) {

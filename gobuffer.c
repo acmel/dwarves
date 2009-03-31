@@ -89,6 +89,11 @@ int gobuffer__add(struct gobuffer *self, const void *s, unsigned int len)
 	return rc;
 }
 
+void gobuffer__copy(const struct gobuffer *self, void *dest)
+{
+	memcpy(dest, self->entries, gobuffer__size(self));
+}
+
 const void *gobuffer__compress(struct gobuffer *self, unsigned int *size)
 {
 	z_stream z = {
