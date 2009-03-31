@@ -1772,7 +1772,7 @@ static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
 {
 	if (self->tag == DW_TAG_member || self->tag == DW_TAG_inheritance) {
 		struct conf_load *conf_load = cookie;
-		struct class_member *member;
+		struct class_member *member = tag__class_member(self);
 
 		if (member->bitfield_size != 0) {
 			struct tag *type = tag__follow_typedef(&member->tag, cu);
