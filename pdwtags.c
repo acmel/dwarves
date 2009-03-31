@@ -20,9 +20,7 @@ static struct conf_fprintf conf = {
 
 static void emit_tag(struct tag *self, uint32_t tag_id, struct cu *cu)
 {
-	conf.no_semicolon = tag__is_function(self);
-
-	printf("%d ", tag_id);
+	printf("/* %d */\n", tag_id);
 
 	if (self->tag == DW_TAG_base_type) {
 		const char *name = base_type__name(tag__base_type(self));
@@ -32,29 +30,42 @@ static void emit_tag(struct tag *self, uint32_t tag_id, struct cu *cu)
 		else
 			puts(name);
 	} else if (self->tag == DW_TAG_pointer_type)
-		printf("pointer to %lld\n", (unsigned long long)self->type);
+		printf(" /* pointer to %lld */\n", (unsigned long long)self->type);
 	else
 		tag__fprintf(self, cu, &conf, stdout);
 
-	if (tag__is_function(self)) {
-		struct function *fn = tag__function(self);
-		putchar('\n');
-		lexblock__fprintf(&fn->lexblock, cu, fn, 0, &conf, stdout);
-	}
-	printf(" size: %zd\n\n", tag__size(self, cu));
+	printf(" /* size: %zd */\n\n", tag__size(self, cu));
 }
 
 static int cu__emit_tags(struct cu *self)
 {
-	uint16_t i;
+	uint32_t i;
+	struct tag *tag;
 
-	for (i = 1; i < self->types_table.nr_entries; ++i) {
-		struct tag *tag = self->types_table.entries[i];
-		if (tag == NULL) /* CTF can have empty slots, see
-				    cu__table_nullify_type_entry */
-			continue;
+	puts("/* Types: */\n");
+	cu__for_each_type(self, i, tag)
 		emit_tag(tag, i, self);
+
+	puts("/* Functions: */\n");
+	conf.no_semicolon = true;
+	struct function *function;
+	cu__for_each_function(self, i, function) {
+		tag__fprintf(function__tag(function), self, &conf, stdout);
+		putchar('\n');
+		lexblock__fprintf(&function->lexblock, self, function, 0,
+				  &conf, stdout);
+		printf(" /* size: %zd */\n\n",
+		       tag__size(function__tag(function), self));
 	}
+	conf.no_semicolon = false;
+
+	puts("\n\n/* Variables: */\n");
+	cu__for_each_variable(self, i, tag) {
+		tag__fprintf(tag, self, NULL, stdout);
+		printf(" /* size: %zd */\n\n", tag__size(tag, self));
+	}
+
+
 	return 0;
 }
 
