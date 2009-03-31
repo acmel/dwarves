@@ -37,10 +37,10 @@ bool ctf__ignore_symtab_function(const GElf_Sym *sym, const char *sym_name)
 		       sizeof("__libc_csu_") - 1) == 0);
 }
 
-bool ctf__ignore_symtab_object(const GElf_Sym *sym,
-			       const char *sym_name __unused)
+bool ctf__ignore_symtab_object(const GElf_Sym *sym, const char *sym_name)
 {
-	return (!elf_sym__is_local_object(sym) || sym->st_size == 0);
+	return (!elf_sym__is_local_object(sym) || sym->st_size == 0 ||
+		strchr(sym_name, '.') != NULL);
 }
 
 size_t ctf__format_flt_attrs(uint32_t eval, char *bf, size_t len)
