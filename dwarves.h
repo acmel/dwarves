@@ -217,10 +217,8 @@ static inline void cu__cache_symtab(struct cu *self)
  * @id: uint32_t tag id
  */
 #define cu__for_each_variable(cu, id, pos)		\
-	for (id = 0, pos = cu->tags_table.entries[id];	\
-	     id < cu->tags_table.nr_entries;		\
-	     pos = cu->tags_table.entries[++id])	\
-		if (pos == NULL ||			\
+	for (id = 0; id < cu->tags_table.nr_entries; ++id) \
+		if (!(pos = cu->tags_table.entries[id]) || \
 		    !tag__is_variable(pos))		\
 			continue;			\
 		else
