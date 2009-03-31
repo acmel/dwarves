@@ -1842,6 +1842,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 		if (cu == NULL)
 			return DWARF_CB_ABORT;
 		cu->elf = elf;
+		cu->dwfl = mod;
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
 		if (die__process(cu_die, cu) != 0)
 			return DWARF_CB_ABORT;

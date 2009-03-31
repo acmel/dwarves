@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <dwarf.h>
-#include <elfutils/libdw.h>
+#include <elfutils/libdwfl.h>
 
 #include "dutil.h"
 #include "list.h"
@@ -124,7 +124,8 @@ struct cu {
 	struct ptr_table tags_table;
 	char		 *name;
 	char		 *filename;
-	void		 *elf;
+	Elf		 *elf;
+	Dwfl_Module	 *dwfl;
 	void 		 *priv;
 	struct cu_orig_info *orig_info;
 	uint8_t		 addr_size;
@@ -147,10 +148,24 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 void cu__delete(struct cu *self);
 
 /**
+ * cu__for_each_cached_symtab_entry - iterate thru the cached symtab entries
+ * @cu: struct cu instance
+ * @id: uint32_t tag id
+ * @pos: struct GElf_Sym iterator
+ * @name: char pointer where the symbol_name will be stored
+ */
+#define cu__for_each_cached_symtab_entry(cu, id, pos, name)	  \
+	uint32_t n = dwfl_module_getsymtab(cu->dwfl);		  \
+	for (id = 1,						  \
+	     name = dwfl_module_getsym(cu->dwfl, id, &sym, NULL); \
+	     id < n;						  \
+	     ++id, name = dwfl_module_getsym(cu->dwfl, id, &sym, NULL))
+
+/**
  * cu__for_each_type - iterate thru all the type tags
  * @cu: struct cu instance to iterate
- * @pos: struct tag iterator
  * @id: uint16_t tag id
+ * @pos: struct tag iterator
  *
  * See cu__table_nullify_type_entry and users for the reason for
  * the NULL test (hint: CTF Unknown types)
