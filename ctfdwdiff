@@ -8,14 +8,14 @@ diff_tool() {
 	local ctf_options=$3
 	local obj=$4
 
-	diff=$results_dir/$obj.diff
-	ctf=$results_dir/$obj.ctf.c
-	dwarf=$results_dir/$obj.dwarf.c
+	diff=$results_dir/$obj.$tool.diff
+	ctf=$results_dir/$obj.$tool.ctf.c
+	dwarf=$results_dir/$obj.$tool.dwarf.c
 	$tool -F ctf   $ctf_options   $obj > $ctf
 	$tool -F dwarf $dwarf_options $obj > $dwarf
 	diff -up $dwarf $ctf > $diff
 	if [ -s $diff ] ; then
-		[ $# -gt 4 ] && vim $results_dir/$obj.diff
+		[ $# -gt 4 ] && vim $diff
 		exit 0
 	else
 		rm -f $diff $ctf $dwarf
@@ -25,7 +25,7 @@ diff_tool() {
 diff_one() {
 	local obj=$1
 	diff_tool "pahole" "--flat_arrays --show_private_classes --fixup_silly_bitfields" " " $obj $2
-	diff_tool "pfunct" "-TVi --no_parm_names" "-TVi" $obj $2
+	diff_tool "pfunct" "-V --no_parm_names" "-V" $obj $2
 }
 
 
