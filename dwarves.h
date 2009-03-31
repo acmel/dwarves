@@ -476,7 +476,7 @@ enum vlocation {
 	LOCATION_GLOBAL,
 	LOCATION_REGISTER,
 	LOCATION_OPTIMIZED
-};
+} __attribute__((packed));
 
 struct variable {
 	struct tag	 tag;
@@ -484,6 +484,7 @@ struct variable {
 	uint8_t		 external:1;
 	uint8_t		 declaration:1;
 	enum vlocation	 location;
+	uint64_t	 addr;
 };
 
 static inline struct variable *tag__variable(const struct tag *self)

@@ -407,7 +407,7 @@ static struct enumerator *enumerator__new(Dwarf_Die *die)
 	return self;
 }
 
-static enum vlocation dwarf__location(Dwarf_Die *die)
+static enum vlocation dwarf__location(Dwarf_Die *die, uint64_t *addr)
 {
 	Dwarf_Op *expr;
 	size_t exprlen;
@@ -418,7 +418,9 @@ static enum vlocation dwarf__location(Dwarf_Die *die)
 	else if (exprlen != 0)
 		switch (expr->atom) {
 		case DW_OP_addr:
-			location = LOCATION_GLOBAL;	break;
+			location = LOCATION_GLOBAL;
+			*addr = expr[0].number;
+			break;
 		case DW_OP_reg1 ... DW_OP_reg31:
 		case DW_OP_breg0 ... DW_OP_breg31:
 			location = LOCATION_REGISTER;	break;
@@ -441,8 +443,9 @@ static struct variable *variable__new(Dwarf_Die *die)
 		/* non-defining declaration of an object */
 		self->declaration = dwarf_hasattr(die, DW_AT_declaration);
 		self->location = LOCATION_UNKNOWN;
+		self->addr = 0;
 		if (!self->declaration)
-			self->location = dwarf__location(die);
+			self->location = dwarf__location(die, &self->addr);
 	}
 
 	return self;
