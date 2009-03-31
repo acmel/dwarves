@@ -7,11 +7,13 @@
 #include <elf.h>
 
 #include "gobuffer.h"
+#include "elf_symtab.h"
 
 struct ctf {
 	void		  *buf;
 	void		  *priv;
 	Elf		  *elf;
+	struct elf_symtab *symtab;
 	GElf_Ehdr	  ehdr;
 	struct gobuffer	  types;
 	struct gobuffer	  funcs;
@@ -27,6 +29,8 @@ struct ctf {
 struct ctf *ctf__new(const char *filename, Elf *elf);
 void ctf__delete(struct ctf *ctf);
 
+bool ctf__ignore_symtab_function(const GElf_Sym *sym, const char *sym_name);
+
 int ctf__load(struct ctf *self);
 
 uint16_t ctf__get16(struct ctf *self, uint16_t *p);
@@ -36,6 +40,8 @@ void ctf__put32(struct ctf *self, uint32_t *p, uint32_t val);
 
 void *ctf__get_buffer(struct ctf *self);
 size_t ctf__get_size(struct ctf *self);
+
+int ctf__load_symtab(struct ctf *self);
 
 int ctf__add_base_type(struct ctf *self, uint32_t name, uint16_t size);
 int ctf__add_fwd_decl(struct ctf *self, uint32_t name);
@@ -69,5 +75,21 @@ char *ctf__string(struct ctf *self, uint32_t ref);
 char *ctf__string32(struct ctf *self, uint32_t *refp);
 
 size_t ctf__format_flt_attrs(uint32_t eval, char *bf, size_t len);
+
+/**
+ * ctf__for_each_symtab_function - iterate thru all the symtab functions
+ *
+ * @self: struct ctf instance to iterate
+ * @index: uint32_t index
+ * @sym: GElf_Sym iterator
+ */
+#define ctf__for_each_symtab_function(self, index, sym)			      \
+	elf_symtab__for_each_symbol(self->symtab, index, sym)		      \
+		if (ctf__ignore_symtab_function(&sym,			      \
+						elf_sym__name(&sym,	      \
+							      self->symtab))) \
+			continue;					      \
+		else
+
 
 #endif /* _LIBCTF_H */

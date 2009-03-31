@@ -40,71 +40,111 @@ static void *tag__alloc(const size_t size)
 	return self;
 }
 
-#if 0
-static int dump_one_func(struct ctf_state *sp, const char *sym_name,
-			 int sym_index, int call_index, void *data)
+static int ctf__load_ftype(struct ctf *self, struct ftype *proto, uint16_t tag,
+			   uint16_t type, uint16_t vlen, uint16_t *args, long id)
 {
-	uint16_t **func_pp = data;
-	uint16_t val = ctf__get16(sp->ctf, *func_pp);
-	uint16_t type = CTF_GET_KIND(val);
-	uint16_t vlen = CTF_GET_VLEN(val);
-	uint16_t i;
+	proto->tag.tag	= tag;
+	proto->tag.type = type;
+	INIT_LIST_HEAD(&proto->parms);
 
-	(*func_pp)++;
-
-	if (type == CTF_TYPE_KIND_UNKN && vlen == 0)
-		return 0;
-
-	if (type != CTF_TYPE_KIND_FUNC) {
-		fprintf(stderr, "Expected function type, got %u\n", type);
-		exit(2);
-	}
-
-	fprintf(stdout, "  [%6d] %-36s %8d\n",
-		call_index, sym_name, sym_index);
-	fprintf(stdout, "           0x%04x   (",
-		ctf__get16(sp->ctf, *func_pp));
-
-	(*func_pp)++;
+	int i;
 	for (i = 0; i < vlen; i++) {
-		if (i >= 1)
-			fprintf(stdout, ", ");
+		uint16_t type = ctf__get16(self, &args[i]);
 
-		fprintf(stdout, "0x%04x", ctf__get16(sp->ctf, *func_pp));
-		(*func_pp)++;
+		if (type == 0)
+			proto->unspec_parms = 1;
+		else {
+			struct parameter *p = tag__alloc(sizeof(*p));
+
+			if (p == NULL)
+				goto out_free_parameters;
+			p->tag.tag  = DW_TAG_formal_parameter;
+			p->tag.type = ctf__get16(self, &args[i]);
+			ftype__add_parameter(proto, p);
+		}
 	}
-	fprintf(stdout, ")\n");
+
+	vlen *= sizeof(*args);
+
+	/* Round up to next multiple of 4 to maintain
+	 * 32-bit alignment.
+	 */
+	if (vlen & 0x2)
+		vlen += 0x2;
+
+	cu__add_tag(self->priv, &proto->tag, &id);
+
+	return vlen;
+out_free_parameters:
+	ftype__delete(proto);
+	return -ENOMEM;
+}
+
+static struct function *function__new(uint16_t **ptr, GElf_Sym *sym,
+				      struct ctf *ctf)
+{
+	struct function *self = tag__alloc(sizeof(*self));
+
+	if (self != NULL) {
+		const char *name = elf_sym__name(sym, ctf->symtab);
+
+		self->lexblock.low_pc = elf_sym__value(sym);
+		self->lexblock.size = elf_sym__size(sym);
+		/* FIXME: should use the .strtab string */
+		self->name = strings__add(strings, name);
+		self->vtable_entry = -1;
+		INIT_LIST_HEAD(&self->vtable_node);
+		INIT_LIST_HEAD(&self->tool_node);
+		INIT_LIST_HEAD(&self->lexblock.tags);
+
+		uint16_t val = ctf__get16(ctf, *ptr);
+		uint16_t tag = CTF_GET_KIND(val);
+		uint16_t vlen = CTF_GET_VLEN(val);
+
+		++*ptr;
+
+		if (tag != CTF_TYPE_KIND_FUNC) {
+			fprintf(stderr,
+				"%s: Expected function type, got %u\n",
+				__func__, tag);
+			goto out_delete;
+		}
+		uint16_t type = ctf__get16(ctf, *ptr);
+		long id = -1; /* FIXME: not needed for funcs... */
+
+		++*ptr;
+
+		if (ctf__load_ftype(ctf, &self->proto, DW_TAG_subprogram,
+				    type, vlen, *ptr, id) < 0)
+			return NULL;
+		/*
+		 * Round up to next multiple of 4 to maintain 32-bit alignment.
+		 */
+		if (vlen & 0x1)
+			++vlen;
+		*ptr += vlen;
+	}
+
+	return self;
+out_delete:
+	free(self);
+	return NULL;
+}
+
+static int ctf__load_funcs(struct ctf *self)
+{
+	struct ctf_header *hp = ctf__get_buffer(self);
+	uint16_t *func_ptr = (ctf__get_buffer(self) + sizeof(*hp) +
+			      ctf__get32(self, &hp->ctf_func_off));
+
+	GElf_Sym sym;
+	uint32_t idx;
+	ctf__for_each_symtab_function(self, idx, sym)
+		if (function__new(&func_ptr, &sym, self) == NULL)
+			return -ENOMEM;
 
 	return 0;
 }
-
-static void dump_funcs(struct ctf_state *sp)
-{
-	struct ctf_header *hp = ctf__get_buffer(sp->ctf);
-	struct elf_sym_iter_state estate;
-	uint16_t *func_ptr;
-
-	fprintf(stdout, "CTF Functions:\n");
-	fprintf(stdout,
-		"  [  Nr  ] "
-		"SymName                              "
-		"SymIndex\n"
-		"           Returns  "
-		"Args\n");
-
-	memset(&estate, 0, sizeof(estate));
-	func_ptr = ctf__get_buffer(sp->ctf) + sizeof(*hp) +
-		ctf__get32(sp->ctf, &hp->ctf_func_off);
-	estate.data = &func_ptr;
-	estate.func = dump_one_func;
-	estate.st_type = STT_FUNC;
-	estate.limit = INT_MAX;
-
-	elf_symbol_iterate(sp, &estate);
-
-	fprintf(stdout, "\n");
-}
-#endif
 
 static struct base_type *base_type__new(const char *name, size_t size)
 {
@@ -232,47 +272,15 @@ static int create_new_subroutine_type(struct ctf *self, void *ptr,
 				      long id)
 {
 	uint16_t *args = ptr;
-	uint16_t i;
 	unsigned int type = ctf__get16(self, &tp->base.ctf_type);
 	struct ftype *proto = tag__alloc(sizeof(*proto));
 
 	if (proto == NULL)
 		return -ENOMEM;
 
-	proto->tag.tag = DW_TAG_subroutine_type;
-	proto->tag.type = type;
-	INIT_LIST_HEAD(&proto->parms);
-
-	for (i = 0; i < vlen; i++) {
-		uint16_t type = ctf__get16(self, &args[i]);
-
-		if (type == 0)
-			proto->unspec_parms = 1;
-		else {
-			struct parameter *p = tag__alloc(sizeof(*p));
-
-			if (p == NULL)
-				goto out_free_parameters;
-			p->tag.tag  = DW_TAG_formal_parameter;
-			p->tag.type = ctf__get16(self, &args[i]);
-			ftype__add_parameter(proto, p);
-		}
-	}
-
-	vlen *= sizeof(*args);
-
-	/* Round up to next multiple of 4 to maintain
-	 * 32-bit alignment.
-	 */
-	if (vlen & 0x2)
-		vlen += 0x2;
-
-	cu__add_tag(self->priv, &proto->tag, &id);
-
-	return vlen;
-out_free_parameters:
-	ftype__delete(proto);
-	return -ENOMEM;
+	vlen = ctf__load_ftype(self, proto, DW_TAG_subroutine_type,
+			       type, vlen, args, id);
+	return vlen < 0 ? -ENOMEM : vlen;
 }
 
 static int create_full_members(struct ctf *self, void *ptr,
@@ -557,8 +565,15 @@ static int ctf__load_types(struct ctf *self)
 
 static int ctf__load_sections(struct ctf *self)
 {
-	//dump_funcs(self);
-	return ctf__load_types(self);
+	int err = ctf__load_symtab(self);
+
+	if (err != 0)
+		goto out;
+	err = ctf__load_funcs(self);
+	if (err == 0)
+		err = ctf__load_types(self);
+out:
+	return err;
 }
 
 static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)

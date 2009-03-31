@@ -29,6 +29,14 @@ static const char *ctf_type_fp_str[] = {
 	[CTF_TYPE_FP_IMGRY_LDBL] = "imaginary long double",
 };
 
+bool ctf__ignore_symtab_function(const GElf_Sym *sym, const char *sym_name)
+{
+	return (!elf_sym__is_local_function(sym) ||
+		sym->st_size == 0 ||
+		memcmp(sym_name, "__libc_csu_",
+		       sizeof("__libc_csu_") - 1) == 0);
+}
+
 size_t ctf__format_flt_attrs(uint32_t eval, char *bf, size_t len)
 {
 	const uint32_t attrs = CTF_TYPE_FP_ATTRS(eval);
@@ -280,6 +288,12 @@ void *ctf__get_buffer(struct ctf *self)
 size_t ctf__get_size(struct ctf *self)
 {
 	return self->size;
+}
+
+int ctf__load_symtab(struct ctf *self)
+{
+	self->symtab = elf_symtab__new(".symtab", self->elf, &self->ehdr);
+	return self->symtab == NULL ? -1 : 0;
 }
 
 void ctf__set_strings(struct ctf *self, struct gobuffer *strings)
