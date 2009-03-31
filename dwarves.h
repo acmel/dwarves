@@ -578,7 +578,10 @@ struct function {
 	int16_t		 vtable_entry;
 	struct list_head vtable_node;
 	/* fields used by tools */
-	struct list_head tool_node;
+	union {
+		struct list_head  tool_node;
+		struct hlist_node tool_hnode;
+	};
 	void		 *priv;
 };
 

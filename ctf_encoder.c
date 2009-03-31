@@ -10,6 +10,8 @@
 #include "dwarves.h"
 #include "libctf.h"
 #include "ctf.h"
+#include "hash.h"
+#include "elf_symtab.h"
 
 static int tag__check_id_drift(const struct tag *self,
 			       uint16_t core_id, uint16_t ctf_id)
@@ -203,6 +205,27 @@ static void tag__encode_ctf(struct tag *self, uint16_t core_id, struct ctf *ctf)
 	}
 }
 
+#define HASHADDR__BITS 8
+#define HASHADDR__SIZE (1UL << HASHADDR__BITS)
+#define hashaddr__fn(key) hash_64(key, HASHADDR__BITS)
+
+static struct function *hashaddr__find(const struct hlist_head hashtable[],
+				       const uint64_t addr)
+{
+	struct function *function;
+	struct hlist_node *pos;
+	uint16_t bucket = hashaddr__fn(addr);
+	const struct hlist_head *head = &hashtable[bucket];
+
+	hlist_for_each_entry(function, pos, head, tool_hnode) {
+		if (function->lexblock.low_pc == addr)
+			return function;
+	}
+
+	return NULL;
+}
+
+
 int cu__encode_ctf(struct cu *self)
 {
 	int err = -1;
@@ -213,14 +236,62 @@ int cu__encode_ctf(struct cu *self)
 
 	ctf__set_strings(ctf, &strings->gb);
 
-	uint16_t id;
+	uint32_t id;
 	struct tag *pos;
 	cu__for_each_type(self, id, pos)
 		tag__encode_ctf(pos, id, ctf);
 
+	struct hlist_head hash_addr[HASHADDR__SIZE];
+
+	for (id = 0; id < HASHADDR__SIZE; ++id)
+		INIT_HLIST_HEAD(&hash_addr[id]);
+
+	struct function *function;
+	cu__for_each_function(self, id, function) {
+		uint64_t addr = function->lexblock.low_pc;
+		struct hlist_head *head = &hash_addr[hashaddr__fn(addr)];
+		hlist_add_head(&function->tool_hnode, head);
+	}
+
+	GElf_Sym sym;
+	const char *sym_name;
+	cu__for_each_cached_symtab_entry(self, id, sym, sym_name) {
+		if (ctf__ignore_symtab_function(&sym, sym_name))
+			continue;
+
+		uint64_t addr = elf_sym__value(&sym);
+		function = hashaddr__find(hash_addr, addr);
+		if (function == NULL) {
+			fprintf(stderr, "%4d: %-20s %#llx %5u NOT FOUND!\n",
+				id, sym_name,
+				(unsigned long long)addr, elf_sym__size(&sym));
+			continue;
+		}
+
+		const struct ftype *ftype = &function->proto;
+		int64_t position;
+		err = ctf__add_function(ctf, function->proto.tag.type,
+					ftype->nr_parms,
+					ftype->unspec_parms, &position);
+
+		if (err != 0) {
+			fprintf(stderr,
+				"%4d: %-20s %#llx %5u failed encoding, "
+				"ABORTING!\n", id, sym_name,
+				(unsigned long long)addr, elf_sym__size(&sym));
+			goto out_delete;
+		}
+
+		struct parameter *pos;
+		ftype__for_each_parameter(ftype, pos)
+			ctf__add_function_parameter(ctf, pos->tag.type, &position);
+	}
+
 	ctf__encode(ctf, CTF_FLAGS_COMPR);
 
 	err = 0;
+out_delete:
+	ctf__delete(ctf);
 out:
 	return err;
 }
