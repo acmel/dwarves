@@ -24,7 +24,7 @@ struct ctf {
 	unsigned int	  type_index;
 };
 
-struct ctf *ctf__new(const char *filename);
+struct ctf *ctf__new(const char *filename, Elf *elf);
 void ctf__delete(struct ctf *ctf);
 
 int ctf__load(struct ctf *self);

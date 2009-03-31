@@ -1816,7 +1816,8 @@ static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
 }
 
 static int cus__load_module(struct cus *self, struct conf_load *conf,
-			    Dwfl_Module *mod, Dwarf *dw, const char *filename)
+			    Dwfl_Module *mod, Dwarf *dw, Elf *elf,
+			    const char *filename)
 {
 	Dwarf_Off off = 0, noff;
 	size_t cuhl;
@@ -1840,6 +1841,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 			     build_id, build_id_len, filename);
 		if (cu == NULL)
 			return DWARF_CB_ABORT;
+		cu->elf = elf;
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
 		if (die__process(cu_die, cu) != 0)
 			return DWARF_CB_ABORT;
@@ -1885,13 +1887,16 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 {
 	struct process_dwflmod_parms *parms = arg;
 	struct cus *self = parms->cus;
-	/*
-	 * WARNING: Don't remove the seemingly useless call to
-	 * dwfl_module_getelf, as it will change dwflmod internal state in a
-	 * way that is required by dwfl_module_getdwarf.
-	 */
+
 	GElf_Addr dwflbias;
-	dwfl_module_getelf(dwflmod, &dwflbias);
+	/*
+	 * Does the relocation and saves the elf for later processing
+	 * by the stealer, such as pahole_stealer, so that it don't
+	 * have to create another Elf instance just to do things like
+	 * reading this ELF file symtab to do CTF encoding of the
+	 * DW_TAG_suprogram tags (functions).
+	 */
+	Elf *elf = dwfl_module_getelf(dwflmod, &dwflbias);
 
 	Dwarf_Addr dwbias;
 	Dwarf *dw = dwfl_module_getdwarf(dwflmod, &dwbias);
@@ -1899,7 +1904,7 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 	int err = DWARF_CB_OK;
 	if (dw != NULL) {
 		++parms->nr_dwarf_sections_found;
-		err = cus__load_module(self, parms->conf, dwflmod, dw,
+		err = cus__load_module(self, parms->conf, dwflmod, dw, elf,
 				       parms->filename);
 	}
 	/*

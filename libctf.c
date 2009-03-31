@@ -176,7 +176,7 @@ out:
 	return err;
 }
 
-struct ctf *ctf__new(const char *filename)
+struct ctf *ctf__new(const char *filename, Elf *elf)
 {
 	struct ctf *self = zalloc(sizeof(*self));
 
@@ -185,21 +185,27 @@ struct ctf *ctf__new(const char *filename)
 		if (self->filename == NULL)
 			goto out_delete;
 
-		self->in_fd = open(filename, O_RDONLY);
-		if (self->in_fd < 0)
-			goto out_delete_filename;
+		if (elf != NULL) {
+			self->in_fd = -1;
+			self->elf = elf;
+		} else {
 
-		if (elf_version(EV_CURRENT) == EV_NONE) {
-			fprintf(stderr, "%s: cannot set libelf version.\n",
-				__func__);
-			goto out_close;
-		}
+			self->in_fd = open(filename, O_RDONLY);
+			if (self->in_fd < 0)
+				goto out_delete_filename;
 
-		self->elf = elf_begin(self->in_fd, ELF_C_READ_MMAP, NULL);
-		if (!self->elf) {
-			fprintf(stderr, "%s: cannot read %s ELF file.\n",
-				__func__, filename);
-			goto out_close;
+			if (elf_version(EV_CURRENT) == EV_NONE) {
+				fprintf(stderr, "%s: cannot set libelf version.\n",
+					__func__);
+				goto out_close;
+			}
+
+			self->elf = elf_begin(self->in_fd, ELF_C_READ_MMAP, NULL);
+			if (!self->elf) {
+				fprintf(stderr, "%s: cannot read %s ELF file.\n",
+					__func__, filename);
+				goto out_close;
+			}
 		}
 
 		if (gelf_getehdr(self->elf, &self->ehdr) == NULL) {
@@ -216,9 +222,11 @@ struct ctf *ctf__new(const char *filename)
 
 	return self;
 out_elf_end:
-	elf_end(self->elf);
+	if (elf == NULL)
+		elf_end(self->elf);
 out_close:
-	close(self->in_fd);
+	if (elf == NULL)
+		close(self->in_fd);
 out_delete_filename:
 	free(self->filename);
 out_delete:

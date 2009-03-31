@@ -642,7 +642,7 @@ int ctf__load_file(struct cus *self, struct conf_load *conf,
 		   const char *filename)
 {
 	int err;
-	struct ctf *state = ctf__new(filename);
+	struct ctf *state = ctf__new(filename, NULL);
 
 	if (state == NULL)
 		return -1;

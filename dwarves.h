@@ -124,6 +124,7 @@ struct cu {
 	struct ptr_table tags_table;
 	char		 *name;
 	char		 *filename;
+	void		 *elf;
 	void 		 *priv;
 	struct cu_orig_info *orig_info;
 	uint8_t		 addr_size;
