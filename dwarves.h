@@ -337,7 +337,6 @@ static inline int tag__is_type(const struct tag *self)
 static inline int tag__is_tag_type(const struct tag *self)
 {
 	return tag__is_type(self) ||
-	       tag__is_enumeration(self) ||
 	       self->tag == DW_TAG_array_type ||
 	       self->tag == DW_TAG_base_type ||
 	       self->tag == DW_TAG_const_type ||
