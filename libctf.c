@@ -237,8 +237,11 @@ out_delete:
 void ctf__delete(struct ctf *self)
 {
 	if (self != NULL) {
-		elf_end(self->elf);
-		close(self->in_fd);
+		if (self->in_fd != -1) {
+			elf_end(self->elf);
+			close(self->in_fd);
+		}
+		free(self->filename);
 		free(self->buf);
 		free(self);
 	}
