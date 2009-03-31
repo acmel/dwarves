@@ -65,6 +65,7 @@ struct conf_fprintf {
 	uint8_t	   no_semicolon:1;
 	uint8_t	   show_first_biggest_size_base_type_member:1;
 	uint8_t	   flat_arrays:1;
+	uint8_t	   no_parm_names:1;
 };
 
 struct cus {
@@ -485,7 +486,8 @@ void lexblock__add_lexblock(struct lexblock *self, struct lexblock *child);
 void lexblock__add_tag(struct lexblock *self, struct tag *tag);
 void lexblock__add_variable(struct lexblock *self, struct variable *var);
 size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
-			 struct function *function, uint16_t indent, FILE *fp);
+			 struct function *function, uint16_t indent,
+			 const struct conf_fprintf *conf, FILE *fp);
 
 struct parameter {
 	struct tag	 tag;
@@ -539,7 +541,8 @@ void ftype__delete(struct ftype *self);
 void ftype__add_parameter(struct ftype *self, struct parameter *parm);
 size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 		      const char *name, const int inlined,
-		      const int is_pointer, const int type_spacing, FILE *fp);
+		      const int is_pointer, const int type_spacing,
+		      const struct conf_fprintf *conf, FILE *fp);
 int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
 			    const struct cu *cu);
 
@@ -590,7 +593,9 @@ static __pure inline int tag__is_function(const struct tag *self)
 
 const char *function__name(struct function *self, const struct cu *cu);
 size_t function__fprintf_stats(const struct tag *tag_self,
-			       const struct cu *cu, FILE *fp);
+			       const struct cu *cu,
+			       const struct conf_fprintf *conf,
+			       FILE *fp);
 const char *function__prototype(const struct function *self,
 				const struct cu *cu, char *bf, size_t len);
 

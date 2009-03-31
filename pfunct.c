@@ -152,7 +152,7 @@ static void fn_stats_fmtr(const struct fn_stats *self)
 		tag__fprintf(self->tag, self->cu, &conf, stdout);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
-			function__fprintf_stats(self->tag, self->cu, stdout);
+			function__fprintf_stats(self->tag, self->cu, &conf, stdout);
 		printf("/* definitions: %u */\n", self->nr_files);
 		putchar('\n');
 	} else {
@@ -368,7 +368,7 @@ static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
 		tag__fprintf(tag, cu, &conf, stdout);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
-			function__fprintf_stats(tag, cu, stdout);
+			function__fprintf_stats(tag, cu, &conf, stdout);
 		return 1;
 	}
 	return 0;
@@ -463,7 +463,8 @@ int elf_symtabs__show(char *filenames[])
 /* Name and version of program.  */
 ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
-#define ARGP_symtab	300
+#define ARGP_symtab		300
+#define ARGP_no_parm_names	301
 
 static const struct argp_option pfunct__options[] = {
 	{
@@ -567,6 +568,11 @@ static const struct argp_option pfunct__options[] = {
 		.doc   = "show symbol table NAME (Default .symtab)",
 	},
 	{
+		.name  = "no_parm_names",
+		.key   = ARGP_no_parm_names,
+		.doc   = "Don't show parameter names",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -607,6 +613,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 	case 'V': verbose = 1;
 		  conf_load.extra_dbg_info = 1;		 break;
 	case ARGP_symtab: symtab_name = arg ?: ".symtab";  break;
+	case ARGP_no_parm_names: conf.no_parm_names = 1; break;
 	default:  return ARGP_ERR_UNKNOWN;
 	}
 

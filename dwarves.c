@@ -475,7 +475,7 @@ size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 		return printed + ftype__fprintf(tag__ftype(type), cu,
 						type__name(self),
 						0, is_pointer, 0,
-						fp);
+						pconf, fp);
 	case DW_TAG_class_type:
 	case DW_TAG_structure_type: {
 		struct type *ctype = tag__type(type);
@@ -1108,8 +1108,10 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		break;
 	case DW_TAG_subroutine_type: {
 		FILE *bfp = fmemopen(bf, len, "w");
+
 		if (bfp != NULL) {
-			ftype__fprintf(tag__ftype(self), cu, NULL, 0, 0, 0, bfp);
+			ftype__fprintf(tag__ftype(self), cu, NULL, 0, 0, 0,
+				       &conf_fprintf__defaults, bfp);
 			fclose(bfp);
 		} else
 			snprintf(bf, len, "<ERROR(%s): fmemopen failed!>",
@@ -1257,7 +1259,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 				printed += ftype__fprintf(tag__ftype(ptype),
 							  cu, name, 0, 1,
 							  conf->type_spacing,
-							  fp);
+							  conf, fp);
 				break;
 			}
 		}
@@ -1268,7 +1270,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		break;
 	case DW_TAG_subroutine_type:
 		printed += ftype__fprintf(tag__ftype(type), cu, name, 0, 0,
-					  conf->type_spacing, fp);
+					  conf->type_spacing, conf, fp);
 		break;
 	case DW_TAG_array_type:
 		printed += array_type__fprintf(type, cu, name, conf, fp);
@@ -1583,7 +1585,8 @@ const char *function__prototype(const struct function *self,
 	FILE *bfp = fmemopen(bf, len, "w");
 
 	if (bfp != NULL) {
-		ftype__fprintf(&self->proto, cu, NULL, 0, 0, 0, bfp);
+		ftype__fprintf(&self->proto, cu, NULL, 0, 0, 0,
+			       &conf_fprintf__defaults, bfp);
 		fclose(bfp);
 	} else
 		snprintf(bf, len, "<ERROR(%s): fmemopen failed!>", __func__);
@@ -1864,7 +1867,7 @@ void cu__account_inline_expansions(struct cu *self)
 
 static size_t ftype__fprintf_parms(const struct ftype *self,
 				   const struct cu *cu, int indent,
-				   FILE *fp)
+				   const struct conf_fprintf *conf, FILE *fp)
 {
 	struct parameter *pos;
 	int first_parm = 1;
@@ -1882,7 +1885,7 @@ static size_t ftype__fprintf_parms(const struct ftype *self,
 						   indent, tabs);
 		} else
 			first_parm = 0;
-		name = parameter__name(pos);
+		name = conf->no_parm_names ? NULL : parameter__name(pos);
 		type = cu__type(cu, pos->tag.type);
 		if (type == NULL) {
 			snprintf(sbf, sizeof(sbf),
@@ -1902,13 +1905,13 @@ static size_t ftype__fprintf_parms(const struct ftype *self,
 					printed +=
 					     ftype__fprintf(tag__ftype(ptype),
 							    cu, name, 0, 1, 0,
-							    fp);
+							    conf, fp);
 					continue;
 				}
 			}
 		} else if (type->tag == DW_TAG_subroutine_type) {
 			printed += ftype__fprintf(tag__ftype(type), cu, name,
-						  0, 0, 0, fp);
+						  0, 0, 0, conf, fp);
 			continue;
 		}
 		stype = tag__name(type, cu, sbf, sizeof(sbf));
@@ -1928,8 +1931,8 @@ print_it:
 }
 
 static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
-				    struct function *function,
-				    uint16_t indent, FILE *fp)
+				    struct function *function, uint16_t indent,
+				    const struct conf_fprintf *conf, FILE *fp)
 {
 	char bf[512];
 	size_t printed = 0, n;
@@ -1959,7 +1962,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 			namelen = strlen(name);
 		n += ftype__fprintf_parms(&alias->proto, cu,
 					  indent + (namelen + 7) / 8,
-					  fp);
+					  conf, fp);
 		n += fprintf(fp, "; /* size=%zd, low_pc=%#llx */",
 			     exp->size, (unsigned long long)exp->low_pc);
 #if 0
@@ -1989,7 +1992,8 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 	}
 		break;
 	case DW_TAG_lexical_block:
-		printed = lexblock__fprintf(vtag, cu, function, indent, fp);
+		printed = lexblock__fprintf(vtag, cu, function, indent,
+					    conf, fp);
 		fputc('\n', fp);
 		return printed + 1;
 	default:
@@ -2005,7 +2009,8 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 }
 
 size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
-			 struct function *function, uint16_t indent, FILE *fp)
+			 struct function *function, uint16_t indent,
+			 const struct conf_fprintf *conf, FILE *fp)
 {
 	struct tag *pos;
 	size_t printed;
@@ -2026,7 +2031,8 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 	}
 	printed += fprintf(fp, "\n");
 	list_for_each_entry(pos, &self->tags, node)
-		printed += function__tag_fprintf(pos, cu, function, indent + 1, fp);
+		printed += function__tag_fprintf(pos, cu, function, indent + 1,
+						 conf, fp);
 	printed += fprintf(fp, "%.*s}", indent, tabs);
 
 	if (function->lexblock.low_pc != self->low_pc)
@@ -2037,7 +2043,8 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 
 size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 		      const char *name, const int inlined,
-		      const int is_pointer, int type_spacing, FILE *fp)
+		      const int is_pointer, int type_spacing,
+		      const struct conf_fprintf *conf, FILE *fp)
 {
 	struct tag *type = cu__type(cu, self->tag.type);
 	char sbf[128];
@@ -2051,11 +2058,13 @@ size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 				 self->tag.tag == DW_TAG_subroutine_type ?
 				 	")" : "");
 
-	return printed + ftype__fprintf_parms(self, cu, 0, fp);
+	return printed + ftype__fprintf_parms(self, cu, 0, conf, fp);
 }
 
 static size_t function__fprintf(const struct tag *tag_self,
-				const struct cu *cu, FILE *fp)
+				const struct cu *cu,
+				const struct conf_fprintf *conf,
+				FILE *fp)
 {
 	struct function *self = tag__function(tag_self);
 	size_t printed = 0;
@@ -2065,7 +2074,8 @@ static size_t function__fprintf(const struct tag *tag_self,
 		printed += fprintf(fp, "virtual ");
 
 	printed += ftype__fprintf(&self->proto, cu, function__name(self, cu),
-				  function__declared_inline(self), 0, 0, fp);
+				  function__declared_inline(self), 0, 0,
+				  conf, fp);
 
 	if (self->virtuality == DW_VIRTUALITY_pure_virtual)
 		printed += fprintf(fp, " = 0");
@@ -2074,10 +2084,12 @@ static size_t function__fprintf(const struct tag *tag_self,
 }
 
 size_t function__fprintf_stats(const struct tag *tag_self,
-			       const struct cu *cu, FILE *fp)
+			       const struct cu *cu,
+			       const struct conf_fprintf *conf,
+			       FILE *fp)
 {
 	struct function *self = tag__function(tag_self);
-	size_t printed = lexblock__fprintf(&self->lexblock, cu, self, 0, fp);
+	size_t printed = lexblock__fprintf(&self->lexblock, cu, self, 0, conf, fp);
 
 	printed += fprintf(fp, "/* size: %d", function__size(self));
 	if (self->lexblock.nr_variables > 0)
@@ -2581,7 +2593,7 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 		printed += namespace__fprintf(self, cu, pconf, fp);
 		break;
 	case DW_TAG_subprogram:
-		printed += function__fprintf(self, cu, fp);
+		printed += function__fprintf(self, cu, pconf, fp);
 		break;
 	case DW_TAG_union_type:
 		printed += union__fprintf(tag__type(self), cu, pconf, fp);

@@ -39,7 +39,7 @@ static void emit_tag(struct tag *self, uint32_t tag_id, struct cu *cu)
 	if (tag__is_function(self)) {
 		struct function *fn = tag__function(self);
 		putchar('\n');
-		lexblock__fprintf(&fn->lexblock, cu, fn, 0, stdout);
+		lexblock__fprintf(&fn->lexblock, cu, fn, 0, &conf, stdout);
 	}
 	printf(" size: %zd\n\n", tag__size(self, cu));
 }
