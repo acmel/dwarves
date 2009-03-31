@@ -454,6 +454,47 @@ void ctf__add_enumerator(struct ctf *self, uint32_t name, uint32_t value,
 	*position += sizeof(m);
 }
 
+void ctf__add_function_parameter(struct ctf *self, uint16_t type,
+				 int64_t *position)
+{
+	uint16_t *parm = gobuffer__ptr(&self->funcs, *position);
+
+	*parm = type;
+	*position += sizeof(*parm);
+}
+
+int ctf__add_function(struct ctf *self, uint16_t type, uint16_t nr_parms,
+		      bool varargs, int64_t *position)
+{
+	struct ctf_short_type func;
+	int len = sizeof(uint16_t) * (nr_parms + !!varargs);
+
+	/*
+	 * Round up to next multiple of 4 to maintain 32-bit alignment.
+	 */
+	if (len & 0x2)
+		len += 0x2;
+
+	func.ctf_info = CTF_INFO_ENCODE(CTF_TYPE_KIND_FUNC,
+					nr_parms + !!varargs, 0);
+	func.ctf_type = type;
+
+	/*
+	 * We don't store the name for the function, it comes from the
+	 * symtab.
+	 */
+	gobuffer__add(&self->funcs, &func.ctf_info,
+		      sizeof(func) - sizeof(func.ctf_name));
+	*position = gobuffer__allocate(&self->funcs, len);
+	if (varargs) {
+		unsigned int pos = *position + (nr_parms * sizeof(uint16_t));
+		uint16_t *end_of_args = gobuffer__ptr(&self->funcs, pos);
+		*end_of_args = 0;
+	}
+
+	return 0;
+}
+
 static const void *ctf__compress(void *orig_buf, unsigned int *size)
 {
 	z_stream z = {
@@ -517,7 +558,10 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	if (gobuffer__size(&self->types) == 0)
 		return 0;
 
-	size = gobuffer__size(&self->types) + gobuffer__size(self->strings);
+	size = (gobuffer__size(&self->types) +
+		gobuffer__size(&self->funcs) +
+		gobuffer__size(self->strings));
+
 	self->size = sizeof(*hdr) + size;
 	self->buf = malloc(self->size);
 
@@ -531,10 +575,15 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	hdr->ctf_magic    = CTF_MAGIC;
 	hdr->ctf_version  = 2;
 	hdr->ctf_flags    = flags;
-	hdr->ctf_type_off = 0;
-	hdr->ctf_str_off  = gobuffer__size(&self->types);
+	hdr->ctf_func_off = 0;
+	hdr->ctf_type_off = gobuffer__size(&self->funcs);
+	hdr->ctf_str_off  = (gobuffer__size(&self->funcs) +
+			     gobuffer__size(&self->types));
 	hdr->ctf_str_len  = gobuffer__size(self->strings);
 
+	memcpy(self->buf + sizeof(*hdr) + hdr->ctf_func_off,
+	       gobuffer__entries(&self->funcs),
+	       gobuffer__size(&self->funcs));
 	memcpy(self->buf + sizeof(*hdr) + hdr->ctf_type_off,
 	       gobuffer__entries(&self->types),
 	       gobuffer__size(&self->types));
