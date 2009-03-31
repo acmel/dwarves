@@ -57,6 +57,13 @@ static inline bool elf_sym__is_local_function(const GElf_Sym *sym)
 	       sym->st_shndx != SHN_UNDEF;
 }
 
+static inline bool elf_sym__is_local_object(const GElf_Sym *sym)
+{
+	return elf_sym__type(sym) == STT_OBJECT &&
+	       sym->st_name != 0 &&
+	       sym->st_shndx != SHN_UNDEF;
+}
+
 /**
  * elf_symtab__for_each_symbol - iterate thru all the symbols
  *
