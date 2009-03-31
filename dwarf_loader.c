@@ -480,6 +480,26 @@ int tag__recode_dwarf_bitfield(struct tag *self, struct cu *cu, uint16_t bit_siz
 	}
 		break;
 
+	case DW_TAG_const_type:
+	case DW_TAG_volatile_type: {
+		const struct dwarf_tag *dself = self->priv;
+		struct dwarf_tag *dtype = dwarf_cu__find_type_by_id(cu->priv,
+								    dself->type);
+		struct tag *type = dtype->tag;
+
+		id = tag__recode_dwarf_bitfield(type, cu, bit_size);
+		if (id == self->type)
+			return id;
+
+		recoded = zalloc(sizeof(*recoded));
+		if (recoded == NULL)
+			return -ENOMEM;
+
+		recoded->tag = DW_TAG_volatile_type;
+		recoded->type = id;
+	}
+		break;
+
 	case DW_TAG_base_type:
 		/*
 		 * Here we must search on the final, core cu, not on
