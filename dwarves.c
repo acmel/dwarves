@@ -2632,29 +2632,6 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 	return printed;
 }
 
-int cu__for_each_tag(struct cu *self,
-		     int (*iterator)(struct tag *tag,
-				     struct cu *cu, void *cookie),
-		     void *cookie,
-		     struct tag *(*filter)(struct tag *tag,
-					   struct cu *cu, void *cookie))
-{
-	struct tag *pos;
-
-	list_for_each_entry(pos, &self->tags, node) {
-		struct tag *tag = pos;
-
-		if (filter != NULL) {
-			tag = filter(pos, self, cookie);
-			if (tag == NULL)
-				continue;
-		}
-		if (iterator(tag, self, cookie))
-			return 1;
-	}
-	return 0;
-}
-
 static int list__for_all_tags(struct list_head *self, struct cu *cu,
 			      int (*iterator)(struct tag *tag,
 					      struct cu *cu, void *cookie),

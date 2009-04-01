@@ -248,12 +248,6 @@ struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
 				    const int include_decls, uint16_t *id);
 bool cu__same_build_id(const struct cu *self, const struct cu *other);
 void cu__account_inline_expansions(struct cu *self);
-int cu__for_each_tag(struct cu *self, int (*iterator)(struct tag *tag,
-						      struct cu *cu,
-						      void *cookie),
-		     void *cookie,
-		     struct tag *(*filter)(struct tag *tag, struct cu *cu,
-					   void *cookie));
 int cu__for_all_tags(struct cu *self,
 		     int (*iterator)(struct tag *tag,
 				     struct cu *cu, void *cookie),
