@@ -231,89 +231,60 @@ static void fn_stats__chkdupdef(struct function *self,
 		putchar('\n');
 }
 
-static struct tag *function__filter(struct tag *tag, struct cu *cu,
-				    void *cookie __unused)
+static bool function__filter(struct function *function, struct cu *cu)
 {
-	struct function *function;
 	struct fn_stats *fstats;
 	const char *name;
 
-	if (!tag__is_function(tag))
-		return NULL;
+	if (!function__tag(function)->top_level)
+		return true;
 
-	if (!tag->top_level)
-		return NULL;
-
-	function = tag__function(tag);
 	/*
 	 * FIXME: remove this check and try to fix the parameter abstract
 	 * origin code someday...
 	 */
 	if (!function->name)
-		return NULL;
+		return true;
 
 	name = function__name(function, cu);
 	if (show_externals && !function->external)
-		return NULL;
+		return true;
 
 	if (show_cc_uninlined &&
 	    function->inlined != DW_INL_declared_not_inlined)
-		return NULL;
+		return true;
 
 	if (show_cc_inlined && function->inlined != DW_INL_inlined)
-		return NULL;
+		return true;
 
 	fstats = fn_stats__find(name);
 	if (fstats != NULL) {
 		struct function *fn = tag__function(fstats->tag);
 
 		if (!fn->external)
-			return tag;
+			return false;
 
 		if (verbose)
 			fn_stats__chkdupdef(fn, fstats->cu, function, cu);
 		fstats->nr_expansions   += function->cu_total_nr_inline_expansions;
 		fstats->size_expansions += function->cu_total_size_inline_expansions;
 		fstats->nr_files++;
-		return NULL;
+		return true;
 	}
 
-	return tag;
+	return false;
 }
 
-static int unique_iterator(struct tag *tag, struct cu *cu,
-			   void *cookie __unused)
-{
-	if (tag__is_function(tag))
-		fn_stats__add(tag, cu);
-	return 0;
-}
-
-static int cu_unique_iterator(struct cu *cu, void *cookie)
+static int cu_unique_iterator(struct cu *cu, void *cookie __unused)
 {
 	cu__account_inline_expansions(cu);
-	return cu__for_each_tag(cu, unique_iterator, cookie, function__filter);
-}
 
-static int class_iterator(struct tag *tag, struct cu *cu, void *cookie)
-{
-	uint16_t *target_id = cookie;
-	struct function *function;
+	struct function *pos;
+	uint32_t id;
 
-	if (!tag__is_function(tag))
-		return 0;
-
-	function = tag__function(tag);
-	if (function->inlined)
-		return 0;
-
-	if (ftype__has_parm_of_type(&function->proto, *target_id, cu)) {
-		if (verbose)
-			tag__fprintf(tag, cu, &conf, stdout);
-		else
-			fputs(function__name(function, cu), stdout);
-		putchar('\n');
-	}
+	cu__for_each_function(cu, id, pos)
+		if (!function__filter(pos, cu))
+			fn_stats__add(function__tag(pos), cu);
 	return 0;
 }
 
@@ -325,7 +296,22 @@ static int cu_class_iterator(struct cu *cu, void *cookie)
 	if (target == NULL)
 		return 0;
 
-	return cu__for_each_tag(cu, class_iterator, &target_id, NULL);
+	struct function *pos;
+	uint32_t id;
+
+	cu__for_each_function(cu, id, pos) {
+		if (pos->inlined ||
+		    !ftype__has_parm_of_type(&pos->proto, target_id, cu))
+			continue;
+
+		if (verbose)
+			tag__fprintf(function__tag(pos), cu, &conf, stdout);
+		else
+			fputs(function__name(pos, cu), stdout);
+		putchar('\n');
+	}
+
+	return 0;
 }
 
 static int function__emit_type_definitions(struct function *self,
@@ -354,29 +340,25 @@ static int function__emit_type_definitions(struct function *self,
 	return 0;
 }
 
-static int function_iterator(struct tag *tag, struct cu *cu, void *cookie)
+static int cu_function_iterator(struct cu*cu, void *cookie)
 {
 	struct function *function;
+	uint32_t id;
 
-	if (!tag__is_function(tag))
-		return 0;
+	cu__for_each_function(cu, id, function) {
+		if (strcmp(function__name(function, cu), cookie) != 0)
+			continue;
 
-	function = tag__function(tag);
-	if (strcmp(function__name(function, cu), cookie) == 0) {
 		if (expand_types)
 			function__emit_type_definitions(function, cu, stdout);
-		tag__fprintf(tag, cu, &conf, stdout);
+		tag__fprintf(function__tag(function), cu, &conf, stdout);
 		putchar('\n');
 		if (show_variables || show_inline_expansions)
-			function__fprintf_stats(tag, cu, &conf, stdout);
+			function__fprintf_stats(function__tag(function), cu,
+						&conf, stdout);
 		return 1;
 	}
 	return 0;
-}
-
-static int cu_function_iterator(struct cu*cu, void *cookie)
-{
-	return cu__for_each_tag(cu, function_iterator, cookie, NULL);
 }
 
 int elf_symtab__show(char *filename)
