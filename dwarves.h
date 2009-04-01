@@ -176,10 +176,8 @@ static inline void cu__cache_symtab(struct cu *self)
  * the NULL test (hint: CTF Unknown types)
  */
 #define cu__for_each_type(cu, id, pos)				\
-	for (id = 1, pos = cu->types_table.entries[id];		\
-	     id < cu->types_table.nr_entries;			\
-	     pos = cu->types_table.entries[++id])		\
-		if (pos == NULL)				\
+	for (id = 1; id < cu->types_table.nr_entries; ++id)	\
+		if (!(pos = cu->types_table.entries[id]))	\
 			continue;				\
 		else
 
@@ -190,10 +188,8 @@ static inline void cu__cache_symtab(struct cu *self)
  * @id: uint16_t tag id
  */
 #define cu__for_each_struct(cu, id, pos)				\
-	for (id = 0, pos = tag__class(cu->types_table.entries[id]);	\
-	     id < cu->types_table.nr_entries;				\
-	     pos = tag__class(cu->types_table.entries[++id]))		\
-		if (pos == NULL ||					\
+	for (id = 1; id < cu->types_table.nr_entries; ++id)		\
+		if (!(pos = tag__class(cu->types_table.entries[id])) || \
 		    !tag__is_struct(class__tag(pos)))			\
 			continue;					\
 		else
