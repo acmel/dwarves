@@ -277,21 +277,25 @@ int cu__encode_ctf(struct cu *self)
 			continue;
 
 		uint64_t addr = elf_sym__value(&sym);
+		int64_t position;
 		function = hashaddr__find_function(hash_addr, addr);
 		if (function == NULL) {
 			fprintf(stderr, "%4d: %-20s %#llx %5u NOT FOUND!\n",
 				id, sym_name,
 				(unsigned long long)addr, elf_sym__size(&sym));
+			err = ctf__add_function(ctf, 0, 0, 0, &position);
+			if (err != 0)
+				goto out_err_ctf;
 			continue;
 		}
 
 		const struct ftype *ftype = &function->proto;
-		int64_t position;
 		err = ctf__add_function(ctf, function->proto.tag.type,
 					ftype->nr_parms,
 					ftype->unspec_parms, &position);
 
 		if (err != 0) {
+out_err_ctf:
 			fprintf(stderr,
 				"%4d: %-20s %#llx %5u failed encoding, "
 				"ABORTING!\n", id, sym_name,
