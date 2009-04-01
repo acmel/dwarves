@@ -93,6 +93,7 @@ static struct function *function__new(uint16_t **ptr, GElf_Sym *sym,
 		/* FIXME: should use the .strtab string */
 		self->name = strings__add(strings, name);
 		self->vtable_entry = -1;
+		self->external = elf_sym__bind(sym) == STB_GLOBAL;
 		INIT_LIST_HEAD(&self->vtable_node);
 		INIT_LIST_HEAD(&self->tool_node);
 		INIT_LIST_HEAD(&self->lexblock.tags);
@@ -575,7 +576,7 @@ static struct variable *variable__new(uint16_t type, GElf_Sym *sym,
 		self->addr = elf_sym__value(sym);
 		/* FIXME: should use the .strtab string */
 		self->name = strings__add(strings, name);
-		self->external = 1;
+		self->external = elf_sym__bind(sym) == STB_GLOBAL;
 		self->tag.tag = DW_TAG_variable;
 		self->tag.type = type;
 		long id = -1; /* FIXME: not needed for variables... */
