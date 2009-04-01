@@ -66,6 +66,15 @@ static struct diff_info *diff_info__new(const struct tag *twin,
 	return self;
 }
 
+static void cu__check_max_len_changed_item(struct cu *cu, const char *name,
+					   uint8_t addend)
+{
+	const uint32_t len = strlen(name) + addend;
+
+	if (len > cu->max_len_changed_item)
+		cu->max_len_changed_item = len;
+}
+
 static void diff_function(const struct cu *new_cu, struct function *function,
 			  struct cu *cu)
 {
@@ -82,12 +91,9 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 		int32_t diff = (function__size(new_function) -
 				function__size(function));
 		if (diff != 0) {
-			const size_t len = strlen(name);
-
 			function->priv = diff_info__new(&new_function->proto.tag, new_cu,
 							diff);
-			if (len > cu->max_len_changed_item)
-				cu->max_len_changed_item = len;
+			cu__check_max_len_changed_item(cu, name, 0);
 
 			++cu->nr_functions_changed;
 			if (diff > 0)
@@ -108,11 +114,9 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 			}
 		}
 	} else {
-		const size_t len = strlen(name);
 		const uint32_t diff = -function__size(function);
 
-		if (len > cu->max_len_changed_item)
-			cu->max_len_changed_item = len;
+		cu__check_max_len_changed_item(cu, name, 0);
 		function->priv = diff_info__new(NULL, NULL, diff);
 		++cu->nr_functions_changed;
 		cu->function_bytes_removed += -diff;
@@ -239,7 +243,6 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 {
 	struct tag *new_tag;
 	struct class *new_structure = NULL;
-	size_t len;
 	int32_t diff;
 
 	assert(class__is_struct(structure));
@@ -270,90 +273,9 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 		return;
 
 	++cu->nr_structures_changed;
-	len = strlen(class__name(structure)) + sizeof("struct");
-	if (len > cu->max_len_changed_item)
-		cu->max_len_changed_item = len;
+	cu__check_max_len_changed_item(cu, class__name(structure), sizeof("struct"));
 	structure->priv = diff_info__new(class__tag(new_structure),
 					 new_cu, diff);
-}
-
-static int diff_tag_iterator(struct tag *tag, struct cu *cu, void *new_cu)
-{
-	if (tag__is_struct(tag))
-		diff_struct(new_cu, tag__class(tag), cu);
-	else if (tag__is_function(tag))
-		diff_function(new_cu, tag__function(tag), cu);
-
-	return 0;
-}
-
-static int find_new_functions_iterator(struct tag *tfunction, struct cu *cu,
-				       void *old_cu)
-{
-	struct function *function = tag__function(tfunction);
-	struct tag *old_function;
-	const char *name;
-
-	if (function->inlined)
-		return 0;
-
-	name = function__name(function, cu);
-	old_function = cu__find_function_by_name(old_cu, name);
-
-	if (old_function == NULL || tag__function(old_function)->inlined) {
-		const size_t len = strlen(name);
-		const int32_t diff = function__size(function);
-
-		if (len > cu->max_len_changed_item)
-			cu->max_len_changed_item = len;
-		++cu->nr_functions_changed;
-		cu->function_bytes_added += diff;
-		function->priv = diff_info__new(old_function, cu, diff);
-	}
-
-	return 0;
-}
-
-static int find_new_classes_iterator(struct tag *tag, struct cu *cu, void *old_cu)
-{
-	struct class *class;
-	size_t len;
-
-	if (!tag__is_struct(tag))
-		return 0;
-
-	class = tag__class(tag);
-	if (class__name(class) == NULL)
-		return 0;
-
-	if (class__size(class) == 0)
-		return 0;
-
-	if (cu__find_struct_by_name(old_cu,
-				    class__name(class), 0, NULL) != NULL)
-		return 0;
-
-	class->priv = diff_info__new(NULL, NULL, 1);
-	++cu->nr_structures_changed;
-
-	len = strlen(class__name(class)) + sizeof("struct");
-	if (len > cu->max_len_changed_item)
-		cu->max_len_changed_item = len;
-	return 0;
-}
-
-static int find_new_tags_iterator(struct tag *tag, struct cu *cu, void *old_cu)
-{
-	if (tag__is_function(tag)) {
-		/*
-		 * We're not interested in aliases, just real function definitions,
-		 * where we'll know if the kind of inlining
-		 */
-		if (tag__function(tag)->abstract_origin != 0)
-			return 0;
-		return find_new_functions_iterator(tag, cu, old_cu);
-	}
-	return find_new_classes_iterator(tag, cu, old_cu);
 }
 
 static int cu_find_new_tags_iterator(struct cu *new_cu, void *old_cus)
@@ -363,7 +285,43 @@ static int cu_find_new_tags_iterator(struct cu *new_cu, void *old_cus)
 	if (old_cu != NULL && cu__same_build_id(old_cu, new_cu))
 		return 0;
 
-	cu__for_each_tag(new_cu, find_new_tags_iterator, old_cu, NULL);
+	struct function *function;
+	uint32_t id;
+	cu__for_each_function(new_cu, id, function) {
+		/*
+		 * We're not interested in aliases, just real function definitions,
+		 * where we'll know if the kind of inlining
+		 */
+		if (function->abstract_origin || function->inlined)
+			continue;
+
+		const char *name = function__name(function, new_cu);
+		struct tag *old_function = cu__find_function_by_name(old_cu,
+								     name);
+		if (old_function != NULL && !tag__function(old_function)->inlined)
+			continue;
+
+		const int32_t diff = function__size(function);
+
+		cu__check_max_len_changed_item(new_cu, name, 0);
+		++new_cu->nr_functions_changed;
+		new_cu->function_bytes_added += diff;
+		function->priv = diff_info__new(old_function, new_cu, diff);
+	}
+
+	struct class *class;
+	cu__for_each_struct(new_cu, id, class) {
+		const char *name = class__name(class);
+		if (name == NULL || class__size(class) == 0 ||
+		    cu__find_struct_by_name(old_cu, name, 0, NULL))
+			continue;
+
+		class->priv = diff_info__new(NULL, NULL, 1);
+		++new_cu->nr_structures_changed;
+
+		cu__check_max_len_changed_item(new_cu, name, sizeof("struct"));
+	}
+
 	return 0;
 }
 
@@ -373,7 +331,15 @@ static int cu_diff_iterator(struct cu *cu, void *new_cus)
 
 	if (new_cu != NULL && cu__same_build_id(cu, new_cu))
 		return 0;
-	cu__for_each_tag(cu, diff_tag_iterator, new_cu, NULL);
+
+	uint32_t id;
+	struct class *class;
+	cu__for_each_struct(cu, id, class)
+		diff_struct(new_cu, class, cu);
+
+	struct function *function;
+	cu__for_each_function(cu, id, function)
+		diff_function(new_cu, function, cu);
 
 	return 0;
 }
@@ -598,25 +564,8 @@ static void show_diffs_structure(struct class *structure,
 		print_terse_type_changes(structure);
 }
 
-static int show_function_diffs_iterator(struct tag *tag, struct cu *cu,
-					void *cookie)
+static void show_structure_diffs_iterator(struct class *class, struct cu *cu)
 {
-	struct function *function = tag__function(tag);
-
-	if (tag__is_function(tag) && function->priv != NULL)
-		show_diffs_function(function, cu, cookie);
-	return 0;
-}
-
-static int show_structure_diffs_iterator(struct tag *tag, struct cu *cu,
-					 void *cookie __unused)
-{
-	struct class *class;
-
-	if (!tag__is_struct(tag))
-		return 0;
-
-	class = tag__class(tag);
 	if (class->priv != NULL) {
 		const char *name = class__name(class);
 		if (!strlist__has_entry(structs_printed, name)) {
@@ -624,7 +573,6 @@ static int show_structure_diffs_iterator(struct tag *tag, struct cu *cu,
 			strlist__add(structs_printed, name);
 		}
 	}
-	return 0;
 }
 
 static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
@@ -644,15 +592,18 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 
 	printf("%s:\n", cu->name);
 
+	uint32_t id;
+	struct class *class;
+
 	if (show_terse_type_changes) {
-		cu__for_each_tag(cu, show_structure_diffs_iterator,
-				 NULL, NULL);
+		cu__for_each_struct(cu, id, class)
+			show_structure_diffs_iterator(class, cu);
 		return 0;
 	}
 
 	if (cu->nr_structures_changed != 0 && show_struct_diffs) {
-		cu__for_each_tag(cu, show_structure_diffs_iterator,
-				 NULL, NULL);
+		cu__for_each_struct(cu, id, class)
+			show_structure_diffs_iterator(class, cu);
 		printf(" %u struct%s changed\n", cu->nr_structures_changed,
 		       cu->nr_structures_changed > 1 ? "s" : "");
 	}
@@ -660,7 +611,12 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	if (cu->nr_functions_changed != 0 && show_function_diffs) {
 		total_nr_functions_changed += cu->nr_functions_changed;
 
-		cu__for_each_tag(cu, show_function_diffs_iterator, cookie, NULL);
+		struct function *function;
+		cu__for_each_function(cu, id, function) {
+			if (function->priv != NULL)
+				show_diffs_function(function, cu, cookie);
+		}
+
 		printf(" %u function%s changed", cu->nr_functions_changed,
 		       cu->nr_functions_changed > 1 ? "s" : "");
 		if (cu->function_bytes_added != 0) {
