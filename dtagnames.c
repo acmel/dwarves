@@ -30,7 +30,7 @@ static int class__tag_name(struct tag *self, struct cu *cu __unused,
 
 static int cu__dump_class_tag_names(struct cu *self, void *cookie __unused)
 {
-	cu__for_each_tag(self, class__tag_name, NULL, NULL);
+	cu__for_all_tags(self, class__tag_name, NULL);
 	return 0;
 }
 
