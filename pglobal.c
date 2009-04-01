@@ -118,62 +118,28 @@ static void extfun__add(struct function *fun, const struct cu *cu)
 	}
 }
 
-static struct tag *extvar__filter(struct tag *tag, struct cu *cu __unused,
-				  void *cookie __unused)
+static int cu_extvar_iterator(struct cu *cu, void *cookie __unused)
 {
-	const struct variable *var;
+	struct tag *pos;
+	uint32_t id;
 
-	if (tag->tag != DW_TAG_variable)
-		return NULL;
-
-	var = tag__variable(tag);
-
-	if (!var->external)
-		return NULL;
-
-	return tag;
-}
-
-static struct tag *extfun__filter(struct tag *tag, struct cu *cu __unused,
-				  void *cookie __unused)
-{
-	struct function *fun;
-
-	if (!tag__is_function(tag))
-		return NULL;
-
-	fun = tag__function(tag);
-
-	if (!fun->external)
-		return NULL;
-
-	return tag;
-}
-
-static int extvar_unique_iterator(struct tag *tag, struct cu *cu,
-				  void *cookie __unused)
-{
-	extvar__add(tag__variable(tag), cu);
+	cu__for_each_variable(cu, id, pos) {
+		struct variable *var = tag__variable(pos);
+		if (var->external)
+			extvar__add(var, cu);
+	}
 	return 0;
 }
 
-static int extfun_unique_iterator(struct tag *tag, struct cu *cu,
-				  void *cookie __unused)
+static int cu_extfun_iterator(struct cu *cu, void *cookie __unused)
 {
-	extfun__add(tag__function(tag), cu);
+	struct function *pos;
+	uint32_t id;
+
+	cu__for_each_function(cu, id, pos)
+		if (pos->external)
+			extfun__add(pos, cu);
 	return 0;
-}
-
-static int cu_extvar_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_tag(cu, extvar_unique_iterator, cookie,
-				extvar__filter);
-}
-
-static int cu_extfun_iterator(struct cu *cu, void *cookie)
-{
-	return cu__for_each_tag(cu, extfun_unique_iterator, cookie,
-				extfun__filter);
 }
 
 static inline const struct extvar *node__variable(const void *nodep)
