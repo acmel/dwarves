@@ -20,21 +20,16 @@
 static const char *prefix = "sys_";
 static size_t prefix_len = 4;
 
-static struct tag *filter(struct tag *self, struct cu *cu,
-			  void *cookie __unused)
+static bool filter(struct function *f, struct cu *cu)
 {
-	if (tag__is_function(self)) {
-		struct function *f = tag__function(self);
+	if (f->proto.nr_parms != 0) {
+		const char *name = function__name(f, cu);
 
-		if (f->proto.nr_parms != 0) {
-			const char *name = function__name(f, cu);
-
-			if (strlen(name) > prefix_len &&
-			    memcmp(name, prefix, prefix_len) == 0)
-				return self;
-		}
+		if (strlen(name) > prefix_len &&
+		    memcmp(name, prefix, prefix_len) == 0)
+			return false;
 	}
-	return NULL;
+	return true;
 }
 
 static void zero_extend(const int regparm, const struct base_type *bt,
@@ -60,10 +55,9 @@ static void zero_extend(const int regparm, const struct base_type *bt,
 	       parm, bt->bit_size);
 }
 
-static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
+static void emit_wrapper(struct function *f, struct cu *cu)
 {
 	struct parameter *parm;
-	struct function *f = tag__function(self);
 	const char *name = function__name(f, cu);
 	int regparm = 0, needs_wrapper = 0;
 
@@ -89,14 +83,17 @@ static int emit_wrapper(struct tag *self, struct cu *cu, void *cookie __unused)
 
 	if (needs_wrapper)
 		printf("\tj\t%s\n\n", name);
-
-
-	return 0;
 }
 
 static int cu__emit_wrapper(struct cu *self, void *cookie __unused)
 {
-	return cu__for_each_tag(self, emit_wrapper, NULL, filter);
+	struct function *pos;
+	uint32_t id;
+
+	cu__for_each_function(self, id, pos)
+		if (!filter(pos, self))
+			emit_wrapper(pos, self);
+	return 0;
 }
 
 static void cus__emit_wrapper(struct cus *self)
