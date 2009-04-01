@@ -107,25 +107,13 @@ static void refcnt_function(struct function *function, const struct cu *cu)
 	refcnt_lexblock(&function->lexblock, cu);
 }
 
-static int refcnt_function_iterator(struct function *function,
-				    const struct cu *cu,
-				    void *cookie __unused)
+static int cu_refcnt_iterator(struct cu *cu, void *cookie __unused)
 {
-	refcnt_function(function, cu);
-	return 0;
-}
+	struct function *pos;
+	uint32_t id;
 
-static int refcnt_tag_iterator(struct tag *tag, struct cu *cu, void *cookie)
-{
-	if (tag__is_function(tag))
-		refcnt_function_iterator(tag__function(tag), cu, cookie);
-
-	return 0;
-}
-
-static int cu_refcnt_iterator(struct cu *cu, void *cookie)
-{
-	cu__for_each_tag(cu, refcnt_tag_iterator, cookie, NULL);
+	cu__for_each_function(cu, id, pos)
+		refcnt_function(pos, cu);
 	return 0;
 }
 
@@ -141,7 +129,7 @@ static int lost_iterator(struct tag *tag, struct cu *cu,
 
 static int cu_lost_iterator(struct cu *cu, void *cookie)
 {
-	return cu__for_each_tag(cu, lost_iterator, cookie, NULL);
+	return cu__for_all_tags(cu, lost_iterator, cookie);
 }
 
 int main(int argc __unused, char *argv[])
