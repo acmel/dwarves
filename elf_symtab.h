@@ -45,6 +45,11 @@ static inline uint8_t elf_sym__bind(const GElf_Sym *sym)
 	return GELF_ST_BIND(sym->st_info);
 }
 
+static inline uint8_t elf_sym__visibility(const GElf_Sym *sym)
+{
+	return GELF_ST_VISIBILITY(sym->st_other);
+}
+
 static inline uint32_t elf_sym__size(const GElf_Sym *sym)
 {
 	return sym->st_size;

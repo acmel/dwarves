@@ -32,6 +32,7 @@ static const char *ctf_type_fp_str[] = {
 bool ctf__ignore_symtab_function(const GElf_Sym *sym, const char *sym_name)
 {
 	return (!elf_sym__is_local_function(sym) ||
+		elf_sym__visibility(sym) != STV_DEFAULT ||
 		sym->st_size == 0 ||
 		memcmp(sym_name, "__libc_csu_",
 		       sizeof("__libc_csu_") - 1) == 0);
@@ -40,6 +41,7 @@ bool ctf__ignore_symtab_function(const GElf_Sym *sym, const char *sym_name)
 bool ctf__ignore_symtab_object(const GElf_Sym *sym, const char *sym_name)
 {
 	return (!elf_sym__is_local_object(sym) || sym->st_size == 0 ||
+		elf_sym__visibility(sym) != STV_DEFAULT ||
 		strchr(sym_name, '.') != NULL);
 }
 
