@@ -24,6 +24,7 @@ static int show_struct_diffs;
 static int show_function_diffs;
 static int verbose;
 static int show_terse_type_changes;
+static struct conf_load conf_load;
 
 static struct strlist *structs_printed;
 
@@ -684,6 +685,12 @@ static const struct argp_option codiff__options[] = {
 		.doc  = "show function diffs",
 	},
 	{
+		.name = "format_path",
+		.key  = 'F',
+		.arg  = "FORMAT_LIST",
+		.doc  = "List of debugging formats to try"
+	},
+	{
 		.key  = 't',
 		.name = "terse_type_changes",
 		.doc  = "show terse type changes",
@@ -703,6 +710,7 @@ static error_t codiff__options_parser(int key, char *arg __unused,
 {
 	switch (key) {
 	case 'f': show_function_diffs = 1;	break;
+	case 'F': conf_load.format_path = arg;	break;
 	case 's': show_struct_diffs = 1;	break;
 	case 't': show_terse_type_changes = 1;	break;
 	case 'V': verbose = 1;			break;
@@ -767,7 +775,7 @@ failure:
 
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
-		err = cus__load_file(old_cus, NULL, old_filename);
+		err = cus__load_file(old_cus, &conf_load, old_filename);
 		if (err != 0) {
 			cus__print_error_msg("codiff", old_cus, old_filename, err);
 			return EXIT_FAILURE;
@@ -781,7 +789,7 @@ failure:
 
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
-		err = cus__load_file(new_cus, NULL, new_filename);
+		err = cus__load_file(new_cus, &conf_load, new_filename);
 		if (err != 0) {
 			cus__print_error_msg("codiff", new_cus, new_filename, err);
 			return EXIT_FAILURE;
