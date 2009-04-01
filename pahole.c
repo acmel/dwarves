@@ -544,14 +544,13 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 	self->size = max_size;
 }
 
-static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
-					void *cookie)
+static void tag__fixup_word_size(struct tag *tag, struct cu *cu)
 {
 	if (tag__is_struct(tag) || tag__is_union(tag)) {
 		struct tag *pos;
 
 		namespace__for_each_tag(tag__namespace(tag), pos)
-			tag_fixup_word_size_iterator(pos, cu, cookie);
+			tag__fixup_word_size(pos, cu);
 	}
 
 	switch (tag->tag) {
@@ -564,7 +563,7 @@ static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
 		 * one was found, so just bail out.
 		 */
 		if (!bt->name)
-			return 0;
+			return;
 
 		if (bt->name == long_int_str_t ||
 		    bt->name == long_unsigned_int_str_t)
@@ -579,14 +578,18 @@ static int tag_fixup_word_size_iterator(struct tag *tag, struct cu *cu,
 		break;
 	}
 
-	return 0;
+	return;
 }
 
 static void cu_fixup_word_size_iterator(struct cu *cu)
 {
 	original_word_size = cu->addr_size;
 	cu->addr_size = word_size;
-	cu__for_each_tag(cu, tag_fixup_word_size_iterator, NULL, NULL);
+
+	uint16_t id;
+	struct tag *pos;
+	cu__for_each_type(cu, id, pos)
+		tag__fixup_word_size(pos, cu);
 }
 
 static void cu__account_nr_methods(struct cu *self)
