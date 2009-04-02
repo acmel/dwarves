@@ -19,8 +19,6 @@
 #include "list.h"
 #include "strings.h"
 
-extern struct strings *strings;
-
 struct cu;
 
 enum load_steal_kind {
@@ -247,10 +245,6 @@ int cu__table_add_tag(struct cu *self, struct tag *tag, long *id);
 int cu__table_nullify_type_entry(struct cu *self, uint32_t id);
 struct tag *cu__find_base_type_by_name(const struct cu *self, const char *name,
 				       uint16_t *id);
-struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
-						const char *name,
-						uint16_t bit_size,
-						uint16_t *id);
 struct tag *cu__find_base_type_by_sname_and_size(const struct cu *self,
 						 strings_t name,
 						 uint16_t bit_size,
@@ -433,12 +427,14 @@ static inline struct ptr_to_member_type *
 
 /** struct namespace - base class for enums, structs, unions, typedefs, etc
  *
+ * @sname - for clones, for instance, where we can't always add a new string
  * @tags - class_member, enumerators, etc
  * @shared_tags: if this bit is set, don't free the entries in @tags
  */
 struct namespace {
 	struct tag	 tag;
 	strings_t	 name;
+	char *		 sname;
 	uint16_t	 nr_tags;
 	uint8_t		 shared_tags:1;
 	struct list_head tags;
@@ -839,6 +835,7 @@ struct class_member *
 						       const struct cu *cu);
 
 struct class_member *type__find_member_by_name(const struct type *self,
+					       const struct cu *cu,
 					       const char *name);
 uint32_t type__nr_members_of_type(const struct type *self,
 				  const Dwarf_Off type);
@@ -882,16 +879,22 @@ static inline struct list_head *class__tags(struct class *self)
 	return &self->type.namespace.tags;
 }
 
+static __pure inline const char *namespace__name(const struct namespace *self,
+						 const struct cu *cu)
+{
+	return self->sname ?: cu__string(cu, self->name);
+}
+
 static __pure inline const char *type__name(const struct type *self,
 					    const struct cu *cu)
 {
-	return cu__string(cu, self->namespace.name);
+	return namespace__name(&self->namespace, cu);
 }
 
 static __pure inline const char *class__name(struct class *self,
 					     const struct cu *cu)
 {
-	return cu__string(cu, self->type.namespace.name);
+	return type__name(&self->type, cu);
 }
 
 static inline int class__is_struct(const struct class *self)
@@ -906,9 +909,10 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 
 void class__add_vtable_entry(struct class *self, struct function *vtable_entry);
 static inline struct class_member *
-	class__find_member_by_name(const struct class *self, const char *name)
+	class__find_member_by_name(const struct class *self,
+				   const struct cu *cu, const char *name)
 {
-	return type__find_member_by_name(&self->type, name);
+	return type__find_member_by_name(&self->type, cu, name);
 }
 
 static inline uint16_t class__nr_members(const struct class *self)
@@ -969,7 +973,7 @@ static inline uint16_t base_type__size(const struct tag *self)
 const char *base_type__name(const struct base_type *self, const struct cu *cu,
 			    char *bf, size_t len);
 
-void base_type_name_to_size_table__init(void);
+void base_type_name_to_size_table__init(struct strings *strings);
 size_t base_type__name_to_size(struct base_type *self, struct cu *cu);
 
 struct array_type {

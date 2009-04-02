@@ -169,6 +169,7 @@ static void type__init(struct type *self, uint16_t tag,
 	self->size = size;
 	self->namespace.tag.tag = tag;
 	self->namespace.name = name;
+	self->namespace.sname = 0;
 }
 
 static struct type *type__new(uint16_t tag, strings_t name, size_t size)
@@ -740,7 +741,6 @@ int ctf__load_file(struct cus *self, struct conf_load *conf,
 		return err;
 	}
 
-	base_type_name_to_size_table__init();
 	err = cu__fixup_ctf_bitfields(cu);
 	/*
 	 * The app stole this cu, possibly deleting it,

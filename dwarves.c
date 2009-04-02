@@ -30,13 +30,11 @@
 #include "dutil.h"
 #include "strings.h"
 
-struct strings *strings;
-
 const char *cu__string(const struct cu *self, strings_t s)
 {
 	if (self->dfops && self->dfops->strings__ptr)
 		return self->dfops->strings__ptr(self, s);
-	return strings__ptr(strings, s);
+	return NULL;
 }
 
 static inline const char *s(const struct cu *self, strings_t i)
@@ -272,7 +270,7 @@ static struct base_type_name_to_size {
 	{ .name = NULL },
 };
 
-void base_type_name_to_size_table__init(void)
+void base_type_name_to_size_table__init(struct strings *strings)
 {
 	int i = 0;
 
@@ -568,7 +566,7 @@ static size_t imported_module__fprintf(const struct tag *self,
 	const char *name = "<IMPORTED MODULE ERROR!>";
 
 	if (tag__is_namespace(module))
-		name = s(cu, tag__namespace(module)->name);
+		name = namespace__name(tag__namespace(module), cu);
 
 	return fprintf(fp, "using namespace %s", name);
 }
@@ -844,29 +842,15 @@ struct tag *cu__find_base_type_by_name(const struct cu *self,
 	if (self == NULL || name == NULL)
 		return NULL;
 
-	strings_t sname;
-	if (self->uses_global_strings) {
-		sname = strings__find(strings, name);
-		if (sname == 0)
-			return NULL;
-	}
-
 	cu__for_each_type(self, id, pos) {
 		if (pos->tag != DW_TAG_base_type)
 			continue;
 
 		const struct base_type *bt = tag__base_type(pos);
-
-		if (self->uses_global_strings) {
-			if (bt->name != sname)
-				continue;
-		} else {
-			char bf[64];
-			const char *bname = base_type__name(bt, self, bf,
-							    sizeof(bf));
-			if (strcmp(bname, name) != 0)
-				continue;
-		}
+		char bf[64];
+		const char *bname = base_type__name(bt, self, bf, sizeof(bf));
+		if (strcmp(bname, name) != 0)
+			continue;
 
 		if (idp != NULL)
 			*idp = id;
@@ -901,19 +885,6 @@ struct tag *cu__find_base_type_by_sname_and_size(const struct cu *self,
 	}
 
 	return NULL;
-}
-
-struct tag *cu__find_base_type_by_name_and_size(const struct cu *self,
-						const char *name,
-						uint16_t bit_size,
-						uint16_t *idp)
-{
-	if (self == NULL || name == NULL)
-		return NULL;
-
-	strings_t sname = strings__find(strings, name);
-
-	return cu__find_base_type_by_sname_and_size(self, sname, bit_size, idp);
 }
 
 struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *self,
@@ -982,11 +953,29 @@ struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
 	if (self == NULL || name == NULL)
 		return NULL;
 
-	strings_t sname = strings__find(strings, name);
-	if (sname == 0)
-		return NULL;
+	uint16_t id;
+	struct tag *pos;
+	cu__for_each_type(self, id, pos) {
+		struct type *type;
 
-	return cu__find_struct_by_sname(self, sname, include_decls, idp);
+		if (!tag__is_struct(pos))
+			continue;
+
+		type = tag__type(pos);
+		if (strcmp(type__name(type, self), name) == 0) {
+			if (!type->declaration)
+				goto found;
+
+			if (include_decls)
+				goto found;
+		}
+	}
+
+	return NULL;
+found:
+	if (idp != NULL)
+		*idp = id;
+	return pos;
 }
 
 struct tag *cus__find_struct_by_name(const struct cus *self,
@@ -1548,6 +1537,8 @@ static void type__delete_class_members(struct type *self)
 
 void class__delete(struct class *self)
 {
+	if (self->type.namespace.sname != NULL)
+		free(self->type.namespace.sname);
 	type__delete_class_members(&self->type);
 	free(self);
 }
@@ -1625,13 +1616,18 @@ struct class *class__clone(const struct class *from,
 
 	 if (self != NULL) {
 		memcpy(self, from, sizeof(*self));
+		if (new_class_name != NULL) {
+			self->type.namespace.name = 0;
+			self->type.namespace.sname = strdup(new_class_name);
+			if (self->type.namespace.sname == NULL) {
+				free(self);
+				return NULL;
+			}
+		}
 		if (type__clone_members(&self->type, &from->type) != 0) {
 			class__delete(self);
 			self = NULL;
 		}
-		if (new_class_name != NULL)
-			self->type.namespace.name = strings__add(strings,
-								 new_class_name);
 	}
 
 	return self;
@@ -1870,19 +1866,18 @@ int class__has_hole_ge(const struct class *self, const uint16_t size)
 }
 
 struct class_member *type__find_member_by_name(const struct type *self,
+					       const struct cu *cu,
 					       const char *name)
 {
 	if (name == NULL)
 		return NULL;
 
-	strings_t sname = strings__find(strings, name);
-	if (sname == 0)
-		return NULL;
-
 	struct class_member *pos;
-	type__for_each_data_member(self, pos)
-		if (pos->name == sname)
+	type__for_each_data_member(self, pos) {
+		const char *curr_name = class_member__name(pos, cu);
+		if (curr_name && strcmp(curr_name, name) == 0)
 			return pos;
+	}
 
 	return NULL;
 }
@@ -2960,11 +2955,6 @@ void cus__delete(struct cus *self)
 
 int dwarves__init(uint16_t user_cacheline_size)
 {
-	strings = strings__new();
-
-	if (strings == NULL)
-		return -ENOMEM;
-
 	if (user_cacheline_size == 0) {
 		long sys_cacheline_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
 
@@ -2980,8 +2970,6 @@ int dwarves__init(uint16_t user_cacheline_size)
 
 void dwarves__exit(void)
 {
-	strings__delete(strings);
-	strings = NULL;
 }
 
 struct argp_state;

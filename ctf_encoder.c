@@ -241,6 +241,12 @@ static struct variable *hashaddr__find_variable(const struct hlist_head hashtabl
 	return NULL;
 }
 
+/*
+ * FIXME: Its in the DWARF loader, we have to find a better handoff
+ * mechanizm...
+ */
+extern struct strings *strings;
+
 int cu__encode_ctf(struct cu *self)
 {
 	int err = -1;

@@ -193,7 +193,8 @@ static int check_print_members_changes(const struct class *structure,
 	type__for_each_member(&structure->type, member) {
 		const char *member_name = class_member__name(member, cu);
 		struct class_member *twin =
-			class__find_member_by_name(new_structure, member_name);
+			class__find_member_by_name(new_structure, new_cu,
+						   member_name);
 		if (twin != NULL) {
 			twin->tag.visited = 1;
 			++nr_twins_found;
@@ -427,7 +428,7 @@ static void show_nr_members_changes(const struct class *structure,
 	/* Find the removed ones */
 	type__for_each_member(&structure->type, member) {
 		struct class_member *twin =
-			class__find_member_by_name(new_structure,
+			class__find_member_by_name(new_structure, new_cu,
 						   class_member__name(member, cu));
 		if (twin == NULL)
 			show_changed_member('-', member, cu);
@@ -436,7 +437,7 @@ static void show_nr_members_changes(const struct class *structure,
 	/* Find the new ones */
 	type__for_each_member(&new_structure->type, member) {
 		struct class_member *twin =
-			class__find_member_by_name(structure,
+			class__find_member_by_name(structure, cu,
 						   class_member__name(member, new_cu));
 		if (twin == NULL)
 			show_changed_member('+', member, new_cu);

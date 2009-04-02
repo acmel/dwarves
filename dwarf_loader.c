@@ -27,6 +27,8 @@
 #include "strings.h"
 #include "hash.h"
 
+struct strings *strings;
+
 #ifndef DW_AT_GNU_vector
 #define DW_AT_GNU_vector 0x2107
 #endif
@@ -361,6 +363,7 @@ static void namespace__init(struct namespace *self, Dwarf_Die *die)
 {
 	tag__init(&self->tag, die);
 	INIT_LIST_HEAD(&self->tags);
+	self->sname = 0;
 	self->name    = strings__add(strings, attr_string(die, DW_AT_name));
 	self->nr_tags = 0;
 	self->shared_tags = 0;
@@ -1744,7 +1747,14 @@ static void dwarf_tag__free_orig_info(struct tag *self, struct cu *cu __unused)
 	self->priv = NULL;
 }
 
+static const char *dwarf__strings_ptr(const struct cu *cu __unused,
+				      strings_t s)
+{
+	return strings__ptr(strings, s);
+}
+
 static struct debug_fmt_ops dwarf_ops = {
+	.strings__ptr	= dwarf__strings_ptr,
 	.tag__decl_file	= dwarf_tag__decl_file,
 	.tag__decl_line	= dwarf_tag__decl_line,
 	.tag__orig_id	= dwarf_tag__orig_id,
@@ -1879,7 +1889,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
 		if (die__process(cu_die, cu) != 0)
 			return DWARF_CB_ABORT;
-		base_type_name_to_size_table__init();
+		base_type_name_to_size_table__init(strings);
 		cu__for_all_tags(cu, class_member__cache_byte_size, conf);
 		off = noff;
 		if (conf && conf->steal) {
@@ -2000,6 +2010,13 @@ int dwarf__load_file(struct cus *self, struct conf_load *conf,
 		     const char *filename)
 {
 	int fd, err;
+
+	if (strings == NULL) {
+		strings = strings__new();
+
+		if (strings == NULL)
+			return -ENOMEM;
+	}
 
 	elf_version(EV_CURRENT);
 
