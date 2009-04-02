@@ -397,11 +397,12 @@ reevaluate:
 		case DW_TAG_const_type:
 		case DW_TAG_typedef:
 		case DW_TAG_volatile_type: {
-			struct tag *tag = type = cu__type(cu, tag->type);
+			struct tag *tag = cu__type(cu, type->type);
 			if (type == NULL) {
-				tag__id_not_found_fprintf(stderr, tag->type);
+				tag__id_not_found_fprintf(stderr, type->type);
 				continue;
 			}
+			type = tag;
 		}
 			goto reevaluate;
 		case DW_TAG_enumeration_type:
