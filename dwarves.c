@@ -953,19 +953,14 @@ struct cu *cus__find_cu_by_name(const struct cus *self, const char *name)
 
 struct tag *cu__find_function_by_name(const struct cu *self, const char *name)
 {
-	struct tag *pos;
-
 	if (self == NULL || name == NULL)
 		return NULL;
 
-	strings_t sname = strings__find(strings, name);
-	if (sname == 0)
-		return NULL;
-
-	list_for_each_entry(pos, &self->tags, node)
-		if (tag__is_function(pos) &&
-		    tag__function(pos)->name == sname)
-			return pos;
+	uint32_t id;
+	struct function *pos;
+	cu__for_each_function(self, id, pos)
+		if (strcmp(function__name(pos, self), name) == 0)
+			return function__tag(pos);
 
 	return NULL;
 }
