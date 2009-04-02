@@ -131,8 +131,7 @@ struct debug_fmt_ops {
 					      const struct cu *cu);
 	const char	   *(*variable__name)(const struct variable *self,
 					      const struct cu *cu);
-	const char	   *(*strings__ptr)(const struct cu *self,
-					    strings_t s);
+	const char	   *(*strings__ptr)(const struct cu *self, strings_t s);
 	void		   (*cu__delete)(struct cu *self);
 };
 

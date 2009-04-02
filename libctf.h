@@ -76,7 +76,6 @@ void ctf__set_strings(struct ctf *self, struct gobuffer *strings);
 int  ctf__encode(struct ctf *self, uint8_t flags);
 
 char *ctf__string(struct ctf *self, uint32_t ref);
-char *ctf__string32(struct ctf *self, uint32_t *refp);
 
 /**
  * ctf__for_each_symtab_function - iterate thru all the symtab functions

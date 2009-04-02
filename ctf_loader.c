@@ -144,13 +144,13 @@ static int ctf__load_funcs(struct ctf *self)
 	return 0;
 }
 
-static struct base_type *base_type__new(const char *name, uint32_t attrs,
+static struct base_type *base_type__new(strings_t name, uint32_t attrs,
 					uint8_t float_type, size_t size)
 {
         struct base_type *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->name = strings__add(strings, name);
+		self->name = name;
 		self->bit_size = size;
 		self->is_signed = attrs & CTF_TYPE_INT_SIGNED;
 		self->is_bool = attrs & CTF_TYPE_INT_BOOL;
@@ -162,16 +162,16 @@ static struct base_type *base_type__new(const char *name, uint32_t attrs,
 }
 
 static void type__init(struct type *self, uint16_t tag,
-		       const char *name, size_t size)
+		       strings_t name, size_t size)
 {
 	INIT_LIST_HEAD(&self->node);
 	INIT_LIST_HEAD(&self->namespace.tags);
 	self->size = size;
 	self->namespace.tag.tag = tag;
-	self->namespace.name = strings__add(strings, name);
+	self->namespace.name = name;
 }
 
-static struct type *type__new(uint16_t tag, const char *name, size_t size)
+static struct type *type__new(uint16_t tag, strings_t name, size_t size)
 {
         struct type *self = tag__alloc(sizeof(*self));
 
@@ -181,7 +181,7 @@ static struct type *type__new(uint16_t tag, const char *name, size_t size)
 	return self;
 }
 
-static struct class *class__new(const char *name, size_t size)
+static struct class *class__new(strings_t name, size_t size)
 {
 	struct class *self = tag__alloc(sizeof(*self));
 
@@ -199,7 +199,7 @@ static int create_new_base_type(struct ctf *self, void *ptr,
 	uint32_t *enc = ptr;
 	uint32_t eval = ctf__get32(self, enc);
 	uint32_t attrs = CTF_TYPE_INT_ATTRS(eval);
-	char *name = ctf__string(self, ctf__get32(self, &tp->base.ctf_name));
+	strings_t name = ctf__get32(self, &tp->base.ctf_name);
 	struct base_type *base = base_type__new(name, attrs, 0,
 						CTF_TYPE_INT_BITS(eval));
 	if (base == NULL)
@@ -215,7 +215,7 @@ static int create_new_base_type_float(struct ctf *self, void *ptr,
 				      struct ctf_full_type *tp,
 				      long id)
 {
-	char *name = ctf__string32(self, &tp->base.ctf_name);
+	strings_t name = ctf__get32(self, &tp->base.ctf_name);
 	uint32_t *enc = ptr, eval = ctf__get32(self, enc);
 	struct base_type *base = base_type__new(name, 0, eval,
 						CTF_TYPE_FP_BITS(eval));
@@ -285,9 +285,7 @@ static int create_full_members(struct ctf *self, void *ptr,
 
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(self, &mp[i].ctf_member_type);
-		member->name = strings__add(strings,
-					    ctf__string32(self,
-							  &mp[i].ctf_member_name));
+		member->name = ctf__get32(self, &mp[i].ctf_member_name);
 		member->bit_offset = (ctf__get32(self, &mp[i].ctf_member_offset_high) << 16) |
 				      ctf__get32(self, &mp[i].ctf_member_offset_low);
 		/* sizes and offsets will be corrected at class__fixup_ctf_bitfields */
@@ -311,9 +309,7 @@ static int create_short_members(struct ctf *self, void *ptr,
 
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(self, &mp[i].ctf_member_type);
-		member->name = strings__add(strings,
-					    ctf__string32(self,
-							  &mp[i].ctf_member_name));
+		member->name = ctf__get32(self, &mp[i].ctf_member_name);
 		member->bit_offset = ctf__get16(self, &mp[i].ctf_member_offset);
 		/* sizes and offsets will be corrected at class__fixup_ctf_bitfields */
 
@@ -328,7 +324,7 @@ static int create_new_class(struct ctf *self, void *ptr,
 			    uint64_t size, long id)
 {
 	int member_size;
-	const char *name = ctf__string32(self, &tp->base.ctf_name);
+	strings_t name = ctf__get32(self, &tp->base.ctf_name);
 	struct class *class = class__new(name, size);
 
 	if (size >= CTF_SHORT_MEMBER_LIMIT) {
@@ -353,7 +349,7 @@ static int create_new_union(struct ctf *self, void *ptr,
 			    uint64_t size, long id)
 {
 	int member_size;
-	const char *name = ctf__string32(self, &tp->base.ctf_name);
+	strings_t name = ctf__get32(self, &tp->base.ctf_name);
 	struct type *un = type__new(DW_TAG_union_type, name, size);
 
 	if (size >= CTF_SHORT_MEMBER_LIMIT) {
@@ -373,13 +369,12 @@ out_free:
 	return -ENOMEM;
 }
 
-static struct enumerator *enumerator__new(const char *name,
-					  uint32_t value)
+static struct enumerator *enumerator__new(strings_t name, uint32_t value)
 {
 	struct enumerator *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->name = strings__add(strings, name);
+		self->name = name;
 		self->value = value;
 		self->tag.tag = DW_TAG_enumerator;
 	}
@@ -394,15 +389,15 @@ static int create_new_enumeration(struct ctf *self, void *ptr,
 	struct ctf_enum *ep = ptr;
 	uint16_t i;
 	struct type *enumeration = type__new(DW_TAG_enumeration_type,
-					     ctf__string32(self,
-							   &tp->base.ctf_name),
+					     ctf__get32(self,
+							&tp->base.ctf_name),
 					     size ?: (sizeof(int) * 8));
 
 	if (enumeration == NULL)
 		return -ENOMEM;
 
 	for (i = 0; i < vlen; i++) {
-		char *name = ctf__string32(self, &ep[i].ctf_enum_name);
+		strings_t name = ctf__get32(self, &ep[i].ctf_enum_name);
 		uint32_t value = ctf__get32(self, &ep[i].ctf_enum_val);
 		struct enumerator *enumerator = enumerator__new(name, value);
 
@@ -423,7 +418,7 @@ out_free:
 static int create_new_forward_decl(struct ctf *self, struct ctf_full_type *tp,
 				   uint64_t size, long id)
 {
-	char *name = ctf__string32(self, &tp->base.ctf_name);
+	strings_t name = ctf__get32(self, &tp->base.ctf_name);
 	struct class *fwd = class__new(name, size);
 
 	if (fwd == NULL)
@@ -436,7 +431,7 @@ static int create_new_forward_decl(struct ctf *self, struct ctf_full_type *tp,
 static int create_new_typedef(struct ctf *self, struct ctf_full_type *tp,
 			      uint64_t size, long id)
 {
-	const char *name = ctf__string32(self, &tp->base.ctf_name);
+	strings_t name = ctf__get32(self, &tp->base.ctf_name);
 	unsigned int type_id = ctf__get16(self, &tp->base.ctf_type);
 	struct type *type = type__new(DW_TAG_typedef, name, size);
 
@@ -706,9 +701,15 @@ static void ctf__cu_delete(struct cu *self)
 	self->priv = NULL;
 }
 
+static const char *ctf__strings_ptr(const struct cu *self, strings_t s)
+{
+	return ctf__string(self->priv, s);
+}
+
 static struct debug_fmt_ops ctf__ops = {
 	.function__name = ctf__function_name,
 	.variable__name = ctf__variable_name,
+	.strings__ptr	= ctf__strings_ptr,
 	.cu__delete	= ctf__cu_delete,
 };
 

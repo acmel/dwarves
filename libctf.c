@@ -258,11 +258,6 @@ char *ctf__string(struct ctf *self, uint32_t ref)
 	return name[0] == '\0' ? NULL : name;
 }
 
-char *ctf__string32(struct ctf *self, uint32_t *refp)
-{
-	return ctf__string(self, ctf__get32(self, refp));
-}
-
 void *ctf__get_buffer(struct ctf *self)
 {
 	return self->buf;
