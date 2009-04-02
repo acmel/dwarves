@@ -281,18 +281,64 @@ void base_type_name_to_size_table__init(void)
 size_t base_type__name_to_size(struct base_type *self, struct cu *cu)
 {
 	int i = 0;
+	char bf[64];
+	const char *name;
+
+	if (self->name_has_encoding)
+		name = s(self->name);
+	else
+		name = base_type__name(self, bf, sizeof(bf));
 
 	while (base_type_name_to_size_table[i].name != NULL) {
-		if (base_type_name_to_size_table[i].sname == self->name) {
-			size_t size = base_type_name_to_size_table[i].size;
+		if (self->name_has_encoding) {
+			if (base_type_name_to_size_table[i].sname == self->name) {
+				size_t size;
+found:
+				size = base_type_name_to_size_table[i].size;
 
-			return size ?: ((size_t)cu->addr_size * 8);
-		}
+				return size ?: ((size_t)cu->addr_size * 8);
+			}
+		} else if (strcmp(base_type_name_to_size_table[i].name,
+				  name) == 0)
+			goto found;
 		++i;
 	}
 	fprintf(stderr, "%s: %s %s\n",
-		 __func__, dwarf_tag_name(self->tag.tag), s(self->name));
+		 __func__, dwarf_tag_name(self->tag.tag), name);
 	return 0;
+}
+
+static const char *base_type_fp_type_str[] = {
+	[BT_FP_SINGLE]	   = "single",
+	[BT_FP_DOUBLE]	   = "double",
+	[BT_FP_CMPLX]	   = "complex",
+	[BT_FP_CMPLX_DBL]  = "complex double",
+	[BT_FP_CMPLX_LDBL] = "complex long double",
+	[BT_FP_LDBL]	   = "long double",
+	[BT_FP_INTVL]	   = "interval",
+	[BT_FP_INTVL_DBL]  = "interval double",
+	[BT_FP_INTVL_LDBL] = "interval long double",
+	[BT_FP_IMGRY]	   = "imaginary",
+	[BT_FP_IMGRY_DBL]  = "imaginary double",
+	[BT_FP_IMGRY_LDBL] = "imaginary long double",
+};
+
+const char *base_type__name(const struct base_type *self, char *bf, size_t len)
+{
+	if (self->name_has_encoding)
+		return s(self->name);
+
+	if (self->float_type)
+		snprintf(bf, len, "%s %s",
+			 base_type_fp_type_str[self->float_type],
+			 s(self->name));
+	else
+		snprintf(bf, len, "%s%s%s%s",
+			 self->is_signed ? "signed " : "",
+			 self->is_bool ? "bool " : "",
+			 self->is_varargs ? "... " : "",
+			 s(self->name));
+	return bf;
 }
 
 static size_t type__fprintf(struct tag *type, const struct cu *cu,
@@ -789,20 +835,33 @@ struct tag *cu__find_base_type_by_name(const struct cu *self,
 	if (self == NULL || name == NULL)
 		return NULL;
 
-	strings_t sname = strings__find(strings, name);
-	if (sname == 0)
-		return NULL;
+	strings_t sname;
+	if (self->uses_global_strings) {
+		sname = strings__find(strings, name);
+		if (sname == 0)
+			return NULL;
+	}
 
 	cu__for_each_type(self, id, pos) {
-		if (pos->tag == DW_TAG_base_type) {
-			const struct base_type *bt = tag__base_type(pos);
+		if (pos->tag != DW_TAG_base_type)
+			continue;
 
-			if (bt->name == sname) {
-				if (idp != NULL)
-					*idp = id;
-				return pos;
-			}
+		const struct base_type *bt = tag__base_type(pos);
+
+		if (self->uses_global_strings) {
+			if (bt->name != sname)
+				continue;
+		} else {
+			char bf[64];
+			const char *bname = base_type__name(bt, bf, sizeof(bf));
+
+			if (strcmp(bname, name) != 0)
+				continue;
 		}
+
+		if (idp != NULL)
+			*idp = id;
+		return pos;
 	}
 
 	return NULL;

@@ -544,13 +544,17 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 				    "%zd bytes base type */\n\n", bytes_needed);
 			continue;
 		}
-		if (verbose)
+		if (verbose) {
+			char old_bf[64], new_bf[64];
 			fprintf(fp, "/* Demoting bitfield ('%s' ... '%s') "
 				"from '%s' to '%s' */\n",
 				class_member__name(bitfield_head),
 				class_member__name(member),
-				base_type__name(tag__base_type(old_type_tag)),
-				base_type__name(tag__base_type(new_type_tag)));
+				base_type__name(tag__base_type(old_type_tag),
+						old_bf, sizeof(old_bf)),
+				base_type__name(tag__base_type(new_type_tag),
+						new_bf, sizeof(new_bf)));
+		}
 
 		class__demote_bitfield_members(class,
 					       bitfield_head, member,
@@ -594,12 +598,16 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			tag__assert_search_result(old_type_tag);
 			tag__assert_search_result(new_type_tag);
 
-			if (verbose)
+			if (verbose) {
+				char old_bf[64], new_bf[64];
 				fprintf(fp, "/* Demoting bitfield ('%s') "
 					"from '%s' to '%s' */\n",
 					class_member__name(member),
-					base_type__name(tag__base_type(old_type_tag)),
-					base_type__name(tag__base_type(new_type_tag)));
+					base_type__name(tag__base_type(old_type_tag),
+							old_bf, sizeof(old_bf)),
+					base_type__name(tag__base_type(new_type_tag),
+							new_bf, sizeof(new_bf)));
+			}
 			class__demote_bitfield_members(class,
 						       member, member,
 						 tag__base_type(old_type_tag),

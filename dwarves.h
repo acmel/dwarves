@@ -150,6 +150,7 @@ struct cu {
 	uint32_t	 cached_symtab_nr_entries;
 	uint8_t		 addr_size;
 	uint8_t		 extra_dbg_info:1;
+	uint8_t		 uses_global_strings:1;
 	uint16_t	 language;
 	unsigned long	 nr_inline_expansions;
 	size_t		 size_inline_expansions;
@@ -922,10 +923,30 @@ const struct class_member *class__find_bit_hole(const struct class *self,
 					   const struct class_member *trailer,
 						const uint16_t bit_hole_size);
 
+enum base_type_float_type {
+	BT_FP_SINGLE = 1,
+	BT_FP_DOUBLE,
+	BT_FP_CMPLX,
+	BT_FP_CMPLX_DBL,
+	BT_FP_CMPLX_LDBL,
+	BT_FP_LDBL,
+	BT_FP_INTVL,
+	BT_FP_INTVL_DBL,
+	BT_FP_INTVL_LDBL,
+	BT_FP_IMGRY,
+	BT_FP_IMGRY_DBL,
+	BT_FP_IMGRY_LDBL
+};
+
 struct base_type {
 	struct tag	tag;
 	strings_t	name;
 	uint16_t	bit_size;
+	uint8_t		name_has_encoding:1;
+	uint8_t		is_signed:1;
+	uint8_t		is_bool:1;
+	uint8_t		is_varargs:1;
+	uint8_t		float_type;
 };
 
 static inline struct base_type *tag__base_type(const struct tag *self)
@@ -938,10 +959,7 @@ static inline uint16_t base_type__size(const struct tag *self)
 	return tag__base_type(self)->bit_size / 8;
 }
 
-static inline const char *base_type__name(const struct base_type *self)
-{
-	return strings__ptr(strings, self->name);
-}
+const char *base_type__name(const struct base_type *self, char *bf, size_t len);
 
 void base_type_name_to_size_table__init(void);
 size_t base_type__name_to_size(struct base_type *self, struct cu *cu);

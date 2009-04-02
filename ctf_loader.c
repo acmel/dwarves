@@ -144,13 +144,19 @@ static int ctf__load_funcs(struct ctf *self)
 	return 0;
 }
 
-static struct base_type *base_type__new(const char *name, size_t size)
+static struct base_type *base_type__new(const char *name, uint32_t attrs,
+					uint8_t float_type, size_t size)
 {
         struct base_type *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
 		self->name = strings__add(strings, name);
 		self->bit_size = size;
+		self->is_signed = attrs & CTF_TYPE_INT_SIGNED;
+		self->is_bool = attrs & CTF_TYPE_INT_BOOL;
+		self->is_varargs = attrs & CTF_TYPE_INT_VARARGS;
+		self->name_has_encoding = false;
+		self->float_type = float_type;
 	}
 	return self;
 }
@@ -190,22 +196,12 @@ static struct class *class__new(const char *name, size_t size)
 static int create_new_base_type(struct ctf *self, void *ptr,
 				struct ctf_full_type *tp, long id)
 {
-	uint32_t *enc = ptr, name_idx;
-	char name[64], *buf = name;
+	uint32_t *enc = ptr;
 	uint32_t eval = ctf__get32(self, enc);
 	uint32_t attrs = CTF_TYPE_INT_ATTRS(eval);
-	struct base_type *base;
-
-	if (attrs & CTF_TYPE_INT_SIGNED)
-		buf += sprintf(buf, "signed ");
-	if (attrs & CTF_TYPE_INT_BOOL)
-		buf += sprintf(buf, "bool ");
-	if (attrs & CTF_TYPE_INT_VARARGS)
-		buf += sprintf(buf, "varargs ");
-
-	name_idx = ctf__get32(self, &tp->base.ctf_name);
-	buf += sprintf(buf, "%s", ctf__string(self, name_idx));
-	base = base_type__new(name, CTF_TYPE_INT_BITS(eval));
+	char *name = ctf__string(self, ctf__get32(self, &tp->base.ctf_name));
+	struct base_type *base = base_type__new(name, attrs, 0,
+						CTF_TYPE_INT_BITS(eval));
 	if (base == NULL)
 		return -ENOMEM;
 
@@ -219,16 +215,10 @@ static int create_new_base_type_float(struct ctf *self, void *ptr,
 				      struct ctf_full_type *tp,
 				      long id)
 {
-	uint32_t *enc = ptr, eval;
-	char name[64];
-	struct base_type *base;
-
-	eval = ctf__get32(self, enc);
-	size_t len = ctf__format_flt_attrs(eval, name, sizeof(name));
-	snprintf(name + len, sizeof(name) - len, "%s",
-		 ctf__string32(self, &tp->base.ctf_name));
-
-	base = base_type__new(name, CTF_TYPE_FP_BITS(eval));
+	char *name = ctf__string32(self, &tp->base.ctf_name);
+	uint32_t *enc = ptr, eval = ctf__get32(self, enc);
+	struct base_type *base = base_type__new(name, 0, eval,
+						CTF_TYPE_FP_BITS(eval));
 	if (base == NULL)
 		return -ENOMEM;
 
@@ -735,6 +725,7 @@ int ctf__load_file(struct cus *self, struct conf_load *conf,
 	if (cu == NULL)
 		return -1;
 
+	cu->uses_global_strings = false;
 	cu->dfops = &ctf__ops;
 	cu->priv = state;
 	state->priv = cu;

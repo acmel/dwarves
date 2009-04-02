@@ -333,6 +333,11 @@ static struct base_type *base_type__new(Dwarf_Die *die)
 		tag__init(&self->tag, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
 		self->bit_size = attr_numeric(die, DW_AT_byte_size) * 8;
+		uint64_t encoding = attr_numeric(die, DW_AT_encoding);
+		self->is_bool = encoding == DW_ATE_boolean;
+		self->is_signed = encoding == DW_ATE_signed;
+		self->is_varargs = false;
+		self->name_has_encoding = true;
 	}
 
 	return self;
@@ -1868,6 +1873,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 			     build_id, build_id_len, filename);
 		if (cu == NULL)
 			return DWARF_CB_ABORT;
+		cu->uses_global_strings = true;
 		cu->elf = elf;
 		cu->dwfl = mod;
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
