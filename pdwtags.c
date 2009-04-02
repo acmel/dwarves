@@ -86,6 +86,12 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
 static const struct argp_option pdwtags__options[] = {
 	{
+		.name = "format_path",
+		.key  = 'F',
+		.arg  = "FORMAT_LIST",
+		.doc  = "List of debugging formats to try"
+	},
+	{
 		.key  = 'V',
 		.name = "verbose",
 		.doc  = "show details",
@@ -103,6 +109,7 @@ static error_t pdwtags__options_parser(int key, char *arg __unused,
 		if (state->child_inputs != NULL)
 			state->child_inputs[0] = state->input;
 		break;
+	case 'F': pdwtags_conf_load.format_path = arg;	break;
 	case 'V': conf.show_decl_info = 1;		break;
 	default:  return ARGP_ERR_UNKNOWN;
 	}
