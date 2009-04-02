@@ -1112,9 +1112,11 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	case DW_TAG_base_type: {
 		const struct base_type *bt = tag__base_type(self);
 		const char *name = "nameless base type!";
+		char bf2[64];
 
 		if (bt->name)
-			name = s(bt->name);
+			name = base_type__name(tag__base_type(self),
+					       bf2, sizeof(bf2));
 
 		strncpy(bf, name, len);
 	}
