@@ -355,30 +355,39 @@ static inline int tag__is_tag_type(const struct tag *self)
 static inline const char *tag__decl_file(const struct tag *self,
 					 const struct cu *cu)
 {
-	return cu->dfops ? cu->dfops->tag__decl_file(self, cu) : NULL;
+	if (cu->dfops && cu->dfops->tag__decl_file)
+		return cu->dfops->tag__decl_file(self, cu);
+	return NULL;
 }
 
 static inline uint32_t tag__decl_line(const struct tag *self,
 				      const struct cu *cu)
 {
-	return cu->dfops ? cu->dfops->tag__decl_line(self, cu) : 0;
+	if (cu->dfops && cu->dfops->tag__decl_line)
+		return cu->dfops->tag__decl_line(self, cu);
+	return 0;
 }
 
 static inline unsigned long long tag__orig_id(const struct tag *self,
 					      const struct cu *cu)
 {
-	return cu->dfops ? cu->dfops->tag__orig_id(self, cu) : 0;
+	if (cu->dfops && cu->dfops->tag__orig_id)
+		return cu->dfops->tag__orig_id(self, cu);
+	return 0;
 }
 
 static inline unsigned long long tag__orig_type(const struct tag *self,
 						const struct cu *cu)
 {
-	return cu->dfops ? cu->dfops->tag__orig_type(self, cu) : 0;
+	if (cu->dfops && cu->dfops->tag__orig_type)
+		return cu->dfops->tag__orig_type(self, cu);
+	return 0;
 }
 
 static inline void tag__free_orig_info(struct tag *self, struct cu *cu)
 {
-	return cu->dfops ? cu->dfops->tag__free_orig_info(self, cu) : 0;
+	if (cu->dfops && cu->dfops->tag__free_orig_info)
+		cu->dfops->tag__free_orig_info(self, cu);
 }
 
 size_t tag__fprintf_decl_info(const struct tag *self,
