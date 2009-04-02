@@ -449,6 +449,7 @@ static void class__demote_bitfield_members(struct class *class,
 		 * Assume IA32 bitfield layout
 		 */
 		member->bitfield_offset -= bit_diff;
+		member->byte_size = new_type->bit_size / 8;
 		member->tag.type = new_type_id;
 		if (member == to)
 			break;
