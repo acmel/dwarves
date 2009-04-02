@@ -117,6 +117,11 @@ static LIST_HEAD(aliases);
  */
 static LIST_HEAD(pointers);
 
+static const char *structure__name(const struct structure *self)
+{
+	return class__name(tag__class(self->class), self->cu);
+}
+
 static struct structure *structures__find(struct list_head *list, const char *name)
 {
 	struct structure *pos;
@@ -125,7 +130,7 @@ static struct structure *structures__find(struct list_head *list, const char *na
 		return NULL;
 
 	list_for_each_entry(pos, list, node)
-		if (strcmp(class__name(tag__class(pos->class)), name) == 0)
+		if (strcmp(structure__name(pos), name) == 0)
 			return pos;
 
 	return NULL;
@@ -291,14 +296,15 @@ static struct class_member *class__remove_member(struct class *self, const struc
 	return list_entry(next, struct class_member, tag.node);
 }
 
-static size_t class__find_biggest_member_name(const struct class *self)
+static size_t class__find_biggest_member_name(const struct class *self,
+					      const struct cu *cu)
 {
 	struct class_member *pos;
 	size_t biggest_name_len = 0;
 
 	type__for_each_data_member(&self->type, pos) {
 		const size_t len = pos->name ?
-					strlen(class_member__name(pos)) : 0;
+					strlen(class_member__name(pos, cu)) : 0;
 
 		if (len > biggest_name_len)
 			biggest_name_len = len;
@@ -308,20 +314,22 @@ static size_t class__find_biggest_member_name(const struct class *self)
 }
 
 static void class__emit_class_state_collector(struct class *self,
+					      const struct cu *cu,
 					      struct class *clone)
 {
 	struct class_member *pos;
-	int len = class__find_biggest_member_name(clone);
+	int len = class__find_biggest_member_name(clone, cu);
 
 	fprintf(fp_collector,
 		"void ctracer__class_state(const void *from, void *to)\n"
 	        "{\n"
 		"\tconst struct %s *obj = from;\n"
 		"\tstruct %s *mini_obj = to;\n\n",
-		class__name(self), class__name(clone));
+		class__name(self, cu), class__name(clone, cu));
 	type__for_each_data_member(&clone->type, pos)
-		fprintf(fp_collector, "\tmini_obj->%-*s = obj->%s;\n",
-			len, class_member__name(pos), class_member__name(pos));
+		fprintf(fp_collector, "\tmini_obj->%-*s = obj->%s;\n", len,
+			class_member__name(pos, cu),
+			class_member__name(pos, cu));
 	fputs("}\n\n", fp_collector);
 }
 
@@ -386,7 +394,8 @@ static void emit_struct_member_table_entry(FILE *fp,
  * ostra-cg to preprocess the raw data collected from the debugfs/relay
  * channel.
  */
-static int class__emit_ostra_converter(struct tag *tag_self)
+static int class__emit_ostra_converter(struct tag *tag_self,
+				       const struct cu *cu)
 {
 	struct class *self = tag__class(tag_self);
 	struct class_member *pos;
@@ -398,7 +407,7 @@ static int class__emit_ostra_converter(struct tag *tag_self)
 	size_t n;
 	size_t plen = sizeof(parm_list);
 	FILE *fp_fields, *fp_converter;
-	const char *name = class__name(self);
+	const char *name = class__name(self, cu);
 
 	snprintf(filename, sizeof(filename), "%s/%s.fields", src_dir, name);
 	fp_fields = fopen(filename, "w");
@@ -456,10 +465,10 @@ static int class__emit_ostra_converter(struct tag *tag_self)
 			plen -= n; p += n;
 		}
 		fprintf(fp_converter, "%%u");
-		n = snprintf(p, plen, "obj.%s", class_member__name(pos));
+		n = snprintf(p, plen, "obj.%s", class_member__name(pos, cu));
 		plen -= n; p += n;
 		emit_struct_member_table_entry(fp_fields, field++,
-					       class_member__name(pos),
+					       class_member__name(pos, cu),
 					       1, "entry,exit");
 	}
 	fprintf(fp_converter,
@@ -490,7 +499,7 @@ static struct tag *pointer_filter(struct tag *tag, struct cu *cu,
 	if (type->nr_members == 0)
 		return NULL;
 
-	class_name = class__name(tag__class(tag));
+	class_name = class__name(tag__class(tag), cu);
 	if (class_name == NULL || structures__find(&pointers, class_name))
 		return NULL;
 
@@ -535,7 +544,8 @@ static void class__find_pointers(const char *class_name)
  * We want just the DW_TAG_structure_type tags that have as its first member
  * a struct of type target.
  */
-static struct tag *alias_filter(struct tag *tag, uint16_t target_type_id)
+static struct tag *alias_filter(struct tag *tag, const struct cu *cu,
+				uint16_t target_type_id)
 {
 	struct type *type;
 	struct class_member *first_member;
@@ -552,7 +562,7 @@ static struct tag *alias_filter(struct tag *tag, uint16_t target_type_id)
 	if (first_member->tag.type != target_type_id)
 		return NULL;
 
-	if (structures__find(&aliases, class__name(tag__class(tag))))
+	if (structures__find(&aliases, class__name(tag__class(tag), cu)))
 		return NULL;
 
 	return tag;
@@ -573,8 +583,8 @@ static int cu_find_aliases_iterator(struct cu *cu, void *class_name)
 		return 0;
 
 	cu__for_each_type(cu, id, pos) {
-		if (alias_filter(pos, target_type_id)) {
-			const char *alias_name = class__name(tag__class(pos));
+		if (alias_filter(pos, cu, target_type_id)) {
+			const char *alias_name = class__name(tag__class(pos), cu);
 
 			structures__add(&aliases, pos, cu);
 
@@ -602,7 +612,7 @@ static void class__find_aliases(const char *class_name)
 	cus__for_each_cu(methods_cus, cu_find_aliases_iterator, (void *)class_name, cu_filter);
 }
 
-static void emit_list_of_types(struct list_head *list)
+static void emit_list_of_types(struct list_head *list, const struct cu *cu)
 {
 	struct structure *pos;
 
@@ -612,8 +622,8 @@ static void emit_list_of_types(struct list_head *list)
 		 * Lets look at the other CUs, perhaps we have already
 		 * emmited this one
 		 */
-		if (type_emissions__find_definition(&emissions,
-						    class__name(tag__class(pos->class)))) {
+		if (type_emissions__find_definition(&emissions, cu,
+						    structure__name(pos))) {
 			type->definition_emitted = 1;
 			continue;
 		}
@@ -633,7 +643,7 @@ static int class__emit_classes(struct tag *tag_self, struct cu *cu)
 	char mini_class_name[128];
 
 	snprintf(mini_class_name, sizeof(mini_class_name), "ctracer__mini_%s",
-		 class__name(self));
+		 class__name(self, cu));
 
 	mini_class = class__clone_base_types(tag_self, cu, mini_class_name);
 	if (mini_class == NULL)
@@ -644,15 +654,15 @@ static int class__emit_classes(struct tag *tag_self, struct cu *cu)
 	type__emit(tag_self, cu, NULL, NULL, fp_classes);
 	fputs("\n/* class aliases */\n\n", fp_classes);
 
-	emit_list_of_types(&aliases);
+	emit_list_of_types(&aliases, cu);
 
 	fputs("\n/* class with pointers */\n\n", fp_classes);
 
-	emit_list_of_types(&pointers);
+	emit_list_of_types(&pointers, cu);
 
 	class__fprintf(mini_class, cu, NULL, fp_classes);
 	fputs(";\n\n", fp_classes);
-	class__emit_class_state_collector(self, mini_class);
+	class__emit_class_state_collector(self, cu, mini_class);
 	err = 0;
 out:
 	return err;
@@ -695,13 +705,13 @@ static int function__emit_probes(struct function *self, uint32_t function_id,
 
 		if (member != NULL)
 			fprintf(fp_methods, "\tif ($%s)\n\t",
-				parameter__name(pos));
+				parameter__name(pos, cu));
 
 		fprintf(fp_methods,
 			"\tctracer__method_hook(%d, %d, $%s%s%s, %d);\n",
 			probe_type,
 			function_id,
-			parameter__name(pos),
+			parameter__name(pos, cu),
 			member ? "->" : "", member ?: "",
 			class__size(mini_class));
 		break;
@@ -777,9 +787,9 @@ static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 			continue;
 
 		function__emit_probes(pos_tag, function_id, cu, target_type_id, 0,
-				      class_member__name(pos_member)); /* entry */
+				      class_member__name(pos_member, cu)); /* entry */
 		function__emit_probes(pos_tag, function_id, cu, target_type_id, 1,
-				      class_member__name(pos_member)); /* exit */
+				      class_member__name(pos_member, cu)); /* exit */
 	}
 
 	return 0;
@@ -950,7 +960,7 @@ failure:
 	}
 
 	snprintf(functions_filename, sizeof(functions_filename),
-		 "%s/%s.functions", src_dir, class__name(tag__class(class)));
+		 "%s/%s.functions", src_dir, class__name(tag__class(class), cu));
 	fp_functions = fopen(functions_filename, "w");
 	if (fp_functions == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n",
@@ -1003,7 +1013,7 @@ failure:
 	class__emit_classes(class, cu);
 	fputc('\n', fp_collector);
 
-	class__emit_ostra_converter(class);
+	class__emit_ostra_converter(class, cu);
 
 	cu_blacklist = strlist__new(true);
 	if (cu_blacklist != NULL)
@@ -1017,7 +1027,7 @@ failure:
 			 fp_functions, cu_filter);
 
 	list_for_each_entry(pos, &aliases, node) {
-		const char *alias_name = class__name(tag__class(pos->class));
+		const char *alias_name = structure__name(pos);
 
 		cus__for_each_cu(methods_cus, cu_find_methods_iterator,
 				 (void *)alias_name, cu_filter);
@@ -1028,7 +1038,7 @@ failure:
 	}
 
 	list_for_each_entry(pos, &pointers, node) {
-		const char *pointer_name = class__name(tag__class(pos->class));
+		const char *pointer_name = structure__name(pos);
 		cus__for_each_cu(methods_cus, cu_find_methods_iterator,
 				 (void *)pointer_name, cu_filter);
 		cus__for_each_cu(methods_cus, cu_emit_pointer_probes_iterator,

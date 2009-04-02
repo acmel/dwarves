@@ -33,7 +33,7 @@ static bool filter(struct function *f, struct cu *cu)
 }
 
 static void zero_extend(const int regparm, const struct base_type *bt,
-			const char *parm)
+			struct cu *cu, const char *parm)
 {
 	const char *instr = "INVALID";
 
@@ -53,7 +53,7 @@ static void zero_extend(const int regparm, const struct base_type *bt,
 	printf("\t%s\t$a%d, $a%d, 0"
 	       "\t/* zero extend $a%d(%s %s) from %d to 64-bit */\n",
 	       instr, regparm, regparm, regparm,
-	       base_type__name(bt, bf, sizeof(bf)),
+	       base_type__name(bt, cu, bf, sizeof(bf)),
 	       parm, bt->bit_size);
 }
 
@@ -73,13 +73,14 @@ static void emit_wrapper(struct function *f, struct cu *cu)
 			char bf[64];
 
 			if (bt->bit_size < 64 &&
-			    strncmp(base_type__name(bt, bf, sizeof(bf)),
+			    strncmp(base_type__name(bt, cu, bf, sizeof(bf)),
 						    "unsigned", 8) == 0) {
 				if (!needs_wrapper) {
 					printf("wrap_%s:\n", name);
 					needs_wrapper = 1;
 				}
-				zero_extend(regparm, bt, parameter__name(parm));
+				zero_extend(regparm, bt, cu,
+					    parameter__name(parm, cu));
 			}
 		}
 		++regparm;

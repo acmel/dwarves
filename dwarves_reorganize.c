@@ -249,7 +249,8 @@ static void class__move_member(struct class *class, struct class_member *dest,
 		LIST_HEAD(from_list);
 
 		if (verbose)
-			fprintf(fp, " bitfield('%s' ... ", class_member__name(from));
+			fprintf(fp, " bitfield('%s' ... ",
+				class_member__name(from, cu));
 		list_for_each_entry_safe_from(pos, tmp, class__tags(class),
 					      tag.node) {
 			if (pos->tag.tag != DW_TAG_member)
@@ -270,10 +271,11 @@ static void class__move_member(struct class *class, struct class_member *dest,
 		tail_from->bit_hole = orig_tail_from_bit_hole;
 		list_splice(&from_list, &dest->tag.node);
 		if (verbose)
-			fprintf(fp, "'%s')", class_member__name(tail_from));
+			fprintf(fp, "'%s')",
+				class_member__name(tail_from, cu));
 	} else {
 		if (verbose)
-			fprintf(fp, " '%s'", class_member__name(from));
+			fprintf(fp, " '%s'", class_member__name(from, cu));
 		/*
 		 *  Remove 'from' from the list
 		 */
@@ -288,8 +290,8 @@ static void class__move_member(struct class *class, struct class_member *dest,
 
 	if (verbose)
 		fprintf(fp, " from after '%s' to after '%s' */\n",
-		        class_member__name(from_prev),
-			class_member__name(dest));
+		        class_member__name(from_prev, cu),
+			class_member__name(dest, cu));
 
 	if (from_padding) {
 		/*
@@ -309,7 +311,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 			if (verbose)
 				fprintf(fp, "/* adding %zd bytes from %s to "
 					"the padding */\n",
-					from_size, class_member__name(from));
+					from_size, class_member__name(from, cu));
 		}
 	} else if (from_was_last) {
 		class->type.size -= from_size + class->padding;
@@ -368,9 +370,9 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 	if (verbose)
 		fprintf(fp, "/* Moving '%s:%u' from after '%s' to "
 			"after '%s:%u' */\n",
-			class_member__name(from), from->bitfield_size,
-			class_member__name(from_prev),
-			class_member__name(dest), dest->bitfield_size);
+			class_member__name(from, cu), from->bitfield_size,
+			class_member__name(from_prev, cu),
+			class_member__name(dest, cu), dest->bitfield_size);
 	/*
 	 *  Remove 'from' from the list
 	 */
@@ -548,12 +550,12 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			char old_bf[64], new_bf[64];
 			fprintf(fp, "/* Demoting bitfield ('%s' ... '%s') "
 				"from '%s' to '%s' */\n",
-				class_member__name(bitfield_head),
-				class_member__name(member),
+				class_member__name(bitfield_head, cu),
+				class_member__name(member, cu),
 				base_type__name(tag__base_type(old_type_tag),
-						old_bf, sizeof(old_bf)),
+						cu, old_bf, sizeof(old_bf)),
 				base_type__name(tag__base_type(new_type_tag),
-						new_bf, sizeof(new_bf)));
+						cu, new_bf, sizeof(new_bf)));
 		}
 
 		class__demote_bitfield_members(class,
@@ -602,11 +604,11 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 				char old_bf[64], new_bf[64];
 				fprintf(fp, "/* Demoting bitfield ('%s') "
 					"from '%s' to '%s' */\n",
-					class_member__name(member),
+					class_member__name(member, cu),
 					base_type__name(tag__base_type(old_type_tag),
-							old_bf, sizeof(old_bf)),
+							cu, old_bf, sizeof(old_bf)),
 					base_type__name(tag__base_type(new_type_tag),
-							new_bf, sizeof(new_bf)));
+							cu, new_bf, sizeof(new_bf)));
 			}
 			class__demote_bitfield_members(class,
 						       member, member,

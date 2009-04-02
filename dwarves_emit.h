@@ -29,11 +29,12 @@ int ftype__emit_definitions(struct ftype *self, struct cu *cu,
 			    struct type_emissions *emissions, FILE *fp);
 int type__emit_definitions(struct tag *self, struct cu *cu,
 			   struct type_emissions *emissions, FILE *fp);
-int type__emit_fwd_decl(struct type *ctype,
+int type__emit_fwd_decl(struct type *ctype, const struct cu *cu,
 			struct type_emissions *emissions, FILE *fp);
 void type__emit(struct tag *tag_self, struct cu *cu,
 		const char *prefix, const char *suffix, FILE *fp);
 struct type *type_emissions__find_definition(const struct type_emissions *self,
+					     const struct cu *cu,
 					     const char *name);
 
 #endif /* _DWARVES_EMIT_H_ */

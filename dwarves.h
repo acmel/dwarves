@@ -131,6 +131,8 @@ struct debug_fmt_ops {
 					      const struct cu *cu);
 	const char	   *(*variable__name)(const struct variable *self,
 					      const struct cu *cu);
+	const char	   *(*strings__ptr)(const struct cu *self,
+					    strings_t s);
 	void		   (*cu__delete)(struct cu *self);
 };
 
@@ -167,6 +169,8 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id, int build_id_len,
 		   const char *filename);
 void cu__delete(struct cu *self);
+
+const char *cu__string(const struct cu *self, strings_t s);
 
 static inline void cu__cache_symtab(struct cu *self)
 {
@@ -560,9 +564,10 @@ static inline struct parameter *tag__parameter(const struct tag *self)
 	return (struct parameter *)self;
 }
 
-static inline const char *parameter__name(const struct parameter *self)
+static inline const char *parameter__name(const struct parameter *self,
+					  const struct cu *cu)
 {
-	return strings__ptr(strings, self->name);
+	return cu__string(cu, self->name);
 }
 
 /*
@@ -718,9 +723,10 @@ static inline struct class_member *tag__class_member(const struct tag *self)
 	return (struct class_member *)self;
 }
 
-static inline const char *class_member__name(const struct class_member *self)
+static inline const char *class_member__name(const struct class_member *self,
+					     const struct cu *cu)
 {
-	return strings__ptr(strings, self->name);
+	return cu__string(cu, self->name);
 }
 
 /**
@@ -877,14 +883,16 @@ static inline struct list_head *class__tags(struct class *self)
 	return &self->type.namespace.tags;
 }
 
-static __pure inline const char *type__name(const struct type *self)
+static __pure inline const char *type__name(const struct type *self,
+					    const struct cu *cu)
 {
-	return strings__ptr(strings, self->namespace.name);
+	return cu__string(cu, self->namespace.name);
 }
 
-static __pure inline const char *class__name(struct class *self)
+static __pure inline const char *class__name(struct class *self,
+					     const struct cu *cu)
 {
-	return strings__ptr(strings, self->type.namespace.name);
+	return cu__string(cu, self->type.namespace.name);
 }
 
 static inline int class__is_struct(const struct class *self)
@@ -959,7 +967,8 @@ static inline uint16_t base_type__size(const struct tag *self)
 	return tag__base_type(self)->bit_size / 8;
 }
 
-const char *base_type__name(const struct base_type *self, char *bf, size_t len);
+const char *base_type__name(const struct base_type *self, const struct cu *cu,
+			    char *bf, size_t len);
 
 void base_type_name_to_size_table__init(void);
 size_t base_type__name_to_size(struct base_type *self, struct cu *cu);
@@ -984,7 +993,7 @@ struct enumerator {
 
 void enumeration__delete(struct type *self);
 void enumeration__add(struct type *self, struct enumerator *enumerator);
-size_t enumeration__fprintf(const struct tag *tag_self,
+size_t enumeration__fprintf(const struct tag *tag_self, const struct cu *cu,
 			    const struct conf_fprintf *conf, FILE *fp);
 
 int dwarves__init(uint16_t user_cacheline_size);

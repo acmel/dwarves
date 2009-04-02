@@ -101,10 +101,11 @@ static int structure__compare(const void *a, const void *b)
 	return strcmp(key, pos->name);
 }
 
-static struct structure *structures__add(struct class *class)
+static struct structure *structures__add(struct class *class,
+					 const struct cu *cu)
 {
 	struct structure *str;
-	const char *name = class__name(class);
+	const char *name = class__name(class, cu);
 	struct structure *s = tsearch(name, &structures__tree,
 				      structure__compare);
 	if (s == NULL)
@@ -157,9 +158,9 @@ static void nr_definitions_formatter(struct structure *self)
 }
 
 static void nr_members_formatter(struct class *self,
-				 struct cu *cu __unused, uint16_t id __unused)
+				 struct cu *cu, uint16_t id __unused)
 {
-	printf("%s%c%u\n", class__name(self), separator,
+	printf("%s%c%u\n", class__name(self, cu), separator,
 	       class__nr_members(self));
 }
 
@@ -169,31 +170,30 @@ static void nr_methods_formatter(struct structure *self)
 }
 
 static void size_formatter(struct class *self,
-			   struct cu *cu __unused, uint16_t id __unused)
+			   struct cu *cu, uint16_t id __unused)
 {
-	printf("%s%c%d%c%u\n", class__name(self), separator,
+	printf("%s%c%d%c%u\n", class__name(self, cu), separator,
 	       class__size(self), separator, self->nr_holes);
 }
 
-static void class_name_len_formatter(struct class *self,
-				     struct cu *cu __unused,
+static void class_name_len_formatter(struct class *self, struct cu *cu,
 				     uint16_t id __unused)
 {
-	const char *name = class__name(self);
+	const char *name = class__name(self, cu);
 	printf("%s%c%zd\n", name, separator, strlen(name));
 }
 
 static void class_name_formatter(struct class *self,
-				 struct cu *cu __unused, uint16_t id __unused)
+				 struct cu *cu, uint16_t id __unused)
 {
-	puts(class__name(self));
+	puts(class__name(self, cu));
 }
 
 static void class_formatter(struct class *self, struct cu *cu, uint16_t id)
 {
 	struct tag *typedef_alias = NULL;
 	struct tag *tag = class__tag(self);
-	const char *name = class__name(self);
+	const char *name = class__name(self, cu);
 
 	if (name == NULL) {
 		/*
@@ -217,7 +217,7 @@ static void class_formatter(struct class *self, struct cu *cu, uint16_t id)
 		struct type *tdef = tag__type(typedef_alias);
 
 		conf.prefix = "typedef";
-		conf.suffix = type__name(tdef);
+		conf.suffix = type__name(tdef, cu);
 	} else
 		conf.prefix = conf.suffix = NULL;
 
@@ -232,7 +232,7 @@ static void print_packable_info(struct class *c, struct cu *cu, uint16_t id)
 	const size_t orig_size = class__size(c);
 	const size_t new_size = class__size(c->priv);
 	const size_t savings = orig_size - new_size;
-	const char *name = class__name(c);
+	const char *name = class__name(c, cu);
 
 	/* Anonymous struct? Try finding a typedef */
 	if (name == NULL) {
@@ -240,7 +240,7 @@ static void print_packable_info(struct class *c, struct cu *cu, uint16_t id)
 		      cu__find_first_typedef_of_type(cu, id);
 
 		if (tdef != NULL)
-			name = class__name(tag__class(tdef));
+			name = class__name(tag__class(tdef), cu);
 	}
 	if (name != NULL)
 		printf("%s%c%zd%c%zd%c%zd\n",
@@ -295,7 +295,7 @@ static void print_classes(struct cu *cu)
 		else if (formatter != NULL)
 			formatter(pos, cu, id);
 
-		if (structures__add(pos) == NULL) {
+		if (structures__add(pos, cu) == NULL) {
 			fprintf(stderr, "pahole: insufficient memory for "
 				"processing %s, skipping it...\n", cu->name);
 			return;
@@ -345,7 +345,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	if (!tag->top_level && !show_private_classes)
 		return NULL;
 
-	name = class__name(class);
+	name = class__name(class, cu);
 
 	if (class__is_declaration(class))
 		return NULL;
@@ -360,7 +360,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 			if (tdef != NULL) {
 				struct class *c = tag__class(tdef);
 
-				name = class__name(c);
+				name = class__name(c, cu);
 			}
 		}
 		if (name != NULL && strncmp(class__exclude_prefix, name,
@@ -375,7 +375,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 			if (tdef != NULL) {
 				struct class *c = tag__class(tdef);
 
-				name = class__name(c);
+				name = class__name(c, cu);
 			}
 		}
 		if (name != NULL && strncmp(class__include_prefix, name,
@@ -456,8 +456,8 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		case DW_TAG_base_type: {
 			struct base_type *bt = tag__base_type(type);
 			char bf[64];
-			const char *name = base_type__name(bt, bf, sizeof(bf));
-
+			const char *name = base_type__name(bt, cu, bf,
+							   sizeof(bf));
 			if (strcmp(name, "long int") != 0 &&
 			    strcmp(name, "long unsigned int") != 0)
 				break;
@@ -563,7 +563,7 @@ static void tag__fixup_word_size(struct tag *tag, struct cu *cu)
 		if (!bt->name)
 			return;
 		char bf[64];
-		const char *name = base_type__name(bt, bf, sizeof(bf));
+		const char *name = base_type__name(bt, cu, bf, sizeof(bf));
 
 		if (strcmp(name, "long int") == 0 ||
 		    strcmp(name, "long unsigned int") == 0)
@@ -614,7 +614,7 @@ static void cu__account_nr_methods(struct cu *self)
 			if (ctype->namespace.name == 0)
 				continue;
 
-			str = structures__find(type__name(ctype));
+			str = structures__find(type__name(ctype, self));
 			if (str == NULL) {
 				struct class *class = tag__class(type);
 				class__find_holes(class);
@@ -622,7 +622,7 @@ static void cu__account_nr_methods(struct cu *self)
 				if (!class__filter(class, self, 0))
 					continue;
 
-				str = structures__add(class);
+				str = structures__add(class, self);
 				if (str == NULL) {
 					fprintf(stderr, "pahole: insufficient memory for "
 						"processing %s, skipping it...\n",
@@ -654,17 +654,17 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint16_t type)
 			if (ctype->tag != DW_TAG_pointer_type || ctype->type != type)
 				continue;
 
-			if (structures__find(class__name(pos)))
+			if (structures__find(class__name(pos, cu)))
 				break;
 
-			if (structures__add(pos) == NULL) {
+			if (structures__add(pos, cu) == NULL) {
 				fprintf(stderr, "pahole: insufficient memory for "
 					"processing %s, skipping it...\n",
 					cu->name);
 				return;
 			}
-			printf("%s: %s\n", class__name(pos),
-			       class_member__name(pos_member));
+			printf("%s: %s\n", class__name(pos, cu),
+			       class_member__name(pos_member, cu));
 		}
 	}
 }
@@ -683,10 +683,10 @@ static void print_containers(const struct cu *cu, uint16_t type, int ident)
 			continue;
 
 		if (ident == 0) {
-			if (structures__find(class__name(pos)))
+			if (structures__find(class__name(pos, cu)))
 				continue;
 
-			if (structures__add(pos) == NULL) {
+			if (structures__add(pos, cu) == NULL) {
 				fprintf(stderr, "pahole: insufficient memory for "
 					"processing %s, skipping it...\n",
 					cu->name);
@@ -694,7 +694,7 @@ static void print_containers(const struct cu *cu, uint16_t type, int ident)
 			}
 		}
 
-		printf("%.*s%s", ident * 2, tab, class__name(pos));
+		printf("%.*s%s", ident * 2, tab, class__name(pos, cu));
 		if (global_verbose)
 			printf(": %u", n);
 		putchar('\n');
