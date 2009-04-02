@@ -589,7 +589,12 @@ static int ctf__load_objects(struct ctf *self)
 	GElf_Sym sym;
 	uint32_t idx;
 	ctf__for_each_symtab_object(self, idx, sym) {
-		if (variable__new(*objp, &sym, self) == NULL)
+		const uint16_t type = *objp;
+		/*
+		 * Discard void objects, probably was an object
+		 * we didn't found DWARF info for when encoding.
+		 */
+		if (type && variable__new(type, &sym, self) == NULL)
 			return -ENOMEM;
 		++objp;
 	}

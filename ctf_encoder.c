@@ -270,17 +270,19 @@ int cu__encode_ctf(struct cu *self)
 
 	cu__cache_symtab(self);
 
+	uint64_t addr;
 	GElf_Sym sym;
 	const char *sym_name;
 	cu__for_each_cached_symtab_entry(self, id, sym, sym_name) {
 		if (ctf__ignore_symtab_function(&sym, sym_name))
 			continue;
 
-		uint64_t addr = elf_sym__value(&sym);
+		addr = elf_sym__value(&sym);
 		int64_t position;
 		function = hashaddr__find_function(hash_addr, addr);
 		if (function == NULL) {
-			fprintf(stderr, "%4d: %-20s %#llx %5u NOT FOUND!\n",
+			fprintf(stderr,
+				"function %4d: %-20s %#llx %5u NOT FOUND!\n",
 				id, sym_name,
 				(unsigned long long)addr, elf_sym__size(&sym));
 			err = ctf__add_function(ctf, 0, 0, 0, &position);
@@ -294,14 +296,8 @@ int cu__encode_ctf(struct cu *self)
 					ftype->nr_parms,
 					ftype->unspec_parms, &position);
 
-		if (err != 0) {
-out_err_ctf:
-			fprintf(stderr,
-				"%4d: %-20s %#llx %5u failed encoding, "
-				"ABORTING!\n", id, sym_name,
-				(unsigned long long)addr, elf_sym__size(&sym));
-			goto out_delete;
-		}
+		if (err != 0)
+			goto out_err_ctf;
 
 		struct parameter *pos;
 		ftype__for_each_parameter(ftype, pos)
@@ -323,23 +319,23 @@ out_err_ctf:
 	cu__for_each_cached_symtab_entry(self, id, sym, sym_name) {
 		if (ctf__ignore_symtab_object(&sym, sym_name))
 			continue;
-		uint64_t addr = elf_sym__value(&sym);
+		addr = elf_sym__value(&sym);
 
 		var = hashaddr__find_variable(hash_addr, addr);
 		if (var == NULL) {
-			fprintf(stderr, "%4d: %-20s %#llx %5u NOT FOUND!\n",
+			fprintf(stderr,
+				"variable %4d: %-20s %#llx %5u NOT FOUND!\n",
 				id, sym_name, (unsigned long long)addr,
 				elf_sym__size(&sym));
+			err = ctf__add_object(ctf, 0);
+			if (err != 0)
+				goto out_err_ctf;
 			continue;
 		}
 
 		err = ctf__add_object(ctf, var->tag.type);
-		if (err != 0) {
-			fprintf(stderr, "%4d: %-20s %#llx %5u failed encoding, "
-				"aborting!\n", id, sym_name,
-				(unsigned long long)addr, elf_sym__size(&sym));
-			goto out_delete;
-		}
+		if (err != 0)
+			goto out_err_ctf;
 	}
 
 	ctf__encode(ctf, CTF_FLAGS_COMPR);
@@ -349,4 +345,10 @@ out_delete:
 	ctf__delete(ctf);
 out:
 	return err;
+out_err_ctf:
+	fprintf(stderr,
+		"%4d: %-20s %#llx %5u failed encoding, "
+		"ABORTING!\n", id, sym_name,
+		(unsigned long long)addr, elf_sym__size(&sym));
+	goto out_delete;
 }
