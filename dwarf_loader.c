@@ -1800,6 +1800,9 @@ static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
 			uint16_t type_bit_size;
 			size_t integral_bit_size;
 
+			if (tag__is_volatile(type))
+				type = cu__type(cu, type->type);
+
 			if (tag__is_enumeration(type)) {
 				type_bit_size = tag__type(type)->size;
 				integral_bit_size = sizeof(int) * 8; /* FIXME: always this size? */

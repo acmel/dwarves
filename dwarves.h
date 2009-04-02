@@ -319,6 +319,11 @@ static inline bool tag__is_variable(const struct tag *self)
 	return self->tag == DW_TAG_variable;
 }
 
+static inline bool tag__is_volatile(const struct tag *self)
+{
+	return self->tag == DW_TAG_volatile_type;
+}
+
 static inline bool tag__has_namespace(const struct tag *self)
 {
 	return tag__is_struct(self) ||
