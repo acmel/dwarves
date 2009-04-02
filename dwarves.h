@@ -102,7 +102,7 @@ struct ptr_table {
 struct tag;
 struct cu;
 
-struct cu_orig_info {
+struct debug_fmt_ops {
 	const char	   *(*tag__decl_file)(const struct tag *self,
 					      const struct cu *cu);
 	uint32_t	   (*tag__decl_line)(const struct tag *self,
@@ -125,7 +125,7 @@ struct cu {
 	char		 *name;
 	char		 *filename;
 	void 		 *priv;
-	struct cu_orig_info *orig_info;
+	struct debug_fmt_ops *dfops;
 	Elf		 *elf;
 	Dwfl_Module	 *dwfl;
 	uint32_t	 cached_symtab_nr_entries;
@@ -340,30 +340,30 @@ static inline int tag__is_tag_type(const struct tag *self)
 static inline const char *tag__decl_file(const struct tag *self,
 					 const struct cu *cu)
 {
-	return cu->orig_info ? cu->orig_info->tag__decl_file(self, cu) : NULL;
+	return cu->dfops ? cu->dfops->tag__decl_file(self, cu) : NULL;
 }
 
 static inline uint32_t tag__decl_line(const struct tag *self,
 				      const struct cu *cu)
 {
-	return cu->orig_info ? cu->orig_info->tag__decl_line(self, cu) : 0;
+	return cu->dfops ? cu->dfops->tag__decl_line(self, cu) : 0;
 }
 
 static inline unsigned long long tag__orig_id(const struct tag *self,
 					      const struct cu *cu)
 {
-	return cu->orig_info ? cu->orig_info->tag__orig_id(self, cu) : 0;
+	return cu->dfops ? cu->dfops->tag__orig_id(self, cu) : 0;
 }
 
 static inline unsigned long long tag__orig_type(const struct tag *self,
 						const struct cu *cu)
 {
-	return cu->orig_info ? cu->orig_info->tag__orig_type(self, cu) : 0;
+	return cu->dfops ? cu->dfops->tag__orig_type(self, cu) : 0;
 }
 
 static inline void tag__free_orig_info(struct tag *self, struct cu *cu)
 {
-	return cu->orig_info ? cu->orig_info->tag__free_orig_info(self, cu) : 0;
+	return cu->dfops ? cu->dfops->tag__free_orig_info(self, cu) : 0;
 }
 
 size_t tag__fprintf_decl_info(const struct tag *self,

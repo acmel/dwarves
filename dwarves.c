@@ -664,7 +664,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		if (ptr_table__add(&self->types_table, NULL) < 0)
 			goto out_free_name;
 
-		self->orig_info	= NULL;
+		self->dfops	= NULL;
 		INIT_LIST_HEAD(&self->tags);
 		INIT_LIST_HEAD(&self->tool_list);
 

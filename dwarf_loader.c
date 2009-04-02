@@ -1739,7 +1739,7 @@ static void dwarf_tag__free_orig_info(struct tag *self, struct cu *cu __unused)
 	self->priv = NULL;
 }
 
-static struct cu_orig_info dwarf_orig_info_ops = {
+static struct debug_fmt_ops dwarf_ops = {
 	.tag__decl_file	= dwarf_tag__decl_file,
 	.tag__decl_line	= dwarf_tag__decl_line,
 	.tag__orig_id	= dwarf_tag__orig_id,
@@ -1772,7 +1772,7 @@ static int die__process(Dwarf_Die *die, struct cu *cu)
 
 	dwarf_cu__init(&dcu);
 	cu->priv = &dcu;
-	cu->orig_info = &dwarf_orig_info_ops;
+	cu->dfops = &dwarf_ops;
 
 	if (dwarf_child(die, &child) == 0) {
 		int err = die__process_unit(&child, cu);
