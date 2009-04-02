@@ -567,12 +567,9 @@ static struct variable *variable__new(uint16_t type, GElf_Sym *sym,
 	struct variable *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
-		const char *name = elf_sym__name(sym, ctf->symtab);
-
 		self->location = LOCATION_GLOBAL;
 		self->addr = elf_sym__value(sym);
-		/* FIXME: should use the .strtab string */
-		self->name = strings__add(strings, name);
+		self->name = sym->st_name;
 		self->external = elf_sym__bind(sym) == STB_GLOBAL;
 		self->tag.tag = DW_TAG_variable;
 		self->tag.type = type;
@@ -700,6 +697,14 @@ static const char *ctf__function_name(struct function *self,
 	return ctf->symtab->symstrs->d_buf + self->name;
 }
 
+static const char *ctf__variable_name(const struct variable *self,
+				      const struct cu *cu)
+{
+	struct ctf *ctf = cu->priv;
+
+	return ctf->symtab->symstrs->d_buf + self->name;
+}
+
 static void ctf__cu_delete(struct cu *self)
 {
 	ctf__delete(self->priv);
@@ -708,6 +713,7 @@ static void ctf__cu_delete(struct cu *self)
 
 static struct debug_fmt_ops ctf__ops = {
 	.function__name = ctf__function_name,
+	.variable__name = ctf__variable_name,
 	.cu__delete	= ctf__cu_delete,
 };
 

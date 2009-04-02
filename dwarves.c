@@ -1124,6 +1124,13 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	return bf;
 }
 
+const char *variable__name(const struct variable *self, const struct cu *cu)
+{
+	if (cu->dfops && cu->dfops->variable__name)
+		return cu->dfops->variable__name(self, cu);
+	return s(self->name);
+}
+
 const char *variable__type_name(const struct variable *self,
 				const struct cu *cu,
 				char *bf, size_t len)
@@ -1977,7 +1984,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		n = fprintf(fp, "%s %s;",
 			    variable__type_name(vtag, cu, bf, sizeof(bf)),
-			    variable__name(vtag));
+			    variable__name(vtag, cu));
 		c += n;
 		printed += n;
 		break;
@@ -2500,7 +2507,7 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 				const struct conf_fprintf *conf, FILE *fp)
 {
 	const struct variable *var = tag__variable(tag);
-	const char *name = variable__name(var);
+	const char *name = variable__name(var, cu);
 	size_t printed = 0;
 
 	if (name != NULL) {

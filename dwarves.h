@@ -102,6 +102,7 @@ struct ptr_table {
 struct function;
 struct tag;
 struct cu;
+struct variable;
 
 /** struct debug_fmt_ops - specific to the underlying debug file format
  *
@@ -110,6 +111,7 @@ struct cu;
  *		     than the global strings table. CTF does this by storing
  * 		     GElf_Sym->st_name in function->name, and by using
  *		     function->name as an index into the .strtab ELF section.
+ * @variable__name - will be called by variable__name(), see @function_name
  * cu__delete - called at cu__delete(), to give a chance to formats such as
  *		CTF to keep the .strstab ELF section available till the cu is
  *		deleted. See @function__name
@@ -126,6 +128,8 @@ struct debug_fmt_ops {
 	void		   (*tag__free_orig_info)(struct tag *self,
 						  struct cu *cu);
 	const char	   *(*function__name)(struct function *self,
+					      const struct cu *cu);
+	const char	   *(*variable__name)(const struct variable *self,
 					      const struct cu *cu);
 	void		   (*cu__delete)(struct cu *self);
 };
@@ -504,10 +508,7 @@ static inline struct variable *tag__variable(const struct tag *self)
 	return (struct variable *)self;
 }
 
-static inline const char *variable__name(const struct variable *self)
-{
-	return strings__ptr(strings, self->name);
-}
+const char *variable__name(const struct variable *self, const struct cu *cu);
 
 const char *variable__type_name(const struct variable *self,
 				const struct cu *cu, char *bf, size_t len);
