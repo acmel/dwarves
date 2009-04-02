@@ -719,6 +719,8 @@ void cu__delete(struct cu *self)
 	ptr_table__exit(&self->tags_table);
 	ptr_table__exit(&self->types_table);
 	ptr_table__exit(&self->functions_table);
+	if (self->dfops && self->dfops->cu__delete)
+		self->dfops->cu__delete(self);
 	free(self->name);
 	free(self);
 }
@@ -1574,8 +1576,10 @@ void lexblock__add_lexblock(struct lexblock *self, struct lexblock *child)
 	list_add_tail(&child->tag.node, &self->tags);
 }
 
-const char *function__name(struct function *self, const struct cu *cu __unused)
+const char *function__name(struct function *self, const struct cu *cu)
 {
+	if (cu->dfops && cu->dfops->function__name)
+		return cu->dfops->function__name(self, cu);
 	return s(self->name);
 }
 

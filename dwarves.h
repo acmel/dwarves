@@ -99,9 +99,21 @@ struct ptr_table {
 	uint32_t allocated_entries;
 };
 
+struct function;
 struct tag;
 struct cu;
 
+/** struct debug_fmt_ops - specific to the underlying debug file format
+ *
+ * @function__name - will be called by function__name(), giving a chance to
+ *		     formats such as CTF to get this from some other place
+ *		     than the global strings table. CTF does this by storing
+ * 		     GElf_Sym->st_name in function->name, and by using
+ *		     function->name as an index into the .strtab ELF section.
+ * cu__delete - called at cu__delete(), to give a chance to formats such as
+ *		CTF to keep the .strstab ELF section available till the cu is
+ *		deleted. See @function__name
+ */
 struct debug_fmt_ops {
 	const char	   *(*tag__decl_file)(const struct tag *self,
 					      const struct cu *cu);
@@ -113,6 +125,9 @@ struct debug_fmt_ops {
 					     const struct cu *cu);
 	void		   (*tag__free_orig_info)(struct tag *self,
 						  struct cu *cu);
+	const char	   *(*function__name)(struct function *self,
+					      const struct cu *cu);
+	void		   (*cu__delete)(struct cu *self);
 };
 
 struct cu {

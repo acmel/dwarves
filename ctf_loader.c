@@ -86,12 +86,9 @@ static struct function *function__new(uint16_t **ptr, GElf_Sym *sym,
 	struct function *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
-		const char *name = elf_sym__name(sym, ctf->symtab);
-
 		self->lexblock.low_pc = elf_sym__value(sym);
 		self->lexblock.size = elf_sym__size(sym);
-		/* FIXME: should use the .strtab string */
-		self->name = strings__add(strings, name);
+		self->name = sym->st_name;
 		self->vtable_entry = -1;
 		self->external = elf_sym__bind(sym) == STB_GLOBAL;
 		INIT_LIST_HEAD(&self->vtable_node);
@@ -695,6 +692,25 @@ static int cu__fixup_ctf_bitfields(struct cu *self)
 	return err;
 }
 
+static const char *ctf__function_name(struct function *self,
+				      const struct cu *cu)
+{
+	struct ctf *ctf = cu->priv;
+
+	return ctf->symtab->symstrs->d_buf + self->name;
+}
+
+static void ctf__cu_delete(struct cu *self)
+{
+	ctf__delete(self->priv);
+	self->priv = NULL;
+}
+
+static struct debug_fmt_ops ctf__ops = {
+	.function__name = ctf__function_name,
+	.cu__delete	= ctf__cu_delete,
+};
+
 int ctf__load_file(struct cus *self, struct conf_load *conf,
 		   const char *filename)
 {
@@ -708,13 +724,13 @@ int ctf__load_file(struct cus *self, struct conf_load *conf,
 	if (cu == NULL)
 		return -1;
 
+	cu->dfops = &ctf__ops;
+	cu->priv = state;
 	state->priv = cu;
 	if (ctf__load(state) != 0)
 		return -1;
 
 	err = ctf__load_sections(state);
-
-	ctf__delete(state);
 
 	if (err != 0) {
 		cu__delete(cu);
