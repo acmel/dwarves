@@ -2140,7 +2140,7 @@ static size_t class__fprintf_cacheline_boundary(uint32_t last_cacheline,
 	return printed;
 }
 
-static size_t class__vtable_fprintf(struct class *self,
+static size_t class__vtable_fprintf(struct class *self, const struct cu *cu,
 				    const struct conf_fprintf *conf, FILE *fp)
 {
 	struct function *pos;
@@ -2155,7 +2155,7 @@ static size_t class__vtable_fprintf(struct class *self,
 	list_for_each_entry(pos, &self->vtable, vtable_node) {
 		printed += fprintf(fp, "%.*s   [%d] = %s(%s), \n",
 				   conf->indent, tabs, pos->vtable_entry,
-				   s(pos->name),
+				   function__name(pos, cu),
 				   s(pos->linkage_name));
 	}
 
@@ -2436,7 +2436,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 							     &newline,
 							     &last_cacheline,
 							     cconf.indent, fp);
-	class__vtable_fprintf(self, &cconf, fp);
+	class__vtable_fprintf(self, cu, &cconf, fp);
 	if (!cconf.emit_stats)
 		goto out;
 
