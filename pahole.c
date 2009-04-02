@@ -64,17 +64,21 @@ static struct conf_load conf_load;
 
 struct structure {
 	struct list_head  node;
-	strings_t 	  name;
+	const char 	  *name;
 	uint32_t	  nr_files;
 	uint32_t	  nr_methods;
 };
 
-static struct structure *structure__new(strings_t name)
+static struct structure *structure__new(const char *name)
 {
 	struct structure *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->name	 = name;
+		self->name = strdup(name);
+		if (self->name == NULL) {
+			free(self);
+			return NULL;
+		}
 		self->nr_files   = 1;
 		self->nr_methods = 0;
 	}
@@ -92,26 +96,25 @@ static LIST_HEAD(structures__list);
 
 static int structure__compare(const void *a, const void *b)
 {
-	const strings_t *key = a;
+	const char *key = a;
 	const struct structure *pos = b;
-
-	return strings__cmp(strings, *key, pos->name);
+	return strcmp(key, pos->name);
 }
 
 static struct structure *structures__add(struct class *class)
 {
 	struct structure *str;
-	strings_t *s = tsearch(&class->type.namespace.name, &structures__tree,
-			       structure__compare);
-
+	const char *name = class__name(class);
+	struct structure *s = tsearch(name, &structures__tree,
+				      structure__compare);
 	if (s == NULL)
 		return NULL;
 
 	/* Should not be there since we already did a structures__find before
 	 * calling structures__add_named */
-	assert(*s != class->type.namespace.name);
+	assert(s->name == NULL || strcmp(s->name, name) != 0);
 
-	str = structure__new(class->type.namespace.name);
+	str = structure__new(name);
 	if (str == NULL)
 		return NULL;
 
@@ -123,12 +126,13 @@ static struct structure *structures__add(struct class *class)
 	return str;
 }
 
-static struct structure *structures__find(strings_t name)
+static struct structure *structures__find(const char *name)
 {
 	struct structure *s = NULL;
 
 	if (name) {
-		struct structure **key = tfind(&name, &structures__tree, structure__compare);
+		struct structure **key = tfind(name, &structures__tree,
+					       structure__compare);
 
 		if (key != NULL)
 			s = *key;
@@ -149,8 +153,7 @@ void structures__delete(void)
 
 static void nr_definitions_formatter(struct structure *self)
 {
-	printf("%s%c%u\n", strings__ptr(strings, self->name), separator,
-	       self->nr_files);
+	printf("%s%c%u\n", self->name, separator, self->nr_files);
 }
 
 static void nr_members_formatter(struct class *self,
@@ -162,8 +165,7 @@ static void nr_members_formatter(struct class *self,
 
 static void nr_methods_formatter(struct structure *self)
 {
-	printf("%s%c%u\n", strings__ptr(strings, self->name), separator,
-	       self->nr_methods);
+	printf("%s%c%u\n", self->name, separator, self->nr_methods);
 }
 
 static void size_formatter(struct class *self,
@@ -339,13 +341,11 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	struct tag *tag = class__tag(class);
 	struct structure *str;
 	const char *name;
-	strings_t stname;
 
 	if (!tag->top_level && !show_private_classes)
 		return NULL;
 
 	name = class__name(class);
-	stname = class->type.namespace.name;
 
 	if (class__is_declaration(class))
 		return NULL;
@@ -361,7 +361,6 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 				struct class *c = tag__class(tdef);
 
 				name = class__name(c);
-				stname = c->type.namespace.name;
 			}
 		}
 		if (name != NULL && strncmp(class__exclude_prefix, name,
@@ -377,7 +376,6 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 				struct class *c = tag__class(tdef);
 
 				name = class__name(c);
-				stname = c->type.namespace.name;
 			}
 		}
 		if (name != NULL && strncmp(class__include_prefix, name,
@@ -397,7 +395,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	    (hole_size_ge != 0 && !class__has_hole_ge(class, hole_size_ge)))
 		return NULL;
 
-	str = structures__find(stname);
+	str = structures__find(name);
 	if (str != NULL) {
 		str->nr_files++;
 		return NULL;
@@ -408,8 +406,6 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 
 	return class;
 }
-
-static strings_t long_int_str_t, long_unsigned_int_str_t;
 
 static void union__find_new_size(struct tag *tag, struct cu *cu);
 
@@ -459,9 +455,11 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		switch (type->tag) {
 		case DW_TAG_base_type: {
 			struct base_type *bt = tag__base_type(type);
+			char bf[64];
+			const char *name = base_type__name(bt, bf, sizeof(bf));
 
-			if (bt->name != long_int_str_t &&
-			    bt->name != long_unsigned_int_str_t)
+			if (strcmp(name, "long int") != 0 &&
+			    strcmp(name, "long unsigned int") != 0)
 				break;
 			/* fallthru */
 		}
@@ -564,9 +562,11 @@ static void tag__fixup_word_size(struct tag *tag, struct cu *cu)
 		 */
 		if (!bt->name)
 			return;
+		char bf[64];
+		const char *name = base_type__name(bt, bf, sizeof(bf));
 
-		if (bt->name == long_int_str_t ||
-		    bt->name == long_unsigned_int_str_t)
+		if (strcmp(name, "long int") == 0 ||
+		    strcmp(name, "long unsigned int") == 0)
 			bt->bit_size = word_size * 8;
 	}
 		break;
@@ -614,7 +614,7 @@ static void cu__account_nr_methods(struct cu *self)
 			if (ctype->namespace.name == 0)
 				continue;
 
-			str = structures__find(ctype->namespace.name);
+			str = structures__find(type__name(ctype));
 			if (str == NULL) {
 				struct class *class = tag__class(type);
 				class__find_holes(class);
@@ -654,7 +654,7 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint16_t type)
 			if (ctype->tag != DW_TAG_pointer_type || ctype->type != type)
 				continue;
 
-			if (structures__find(pos->type.namespace.name))
+			if (structures__find(class__name(pos)))
 				break;
 
 			if (structures__add(pos) == NULL) {
@@ -683,7 +683,7 @@ static void print_containers(const struct cu *cu, uint16_t type, int ident)
 			continue;
 
 		if (ident == 0) {
-			if (structures__find(pos->type.namespace.name))
+			if (structures__find(class__name(pos)))
 				continue;
 
 			if (structures__add(pos) == NULL) {
@@ -1003,22 +1003,15 @@ static struct argp pahole__argp = {
 	.args_doc = pahole__args_doc,
 };
 
-static strings_t class_sname;
 static struct tag *class;
 static uint16_t class_id;
 
 static enum load_steal_kind class_stealer(struct cu *cu)
 {
-	if (class_sname == 0) {
-		class_sname = strings__find(strings, class_name);
-		if (class_sname == 0)
-			return LSK__STOLEN;
-	}
-
 	int include_decls = find_pointers_in_structs != 0 ||
 			    stats_formatter == nr_methods_formatter;
-	class = cu__find_struct_by_sname(cu, class_sname,
-					 include_decls, &class_id);
+	class = cu__find_struct_by_name(cu, class_name,
+					include_decls, &class_id);
 	if (class == NULL)
 		return LSK__STOLEN;
 
@@ -1043,10 +1036,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 	}
 
 	if (defined_in) {
-		if (class_sname == 0)
-			class_sname = strings__find(strings, class_name);
-
-		if (cu__find_struct_by_sname(cu, class_sname, 0, NULL))
+		if (cu__find_struct_by_name(cu, class_name, 0, NULL))
 			puts(cu->name);
 
 		goto dump_it;
@@ -1060,21 +1050,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto dump_it;
 	}
 
-	if (word_size != 0) {
-		if (long_int_str_t == 0 || long_unsigned_int_str_t == 0) {
-			long_int_str_t = strings__find(strings, "long int"),
-			long_unsigned_int_str_t =
-					 strings__find(strings, "long unsigned int");
-
-			if (long_int_str_t == 0 || long_unsigned_int_str_t == 0) {
-				fputs("pahole: couldn't find one of \"long int\" or "
-				      "\"long unsigned int\" types", stderr);
-				exit(EXIT_FAILURE);
-			}
-		}
-
+	if (word_size != 0)
 		cu_fixup_word_size_iterator(cu);
-	}
 
 	memset(tab, ' ', sizeof(tab) - 1);
 
