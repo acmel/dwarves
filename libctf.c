@@ -232,6 +232,9 @@ void ctf__delete(struct ctf *self)
 			elf_end(self->elf);
 			close(self->in_fd);
 		}
+		__gobuffer__delete(&self->objects);
+		__gobuffer__delete(&self->types);
+		__gobuffer__delete(&self->funcs);
 		free(self->filename);
 		free(self->buf);
 		free(self);
