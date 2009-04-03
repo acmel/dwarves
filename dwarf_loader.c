@@ -566,7 +566,7 @@ int tag__recode_dwarf_bitfield(struct tag *self, struct cu *cu, uint16_t bit_siz
 	}
 
 	long new_id = -1;
-	if (cu__table_add_tag(cu, recoded, &new_id) == 0)
+	if (cu__add_tag(cu, recoded, &new_id) == 0)
 		return new_id;
 
 	free(recoded);
