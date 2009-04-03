@@ -63,5 +63,8 @@ out_delete:
 
 void elf_symtab__delete(struct elf_symtab *self)
 {
+	if (self == NULL)
+		return;
+	free(self->name);
 	free(self);
 }
