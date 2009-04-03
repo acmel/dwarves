@@ -107,6 +107,8 @@ void strlist__delete(struct strlist *self)
 
 int strlist__has_entry(const struct strlist *self, const char *entry)
 {
+	if (self == NULL)
+		return false;
 	return tfind(entry, &self->entries, str_compare) != NULL;
 }
 
