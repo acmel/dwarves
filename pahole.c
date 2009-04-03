@@ -22,8 +22,6 @@
 #include "dutil.h"
 #include "ctf_encoder.h"
 
-#include "alloc_detective.c"
-
 static bool ctf_encode;
 
 static uint8_t class__include_anonymous;
