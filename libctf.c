@@ -552,7 +552,7 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 {
 	struct ctf_header *hdr;
 	unsigned int size;
-	void *bf;
+	void *bf = NULL;
 	int err = -1;
 
 	/* Empty file, nothing to do, so... done! */
@@ -757,6 +757,8 @@ out_update:
 	elf_end(elf);
 	err = 0;
 out_close:
+	if (bf != self->buf)
+		free(bf);
 	close(fd);
 	return err;
 }
