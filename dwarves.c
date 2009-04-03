@@ -2717,10 +2717,13 @@ static int list__for_all_tags(struct list_head *self, struct cu *cu,
 		if (tag__has_namespace(pos)) {
 			struct namespace *space = tag__namespace(pos);
 
-			/* See comment in type__for_each_enumerator */
-			if (space->shared_tags)
-				continue;
-			if (list__for_all_tags(&space->tags, cu,
+			/*
+			 * See comment in type__for_each_enumerator, the
+			 * enumerators (enum entries) are shared, but the
+			 * enumeration tag must be deleted.
+			 */
+			if (!space->shared_tags &&
+			    list__for_all_tags(&space->tags, cu,
 					       iterator, cookie))
 				return 1;
 			/*
