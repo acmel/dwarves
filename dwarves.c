@@ -850,7 +850,7 @@ struct tag *cu__find_base_type_by_name(const struct cu *self,
 		const struct base_type *bt = tag__base_type(pos);
 		char bf[64];
 		const char *bname = base_type__name(bt, self, bf, sizeof(bf));
-		if (strcmp(bname, name) != 0)
+		if (bname && strcmp(bname, name) != 0)
 			continue;
 
 		if (idp != NULL)
@@ -963,7 +963,8 @@ struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
 			continue;
 
 		type = tag__type(pos);
-		if (strcmp(type__name(type, self), name) == 0) {
+		const char *tname = type__name(type, self);
+		if (tname && strcmp(tname, name) == 0) {
 			if (!type->declaration)
 				goto found;
 
@@ -1017,9 +1018,11 @@ struct tag *cu__find_function_by_name(const struct cu *self, const char *name)
 
 	uint32_t id;
 	struct function *pos;
-	cu__for_each_function(self, id, pos)
-		if (strcmp(function__name(pos, self), name) == 0)
+	cu__for_each_function(self, id, pos) {
+		const char *fname = function__name(pos, self);
+		if (fname && strcmp(fname, name) == 0)
 			return function__tag(pos);
+	}
 
 	return NULL;
 }
