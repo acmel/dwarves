@@ -64,7 +64,7 @@ static struct conf_load conf_load;
 
 struct structure {
 	struct list_head  node;
-	const char 	  *name;
+	char		  *name;
 	uint32_t	  nr_files;
 	uint32_t	  nr_methods;
 };
@@ -88,6 +88,7 @@ static struct structure *structure__new(const char *name)
 
 static void structure__delete(struct structure *self)
 {
+	free(self->name);
 	free(self);
 }
 
