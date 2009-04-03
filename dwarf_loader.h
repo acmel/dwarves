@@ -13,5 +13,7 @@ struct conf_load;
 
 int dwarf__load_file(struct cus *self, struct conf_load *conf,
 		     const char *filename);
+int dwarf__init(void);
+void dwarf__exit(void);
 
 #endif /* _DWARF_LOADER_H_ */

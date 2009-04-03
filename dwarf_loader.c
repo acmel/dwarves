@@ -2011,13 +2011,6 @@ int dwarf__load_file(struct cus *self, struct conf_load *conf,
 {
 	int fd, err;
 
-	if (strings == NULL) {
-		strings = strings__new();
-
-		if (strings == NULL)
-			return -ENOMEM;
-	}
-
 	elf_version(EV_CURRENT);
 
 	fd = open(filename, O_RDONLY);
@@ -2029,4 +2022,16 @@ int dwarf__load_file(struct cus *self, struct conf_load *conf,
 	close(fd);
 
 	return err;
+}
+
+int dwarf__init(void)
+{
+	strings = strings__new();
+	return strings != NULL ? 0 : -ENOMEM;
+}
+
+void dwarf__exit(void)
+{
+	strings__delete(strings);
+	strings = NULL;
 }

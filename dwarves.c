@@ -2831,14 +2831,20 @@ out:
 typedef int (*debugging_format_loader_t)(struct cus *self,
 					 struct conf_load *conf,
 					 const char *filename);
+typedef int (*debugging_format_init_t)(void);
+typedef void (*debugging_format_exit_t)(void);
 
 static struct debugging_formats {
 	char			  *name;
 	debugging_format_loader_t loader;
+	debugging_format_init_t	  init;
+	debugging_format_exit_t	  exit;
 } debugging_formats__table[] = {
 	{
 		.name	= "dwarf",
 		.loader = dwarf__load_file,
+		.init	= dwarf__init,
+		.exit	= dwarf__exit,
 	},
 	{
 		.name	= "ctf",
@@ -2966,11 +2972,35 @@ int dwarves__init(uint16_t user_cacheline_size)
 	} else
 		cacheline_size = user_cacheline_size;
 
+	int i = 0;
+	int err = 0;
+
+	while (debugging_formats__table[i].name != NULL) {
+		if (debugging_formats__table[i].init) {
+			err = debugging_formats__table[i].init();
+			if (err)
+				goto out_fail;
+		}
+		++i;
+	}
+
 	return 0;
+out_fail:
+	while (i-- != 0)
+		if (debugging_formats__table[i].exit)
+			debugging_formats__table[i].exit();
+	return err;
 }
 
 void dwarves__exit(void)
 {
+	int i = 0;
+
+	while (debugging_formats__table[i].name != NULL) {
+		if (debugging_formats__table[i].exit)
+			debugging_formats__table[i].exit();
+		++i;
+	}
 }
 
 struct argp_state;
