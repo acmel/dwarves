@@ -8,17 +8,24 @@
 */
 
 #include <argp.h>
+#include <elf.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <gelf.h>
 #include <limits.h>
 #include <search.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "dwarves_reorganize.h"
 #include "dwarves_emit.h"
 #include "dwarves.h"
 #include "dutil.h"
+#include "elf_symtab.h"
 
 /*
  * target class name
@@ -58,6 +65,13 @@ static FILE *fp_collector;
 static FILE *fp_classes;
 
 /*
+ * blacklist __init marked functions, i.e. functions that are
+ * in the ".init.text" ELF section and are thus discarded after
+ * boot.
+ */
+static struct strlist *init_blacklist;
+
+/*
  * List of definitions and forward declarations already emitted for
  * methods_cus, to avoid duplication.
  */
@@ -73,8 +87,7 @@ static struct strlist *cu_blacklist;
 
 static struct cu *cu_filter(struct cu *cu)
 {
-	if (cu_blacklist != NULL &&
-	    strlist__has_entry(cu_blacklist, cu->name))
+	if (strlist__has_entry(cu_blacklist, cu->name))
 		return NULL;
 	return cu;
 }
@@ -186,8 +199,10 @@ static struct function *function__filter(struct function *function,
 	if (function__inlined(function) ||
 	    function->abstract_origin != 0 ||
 	    !list_empty(&function->tool_node) ||
-	    !ftype__has_parm_of_type(&function->proto, target_type_id, cu))
+	    !ftype__has_parm_of_type(&function->proto, target_type_id, cu) ||
+	    strlist__has_entry(init_blacklist, function__name(function, cu))) {
 		return NULL;
+	}
 
 	return function;
 }
@@ -815,6 +830,75 @@ static int cu_emit_functions_table(struct cu *cu, void *fp)
        return 0;
 }
 
+static int elf__open(const char *filename)
+{
+	int fd = open(filename, O_RDONLY);
+
+	if (fd < 0)
+		return -1;
+
+	int err = -1;
+
+	if (elf_version(EV_CURRENT) == EV_NONE) {
+		fprintf(stderr, "%s: cannot set libelf version.\n", __func__);
+		goto out_close;
+	}
+
+	Elf *elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL) {
+		fprintf(stderr, "%s: cannot read %s ELF file.\n",
+			__func__, filename);
+		goto out_close;
+	}
+
+	GElf_Ehdr ehdr;
+	if (gelf_getehdr(elf, &ehdr) == NULL) {
+		fprintf(stderr, "%s: cannot get elf header.\n", __func__);
+		goto out_elf_end;
+	}
+
+	GElf_Shdr shdr;
+	size_t init_index;
+	Elf_Scn *init = elf_section_by_name(elf, &ehdr, &shdr, ".init.text",
+					    &init_index);
+	if (init == NULL)
+		goto out_elf_end;
+
+	struct elf_symtab *symtab = elf_symtab__new(".symtab", elf, &ehdr);
+	if (symtab == NULL)
+		goto out_elf_end;
+
+	init_blacklist = strlist__new(true);
+	if (init_blacklist == NULL)
+		goto out_elf_symtab_delete;
+
+	uint32_t index;
+	GElf_Sym sym;
+	elf_symtab__for_each_symbol(symtab, index, sym) {
+		if (!elf_sym__is_local_function(&sym))
+			continue;
+		if (elf_sym__section(&sym) != init_index)
+			continue;
+		err = strlist__add(init_blacklist, elf_sym__name(&sym, symtab));
+		if (err == -ENOMEM) {
+			fprintf(stderr, "failed for %s(%d,%zd)\n", elf_sym__name(&sym, symtab),elf_sym__section(&sym),init_index);
+			goto out_delete_blacklist;
+		}
+	}
+
+	err = 0;
+out_elf_symtab_delete:
+	elf_symtab__delete(symtab);
+out_elf_end:
+	elf_end(elf);
+out_close:
+	close(fd);
+	return err;
+out_delete_blacklist:
+	strlist__delete(init_blacklist);
+	goto out_elf_symtab_delete;
+}
+
 /* Name and version of program.  */
 ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
@@ -943,6 +1027,11 @@ failure:
          * If a filename was specified, for instance "vmlinux", load it too.
          */
 	if (filename != NULL) {
+		if (elf__open(filename)) {
+			fprintf(stderr, "ctracer: couldn't load ELF symtab "
+					"info from %s\n", filename);
+			goto out;
+		}
 		err = cus__load_file(methods_cus, NULL, filename);
 		if (err != 0) {
 			cus__print_error_msg("ctracer", methods_cus, filename, err);
