@@ -40,6 +40,11 @@ static inline uint8_t elf_sym__type(const GElf_Sym *sym)
 	return GELF_ST_TYPE(sym->st_info);
 }
 
+static inline uint16_t elf_sym__section(const GElf_Sym *sym)
+{
+	return sym->st_shndx;
+}
+
 static inline uint8_t elf_sym__bind(const GElf_Sym *sym)
 {
 	return GELF_ST_BIND(sym->st_info);
