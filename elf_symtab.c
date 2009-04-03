@@ -23,7 +23,7 @@ struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr)
 		name = ".symtab";
 
 	GElf_Shdr shdr;
-	Elf_Scn *sec = elf_section_by_name(elf, ehdr, &shdr, name);
+	Elf_Scn *sec = elf_section_by_name(elf, ehdr, &shdr, name, NULL);
 
 	if (sec == NULL)
 		return NULL;

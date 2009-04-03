@@ -113,17 +113,22 @@ int strlist__has_entry(const struct strlist *self, const char *entry)
 }
 
 Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
-			     GElf_Shdr *shp, const char *name)
+			     GElf_Shdr *shp, const char *name, size_t *index)
 {
 	Elf_Scn *sec = NULL;
+	size_t cnt = 1;
 
 	while ((sec = elf_nextscn(elf, sec)) != NULL) {
 		char *str;
 
 		gelf_getshdr(sec, shp);
 		str = elf_strptr(elf, ep->e_shstrndx, shp->sh_name);
-		if (!strcmp(name, str))
+		if (!strcmp(name, str)) {
+			if (index)
+				*index = cnt;
 			break;
+		}
+		++cnt;
 	}
 
 	return sec;

@@ -58,6 +58,6 @@ int strlist__has_entry(const struct strlist *self, const char *entry);
 void *zalloc(const size_t size);
 
 Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
-			     GElf_Shdr *shp, const char *name);
+			     GElf_Shdr *shp, const char *name, size_t *index);
 
 #endif /* _DUTIL_H_ */
