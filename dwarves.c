@@ -775,6 +775,7 @@ void cu__delete(struct cu *self)
 	ptr_table__exit(&self->functions_table);
 	if (self->dfops && self->dfops->cu__delete)
 		self->dfops->cu__delete(self);
+	free(self->filename);
 	free(self->name);
 	free(self);
 }
