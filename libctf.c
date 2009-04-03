@@ -235,6 +235,7 @@ void ctf__delete(struct ctf *self)
 		__gobuffer__delete(&self->objects);
 		__gobuffer__delete(&self->types);
 		__gobuffer__delete(&self->funcs);
+		elf_symtab__delete(self->symtab);
 		free(self->filename);
 		free(self->buf);
 		free(self);
