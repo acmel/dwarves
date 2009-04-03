@@ -10,6 +10,7 @@
 #include "dutil.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <search.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,12 +41,12 @@ int strlist__add(struct strlist *self, const char *str)
 				*s = dup;
 			else {
 				tdelete(str, &self->entries, str_compare);
-				return -1;
+				return -ENOMEM;
 			}
 		} else
-			return -1;
+			return -EEXIST;
 	} else
-		return -1;
+		return -ENOMEM;
 
 	return 0;
 }
