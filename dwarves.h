@@ -115,6 +115,12 @@ struct variable;
  *		deleted. See @function__name
  */
 struct debug_fmt_ops {
+	const char	   *name;
+	int		   (*init)(void);
+	void		   (*exit)(void);
+	int		   (*load_file)(struct cus *self,
+				       struct conf_load *conf,
+				       const char *filename);
 	const char	   *(*tag__decl_file)(const struct tag *self,
 					      const struct cu *cu);
 	uint32_t	   (*tag__decl_line)(const struct tag *self,

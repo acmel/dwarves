@@ -235,7 +235,7 @@ static Dwarf_Off attr_type(Dwarf_Die *die, uint32_t attr_name)
 	if (dwarf_attr(die, attr_name, &attr) != NULL) {
 		 Dwarf_Die type_die;
 		 if (dwarf_formref_die(&attr, &type_die) != NULL)
-		 	return dwarf_dieoffset(&type_die);
+			return dwarf_dieoffset(&type_die);
 
 	}
 	return 0;
@@ -1753,15 +1753,6 @@ static const char *dwarf__strings_ptr(const struct cu *cu __unused,
 	return strings__ptr(strings, s);
 }
 
-static struct debug_fmt_ops dwarf_ops = {
-	.strings__ptr	= dwarf__strings_ptr,
-	.tag__decl_file	= dwarf_tag__decl_file,
-	.tag__decl_line	= dwarf_tag__decl_line,
-	.tag__orig_id	= dwarf_tag__orig_id,
-	.tag__orig_type	= dwarf_tag__orig_type,
-	.tag__free_orig_info = dwarf_tag__free_orig_info,
-};
-
 static int tag__delete_priv(struct tag *self, struct cu *cu __unused,
 			    void *cookie __unused)
 {
@@ -1769,6 +1760,8 @@ static int tag__delete_priv(struct tag *self, struct cu *cu __unused,
 	self->priv = NULL;
 	return 0;
 }
+
+struct debug_fmt_ops dwarf__ops;
 
 static int die__process(Dwarf_Die *die, struct cu *cu)
 {
@@ -1787,7 +1780,7 @@ static int die__process(Dwarf_Die *die, struct cu *cu)
 
 	dwarf_cu__init(&dcu);
 	cu->priv = &dcu;
-	cu->dfops = &dwarf_ops;
+	cu->dfops = &dwarf__ops;
 
 	if (dwarf_child(die, &child) == 0) {
 		int err = die__process_unit(&child, cu);
@@ -2006,8 +1999,8 @@ static int cus__process_file(struct cus *self, struct conf_load *conf, int fd,
 	return parms.nr_dwarf_sections_found ? 0 : -1;
 }
 
-int dwarf__load_file(struct cus *self, struct conf_load *conf,
-		     const char *filename)
+static int dwarf__load_file(struct cus *self, struct conf_load *conf,
+			    const char *filename)
 {
 	int fd, err;
 
@@ -2024,14 +2017,27 @@ int dwarf__load_file(struct cus *self, struct conf_load *conf,
 	return err;
 }
 
-int dwarf__init(void)
+static int dwarf__init(void)
 {
 	strings = strings__new();
 	return strings != NULL ? 0 : -ENOMEM;
 }
 
-void dwarf__exit(void)
+static void dwarf__exit(void)
 {
 	strings__delete(strings);
 	strings = NULL;
 }
+
+struct debug_fmt_ops dwarf__ops = {
+	.name		     = "dwarf",
+	.init		     = dwarf__init,
+	.exit		     = dwarf__exit,
+	.load_file	     = dwarf__load_file,
+	.strings__ptr	     = dwarf__strings_ptr,
+	.tag__decl_file	     = dwarf_tag__decl_file,
+	.tag__decl_line	     = dwarf_tag__decl_line,
+	.tag__orig_id	     = dwarf_tag__orig_id,
+	.tag__orig_type	     = dwarf_tag__orig_type,
+	.tag__free_orig_info = dwarf_tag__free_orig_info,
+};

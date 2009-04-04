@@ -23,8 +23,6 @@
 #include <unistd.h>
 
 #include "config.h"
-#include "ctf_loader.h"
-#include "dwarf_loader.h"
 #include "list.h"
 #include "dwarves.h"
 #include "dutil.h"
@@ -2834,48 +2832,29 @@ out:
 /*
  * This should really do demand loading of DSOs, STABS anyone? 8-)
  */
-typedef int (*debugging_format_loader_t)(struct cus *self,
-					 struct conf_load *conf,
-					 const char *filename);
-typedef int (*debugging_format_init_t)(void);
-typedef void (*debugging_format_exit_t)(void);
+extern struct debug_fmt_ops dwarf__ops, ctf__ops;
 
-static struct debugging_formats {
-	char			  *name;
-	debugging_format_loader_t loader;
-	debugging_format_init_t	  init;
-	debugging_format_exit_t	  exit;
-} debugging_formats__table[] = {
-	{
-		.name	= "dwarf",
-		.loader = dwarf__load_file,
-		.init	= dwarf__init,
-		.exit	= dwarf__exit,
-	},
-	{
-		.name	= "ctf",
-		.loader = ctf__load_file,
-	},
-	{
-		.name	= NULL,
-	},
+static struct debug_fmt_ops *debug_fmt_table[] = {
+	&dwarf__ops,
+	&ctf__ops,
+	NULL,
 };
 
-static debugging_format_loader_t debugging_formats__loader(const char *name)
+static int debugging_formats__loader(const char *name)
 {
 	int i = 0;
-	while (debugging_formats__table[i].name != NULL) {
-		if (strcmp(debugging_formats__table[i].name, name) == 0)
-			return debugging_formats__table[i].loader;
+	while (debug_fmt_table[i] != NULL) {
+		if (strcmp(debug_fmt_table[i]->name, name) == 0)
+			return i;
 		++i;
 	}
-	return NULL;
+	return -1;
 }
 
 int cus__load_file(struct cus *self, struct conf_load *conf, char *filename)
 {
 	int i = 0, err = 0;
-	debugging_format_loader_t loader;
+	int loader;
 
 	if (conf && conf->format_path != NULL) {
 		char *fpath = strdup(conf->format_path);
@@ -2890,11 +2869,12 @@ int cus__load_file(struct cus *self, struct conf_load *conf, char *filename)
 
 			err = -ENOTSUP;
 			loader = debugging_formats__loader(fp);
-			if (loader == NULL)
+			if (loader == -1)
 				break;
 
 			err = 0;
-			if (loader(self, conf, filename) == 0)
+			if (debug_fmt_table[i]->load_file(self, conf,
+							  filename) == 0)
 				break;
 
 			err = -EINVAL;
@@ -2907,9 +2887,8 @@ int cus__load_file(struct cus *self, struct conf_load *conf, char *filename)
 		return err;
 	}
 
-	while (debugging_formats__table[i].name != NULL) {
-		loader = debugging_formats__table[i].loader;
-		if (loader(self, conf, filename) == 0)
+	while (debug_fmt_table[i] != NULL) {
+		if (debug_fmt_table[i]->load_file(self, conf, filename) == 0)
 			return 0;
 		++i;
 	}
@@ -2981,9 +2960,9 @@ int dwarves__init(uint16_t user_cacheline_size)
 	int i = 0;
 	int err = 0;
 
-	while (debugging_formats__table[i].name != NULL) {
-		if (debugging_formats__table[i].init) {
-			err = debugging_formats__table[i].init();
+	while (debug_fmt_table[i] != NULL) {
+		if (debug_fmt_table[i]->init) {
+			err = debug_fmt_table[i]->init();
 			if (err)
 				goto out_fail;
 		}
@@ -2993,8 +2972,8 @@ int dwarves__init(uint16_t user_cacheline_size)
 	return 0;
 out_fail:
 	while (i-- != 0)
-		if (debugging_formats__table[i].exit)
-			debugging_formats__table[i].exit();
+		if (debug_fmt_table[i]->exit)
+			debug_fmt_table[i]->exit();
 	return err;
 }
 
@@ -3002,9 +2981,9 @@ void dwarves__exit(void)
 {
 	int i = 0;
 
-	while (debugging_formats__table[i].name != NULL) {
-		if (debugging_formats__table[i].exit)
-			debugging_formats__table[i].exit();
+	while (debug_fmt_table[i] != NULL) {
+		if (debug_fmt_table[i]->exit)
+			debug_fmt_table[i]->exit();
 		++i;
 	}
 }

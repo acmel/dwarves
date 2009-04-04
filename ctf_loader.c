@@ -707,12 +707,7 @@ static const char *ctf__strings_ptr(const struct cu *self, strings_t s)
 	return ctf__string(self->priv, s);
 }
 
-static struct debug_fmt_ops ctf__ops = {
-	.function__name = ctf__function_name,
-	.variable__name = ctf__variable_name,
-	.strings__ptr	= ctf__strings_ptr,
-	.cu__delete	= ctf__cu_delete,
-};
+struct debug_fmt_ops ctf__ops;
 
 int ctf__load_file(struct cus *self, struct conf_load *conf,
 		   const char *filename)
@@ -752,3 +747,12 @@ int ctf__load_file(struct cus *self, struct conf_load *conf,
 	cus__add(self, cu);
 	return err;
 }
+
+struct debug_fmt_ops ctf__ops = {
+	.name		= "ctf",
+	.function__name = ctf__function_name,
+	.load_file	= ctf__load_file,
+	.variable__name = ctf__variable_name,
+	.strings__ptr	= ctf__strings_ptr,
+	.cu__delete	= ctf__cu_delete,
+};
