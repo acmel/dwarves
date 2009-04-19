@@ -39,7 +39,10 @@ struct dwarf_tag {
 	struct hlist_node hash_node;
 	Dwarf_Off	 type;
 	Dwarf_Off	 id;
-	Dwarf_Off	 abstract_origin;
+	union {
+		Dwarf_Off abstract_origin;
+		Dwarf_Off containing_type;
+	};
 	struct tag	 *tag;
 	strings_t        decl_file;
 	uint16_t         decl_line;
@@ -321,7 +324,8 @@ static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die)
 
 	if (self != NULL) {
 		tag__init(&self->tag, die);
-		self->containing_type = attr_type(die, DW_AT_containing_type);
+		struct dwarf_tag *dself = self->tag.priv;
+		dself->containing_type = attr_type(die, DW_AT_containing_type);
 	}
 
 	return self;
@@ -1640,7 +1644,7 @@ static int tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 	case DW_TAG_ptr_to_member_type: {
 		struct ptr_to_member_type *pt = tag__ptr_to_member_type(self);
 
-		dtype = dwarf_cu__find_type_by_id(cu->priv, pt->containing_type);
+		dtype = dwarf_cu__find_type_by_id(cu->priv, dtag->containing_type);
 		if (dtype != NULL)
 			pt->containing_type = dtype->small_id;
 		else {
@@ -1649,7 +1653,7 @@ static int tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 				"containing_type %#llx, containing_type=%#llx\n",
 				__func__,
 				(unsigned long long)dtag->id,
-				(unsigned long long)pt->containing_type);
+				(unsigned long long)dtag->containing_type);
 		}
 	}
 		break;

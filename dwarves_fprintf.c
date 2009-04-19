@@ -380,7 +380,7 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		return tag__ptr_name(self, cu, bf, len, "&");
 	case DW_TAG_ptr_to_member_type: {
 		char suffix[512];
-		Dwarf_Off id = tag__ptr_to_member_type(self)->containing_type;
+		uint16_t id = tag__ptr_to_member_type(self)->containing_type;
 
 		type = cu__type(cu, id);
 		if (type != NULL)

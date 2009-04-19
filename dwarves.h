@@ -426,7 +426,7 @@ size_t __tag__id_not_found_fprintf(FILE *fp, uint16_t id, const char *fn);
 
 struct ptr_to_member_type {
 	struct tag tag;
-	Dwarf_Off  containing_type;
+	uint16_t   containing_type;
 };
 
 static inline struct ptr_to_member_type *
