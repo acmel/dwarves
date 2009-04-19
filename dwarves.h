@@ -420,6 +420,10 @@ size_t tag__size(const struct tag *self, const struct cu *cu);
 size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu);
 struct tag *tag__follow_typedef(const struct tag *tag, const struct cu *cu);
 
+size_t __tag__id_not_found_fprintf(FILE *fp, uint16_t id, const char *fn);
+#define tag__id_not_found_fprintf(fp, id) \
+	__tag__id_not_found_fprintf(fp, id, __func__)
+
 struct ptr_to_member_type {
 	struct tag tag;
 	Dwarf_Off  containing_type;
