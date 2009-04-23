@@ -3,7 +3,7 @@
 
 Name: dwarves
 Version: 1.8pre1
-Release: 1
+Release: 1%{?dist}
 License: GPLv2
 Summary: Dwarf Tools
 Group: Development/Tools
