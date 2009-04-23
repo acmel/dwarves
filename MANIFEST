@@ -1,12 +1,13 @@
 config.h.cmake
+ctf_encoder.c
+ctf_encoder.h
 ctf_loader.c
-ctf_loader.h
 dwarf_loader.c
-dwarf_loader.h
 dwarves.c
 dwarves.h
 dwarves_emit.c
 dwarves_emit.h
+dwarves_fprintf.c
 dwarves_reorganize.c
 dwarves_reorganize.h
 cmake/modules/FindDWARF.cmake
@@ -14,6 +15,8 @@ CMakeLists.txt
 codiff.c
 ctracer.c
 dtagnames.c
+elf_symtab.c
+elf_symtab.h
 gobuffer.c
 gobuffer.h
 hash.h
