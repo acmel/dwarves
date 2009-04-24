@@ -1809,11 +1809,14 @@ static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
 
 		if (member->bitfield_size != 0) {
 			struct tag *type = tag__follow_typedef(&member->tag, cu);
+check_volatile:
+			if (tag__is_volatile(type)) {
+				type = tag__follow_typedef(type, cu);
+				goto check_volatile;
+			}
+
 			uint16_t type_bit_size;
 			size_t integral_bit_size;
-
-			if (tag__is_volatile(type))
-				type = cu__type(cu, type->type);
 
 			if (tag__is_enumeration(type)) {
 				type_bit_size = tag__type(type)->size;
