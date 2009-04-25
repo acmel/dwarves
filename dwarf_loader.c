@@ -1029,11 +1029,8 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 		case DW_TAG_unspecified_parameters:
 			ftype->unspec_parms = 1;
 			continue;
-		case DW_TAG_typedef:
-			/*
-			 * First seen in inkscape
-			 */
-			tag = die__create_new_typedef(die);
+		default:
+			tag = die__process_tag(die, cu, 0);
 			if (tag == NULL)
 				goto out_delete;
 
@@ -1041,9 +1038,6 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 				goto out_delete_tag;
 
 			goto hash;
-		default:
-			cu__tag_not_handled(die);
-			continue;
 		}
 
 		if (tag == NULL)
