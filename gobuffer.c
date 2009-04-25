@@ -63,8 +63,10 @@ int gobuffer__allocate(struct gobuffer *self, unsigned int len)
 	const unsigned int index = self->index + len;
 
 	if (index >= self->allocated_size) {
-		const unsigned int allocated_size = (self->allocated_size +
-						     GOBUFFER__BCHUNK);
+		unsigned int allocated_size = (self->allocated_size +
+					       GOBUFFER__BCHUNK);
+		if (allocated_size < index)
+			allocated_size = index + GOBUFFER__BCHUNK;
 		char *entries = realloc(self->entries, allocated_size);
 
 		if (entries == NULL)
