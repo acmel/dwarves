@@ -1080,9 +1080,12 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 	struct tag *tag_pos;
 	const char *current_accessibility = NULL;
 	struct conf_fprintf cconf = conf ? *conf : conf_fprintf__defaults;
+	const uint16_t t = tself->namespace.tag.tag;
 	size_t printed = fprintf(fp, "%s%s%s%s%s",
 				 cconf.prefix ?: "", cconf.prefix ? " " : "",
-				 tself->namespace.tag.tag == DW_TAG_class_type ? "class" : "struct",
+				 t == DW_TAG_class_type ? "class" :
+				 t == DW_TAG_structure_type ? "struct" :
+							"interface",
 				 type__name(tself, cu) ? " " : "",
 				 type__name(tself, cu) ?: "");
 	int indent = cconf.indent;
@@ -1484,6 +1487,7 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 		printed += typedef__fprintf(self, cu, pconf, fp);
 		break;
 	case DW_TAG_class_type:
+	case DW_TAG_interface_type:
 	case DW_TAG_structure_type:
 		printed += class__fprintf(tag__class(self), cu, pconf, fp);
 		break;
