@@ -1944,13 +1944,17 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 	while (dwarf_nextcu(dw, off, &noff, &cuhl, NULL, NULL, NULL) == 0) {
 		Dwarf_Die die_mem, tmp;
 		Dwarf_Die *cu_die = dwarf_offdie(dw, off + cuhl, &die_mem);
-		struct cu *cu;
 		uint8_t pointer_size, offset_size;
 
 		dwarf_diecu(cu_die, &tmp, &pointer_size, &offset_size);
-
-		cu = cu__new(attr_string(cu_die, DW_AT_name), pointer_size,
-			     build_id, build_id_len, filename);
+		/*
+		 * DW_AT_name in DW_TAG_compile_unit can be NULL, first
+		 * seen in:
+		 * /usr/libexec/gcc/x86_64-redhat-linux/4.3.2/ecj1.debug
+		 */
+		const char *name = attr_string(cu_die, DW_AT_name);
+		struct cu *cu = cu__new(name ?: "", pointer_size,
+					build_id, build_id_len, filename);
 		if (cu == NULL)
 			return DWARF_CB_ABORT;
 		cu->uses_global_strings = true;
