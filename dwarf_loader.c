@@ -1192,7 +1192,8 @@ static int die__create_new_lexblock(Dwarf_Die *die,
 		if (die__process_function(die, NULL, lexblock, cu) != 0)
 			goto out_delete;
 	}
-	lexblock__add_lexblock(father, lexblock);
+	if (father != NULL)
+		lexblock__add_lexblock(father, lexblock);
 	return 0;
 out_delete:
 	lexblock__delete(lexblock);
@@ -1200,14 +1201,86 @@ out_delete:
 }
 
 static struct tag *die__create_new_inline_expansion(Dwarf_Die *die,
-						    struct lexblock *lexblock)
+						    struct lexblock *lexblock,
+						    struct cu *cu);
+
+static int die__process_inline_expansion(Dwarf_Die *die, struct cu *cu)
+{
+	Dwarf_Die child;
+	struct tag *tag;
+
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
+		return 0;
+
+	die = &child;
+	do {
+		long id = -1;
+
+		switch (dwarf_tag(die)) {
+		case DW_TAG_lexical_block:
+			if (die__create_new_lexblock(die, cu, NULL) != 0)
+				goto out_enomem;
+			continue;
+		case DW_TAG_formal_parameter:
+			/*
+			 * FIXME:
+			 * So far DW_TAG_inline_routine had just an
+			 * abstract origin, but starting with
+			 * /usr/lib/openoffice.org/basis3.0/program/libdbalx.so
+			 * I realized it really has to be handled as a
+			 * DW_TAG_function... Lets just get the types
+			 * for 1.8, then fix this properly.
+			 *
+			 * cu__tag_not_handled(die);
+			 */
+			continue;
+		case DW_TAG_inlined_subroutine:
+			tag = die__create_new_inline_expansion(die, NULL, cu);
+			break;
+		default:
+			tag = die__process_tag(die, cu, 0);
+			if (tag == NULL)
+				goto out_enomem;
+
+			if (cu__add_tag(cu, tag, &id) < 0)
+				goto out_delete_tag;
+			goto hash;
+		}
+
+		if (tag == NULL)
+			goto out_enomem;
+
+		if (cu__table_add_tag(cu, tag, &id) < 0)
+			goto out_delete_tag;
+hash:
+		cu__hash(cu, tag);
+		struct dwarf_tag *dtag = tag->priv;
+		dtag->small_id = id;
+	} while (dwarf_siblingof(die, die) == 0);
+
+	return 0;
+out_delete_tag:
+	tag__delete(tag);
+out_enomem:
+	return -ENOMEM;
+}
+
+static struct tag *die__create_new_inline_expansion(Dwarf_Die *die,
+						    struct lexblock *lexblock,
+						    struct cu *cu)
 {
 	struct inline_expansion *exp = inline_expansion__new(die);
 
 	if (exp == NULL)
 		return NULL;
 
-	lexblock__add_inline_expansion(lexblock, exp);
+	if (die__process_inline_expansion(die, cu) != 0) {
+		free(exp);
+		return NULL;
+	}
+
+	if (lexblock != NULL)
+		lexblock__add_inline_expansion(lexblock, exp);
 	return &exp->tag;
 }
 
@@ -1242,7 +1315,7 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			tag = die__create_new_label(die, lexblock);
 			break;
 		case DW_TAG_inlined_subroutine:
-			tag = die__create_new_inline_expansion(die, lexblock);
+			tag = die__create_new_inline_expansion(die, lexblock, cu);
 			break;
 		case DW_TAG_lexical_block:
 			if (die__create_new_lexblock(die, cu, lexblock) != 0)
