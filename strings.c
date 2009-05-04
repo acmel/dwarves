@@ -58,12 +58,12 @@ static int strings__compare(const void *a, const void *b)
 {
 	const struct search_key *key = a;
 
-	return strcmp(key->str, key->self->gb.entries + *(strings_t *)&b);
+	return strcmp(key->str, key->self->gb.entries + (unsigned long)b);
 }
 
 strings_t strings__add(struct strings *self, const char *str)
 {
-	strings_t *s;
+	unsigned long *s;
 	strings_t index;
 	struct search_key key = {
 		.self = self,
@@ -78,7 +78,7 @@ strings_t strings__add(struct strings *self, const char *str)
 		if (*(struct search_key **)s == (void *)&key) { /* Not found, replace with the right key */
 			index = strings__insert(self, str);
 			if (index != 0)
-				*s = index;
+				*s = (unsigned long)index;
 			else {
 				tdelete(&key, &self->tree, strings__compare);
 				return 0;
