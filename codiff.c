@@ -733,7 +733,6 @@ static struct argp codiff__argp = {
 int main(int argc, char *argv[])
 {
 	int remaining, err, rc = EXIT_FAILURE;
-	struct cus *old_cus, *new_cus;
 	char *old_filename, *new_filename;
 	char *filenames[2];
 	struct stat st;
@@ -754,7 +753,7 @@ failure:
 
 	if (dwarves__init(0)) {
 		fputs("codiff: insufficient memory\n", stderr);
-		return EXIT_FAILURE;
+		goto out;
 	}
 
 	if (show_function_diffs == 0 && show_struct_diffs == 0 &&
@@ -762,16 +761,16 @@ failure:
 		show_function_diffs = show_struct_diffs = 1;
 
 	structs_printed = strlist__new(false);
-	old_cus = cus__new();
-	new_cus = cus__new();
+	struct cus *old_cus = cus__new(),
+		   *new_cus = cus__new();
 	if (old_cus == NULL || new_cus == NULL || structs_printed == NULL) {
 		fputs("codiff: insufficient memory\n", stderr);
-		return EXIT_FAILURE;
+		goto out_cus_delete;
 	}
 
 	if (stat(old_filename, &st) != 0) {
 		fprintf(stderr, "codiff: %s (%s)\n", strerror(errno), old_filename);
-		return EXIT_FAILURE;
+		goto out_cus_delete;
 	}
 
 	filenames[1] = NULL;
@@ -781,13 +780,13 @@ failure:
 		err = cus__load_file(old_cus, &conf_load, old_filename);
 		if (err != 0) {
 			cus__print_error_msg("codiff", old_cus, old_filename, err);
-			return EXIT_FAILURE;
+			goto out_cus_delete_priv;
 		}
 	}
 
 	if (stat(new_filename, &st) != 0) {
 		fprintf(stderr, "codiff: %s (%s)\n", strerror(errno), new_filename);
-		return EXIT_FAILURE;
+		goto out_cus_delete_priv;
 	}
 
 	/* If old_file is a character device, leave its cus empty */
@@ -795,7 +794,7 @@ failure:
 		err = cus__load_file(new_cus, &conf_load, new_filename);
 		if (err != 0) {
 			cus__print_error_msg("codiff", new_cus, new_filename, err);
-			return EXIT_FAILURE;
+			goto out_cus_delete_priv;
 		}
 	}
 
@@ -810,12 +809,14 @@ failure:
 	}
 
 	rc = EXIT_SUCCESS;
-out:
+out_cus_delete_priv:
 	cus__for_each_cu(old_cus, cu_delete_priv, NULL, NULL);
 	cus__for_each_cu(new_cus, cu_delete_priv, NULL, NULL);
+out_cus_delete:
 	cus__delete(old_cus);
 	cus__delete(new_cus);
 	strlist__delete(structs_printed);
 	dwarves__exit();
+out:
 	return rc;
 }

@@ -613,7 +613,6 @@ static struct argp pfunct__argp = {
 int main(int argc, char *argv[])
 {
 	int err, remaining, rc = EXIT_FAILURE;
-	struct cus *cus;
 
 	if (argp_parse(&pfunct__argp, argc, argv, 0, &remaining, NULL) ||
 	    remaining == argc) {
@@ -624,15 +623,20 @@ int main(int argc, char *argv[])
 	if (symtab_name != NULL)
 		return elf_symtabs__show(argv + remaining);
 
-	cus = cus__new();
-	if (dwarves__init(0) || cus == NULL) {
+	if (dwarves__init(0)) {
 		fputs("pfunct: insufficient memory\n", stderr);
 		goto out;
 	}
 
+	struct cus *cus = cus__new();
+	if (cus == NULL) {
+		fputs("pfunct: insufficient memory\n", stderr);
+		goto out_dwarves_exit;
+	}
+
 	err = cus__load_files(cus, &conf_load, argv + remaining);
 	if (err != 0)
-		goto out;
+		goto out_cus_delete;
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, NULL);
 
@@ -647,9 +651,11 @@ int main(int argc, char *argv[])
 		print_fn_stats(formatter);
 
 	rc = EXIT_SUCCESS;
-out:
+out_cus_delete:
 	cus__delete(cus);
 	fn_stats__delete_list();
+out_dwarves_exit:
 	dwarves__exit();
+out:
 	return rc;
 }

@@ -290,16 +290,20 @@ int main(int argc, char *argv[])
                 goto out;
 	}
 
-	struct cus *cus = cus__new();
-
-	if (dwarves__init(0) || cus == NULL) {
+	if (dwarves__init(0)) {
 		fputs("pglobal: insufficient memory\n", stderr);
 		goto out;
 	}
 
+	struct cus *cus = cus__new();
+	if (cus == NULL) {
+		fputs("pglobal: insufficient memory\n", stderr);
+		goto out_dwarves_exit;
+	}
+
 	err = cus__load_files(cus, NULL, argv + remaining);
 	if (err != 0)
-		goto out;
+		goto out_cus_delete;
 
 	if (walk_var) {
 		cus__for_each_cu(cus, cu_extvar_iterator, NULL, NULL);
@@ -311,8 +315,10 @@ int main(int argc, char *argv[])
 
 	tdestroy(tree, free_node);
 	rc = EXIT_SUCCESS;
-out:
+out_cus_delete:
 	cus__delete(cus);
+out_dwarves_exit:
 	dwarves__exit();
+out:
 	return rc;
 }

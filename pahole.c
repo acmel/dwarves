@@ -1118,7 +1118,6 @@ dump_it:
 int main(int argc, char *argv[])
 {
 	int err, remaining, rc = EXIT_FAILURE;
-	struct cus *cus;
 
 	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL) ||
 	    remaining == argc) {
@@ -1126,10 +1125,15 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	cus = cus__new();
-	if (dwarves__init(cacheline_size) || cus == NULL) {
+	if (dwarves__init(cacheline_size)) {
 		fputs("pahole: insufficient memory\n", stderr);
 		goto out;
+	}
+
+	struct cus *cus = cus__new();
+	if (cus == NULL) {
+		fputs("pahole: insufficient memory\n", stderr);
+		goto out_dwarves_exit;
 	}
 
 	conf_load.steal = pahole_stealer;
@@ -1137,15 +1141,17 @@ int main(int argc, char *argv[])
 	err = cus__load_files(cus, &conf_load, argv + remaining);
 	if (err != 0) {
 		fputs("pahole: No debugging information found\n", stderr);
-		goto out;
+		goto out_cus_delete;
 	}
 
 	if (stats_formatter != NULL)
 		print_stats();
 	rc = EXIT_SUCCESS;
-out:
+out_cus_delete:
 	cus__delete(cus);
 	structures__delete();
+out_dwarves_exit:
 	dwarves__exit();
+out:
 	return rc;
 }

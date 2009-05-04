@@ -245,7 +245,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 				list_prepare_entry(from, class__tags(class),
 						   tag.node);
 		struct class_member *tmp;
-		uint8_t orig_tail_from_bit_hole;
+		uint8_t orig_tail_from_bit_hole = 0;
 		LIST_HEAD(from_list);
 
 		if (verbose)
