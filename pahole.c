@@ -295,6 +295,16 @@ static void print_classes(struct cu *cu)
 			print_packable_info(pos, cu, id);
 		else if (formatter != NULL)
 			formatter(pos, cu, id);
+		/*
+		 * FIXME: No sense in adding an anonymous struct to the list of
+		 * structs already printed, as we look for the name... The
+		 * right fix probably will be to call class__fprintf on a
+		 * in-memory FILE, do a hash, and look it by full contents, not
+		 * by name. And this is needed for CTF as well, but its late now
+		 * and I'm sleepy, will leave for later...
+		 */
+		if (pos->type.namespace.name == 0)
+			continue;
 
 		if (structures__add(pos, cu) == NULL) {
 			fprintf(stderr, "pahole: insufficient memory for "
