@@ -2,7 +2,7 @@
 #define _DWARVES_H_ 1
 /*
   Copyright (C) 2006 Mandriva Conectiva S.A.
-  Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
+  Copyright (C) 2006..2009 Arnaldo Carvalho de Melo <acme@redhat.com>
 
   This program is free software; you can redistribute it and/or modify it
   under the terms of version 2 of the GNU General Public License as
@@ -480,8 +480,8 @@ void namespace__add_tag(struct namespace *self, struct tag *tag);
 struct inline_expansion {
 	struct tag	 tag;
 	size_t		 size;
-	Dwarf_Addr	 low_pc;
-	Dwarf_Addr	 high_pc;
+	uint64_t	 low_pc;
+	uint64_t	 high_pc;
 };
 
 static inline struct inline_expansion *
@@ -493,7 +493,7 @@ static inline struct inline_expansion *
 struct label {
 	struct tag	 tag;
 	strings_t	 name;
-	Dwarf_Addr	 low_pc;
+	uint64_t	 low_pc;
 };
 
 static inline struct label *tag__label(const struct tag *self)
@@ -532,7 +532,7 @@ const char *variable__type_name(const struct variable *self,
 struct lexblock {
 	struct tag	 tag;
 	struct list_head tags;
-	Dwarf_Addr	 low_pc;
+	uint64_t	 low_pc;
 	uint32_t	 size;
 	uint16_t	 nr_inline_expansions;
 	uint16_t	 nr_labels;
