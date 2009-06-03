@@ -507,7 +507,7 @@ struct tag *cu__type(const struct cu *self, const uint16_t id)
 }
 
 struct tag *cu__find_first_typedef_of_type(const struct cu *self,
-					   const Dwarf_Off type)
+					   const uint16_t type)
 {
 	uint16_t id;
 	struct tag *pos;
@@ -1140,7 +1140,7 @@ struct class_member *type__find_member_by_name(const struct type *self,
 	return NULL;
 }
 
-uint32_t type__nr_members_of_type(const struct type *self, const Dwarf_Off type)
+uint32_t type__nr_members_of_type(const struct type *self, const uint16_t type)
 {
 	struct class_member *pos;
 	uint32_t nr_members_of_type = 0;

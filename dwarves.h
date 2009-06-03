@@ -260,7 +260,7 @@ struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *self,
 						   uint16_t bit_size,
 						   uint16_t *idp);
 struct tag *cu__find_first_typedef_of_type(const struct cu *self,
-					   const Dwarf_Off type);
+					   const uint16_t type);
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name);
 struct tag *cu__find_struct_by_sname(const struct cu *self, strings_t sname,
 				     const int include_decls, uint16_t *idp);
@@ -848,8 +848,7 @@ struct class_member *
 struct class_member *type__find_member_by_name(const struct type *self,
 					       const struct cu *cu,
 					       const char *name);
-uint32_t type__nr_members_of_type(const struct type *self,
-				  const Dwarf_Off type);
+uint32_t type__nr_members_of_type(const struct type *self, const uint16_t type);
 struct class_member *type__last_member(struct type *self);
 
 size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
