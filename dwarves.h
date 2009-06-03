@@ -621,7 +621,6 @@ int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
 struct function {
 	struct ftype	 proto;
 	struct lexblock	 lexblock;
-	Dwarf_Off	 specification;
 	strings_t	 name;
 	strings_t	 linkage_name;
 	uint32_t	 cu_total_size_inline_expansions;
@@ -744,7 +743,6 @@ static inline const char *class_member__name(const struct class_member *self,
 struct type {
 	struct namespace namespace;
 	struct list_head node;
-	Dwarf_Off	 specification;
 	uint32_t	 size;
 	int32_t		 size_diff;
 	uint16_t	 nr_members;

@@ -49,6 +49,16 @@ struct dwarf_tag {
 	uint16_t         small_id;
 };
 
+static Dwarf_Off dwarf_tag__spec(struct dwarf_tag *self)
+{
+	return *(Dwarf_Off *)(self + 1);
+}
+
+static void dwarf_tag__set_spec(struct dwarf_tag *self, Dwarf_Off spec)
+{
+	*(Dwarf_Off *)(self + 1) = spec;
+}
+
 #define HASHTAGS__BITS 8
 #define HASHTAGS__SIZE (1UL << HASHTAGS__BITS)
 
@@ -255,10 +265,10 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 	return 1;
 }
 
-static void *tag__alloc(size_t size)
+static void *__tag__alloc(size_t size, bool spec)
 {
-	struct dwarf_tag *dtag = malloc(sizeof(*dtag));
-
+	struct dwarf_tag *dtag = malloc((sizeof(*dtag) +
+					 (spec ? sizeof(Dwarf_Off) : 0)));
 	if (dtag == NULL)
 		return NULL;
 
@@ -276,6 +286,16 @@ static void *tag__alloc(size_t size)
 	self->top_level = 0;
 
 	return self;
+}
+
+static void *tag__alloc(size_t size)
+{
+	return __tag__alloc(size, false);
+}
+
+static void *tag__alloc_with_spec(size_t size)
+{
+	return __tag__alloc(size, true);
 }
 
 static void tag__init(struct tag *self, Dwarf_Die *die)
@@ -389,7 +409,8 @@ static void type__init(struct type *self, Dwarf_Die *die)
 	INIT_LIST_HEAD(&self->node);
 	self->size		 = attr_numeric(die, DW_AT_byte_size);
 	self->declaration	 = attr_numeric(die, DW_AT_declaration);
-	self->specification	 = attr_type(die, DW_AT_specification);
+	dwarf_tag__set_spec(self->namespace.tag.priv,
+			    attr_type(die, DW_AT_specification));
 	self->definition_emitted = 0;
 	self->fwd_decl_emitted	 = 0;
 	self->resized		 = 0;
@@ -398,7 +419,7 @@ static void type__init(struct type *self, Dwarf_Die *die)
 
 static struct type *type__new(Dwarf_Die *die)
 {
-	struct type *self = tag__alloc(sizeof(*self));
+	struct type *self = tag__alloc_with_spec(sizeof(*self));
 
 	if (self != NULL)
 		type__init(self, die);
@@ -685,7 +706,7 @@ static struct label *label__new(Dwarf_Die *die)
 
 static struct class *class__new(Dwarf_Die *die)
 {
-	struct class *self = tag__alloc(sizeof(*self));
+	struct class *self = tag__alloc_with_spec(sizeof(*self));
 
 	if (self != NULL) {
 		type__init(&self->type, die);
@@ -757,7 +778,7 @@ static struct ftype *ftype__new(Dwarf_Die *die)
 
 static struct function *function__new(Dwarf_Die *die)
 {
-	struct function *self = tag__alloc(sizeof(*self));
+	struct function *self = tag__alloc_with_spec(sizeof(*self));
 
 	if (self != NULL) {
 		ftype__init(&self->proto, die);
@@ -767,7 +788,8 @@ static struct function *function__new(Dwarf_Die *die)
 		self->inlined  = attr_numeric(die, DW_AT_inline);
 		self->external = dwarf_hasattr(die, DW_AT_external);
 		self->abstract_origin = dwarf_hasattr(die, DW_AT_abstract_origin);
-		self->specification   = attr_type(die, DW_AT_specification);
+		dwarf_tag__set_spec(self->proto.tag.priv,
+				    attr_type(die, DW_AT_specification));
 		self->accessibility   = attr_numeric(die, DW_AT_accessibility);
 		self->virtuality      = attr_numeric(die, DW_AT_virtuality);
 		INIT_LIST_HEAD(&self->vtable_node);
@@ -1501,11 +1523,12 @@ static void type__recode_dwarf_specification(struct tag *self, struct cu *cu)
 {
 	struct dwarf_tag *dtype;
 	struct type *t = tag__type(self);
+	Dwarf_Off specification = dwarf_tag__spec(self->priv);
 
-	if (t->namespace.name != 0 || t->specification == 0)
+	if (t->namespace.name != 0 || specification == 0)
 		return;
 
-	dtype = dwarf_cu__find_type_by_id(cu->priv, t->specification);
+	dtype = dwarf_cu__find_type_by_id(cu->priv, specification);
 	if (dtype != NULL)
 		t->namespace.name = tag__namespace(dtype->tag)->name;
 	else {
@@ -1515,7 +1538,7 @@ static void type__recode_dwarf_specification(struct tag *self, struct cu *cu)
 			"%s: couldn't find name for "
 			"class %#llx, specification=%#llx\n", __func__,
 			(unsigned long long)dtag->id,
-			(unsigned long long)t->specification);
+			(unsigned long long)specification);
 	}
 }
 
@@ -1674,8 +1697,9 @@ static int tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 		struct function *fn = tag__function(self);
 
 		if (fn->name == 0)  {
+			Dwarf_Off specification = dwarf_tag__spec(dtag);
 			if (dtag->abstract_origin == 0 &&
-			    fn->specification == 0) {
+			    specification == 0) {
 				/*
 				 * Found on libQtGui.so.4.3.4.debug
 				 *  <3><1423de>: Abbrev Number: 209 (DW_TAG_subprogram)
@@ -1685,7 +1709,7 @@ static int tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 			}
 			dtype = dwarf_cu__find_tag_by_id(cu->priv, dtag->abstract_origin);
 			if (dtype == NULL)
-				dtype = dwarf_cu__find_tag_by_id(cu->priv, fn->specification);
+				dtype = dwarf_cu__find_tag_by_id(cu->priv, specification);
 			if (dtype != NULL)
 				fn->name = tag__function(dtype->tag)->name;
 			else {
@@ -1695,7 +1719,7 @@ static int tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 					" specification=%#llx\n", __func__,
 					(unsigned long long)dtag->id,
 					(unsigned long long)dtag->abstract_origin,
-					(unsigned long long)fn->specification);
+					(unsigned long long)specification);
 			}
 		}
 		lexblock__recode_dwarf_types(&fn->lexblock, cu);
