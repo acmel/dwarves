@@ -32,6 +32,7 @@ static int show_cc_uninlined;
 static char *symtab_name;
 static bool expand_types;
 static struct type_emissions emissions;
+static uint64_t addr;
 
 static struct conf_fprintf conf;
 
@@ -340,7 +341,19 @@ static int function__emit_type_definitions(struct function *self,
 	return 0;
 }
 
-static int cu_function_iterator(struct cu*cu, void *cookie)
+static void function__show(struct function *self, struct cu *cu)
+{
+	struct tag *tag = function__tag(self);
+
+	if (expand_types)
+		function__emit_type_definitions(self, cu, stdout);
+	tag__fprintf(tag, cu, &conf, stdout);
+	putchar('\n');
+	if (show_variables || show_inline_expansions)
+		function__fprintf_stats(tag, cu, &conf, stdout);
+}
+
+static int cu_function_iterator(struct cu *cu, void *cookie)
 {
 	struct function *function;
 	uint32_t id;
@@ -348,14 +361,7 @@ static int cu_function_iterator(struct cu*cu, void *cookie)
 	cu__for_each_function(cu, id, function) {
 		if (strcmp(function__name(function, cu), cookie) != 0)
 			continue;
-
-		if (expand_types)
-			function__emit_type_definitions(function, cu, stdout);
-		tag__fprintf(function__tag(function), cu, &conf, stdout);
-		putchar('\n');
-		if (show_variables || show_inline_expansions)
-			function__fprintf_stats(function__tag(function), cu,
-						&conf, stdout);
+		function__show(function, cu);
 		return 1;
 	}
 	return 0;
@@ -449,6 +455,12 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_no_parm_names	301
 
 static const struct argp_option pfunct__options[] = {
+	{
+		.key  = 'a',
+		.name = "addr",
+		.arg  = "ADDR",
+		.doc  = "show just the function that where ADDR is",
+	},
 	{
 		.key  = 'b',
 		.name = "expand_types",
@@ -572,6 +584,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 		if (state->child_inputs != NULL)
 			state->child_inputs[0] = state->input;
 		break;
+	case 'a': addr = strtoull(arg, NULL, 0);	 break;
 	case 'b': expand_types = true;
 		  type_emissions__init(&emissions);	 break;
 	case 'c': class_name = arg;			 break;
@@ -640,7 +653,17 @@ int main(int argc, char *argv[])
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, NULL);
 
-	if (show_total_inline_expansion_stats)
+	if (addr) {
+		struct cu *cu;
+		struct function *f = cus__find_function_at_addr(cus, addr, &cu);
+
+		if (f == NULL) {
+			fprintf(stderr, "pfunct: No function found at %#llx!\n",
+				(unsigned long long)addr);
+			goto out_cus_delete;
+		}
+		function__show(f, cu);
+	} else if (show_total_inline_expansion_stats)
 		print_total_inline_stats();
 	else if (class_name != NULL)
 		cus__for_each_cu(cus, cu_class_iterator, class_name, NULL);

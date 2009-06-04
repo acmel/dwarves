@@ -108,6 +108,7 @@ rm -rf %{buildroot}
 %{_includedir}/dwarves/dutil.h
 %{_includedir}/dwarves/gobuffer.h
 %{_includedir}/dwarves/list.h
+%{_includedir}/dwarves/rbtree.h
 %{_includedir}/dwarves/strings.h
 %{_libdir}/%{libname}.so
 %{_libdir}/%{libname}_emit.so

@@ -17,6 +17,7 @@
 
 #include "dutil.h"
 #include "list.h"
+#include "rbtree.h"
 #include "strings.h"
 
 struct cu;
@@ -86,6 +87,8 @@ struct cu *cus__find_cu_by_name(const struct cus *self, const char *name);
 struct tag *cus__find_struct_by_name(const struct cus *self, struct cu **cu,
 				     const char *name, const int include_decls,
 				     uint16_t *id);
+struct function *cus__find_function_at_addr(const struct cus *self,
+					    uint64_t addr, struct cu **cu);
 void cus__for_each_cu(struct cus *self, int (*iterator)(struct cu *cu,
 							void *cookie),
 		      void *cookie,
@@ -146,6 +149,7 @@ struct cu {
 	struct ptr_table types_table;
 	struct ptr_table functions_table;
 	struct ptr_table tags_table;
+	struct rb_root	 functions;
 	char		 *name;
 	char		 *filename;
 	void 		 *priv;
@@ -264,6 +268,8 @@ struct tag *cu__find_first_typedef_of_type(const struct cu *self,
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name);
 struct tag *cu__find_struct_by_sname(const struct cu *self, strings_t sname,
 				     const int include_decls, uint16_t *idp);
+struct function *cu__find_function_at_addr(const struct cu *self,
+					   uint64_t addr);
 struct tag *cu__function(const struct cu *self, const uint32_t id);
 struct tag *cu__tag(const struct cu *self, const uint32_t id);
 struct tag *cu__type(const struct cu *self, const uint16_t id);
@@ -621,6 +627,7 @@ int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
 struct function {
 	struct ftype	 proto;
 	struct lexblock	 lexblock;
+	struct rb_node	 rb_node;
 	strings_t	 name;
 	strings_t	 linkage_name;
 	uint32_t	 cu_total_size_inline_expansions;

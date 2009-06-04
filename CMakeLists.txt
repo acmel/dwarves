@@ -34,7 +34,7 @@ _set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${__LI
 
 set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer strings
 		     ctf_encoder.c ctf_loader.c libctf.c dwarf_loader.c
-		     dutil.c elf_symtab.c)
+		     dutil.c elf_symtab.c rbtree.c)
 add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES})
@@ -91,7 +91,7 @@ install(TARGETS codiff ctracer dtagnames pahole pdwtags
 install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 install(TARGETS dwarves dwarves_emit dwarves_reorganize LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 install(FILES dwarves.h dwarves_emit.h dwarves_reorganize.h
-	      dutil.h gobuffer.h list.h strings.h
+	      dutil.h gobuffer.h list.h rbtree.h strings.h
 	DESTINATION ${CMAKE_INSTALL_PREFIX}/include/dwarves/)
 install(FILES man-pages/pahole.1 DESTINATION ${CMAKE_INSTALL_PREFIX}/share/man/man1/)
 install(PROGRAMS ostra/ostra-cg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)

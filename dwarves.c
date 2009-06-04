@@ -369,13 +369,36 @@ static void *ptr_table__entry(const struct ptr_table *self, uint32_t id)
 	return id >= self->nr_entries ? NULL : self->entries[id];
 }
 
+static void cu__insert_function(struct cu *self, struct tag *tag)
+{
+	struct function *function = tag__function(tag);
+        struct rb_node **p = &self->functions.rb_node;
+        struct rb_node *parent = NULL;
+        struct function *f;
+
+        while (*p != NULL) {
+                parent = *p;
+                f = rb_entry(parent, struct function, rb_node);
+                if (function->lexblock.low_pc < f->lexblock.low_pc)
+                        p = &(*p)->rb_left;
+                else
+                        p = &(*p)->rb_right;
+        }
+        rb_link_node(&function->rb_node, parent, p);
+        rb_insert_color(&function->rb_node, &self->functions);
+}
+
 int cu__table_add_tag(struct cu *self, struct tag *tag, long *id)
 {
-	struct ptr_table *pt = tag__is_tag_type(tag) ?
-					&self->types_table :
-						tag__is_function(tag) ?
-							&self->functions_table :
-							&self->tags_table;
+	struct ptr_table *pt = &self->tags_table;
+
+	if (tag__is_tag_type(tag))
+		pt = &self->types_table;
+	else if (tag__is_function(tag)) {
+		pt = &self->functions_table;
+		cu__insert_function(self, tag);
+	}
+
 	if (*id < 0) {
 		*id = ptr_table__add(pt, tag);
 		if (*id < 0)
@@ -421,6 +444,8 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		 */
 		if (ptr_table__add(&self->types_table, NULL) < 0)
 			goto out_free_name;
+
+		self->functions = RB_ROOT;
 
 		self->dfops	= NULL;
 		INIT_LIST_HEAD(&self->tags);
@@ -685,6 +710,48 @@ struct tag *cus__find_struct_by_name(const struct cus *self,
 		}
 	}
 
+	return NULL;
+}
+
+struct function *cu__find_function_at_addr(const struct cu *self,
+					   uint64_t addr)
+{
+        struct rb_node *n;
+
+        if (self == NULL)
+                return NULL;
+
+        n = self->functions.rb_node;
+
+        while (n) {
+                struct function *f = rb_entry(n, struct function, rb_node);
+
+                if (addr < f->lexblock.low_pc)
+                        n = n->rb_left;
+                else if (addr >= f->lexblock.low_pc + f->lexblock.size)
+                        n = n->rb_right;
+                else
+                        return f;
+        }
+
+        return NULL;
+
+}
+
+struct function *cus__find_function_at_addr(const struct cus *self,
+					    uint64_t addr, struct cu **cu)
+{
+	struct cu *pos;
+
+	list_for_each_entry(pos, &self->cus, node) {
+		struct function *f = cu__find_function_at_addr(pos, addr);
+
+		if (f != NULL) {
+			if (cu != NULL)
+				*cu = pos;
+			return f;
+		}
+	}
 	return NULL;
 }
 

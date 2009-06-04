@@ -28,6 +28,8 @@ pdwtags.c
 pfunct.c
 pglobal.c
 prefcnt.c
+rbtree.c
+rbtree.h
 syscse.c
 strings.c
 strings.h
