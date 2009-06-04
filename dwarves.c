@@ -53,7 +53,7 @@ static void lexblock__delete_tags(struct tag *tself)
 
 void lexblock__delete(struct lexblock *self)
 {
-	lexblock__delete_tags(&self->tag);
+	lexblock__delete_tags(&self->ip.tag);
 	free(self);
 }
 
@@ -379,7 +379,7 @@ static void cu__insert_function(struct cu *self, struct tag *tag)
         while (*p != NULL) {
                 parent = *p;
                 f = rb_entry(parent, struct function, rb_node);
-                if (function->lexblock.low_pc < f->lexblock.low_pc)
+                if (function->lexblock.ip.addr < f->lexblock.ip.addr)
                         p = &(*p)->rb_left;
                 else
                         p = &(*p)->rb_right;
@@ -726,9 +726,9 @@ struct function *cu__find_function_at_addr(const struct cu *self,
         while (n) {
                 struct function *f = rb_entry(n, struct function, rb_node);
 
-                if (addr < f->lexblock.low_pc)
+                if (addr < f->lexblock.ip.addr)
                         n = n->rb_left;
-                else if (addr >= f->lexblock.low_pc + f->lexblock.size)
+                else if (addr >= f->lexblock.ip.addr + f->lexblock.size)
                         n = n->rb_right;
                 else
                         return f;
@@ -846,7 +846,7 @@ const char *variable__type_name(const struct variable *self,
 				const struct cu *cu,
 				char *bf, size_t len)
 {
-	const struct tag *tag = cu__type(cu, self->tag.type);
+	const struct tag *tag = cu__type(cu, self->ip.tag.type);
 	return tag != NULL ? tag__name(tag, cu, bf, len) : NULL;
 }
 
@@ -982,7 +982,7 @@ void enumeration__add(struct type *self, struct enumerator *enumerator)
 void lexblock__add_lexblock(struct lexblock *self, struct lexblock *child)
 {
 	++self->nr_lexblocks;
-	list_add_tail(&child->tag.node, &self->tags);
+	list_add_tail(&child->ip.tag.node, &self->tags);
 }
 
 const char *function__name(struct function *self, const struct cu *cu)
@@ -1013,7 +1013,7 @@ void ftype__delete(struct ftype *self)
 
 void function__delete(struct function *self)
 {
-	lexblock__delete_tags(&self->lexblock.tag);
+	lexblock__delete_tags(&self->lexblock.ip.tag);
 	ftype__delete(&self->proto);
 }
 
@@ -1049,19 +1049,19 @@ void lexblock__add_inline_expansion(struct lexblock *self,
 {
 	++self->nr_inline_expansions;
 	self->size_inline_expansions += exp->size;
-	lexblock__add_tag(self, &exp->tag);
+	lexblock__add_tag(self, &exp->ip.tag);
 }
 
 void lexblock__add_variable(struct lexblock *self, struct variable *var)
 {
 	++self->nr_variables;
-	lexblock__add_tag(self, &var->tag);
+	lexblock__add_tag(self, &var->ip.tag);
 }
 
 void lexblock__add_label(struct lexblock *self, struct label *label)
 {
 	++self->nr_labels;
-	lexblock__add_tag(self, &label->tag);
+	lexblock__add_tag(self, &label->ip.tag);
 }
 
 const struct class_member *class__find_bit_hole(const struct class *self,

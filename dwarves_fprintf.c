@@ -843,12 +843,12 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 	switch (tag->tag) {
 	case DW_TAG_inlined_subroutine: {
 		const struct inline_expansion *exp = vtag;
-		const struct tag *talias = cu__function(cu, exp->tag.type);
+		const struct tag *talias = cu__function(cu, exp->ip.tag.type);
 		struct function *alias = tag__function(talias);
 		const char *name;
 
 		if (alias == NULL) {
-			printed += tag__id_not_found_fprintf(fp, exp->tag.type);
+			printed += tag__id_not_found_fprintf(fp, exp->ip.tag.type);
 			break;
 		}
 		printed = fprintf(fp, "%.*s", indent, tabs);
@@ -861,11 +861,11 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 					  indent + (namelen + 7) / 8,
 					  conf, fp);
 		n += fprintf(fp, "; /* size=%zd, low_pc=%#llx */",
-			     exp->size, (unsigned long long)exp->low_pc);
+			     exp->size, (unsigned long long)exp->ip.addr);
 #if 0
 		n = fprintf(fp, "%s(); /* size=%zd, low_pc=%#llx */",
 			    function__name(alias, cu), exp->size,
-			    (unsigned long long)exp->low_pc);
+			    (unsigned long long)exp->ip.addr);
 #endif
 		c = 69;
 		printed += n;
@@ -915,12 +915,12 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 	if (indent >= sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 	printed = fprintf(fp, "%.*s{", indent, tabs);
-	if (self->low_pc != 0) {
-		uint64_t offset = self->low_pc - function->lexblock.low_pc;
+	if (self->ip.addr != 0) {
+		uint64_t offset = self->ip.addr - function->lexblock.ip.addr;
 
 		if (offset == 0)
 			printed += fprintf(fp, " /* low_pc=%#llx */",
-					   (unsigned long long)self->low_pc);
+					   (unsigned long long)self->ip.addr);
 		else
 			printed += fprintf(fp, " /* %s+%#llx */",
 					   function__name(function, cu),
@@ -932,7 +932,7 @@ size_t lexblock__fprintf(const struct lexblock *self, const struct cu *cu,
 						 conf, fp);
 	printed += fprintf(fp, "%.*s}", indent, tabs);
 
-	if (function->lexblock.low_pc != self->low_pc)
+	if (function->lexblock.ip.addr != self->ip.addr)
 		printed += fprintf(fp, " /* lexblock size=%d */", self->size);
 
 	return printed;
@@ -1406,7 +1406,7 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 	size_t printed = 0;
 
 	if (name != NULL) {
-		struct tag *type = cu__type(cu, var->tag.type);
+		struct tag *type = cu__type(cu, var->ip.tag.type);
 		if (type != NULL) {
 			const char *varprefix = variable__prefix(var);
 

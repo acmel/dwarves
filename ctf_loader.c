@@ -86,7 +86,7 @@ static struct function *function__new(uint16_t **ptr, GElf_Sym *sym,
 	struct function *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->lexblock.low_pc = elf_sym__value(sym);
+		self->lexblock.ip.addr = elf_sym__value(sym);
 		self->lexblock.size = elf_sym__size(sym);
 		self->name = sym->st_name;
 		self->vtable_entry = -1;
@@ -554,13 +554,13 @@ static struct variable *variable__new(uint16_t type, GElf_Sym *sym,
 
 	if (self != NULL) {
 		self->location = LOCATION_GLOBAL;
-		self->addr = elf_sym__value(sym);
+		self->ip.addr = elf_sym__value(sym);
 		self->name = sym->st_name;
 		self->external = elf_sym__bind(sym) == STB_GLOBAL;
-		self->tag.tag = DW_TAG_variable;
-		self->tag.type = type;
+		self->ip.tag.tag = DW_TAG_variable;
+		self->ip.tag.type = type;
 		long id = -1; /* FIXME: not needed for variables... */
-		cu__add_tag(ctf->priv, &self->tag, &id);
+		cu__add_tag(ctf->priv, &self->ip.tag, &id);
 	}
 
 	return self;

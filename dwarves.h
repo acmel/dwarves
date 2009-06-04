@@ -483,10 +483,14 @@ void namespace__delete(struct namespace *self);
 
 void namespace__add_tag(struct namespace *self, struct tag *tag);
 
+struct ip_tag {
+	struct tag tag;
+	uint64_t   addr;
+};
+
 struct inline_expansion {
-	struct tag	 tag;
+	struct ip_tag	 ip;
 	size_t		 size;
-	uint64_t	 low_pc;
 	uint64_t	 high_pc;
 };
 
@@ -497,9 +501,8 @@ static inline struct inline_expansion *
 }
 
 struct label {
-	struct tag	 tag;
+	struct ip_tag	 ip;
 	strings_t	 name;
-	uint64_t	 low_pc;
 };
 
 static inline struct label *tag__label(const struct tag *self)
@@ -516,12 +519,11 @@ enum vlocation {
 } __attribute__((packed));
 
 struct variable {
-	struct tag	 tag;
+	struct ip_tag	 ip;
 	strings_t	 name;
 	uint8_t		 external:1;
 	uint8_t		 declaration:1;
 	enum vlocation	 location;
-	uint64_t	 addr;
 	struct hlist_node tool_hnode;
 };
 
@@ -536,9 +538,8 @@ const char *variable__type_name(const struct variable *self,
 				const struct cu *cu, char *bf, size_t len);
 
 struct lexblock {
-	struct tag	 tag;
+	struct ip_tag	 ip;
 	struct list_head tags;
-	uint64_t	 low_pc;
 	uint32_t	 size;
 	uint16_t	 nr_inline_expansions;
 	uint16_t	 nr_labels;

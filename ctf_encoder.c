@@ -218,7 +218,7 @@ static struct function *hashaddr__find_function(const struct hlist_head hashtabl
 	const struct hlist_head *head = &hashtable[bucket];
 
 	hlist_for_each_entry(function, pos, head, tool_hnode) {
-		if (function->lexblock.low_pc == addr)
+		if (function->lexblock.ip.addr == addr)
 			return function;
 	}
 
@@ -234,7 +234,7 @@ static struct variable *hashaddr__find_variable(const struct hlist_head hashtabl
 	const struct hlist_head *head = &hashtable[bucket];
 
 	hlist_for_each_entry(variable, pos, head, tool_hnode) {
-		if (variable->addr == addr)
+		if (variable->ip.addr == addr)
 			return variable;
 	}
 
@@ -269,7 +269,7 @@ int cu__encode_ctf(struct cu *self)
 
 	struct function *function;
 	cu__for_each_function(self, id, function) {
-		uint64_t addr = function->lexblock.low_pc;
+		uint64_t addr = function->lexblock.ip.addr;
 		struct hlist_head *head = &hash_addr[hashaddr__fn(addr)];
 		hlist_add_head(&function->tool_hnode, head);
 	}
@@ -318,7 +318,7 @@ int cu__encode_ctf(struct cu *self)
 		var = tag__variable(pos);
 		if (var->location != LOCATION_GLOBAL)
 			continue;
-		struct hlist_head *head = &hash_addr[hashaddr__fn(var->addr)];
+		struct hlist_head *head = &hash_addr[hashaddr__fn(var->ip.addr)];
 		hlist_add_head(&var->tool_hnode, head);
 	}
 
@@ -339,7 +339,7 @@ int cu__encode_ctf(struct cu *self)
 			continue;
 		}
 
-		err = ctf__add_object(ctf, var->tag.type);
+		err = ctf__add_object(ctf, var->ip.tag.type);
 		if (err != 0)
 			goto out_err_ctf;
 	}

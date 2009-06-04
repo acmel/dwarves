@@ -469,16 +469,16 @@ static struct variable *variable__new(Dwarf_Die *die)
 	struct variable *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, die);
+		tag__init(&self->ip.tag, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
 		/* variable is visible outside of its enclosing cu */
 		self->external = dwarf_hasattr(die, DW_AT_external);
 		/* non-defining declaration of an object */
 		self->declaration = dwarf_hasattr(die, DW_AT_declaration);
 		self->location = LOCATION_UNKNOWN;
-		self->addr = 0;
+		self->ip.addr = 0;
 		if (!self->declaration)
-			self->location = dwarf__location(die, &self->addr);
+			self->location = dwarf__location(die, &self->ip.addr);
 	}
 
 	return self;
@@ -655,20 +655,20 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die)
 	struct inline_expansion *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
-		struct dwarf_tag *dtag = self->tag.priv;
+		struct dwarf_tag *dtag = self->ip.tag.priv;
 
-		tag__init(&self->tag, die);
+		tag__init(&self->ip.tag, die);
 		dtag->decl_file =
 			strings__add(strings, attr_string(die, DW_AT_call_file));
 		dtag->decl_line = attr_numeric(die, DW_AT_call_line);
 		dtag->type = attr_type(die, DW_AT_abstract_origin);
 
-		if (dwarf_lowpc(die, &self->low_pc))
-			self->low_pc = 0;
+		if (dwarf_lowpc(die, &self->ip.addr))
+			self->ip.addr = 0;
 		if (dwarf_lowpc(die, &self->high_pc))
 			self->high_pc = 0;
 
-		self->size = self->high_pc - self->low_pc;
+		self->size = self->high_pc - self->ip.addr;
 		if (self->size == 0) {
 			Dwarf_Addr base, start;
 			ptrdiff_t offset = 0;
@@ -681,8 +681,8 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die)
 				if (offset <= 0)
 					break;
 				self->size += self->high_pc - start;
-				if (self->low_pc == 0)
-					self->low_pc = start;
+				if (self->ip.addr == 0)
+					self->ip.addr = start;
 			}
 		}
 	}
@@ -695,10 +695,10 @@ static struct label *label__new(Dwarf_Die *die)
 	struct label *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, die);
+		tag__init(&self->ip.tag, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
-		if (dwarf_lowpc(die, &self->low_pc))
-			self->low_pc = 0;
+		if (dwarf_lowpc(die, &self->ip.addr))
+			self->ip.addr = 0;
 	}
 
 	return self;
@@ -726,13 +726,13 @@ static void lexblock__init(struct lexblock *self, Dwarf_Die *die)
 {
 	Dwarf_Off high_pc;
 
-	if (dwarf_lowpc(die, &self->low_pc))
-		self->low_pc = 0;
+	if (dwarf_lowpc(die, &self->ip.addr))
+		self->ip.addr = 0;
 
 	if (dwarf_highpc(die, &high_pc))
 		self->size = 0;
 	else
-		self->size = high_pc - self->low_pc;
+		self->size = high_pc - self->ip.addr;
 
 	INIT_LIST_HEAD(&self->tags);
 
@@ -748,7 +748,7 @@ static struct lexblock *lexblock__new(Dwarf_Die *die)
 	struct lexblock *self = tag__alloc(sizeof(*self));
 
 	if (self != NULL) {
-		tag__init(&self->tag, die);
+		tag__init(&self->ip.tag, die);
 		lexblock__init(self, die);
 	}
 
@@ -1017,14 +1017,14 @@ static struct tag *die__create_new_label(Dwarf_Die *die,
 		return NULL;
 
 	lexblock__add_label(lexblock, label);
-	return &label->tag;
+	return &label->ip.tag;
 }
 
 static struct tag *die__create_new_variable(Dwarf_Die *die)
 {
 	struct variable *var = variable__new(die);
 
-	return var ? &var->tag : NULL;
+	return var ? &var->ip.tag : NULL;
 }
 
 static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
@@ -1297,7 +1297,7 @@ static struct tag *die__create_new_inline_expansion(Dwarf_Die *die,
 
 	if (lexblock != NULL)
 		lexblock__add_inline_expansion(lexblock, exp);
-	return &exp->tag;
+	return &exp->ip.tag;
 }
 
 static int die__process_function(Dwarf_Die *die, struct ftype *ftype,

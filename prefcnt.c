@@ -43,8 +43,8 @@ static void refcnt_parameter(const struct parameter *parameter,
 static void refcnt_variable(const struct variable *variable,
 			    const struct cu *cu)
 {
-	if (variable->tag.type != 0) { /* if not void */
-		struct tag *type = cu__type(cu, variable->tag.type);
+	if (variable->ip.tag.type != 0) { /* if not void */
+		struct tag *type = cu__type(cu, variable->ip.tag.type);
 		if (type != NULL)
 			refcnt_tag(type, cu);
 	}
@@ -53,8 +53,8 @@ static void refcnt_variable(const struct variable *variable,
 static void refcnt_inline_expansion(const struct inline_expansion *exp,
 				    const struct cu *cu)
 {
-	if (exp->tag.type != 0) { /* if not void */
-		struct tag *type = cu__function(cu, exp->tag.type);
+	if (exp->ip.tag.type != 0) { /* if not void */
+		struct tag *type = cu__function(cu, exp->ip.tag.type);
 		if (type != NULL)
 			refcnt_tag(type, cu);
 	}
