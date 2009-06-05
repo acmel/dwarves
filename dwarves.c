@@ -1428,8 +1428,8 @@ int cus__load_file(struct cus *self, struct conf_load *conf, char *filename)
 				break;
 
 			err = 0;
-			if (debug_fmt_table[i]->load_file(self, conf,
-							  filename) == 0)
+			if (debug_fmt_table[loader]->load_file(self, conf,
+							       filename) == 0)
 				break;
 
 			err = -EINVAL;
