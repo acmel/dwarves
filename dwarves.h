@@ -629,6 +629,9 @@ size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 		      const char *name, const int inlined,
 		      const int is_pointer, const int type_spacing,
 		      const struct conf_fprintf *conf, FILE *fp);
+size_t ftype__fprintf_parms(const struct ftype *self,
+			    const struct cu *cu, int indent,
+			    const struct conf_fprintf *conf, FILE *fp);
 int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
 			    const struct cu *cu);
 

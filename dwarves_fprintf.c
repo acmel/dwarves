@@ -762,9 +762,9 @@ const char *function__prototype(const struct function *self,
 	return bf;
 }
 
-static size_t ftype__fprintf_parms(const struct ftype *self,
-				   const struct cu *cu, int indent,
-				   const struct conf_fprintf *conf, FILE *fp)
+size_t ftype__fprintf_parms(const struct ftype *self,
+			    const struct cu *cu, int indent,
+			    const struct conf_fprintf *conf, FILE *fp)
 {
 	struct parameter *pos;
 	int first_parm = 1;
