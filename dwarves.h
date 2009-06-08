@@ -688,6 +688,11 @@ size_t function__fprintf_stats(const struct tag *tag_self,
 const char *function__prototype(const struct function *self,
 				const struct cu *cu, char *bf, size_t len);
 
+static __pure inline function__addr(const struct function *self)
+{
+	return self->lexblock.ip.addr;
+}
+
 static __pure inline uint32_t function__size(const struct function *self)
 {
 	return self->lexblock.size;
