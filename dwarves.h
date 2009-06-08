@@ -74,7 +74,8 @@ struct cus {
 struct cus *cus__new(void);
 void cus__delete(struct cus *self);
 
-int cus__load_file(struct cus *self, struct conf_load *conf, char *filename);
+int cus__load_file(struct cus *self, struct conf_load *conf,
+		   const char *filename);
 int cus__load_files(struct cus *self, struct conf_load *conf,
 		    char *filenames[]);
 int cus__load_dir(struct cus *self, struct conf_load *conf,

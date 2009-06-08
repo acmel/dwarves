@@ -1406,7 +1406,8 @@ static int debugging_formats__loader(const char *name)
 	return -1;
 }
 
-int cus__load_file(struct cus *self, struct conf_load *conf, char *filename)
+int cus__load_file(struct cus *self, struct conf_load *conf,
+		   const char *filename)
 {
 	int i = 0, err = 0;
 	int loader;
