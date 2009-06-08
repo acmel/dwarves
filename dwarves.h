@@ -511,6 +511,12 @@ static inline struct label *tag__label(const struct tag *self)
 	return (struct label *)self;
 }
 
+static inline const char *label__name(const struct label *self,
+				      const struct cu *cu)
+{
+	return cu__string(cu, self->name);
+}
+
 enum vlocation {
 	LOCATION_UNKNOWN,
 	LOCATION_LOCAL,
