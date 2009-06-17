@@ -1,5 +1,6 @@
 project(pahole C)
 cmake_minimum_required(VERSION 2.4.8)
+cmake_policy(SET CMP0005 NEW)
 
 INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR} )
 
@@ -26,7 +27,7 @@ if (NOT CMAKE_BUILD_TYPE)
 	     FORCE)
 endif (NOT CMAKE_BUILD_TYPE)
 
-add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION=\\"v1.8pre1\\")
+add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.8pre1")
 find_package(DWARF REQUIRED)
 find_package(ZLIB REQUIRED)
 
