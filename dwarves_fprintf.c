@@ -1338,7 +1338,9 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 							     &newline,
 							     &last_cacheline,
 							     cconf.indent, fp);
-	class__vtable_fprintf(self, cu, &cconf, fp);
+	if (!cconf.show_only_data_members)
+		class__vtable_fprintf(self, cu, &cconf, fp);
+
 	if (!cconf.emit_stats)
 		goto out;
 
