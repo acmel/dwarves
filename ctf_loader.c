@@ -722,6 +722,7 @@ int ctf__load_file(struct cus *self, struct conf_load *conf,
 	if (cu == NULL)
 		return -1;
 
+	cu->language = LANG_C;
 	cu->uses_global_strings = false;
 	cu->dfops = &ctf__ops;
 	cu->priv = state;

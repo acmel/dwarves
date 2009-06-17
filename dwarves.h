@@ -106,6 +106,29 @@ struct tag;
 struct cu;
 struct variable;
 
+/* Same as DW_LANG, so that we don't have to include dwarf.h in CTF */
+enum dwarf_languages {
+    LANG_C89		= 0x01,	/* ISO C:1989 */
+    LANG_C		= 0x02,	/* C */
+    LANG_Ada83		= 0x03,	/* ISO Ada:1983 */
+    LANG_C_plus_plus	= 0x04,	/* ISO C++:1998 */
+    LANG_Cobol74	= 0x05,	/* ISO Cobol:1974 */
+    LANG_Cobol85	= 0x06,	/* ISO Cobol:1985 */
+    LANG_Fortran77	= 0x07,	/* ISO FORTRAN 77 */
+    LANG_Fortran90	= 0x08,	/* ISO Fortran 90 */
+    LANG_Pascal83	= 0x09,	/* ISO Pascal:1983 */
+    LANG_Modula2	= 0x0a,	/* ISO Modula-2:1996 */
+    LANG_Java		= 0x0b,	/* Java */
+    LANG_C99		= 0x0c,	/* ISO C:1999 */
+    LANG_Ada95		= 0x0d,	/* ISO Ada:1995 */
+    LANG_Fortran95	= 0x0e,	/* ISO Fortran 95 */
+    LANG_PL1		= 0x0f,	/* ISO PL/1:1976 */
+    LANG_Objc		= 0x10,	/* Objective-C */
+    LANG_ObjC_plus_plus	= 0x11,	/* Objective-C++ */
+    LANG_UPC		= 0x12,	/* Unified Parallel C */
+    LANG_D		= 0x13,	/* D */
+};
+
 /** struct debug_fmt_ops - specific to the underlying debug file format
  *
  * @function__name - will be called by function__name(), giving a chance to
@@ -183,6 +206,11 @@ const char *cu__string(const struct cu *self, strings_t s);
 static inline void cu__cache_symtab(struct cu *self)
 {
 	self->cached_symtab_nr_entries = dwfl_module_getsymtab(self->dwfl);
+}
+
+static inline __pure bool cu__is_c_plus_plus(const struct cu *self)
+{
+	return self->language == LANG_C_plus_plus;
 }
 
 /**
