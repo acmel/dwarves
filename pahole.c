@@ -54,6 +54,7 @@ static bool show_private_classes;
 static bool defined_in;
 static int show_reorg_steps;
 static char *class_name;
+static struct strlist *class_names;
 static char separator = '\t';
 
 static struct conf_fprintf conf = {
@@ -1014,25 +1015,48 @@ static struct argp pahole__argp = {
 	.args_doc = pahole__args_doc,
 };
 
-static struct tag *class;
-static uint16_t class_id;
-
-static enum load_steal_kind class_stealer(struct cu *cu)
+static void do_reorg(struct tag *class, struct cu *cu)
 {
-	int include_decls = find_pointers_in_structs != 0 ||
-			    stats_formatter == nr_methods_formatter;
-	class = cu__find_struct_by_name(cu, class_name,
-					include_decls, &class_id);
-	if (class == NULL)
-		return LSK__STOLEN;
+	size_t savings;
+	const uint8_t reorg_verbose =
+			show_reorg_steps ? 2 : global_verbose;
+	struct class *clone = class__clone(tag__class(class), NULL);
+	if (clone == NULL) {
+		fprintf(stderr, "pahole: out of memory!\n");
+		exit(EXIT_FAILURE);
+	}
+	class__reorganize(clone, cu, reorg_verbose, stdout);
+	savings = class__size(tag__class(class)) - class__size(clone);
+	if (savings != 0 && reorg_verbose) {
+		putchar('\n');
+		if (show_reorg_steps)
+			puts("/* Final reorganized struct: */");
+	}
+	tag__fprintf(class__tag(clone), cu, &conf, stdout);
+	if (savings != 0) {
+		const size_t cacheline_savings =
+		      (tag__nr_cachelines(class, cu) -
+		       tag__nr_cachelines(class__tag(clone), cu));
 
-	class__find_holes(tag__class(class));
-	return LSK__STOP_LOADING;
+		printf("   /* saved %zd byte%s", savings,
+		       savings != 1 ? "s" : "");
+		if (cacheline_savings != 0)
+			printf(" and %zu cacheline%s",
+			       cacheline_savings,
+			       cacheline_savings != 1 ?
+					"s" : "");
+		puts("! */");
+	} else
+		putchar('\n');
+
+	class__delete(clone);
 }
 
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load __unused)
 {
+	int ret = LSK__STOLEN;
+
 	if (!cu__filter(cu))
 		goto dump_it;
 
@@ -1046,83 +1070,106 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto dump_and_stop;
 	}
 
-	if (defined_in) {
-		if (cu__find_struct_by_name(cu, class_name, 0, NULL))
-			puts(cu->name);
+	if (class_name == NULL) {
+		if (stats_formatter == nr_methods_formatter) {
+			cu__account_nr_methods(cu);
+			goto dump_it;
+		}
 
-		goto dump_it;
-	}
+		if (word_size != 0)
+			cu_fixup_word_size_iterator(cu);
 
-	if (class_name != NULL && class_stealer(cu) == LSK__STOLEN)
-		goto dump_it;
+		memset(tab, ' ', sizeof(tab) - 1);
 
-	if (stats_formatter == nr_methods_formatter) {
-		cu__account_nr_methods(cu);
-		goto dump_it;
-	}
-
-	if (word_size != 0)
-		cu_fixup_word_size_iterator(cu);
-
-	memset(tab, ' ', sizeof(tab) - 1);
-
-	if (class == NULL) {
 		print_classes(cu);
 		goto dump_it;
 	}
 
-	if (reorganize) {
-		size_t savings;
-		const uint8_t reorg_verbose =
-				show_reorg_steps ? 2 : global_verbose;
-		struct class *clone = class__clone(tag__class(class), NULL);
-		if (clone == NULL) {
-			fprintf(stderr, "pahole: out of memory!\n");
-			exit(EXIT_FAILURE);
-		}
-		class__reorganize(clone, cu, reorg_verbose, stdout);
-		savings = class__size(tag__class(class)) - class__size(clone);
-		if (savings != 0 && reorg_verbose) {
-			putchar('\n');
-			if (show_reorg_steps)
-				puts("/* Final reorganized struct: */");
-		}
-		tag__fprintf(class__tag(clone), cu, &conf, stdout);
-		if (savings != 0) {
-			const size_t cacheline_savings =
-			      (tag__nr_cachelines(class, cu) -
-			       tag__nr_cachelines(class__tag(clone), cu));
+	struct str_node *pos;
+	struct rb_node *next = rb_first(&class_names->entries);
 
-			printf("   /* saved %zd byte%s", savings,
-			       savings != 1 ? "s" : "");
-			if (cacheline_savings != 0)
-				printf(" and %zu cacheline%s",
-				       cacheline_savings,
-				       cacheline_savings != 1 ?
-						"s" : "");
-			puts("! */");
+	while (next) {
+		pos = rb_entry(next, struct str_node, rb_node);
+		next = rb_next(&pos->rb_node);
+
+		static uint16_t class_id;
+		bool include_decls = find_pointers_in_structs != 0 ||
+				     stats_formatter == nr_methods_formatter;
+		struct tag *class = cu__find_struct_by_name(cu, pos->s,
+							    include_decls,
+							    &class_id);
+		if (class == NULL)
+			continue;
+
+		if (defined_in) {
+			puts(cu->name);
+			goto dump_it;
 		}
-		class__delete(clone);
-	} else if (find_containers) {
-		print_containers(cu, class_id, 0);
-		goto dump_it;
-	} else if (find_pointers_in_structs) {
-		print_structs_with_pointer_to(cu, class_id);
-		goto dump_it;
-	} else {
 		/*
-		 * We don't need to print it for every compile unit
-		 * but the previous options need
+		 * Ok, found it, so remove from the list to avoid printing it
+		 * twice, in another CU.
 		 */
-		tag__fprintf(class, cu, &conf, stdout);
-		putchar('\n');
+		strlist__remove(class_names, pos);
+
+		class__find_holes(tag__class(class));
+		if (reorganize)
+			do_reorg(class, cu);
+		else if (find_containers)
+			print_containers(cu, class_id, 0);
+		else if (find_pointers_in_structs)
+			print_structs_with_pointer_to(cu, class_id);
+		else {
+			/*
+			 * We don't need to print it for every compile unit
+			 * but the previous options need
+			 */
+			tag__fprintf(class, cu, &conf, stdout);
+			putchar('\n');
+		}
 	}
+
+	/*
+	 * If we found all the entries in --class_name, stop
+	 */
+	if (strlist__empty(class_names)) {
 dump_and_stop:
-	cu__delete(cu);
-	return LSK__STOP_LOADING;
+		ret = LSK__STOP_LOADING;
+	}
 dump_it:
 	cu__delete(cu);
-	return LSK__STOLEN;
+	return ret;
+}
+
+static int add_class_name_entry(const char *s)
+{
+	if (strncmp(s, "file://", 7) == 0) {
+		if (strlist__load(class_names, s + 7))
+			return -1;
+	} else switch (strlist__add(class_names, s)) {
+	case -EEXIST:
+		if (global_verbose)
+			fprintf(stderr,
+				"pahole: %s dup in -C, ignoring\n", s);
+		break;
+	case -ENOMEM:
+		return -1;
+	}
+	return 0;
+}
+
+static int populate_class_names(void)
+{
+	char *s = class_name, *sep;
+
+	while ((sep = strchr(s, ',')) != NULL) {
+		*sep = '\0';
+		if (add_class_name_entry(s))
+			return -1;
+		*sep = ',';
+		s = sep + 1;
+	}
+
+	return *s ? add_class_name_entry(s) : 0;
 }
 
 int main(int argc, char *argv[])
@@ -1135,10 +1182,15 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	if (dwarves__init(cacheline_size)) {
+	class_names = strlist__new(true);
+
+	if (class_names == NULL || dwarves__init(cacheline_size)) {
 		fputs("pahole: insufficient memory\n", stderr);
 		goto out;
 	}
+
+	if (class_name && populate_class_names())
+		goto out_dwarves_exit;
 
 	struct cus *cus = cus__new();
 	if (cus == NULL) {
@@ -1163,5 +1215,6 @@ out_cus_delete:
 out_dwarves_exit:
 	dwarves__exit();
 out:
+	strlist__delete(class_names);
 	return rc;
 }
