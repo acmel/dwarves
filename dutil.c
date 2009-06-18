@@ -11,7 +11,6 @@
 
 #include <ctype.h>
 #include <errno.h>
-#include <search.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,29 +23,60 @@ void *zalloc(const size_t size)
 	return s;
 }
 
-static int str_compare(const void *a, const void *b)
+struct str_node *str_node__new(const char *s, bool dupstr)
 {
-	return strcmp(a, b);
+	struct str_node *self = malloc(sizeof(*self));
+
+	if (self != NULL){
+		if (dupstr) {
+			s = strdup(s);
+			if (s == NULL)
+				goto out_delete;
+		}
+		self->s = s;
+	}
+
+	return self;
+
+out_delete:
+	free(self);
+	return NULL;
 }
 
-int strlist__add(struct strlist *self, const char *str)
+static void str_node__delete(struct str_node *self, bool dupstr)
 {
-	const char **s = tsearch(str, &self->entries, str_compare);
+	if (dupstr)
+		free((void *)self->s);
+	free(self);
+}
 
-	if (s != NULL) {
-		if (*s == str) {
-			const char *dup = self->dupstr ? strdup(str) : str;
+int strlist__add(struct strlist *self, const char *new_entry)
+{
+        struct rb_node **p = &self->entries.rb_node;
+        struct rb_node *parent = NULL;
+	struct str_node *sn;
 
-			if (dup != NULL)
-				*s = dup;
-			else {
-				tdelete(str, &self->entries, str_compare);
-				return -ENOMEM;
-			}
-		} else
+        while (*p != NULL) {
+		int rc;
+
+                parent = *p;
+                sn = rb_entry(parent, struct str_node, rb_node);
+		rc = strcmp(sn->s, new_entry);
+
+		if (rc > 0)
+                        p = &(*p)->rb_left;
+                else if (rc < 0)
+                        p = &(*p)->rb_right;
+		else
 			return -EEXIST;
-	} else
+        }
+
+	sn = str_node__new(new_entry, self->dupstr);
+	if (sn == NULL)
 		return -ENOMEM;
+
+        rb_link_node(&sn->rb_node, parent, p);
+        rb_insert_color(&sn->rb_node, &self->entries);
 
 	return 0;
 }
@@ -82,34 +112,57 @@ struct strlist *strlist__new(bool dupstr)
 	struct strlist *self = malloc(sizeof(*self));
 
 	if (self != NULL) {
-		self->entries = NULL;
+		self->entries = RB_ROOT;
 		self->dupstr = dupstr;
 	}
 
 	return self;
 }
 
-static void do_nothing(void *ptr __unused)
-{
-}
-
 void strlist__delete(struct strlist *self)
 {
 	if (self != NULL) {
-		if (self->dupstr)
-			tdestroy(self->entries, free);
-		else
-			tdestroy(self->entries, do_nothing);
-		self->entries = NULL;
+		struct str_node *pos;
+		struct rb_node *next = rb_first(&self->entries);
+
+		while (next) {
+			pos = rb_entry(next, struct str_node, rb_node);
+			next = rb_next(&pos->rb_node);
+			strlist__remove(self, pos);
+		}
+		self->entries = RB_ROOT;
 		free(self);
 	}
 }
 
-int strlist__has_entry(const struct strlist *self, const char *entry)
+void strlist__remove(struct strlist *self, struct str_node *sn)
 {
-	if (self == NULL)
-		return false;
-	return tfind(entry, &self->entries, str_compare) != NULL;
+	rb_erase(&sn->rb_node, &self->entries);
+	str_node__delete(sn, self->dupstr);
+}
+
+bool strlist__has_entry(struct strlist *self, const char *entry)
+{
+        struct rb_node **p = &self->entries.rb_node;
+        struct rb_node *parent = NULL;
+
+        while (*p != NULL) {
+		struct str_node *sn;
+		int rc;
+
+                parent = *p;
+                sn = rb_entry(parent, struct str_node, rb_node);
+		rc = strcmp(sn->s, entry);
+
+		if (rc > 0)
+                        p = &(*p)->rb_left;
+                else if (rc < 0)
+                        p = &(*p)->rb_right;
+		else
+			return true;
+        }
+
+	return false;
 }
 
 Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,

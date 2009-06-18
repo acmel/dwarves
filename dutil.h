@@ -15,6 +15,7 @@
 #include <stddef.h>
 #include <elf.h>
 #include <gelf.h>
+#include "rbtree.h"
 
 #ifndef __unused
 #define __unused __attribute__ ((unused))
@@ -42,18 +43,29 @@ static inline __attribute__((const)) bool is_power_of_2(unsigned long n)
 #define ARGP_PROGRAM_BUG_ADDRESS_DEF \
 	const char *const apba__ __asm ("argp_program_bug_address")
 
+struct str_node {
+	struct rb_node rb_node;
+	const char       *s;
+};
+
 struct strlist {
-	void *entries;
+	struct rb_root entries;
 	bool dupstr;
 };
 
 struct strlist *strlist__new(bool dupstr);
 void strlist__delete(struct strlist *self);
 
+void strlist__remove(struct strlist *self, struct str_node *sn);
 int strlist__load(struct strlist *self, const char *filename);
 int strlist__add(struct strlist *self, const char *str);
 
-int strlist__has_entry(const struct strlist *self, const char *entry);
+bool strlist__has_entry(struct strlist *self, const char *entry);
+
+static inline bool strlist__empty(const struct strlist *self)
+{
+	return rb_first(&self->entries) == NULL;
+}
 
 void *zalloc(const size_t size);
 
