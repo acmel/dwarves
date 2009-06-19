@@ -65,6 +65,7 @@ static struct conf_load conf_load;
 
 struct structure {
 	struct list_head  node;
+	struct rb_node	  rb_node;
 	char		  *name;
 	uint32_t	  nr_files;
 	uint32_t	  nr_methods;
@@ -93,65 +94,78 @@ static void structure__delete(struct structure *self)
 	free(self);
 }
 
-static void *structures__tree;
+static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
 
-static int structure__compare(const void *a, const void *b)
+static struct structure *structures__add(struct class *class, const struct cu *cu)
 {
-	const char *key = a;
-	const struct structure *pos = b;
-	return strcmp(key, pos->name);
-}
-
-static struct structure *structures__add(struct class *class,
-					 const struct cu *cu)
-{
+        struct rb_node **p = &structures__tree.rb_node;
+        struct rb_node *parent = NULL;
 	struct structure *str;
-	const char *name = class__name(class, cu);
-	struct structure *s = tsearch(name, &structures__tree,
-				      structure__compare);
-	if (s == NULL)
-		return NULL;
+	const char *new_class_name = class__name(class, cu);
 
-	/* Should not be there since we already did a structures__find before
-	 * calling structures__add_named */
-	assert(s->name == NULL || strcmp(s->name, name) != 0);
+        while (*p != NULL) {
+		int rc;
 
-	str = structure__new(name);
+                parent = *p;
+                str = rb_entry(parent, struct structure, rb_node);
+		rc = strcmp(str->name, new_class_name);
+
+		if (rc > 0)
+                        p = &(*p)->rb_left;
+                else if (rc < 0)
+                        p = &(*p)->rb_right;
+		else
+			return str;
+        }
+
+	str = structure__new(new_class_name);
 	if (str == NULL)
 		return NULL;
 
-	/* Insert the new structure */
-	*(struct structure **)s = str;
+        rb_link_node(&str->rb_node, parent, p);
+        rb_insert_color(&str->rb_node, &structures__tree);
 
 	/* For linear traversals */
 	list_add_tail(&str->node, &structures__list);
+
 	return str;
 }
 
 static struct structure *structures__find(const char *name)
 {
-	struct structure *s = NULL;
+        struct rb_node **p = &structures__tree.rb_node;
+        struct rb_node *parent = NULL;
+	struct structure *str;
 
-	if (name) {
-		struct structure **key = tfind(name, &structures__tree,
-					       structure__compare);
+        while (*p != NULL) {
+		int rc;
 
-		if (key != NULL)
-			s = *key;
-	}
+                parent = *p;
+                str = rb_entry(parent, struct structure, rb_node);
+		rc = strcmp(str->name, name);
 
-	return s;
-}
+		if (rc > 0)
+                        p = &(*p)->rb_left;
+                else if (rc < 0)
+                        p = &(*p)->rb_right;
+		else
+			return str;
+        }
 
-void void_structure__delete(void *structure)
-{
-	structure__delete(structure);
+	return NULL;
 }
 
 void structures__delete(void)
 {
-	tdestroy(structures__tree, void_structure__delete);
+	struct rb_node *next = rb_first(&structures__tree);
+
+	while (next) {
+		struct structure *pos = rb_entry(next, struct structure, rb_node);
+		next = rb_next(&pos->rb_node);
+		rb_erase(&pos->rb_node, &structures__tree);
+		structure__delete(pos);
+	}
 }
 
 static void nr_definitions_formatter(struct structure *self)
@@ -669,13 +683,14 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint16_t type)
 			if (structures__find(class__name(pos, cu)))
 				break;
 
-			if (structures__add(pos, cu) == NULL) {
+			struct structure *str = structures__add(pos, cu);
+			if (str == NULL) {
 				fprintf(stderr, "pahole: insufficient memory for "
 					"processing %s, skipping it...\n",
 					cu->name);
 				return;
 			}
-			printf("%s: %s\n", class__name(pos, cu),
+			printf("%s: %s\n", str->name,
 			       class_member__name(pos_member, cu));
 		}
 	}
