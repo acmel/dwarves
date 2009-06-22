@@ -97,7 +97,9 @@ static void structure__delete(struct structure *self)
 static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
 
-static struct structure *structures__add(struct class *class, const struct cu *cu)
+static struct structure *structures__add(struct class *class,
+					 const struct cu *cu,
+					 bool *existing_entry)
 {
         struct rb_node **p = &structures__tree.rb_node;
         struct rb_node *parent = NULL;
@@ -115,14 +117,17 @@ static struct structure *structures__add(struct class *class, const struct cu *c
                         p = &(*p)->rb_left;
                 else if (rc < 0)
                         p = &(*p)->rb_right;
-		else
+		else {
+			*existing_entry = true;
 			return str;
+		}
         }
 
 	str = structure__new(new_class_name);
 	if (str == NULL)
 		return NULL;
 
+	*existing_entry = false;
         rb_link_node(&str->rb_node, parent, p);
         rb_insert_color(&str->rb_node, &structures__tree);
 
@@ -130,30 +135,6 @@ static struct structure *structures__add(struct class *class, const struct cu *c
 	list_add_tail(&str->node, &structures__list);
 
 	return str;
-}
-
-static struct structure *structures__find(const char *name)
-{
-        struct rb_node **p = &structures__tree.rb_node;
-        struct rb_node *parent = NULL;
-	struct structure *str;
-
-        while (*p != NULL) {
-		int rc;
-
-                parent = *p;
-                str = rb_entry(parent, struct structure, rb_node);
-		rc = strcmp(str->name, name);
-
-		if (rc > 0)
-                        p = &(*p)->rb_left;
-                else if (rc < 0)
-                        p = &(*p)->rb_right;
-		else
-			return str;
-        }
-
-	return NULL;
 }
 
 void structures__delete(void)
@@ -296,20 +277,16 @@ static void print_classes(struct cu *cu)
 	struct class *pos;
 
 	cu__for_each_struct(cu, id, pos) {
+		bool existing_entry;
+		struct structure *str;
+
 		if (pos->type.namespace.name == 0 &&
 		    !(class__include_anonymous ||
 		      class__include_nested_anonymous))
 			continue;
 
-		class__find_holes(pos);
-
 		if (!class__filter(pos, cu, id))
 			continue;
-
-		if (show_packable && !global_verbose)
-			print_packable_info(pos, cu, id);
-		else if (formatter != NULL)
-			formatter(pos, cu, id);
 		/*
 		 * FIXME: No sense in adding an anonymous struct to the list of
 		 * structs already printed, as we look for the name... The
@@ -321,11 +298,23 @@ static void print_classes(struct cu *cu)
 		if (pos->type.namespace.name == 0)
 			continue;
 
-		if (structures__add(pos, cu) == NULL) {
+		str = structures__add(pos, cu, &existing_entry);
+		if (str == NULL) {
 			fprintf(stderr, "pahole: insufficient memory for "
 				"processing %s, skipping it...\n", cu->name);
 			return;
 		}
+
+		/* Already printed... */
+		if (existing_entry) {
+			str->nr_files++;
+			continue;
+		}
+
+		if (show_packable && !global_verbose)
+			print_packable_info(pos, cu, id);
+		else if (formatter != NULL)
+			formatter(pos, cu, id);
 	}
 }
 
@@ -365,11 +354,14 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 				   uint16_t tag_id)
 {
 	struct tag *tag = class__tag(class);
-	struct structure *str;
 	const char *name;
 
-	if (!tag->top_level && !show_private_classes)
-		return NULL;
+	if (!tag->top_level) {
+		class__find_holes(class);
+
+		if (!show_private_classes)
+			return NULL;
+	}
 
 	name = class__name(class, cu);
 
@@ -409,23 +401,19 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 			return NULL;
 	}
 
-
 	if (decl_exclude_prefix != NULL &&
 	    (!tag__decl_file(tag, cu) ||
 	     strncmp(decl_exclude_prefix, tag__decl_file(tag, cu),
 		     decl_exclude_prefix_len) == 0))
 		return NULL;
 
+	if (tag->top_level)
+		class__find_holes(class);
+
 	if (class->nr_holes < nr_holes ||
 	    class->nr_bit_holes < nr_bit_holes ||
 	    (hole_size_ge != 0 && !class__has_hole_ge(class, hole_size_ge)))
 		return NULL;
-
-	str = structures__find(name);
-	if (str != NULL) {
-		str->nr_files++;
-		return NULL;
-	}
 
 	if (show_packable && !class__packable(class, cu))
 		return NULL;
@@ -640,22 +628,22 @@ static void cu__account_nr_methods(struct cu *self)
 			if (ctype->namespace.name == 0)
 				continue;
 
-			str = structures__find(type__name(ctype, self));
+			struct class *class = tag__class(type);
+
+			if (!class__filter(class, self, 0))
+				continue;
+
+			bool existing_entry;
+			str = structures__add(class, self, &existing_entry);
 			if (str == NULL) {
-				struct class *class = tag__class(type);
-				class__find_holes(class);
-
-				if (!class__filter(class, self, 0))
-					continue;
-
-				str = structures__add(class, self);
-				if (str == NULL) {
-					fprintf(stderr, "pahole: insufficient memory for "
-						"processing %s, skipping it...\n",
-						self->name);
-					return;
-				}
+				fprintf(stderr, "pahole: insufficient memory "
+					"for processing %s, skipping it...\n",
+					self->name);
+				return;
 			}
+
+			if (!existing_entry)
+				class__find_holes(class);
 			++str->nr_methods;
 		}
 	}
@@ -670,6 +658,9 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint16_t type)
 	uint16_t id;
 
 	cu__for_each_struct(cu, id, pos) {
+		bool looked = false;
+		struct structure *str;
+
 		if (pos->type.namespace.name == 0)
 			continue;
 
@@ -680,15 +671,22 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint16_t type)
 			if (ctype->tag != DW_TAG_pointer_type || ctype->type != type)
 				continue;
 
-			if (structures__find(class__name(pos, cu)))
-				break;
+			if (!looked) {
+				bool existing_entry;
 
-			struct structure *str = structures__add(pos, cu);
-			if (str == NULL) {
-				fprintf(stderr, "pahole: insufficient memory for "
-					"processing %s, skipping it...\n",
-					cu->name);
-				return;
+				str = structures__add(pos, cu, &existing_entry);
+				if (str == NULL) {
+					fprintf(stderr, "pahole: insufficient memory for "
+						"processing %s, skipping it...\n",
+						cu->name);
+					return;
+				}
+				/*
+				 * We already printed this struct in another CU
+				 */
+				if (existing_entry)
+					break;
+				looked = true;
 			}
 			printf("%s: %s\n", str->name,
 			       class_member__name(pos_member, cu));
@@ -710,15 +708,19 @@ static void print_containers(const struct cu *cu, uint16_t type, int ident)
 			continue;
 
 		if (ident == 0) {
-			if (structures__find(class__name(pos, cu)))
-				continue;
-
-			if (structures__add(pos, cu) == NULL) {
+			bool existing_entry;
+			struct structure *str = structures__add(pos, cu, &existing_entry);
+			if (str == NULL) {
 				fprintf(stderr, "pahole: insufficient memory for "
 					"processing %s, skipping it...\n",
 					cu->name);
 				return;
 			}
+			/*
+			 * We already printed this struct in another CU
+			 */
+			if (existing_entry)
+				break;
 		}
 
 		printf("%.*s%s", ident * 2, tab, class__name(pos, cu));
