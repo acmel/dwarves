@@ -47,6 +47,10 @@ if (DWARF_INCLUDE_DIR AND LIBDW_INCLUDE_DIR AND DWARF_LIBRARY AND ELF_LIBRARY AN
 	set(DWARF_LIBRARIES ${DWARF_LIBRARY} ${ELF_LIBRARY} ${EBL_LIBRARY})
 
 	set(CMAKE_REQUIRED_LIBRARIES ${DWARF_LIBRARIES})
+	# check if libdw have the dwfl_module_build_id routine, i.e. if it supports the buildid
+	# mechanism to match binaries to detached debug info sections (the -debuginfo packages
+	# in distributions such as fedora). We do it against libelf because, IIRC, some distros
+	# include libdw linked statically into libelf.
 	check_library_exists(elf dwfl_module_build_id "" HAVE_DWFL_MODULE_BUILD_ID)
 else (DWARF_INCLUDE_DIR AND LIBDW_INCLUDE_DIR AND DWARF_LIBRARY AND ELF_LIBRARY AND EBL_LIBRARY)
 	set(DWARF_FOUND FALSE)
@@ -63,6 +67,9 @@ if (DWARF_FOUND)
 	endif (NOT DWARF_FIND_QUIETLY)
 else (DWARF_FOUND)
 	if (DWARF_FIND_REQUIRED)
+		# Check if we are in a Red Hat (RHEL) or Fedora system to tell
+		# exactly which packages should be installed. Please send
+		# patches for other distributions.
 		find_path(FEDORA fedora-release /etc)
 		find_path(REDHAT redhat-release /etc)
 		if (FEDORA OR REDHAT)
