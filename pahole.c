@@ -295,20 +295,19 @@ static void print_classes(struct cu *cu)
 		 * by name. And this is needed for CTF as well, but its late now
 		 * and I'm sleepy, will leave for later...
 		 */
-		if (pos->type.namespace.name == 0)
-			continue;
+		if (pos->type.namespace.name != 0) {
+			str = structures__add(pos, cu, &existing_entry);
+			if (str == NULL) {
+				fprintf(stderr, "pahole: insufficient memory for "
+					"processing %s, skipping it...\n", cu->name);
+				return;
+			}
 
-		str = structures__add(pos, cu, &existing_entry);
-		if (str == NULL) {
-			fprintf(stderr, "pahole: insufficient memory for "
-				"processing %s, skipping it...\n", cu->name);
-			return;
-		}
-
-		/* Already printed... */
-		if (existing_entry) {
-			str->nr_files++;
-			continue;
+			/* Already printed... */
+			if (existing_entry) {
+				str->nr_files++;
+				continue;
+			}
 		}
 
 		if (show_packable && !global_verbose)
