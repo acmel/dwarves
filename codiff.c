@@ -26,7 +26,7 @@ static int verbose;
 static int show_terse_type_changes;
 
 static struct conf_load conf_load = {
-	.get_addr_info = true;
+	.get_addr_info = true,
 };
 
 static struct strlist *structs_printed;
