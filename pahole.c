@@ -1226,11 +1226,17 @@ int main(int argc, char *argv[])
 		print_stats();
 	rc = EXIT_SUCCESS;
 out_cus_delete:
+#ifdef DEBUG_CHECK_LEAKS
 	cus__delete(cus);
 	structures__delete();
+#endif
 out_dwarves_exit:
+#ifdef DEBUG_CHECK_LEAKS
 	dwarves__exit();
+#endif
 out:
+#ifdef DEBUG_CHECK_LEAKS
 	strlist__delete(class_names);
+#endif
 	return rc;
 }
