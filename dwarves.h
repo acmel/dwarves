@@ -32,6 +32,7 @@ enum load_steal_kind {
  * @extra_dbg_info - keep original debugging format extra info
  *		     (e.g. DWARF's decl_{line,file}, id, etc)
  * @fixup_silly_bitfields - Fixup silly things such as "int foo:32;"
+ * @get_addr_info - wheter to load DW_AT_location and other addr info
  */
 struct conf_load {
 	enum load_steal_kind	(*steal)(struct cu *self,
@@ -40,6 +41,7 @@ struct conf_load {
 	char			*format_path;
 	bool			extra_dbg_info;
 	bool			fixup_silly_bitfields;
+	bool			get_addr_info;
 };
 
 /** struct conf_fprintf - hints to the __fprintf routines
@@ -183,6 +185,7 @@ struct cu {
 	uint32_t	 cached_symtab_nr_entries;
 	uint8_t		 addr_size;
 	uint8_t		 extra_dbg_info:1;
+	uint8_t		 has_addr_info:1;
 	uint8_t		 uses_global_strings:1;
 	uint16_t	 language;
 	unsigned long	 nr_inline_expansions;

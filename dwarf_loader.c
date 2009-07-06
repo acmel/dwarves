@@ -483,7 +483,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
 		self->declaration = dwarf_hasattr(die, DW_AT_declaration);
 		self->location = LOCATION_UNKNOWN;
 		self->ip.addr = 0;
-		if (!self->declaration)
+		if (!self->declaration && cu->has_addr_info)
 			self->location = dwarf__location(die, &self->ip.addr);
 	}
 
@@ -669,6 +669,11 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die,
 			strings__add(strings, attr_string(die, DW_AT_call_file));
 		dtag->decl_line = attr_numeric(die, DW_AT_call_line);
 		dtag->type = attr_type(die, DW_AT_abstract_origin);
+		self->ip.addr = 0;
+		self->high_pc = 0;
+
+		if (!cu->has_addr_info)
+			goto out;
 
 		if (dwarf_lowpc(die, &self->ip.addr))
 			self->ip.addr = 0;
@@ -693,7 +698,7 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die,
 			}
 		}
 	}
-
+out:
 	return self;
 }
 
@@ -704,7 +709,7 @@ static struct label *label__new(Dwarf_Die *die, struct cu *cu)
 	if (self != NULL) {
 		tag__init(&self->ip.tag, cu, die);
 		self->name = strings__add(strings, attr_string(die, DW_AT_name));
-		if (dwarf_lowpc(die, &self->ip.addr))
+		if (!cu->has_addr_info || dwarf_lowpc(die, &self->ip.addr))
 			self->ip.addr = 0;
 	}
 
@@ -729,14 +734,14 @@ static struct class *class__new(Dwarf_Die *die, struct cu *cu)
 	return self;
 }
 
-static void lexblock__init(struct lexblock *self, Dwarf_Die *die)
+static void lexblock__init(struct lexblock *self, struct cu *cu,
+			   Dwarf_Die *die)
 {
 	Dwarf_Off high_pc;
 
-	if (dwarf_lowpc(die, &self->ip.addr))
+	if (!cu->has_addr_info || dwarf_lowpc(die, &self->ip.addr))
 		self->ip.addr = 0;
-
-	if (dwarf_highpc(die, &high_pc))
+	else if (dwarf_highpc(die, &high_pc))
 		self->size = 0;
 	else
 		self->size = high_pc - self->ip.addr;
@@ -756,7 +761,7 @@ static struct lexblock *lexblock__new(Dwarf_Die *die, struct cu *cu)
 
 	if (self != NULL) {
 		tag__init(&self->ip.tag, cu, die);
-		lexblock__init(self, die);
+		lexblock__init(self, cu, die);
 	}
 
 	return self;
@@ -789,7 +794,7 @@ static struct function *function__new(Dwarf_Die *die, struct cu *cu)
 
 	if (self != NULL) {
 		ftype__init(&self->proto, die, cu);
-		lexblock__init(&self->lexblock, die);
+		lexblock__init(&self->lexblock, cu, die);
 		self->name     = strings__add(strings, attr_string(die, DW_AT_name));
 		self->linkage_name = strings__add(strings, attr_string(die, DW_AT_MIPS_linkage_name));
 		self->inlined  = attr_numeric(die, DW_AT_inline);
@@ -1995,6 +2000,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 		cu->elf = elf;
 		cu->dwfl = mod;
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
+		cu->has_addr_info = conf ? conf->get_addr_info : 0;
 		if (die__process(cu_die, cu) != 0)
 			return DWARF_CB_ABORT;
 		base_type_name_to_size_table__init(strings);
