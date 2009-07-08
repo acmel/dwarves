@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <libelf.h>
+#include <obstack.h>
 #include <search.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,9 +63,13 @@ static void dwarf_tag__set_spec(struct dwarf_tag *self, Dwarf_Off spec)
 #define HASHTAGS__BITS 8
 #define HASHTAGS__SIZE (1UL << HASHTAGS__BITS)
 
+#define obstack_chunk_alloc malloc
+#define obstack_chunk_free free
+
 struct dwarf_cu {
 	struct hlist_head hash_tags[HASHTAGS__SIZE];
 	struct hlist_head hash_types[HASHTAGS__SIZE];
+	struct obstack obstack;
 	struct cu *cu;
 };
 
@@ -75,6 +80,7 @@ static void dwarf_cu__init(struct dwarf_cu *self)
 		INIT_HLIST_HEAD(&self->hash_tags[i]);
 		INIT_HLIST_HEAD(&self->hash_types[i]);
 	}
+	obstack_init(&self->obstack);
 }
 
 static void hashtags__hash(struct hlist_head *hashtable,
@@ -265,19 +271,18 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 	return 1;
 }
 
-static void *__tag__alloc(size_t size, bool spec)
+static void *__tag__alloc(struct dwarf_cu *cu, size_t size, bool spec)
 {
-	struct dwarf_tag *dtag = malloc((sizeof(*dtag) +
-					 (spec ? sizeof(Dwarf_Off) : 0)));
+	struct dwarf_tag *dtag = obstack_alloc(&cu->obstack,
+					       (sizeof(*dtag) +
+					       (spec ? sizeof(Dwarf_Off) : 0)));
 	if (dtag == NULL)
 		return NULL;
 
 	struct tag *self = malloc(size);
 
-	if (self == NULL) {
-		free(dtag);
+	if (self == NULL)
 		return NULL;
-	}
 
 	dtag->tag = self;
 	self->priv = dtag;
@@ -288,14 +293,14 @@ static void *__tag__alloc(size_t size, bool spec)
 	return self;
 }
 
-static void *tag__alloc(size_t size)
+static void *tag__alloc(struct cu *cu, size_t size)
 {
-	return __tag__alloc(size, false);
+	return __tag__alloc(cu->priv, size, false);
 }
 
-static void *tag__alloc_with_spec(size_t size)
+static void *tag__alloc_with_spec(struct cu *cu, size_t size)
 {
-	return __tag__alloc(size, true);
+	return __tag__alloc(cu->priv, size, true);
 }
 
 static void tag__init(struct tag *self, struct cu *cu, Dwarf_Die *die)
@@ -334,7 +339,7 @@ static void tag__init(struct tag *self, struct cu *cu, Dwarf_Die *die)
 
 static struct tag *tag__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct tag *self = tag__alloc(sizeof(*self));
+	struct tag *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL)
 		tag__init(self, cu, die);
@@ -345,7 +350,7 @@ static struct tag *tag__new(Dwarf_Die *die, struct cu *cu)
 static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die,
 							  struct cu *cu)
 {
-	struct ptr_to_member_type *self = tag__alloc(sizeof(*self));
+	struct ptr_to_member_type *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->tag, cu, die);
@@ -358,7 +363,7 @@ static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die,
 
 static struct base_type *base_type__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct base_type *self = tag__alloc(sizeof(*self));
+	struct base_type *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->tag, cu, die);
@@ -376,7 +381,7 @@ static struct base_type *base_type__new(Dwarf_Die *die, struct cu *cu)
 
 static struct array_type *array_type__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct array_type *self = tag__alloc(sizeof(*self));
+	struct array_type *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->tag, cu, die);
@@ -401,7 +406,7 @@ static void namespace__init(struct namespace *self, Dwarf_Die *die,
 
 static struct namespace *namespace__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct namespace *self = tag__alloc(sizeof(*self));
+	struct namespace *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL)
 		namespace__init(self, die, cu);
@@ -425,7 +430,7 @@ static void type__init(struct type *self, Dwarf_Die *die, struct cu *cu)
 
 static struct type *type__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct type *self = tag__alloc_with_spec(sizeof(*self));
+	struct type *self = tag__alloc_with_spec(cu, sizeof(*self));
 
 	if (self != NULL)
 		type__init(self, die, cu);
@@ -435,7 +440,7 @@ static struct type *type__new(Dwarf_Die *die, struct cu *cu)
 
 static struct enumerator *enumerator__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct enumerator *self = tag__alloc(sizeof(*self));
+	struct enumerator *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->tag, cu, die);
@@ -472,7 +477,7 @@ static enum vlocation dwarf__location(Dwarf_Die *die, uint64_t *addr)
 
 static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct variable *self = tag__alloc(sizeof(*self));
+	struct variable *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->ip.tag, cu, die);
@@ -620,7 +625,7 @@ int class_member__dwarf_recode_bitfield(struct class_member *self,
 
 static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct class_member *self = tag__alloc(sizeof(*self));
+	struct class_member *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->tag, cu, die);
@@ -646,7 +651,7 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu)
 
 static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct parameter *self = tag__alloc(sizeof(*self));
+	struct parameter *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->tag, cu, die);
@@ -659,7 +664,7 @@ static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu)
 static struct inline_expansion *inline_expansion__new(Dwarf_Die *die,
 						      struct cu *cu)
 {
-	struct inline_expansion *self = tag__alloc(sizeof(*self));
+	struct inline_expansion *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL) {
 		struct dwarf_tag *dtag = self->ip.tag.priv;
@@ -704,7 +709,7 @@ out:
 
 static struct label *label__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct label *self = tag__alloc(sizeof(*self));
+	struct label *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->ip.tag, cu, die);
@@ -718,7 +723,7 @@ static struct label *label__new(Dwarf_Die *die, struct cu *cu)
 
 static struct class *class__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct class *self = tag__alloc_with_spec(sizeof(*self));
+	struct class *self = tag__alloc_with_spec(cu, sizeof(*self));
 
 	if (self != NULL) {
 		type__init(&self->type, die, cu);
@@ -757,7 +762,7 @@ static void lexblock__init(struct lexblock *self, struct cu *cu,
 
 static struct lexblock *lexblock__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct lexblock *self = tag__alloc(sizeof(*self));
+	struct lexblock *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL) {
 		tag__init(&self->ip.tag, cu, die);
@@ -780,7 +785,7 @@ static void ftype__init(struct ftype *self, Dwarf_Die *die, struct cu *cu)
 
 static struct ftype *ftype__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct ftype *self = tag__alloc(sizeof(*self));
+	struct ftype *self = tag__alloc(cu, sizeof(*self));
 
 	if (self != NULL)
 		ftype__init(self, die, cu);
@@ -790,7 +795,7 @@ static struct ftype *ftype__new(Dwarf_Die *die, struct cu *cu)
 
 static struct function *function__new(Dwarf_Die *die, struct cu *cu)
 {
-	struct function *self = tag__alloc_with_spec(sizeof(*self));
+	struct function *self = tag__alloc_with_spec(cu, sizeof(*self));
 
 	if (self != NULL) {
 		ftype__init(&self->proto, die, cu);
@@ -1854,24 +1859,10 @@ static unsigned long long dwarf_tag__orig_type(const struct tag *self,
 	return cu->extra_dbg_info ? dtag->type : 0;
 }
 
-static void dwarf_tag__free_orig_info(struct tag *self, struct cu *cu __unused)
-{
-	free(self->priv);
-	self->priv = NULL;
-}
-
 static const char *dwarf__strings_ptr(const struct cu *cu __unused,
 				      strings_t s)
 {
 	return strings__ptr(strings, s);
-}
-
-static int tag__delete_priv(struct tag *self, struct cu *cu __unused,
-			    void *cookie __unused)
-{
-	free(self->priv);
-	self->priv = NULL;
-	return 0;
 }
 
 struct debug_fmt_ops dwarf__ops;
@@ -1888,12 +1879,6 @@ static int die__process(Dwarf_Die *die, struct cu *cu)
 	}
 
 	cu->language = attr_numeric(die, DW_AT_language);
-
-	struct dwarf_cu dcu;
-
-	dwarf_cu__init(&dcu);
-	cu->priv = &dcu;
-	cu->dfops = &dwarf__ops;
 
 	if (dwarf_child(die, &child) == 0) {
 		int err = die__process_unit(&child, cu);
@@ -2001,6 +1986,13 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 		cu->dwfl = mod;
 		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
 		cu->has_addr_info = conf ? conf->get_addr_info : 0;
+
+		struct dwarf_cu dcu;
+
+		dwarf_cu__init(&dcu);
+		cu->priv = &dcu;
+		cu->dfops = &dwarf__ops;
+
 		if (die__process(cu_die, cu) != 0)
 			return DWARF_CB_ABORT;
 		base_type_name_to_size_table__init(strings);
@@ -2022,7 +2014,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 		}
 
 		if (!cu->extra_dbg_info)
-			cu__for_all_tags(cu, tag__delete_priv, NULL);
+			obstack_free(&dcu.obstack, NULL);
 
 		cus__add(self, cu);
 	}
@@ -2160,5 +2152,4 @@ struct debug_fmt_ops dwarf__ops = {
 	.tag__decl_line	     = dwarf_tag__decl_line,
 	.tag__orig_id	     = dwarf_tag__orig_id,
 	.tag__orig_type	     = dwarf_tag__orig_type,
-	.tag__free_orig_info = dwarf_tag__free_orig_info,
 };
