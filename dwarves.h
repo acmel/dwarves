@@ -485,9 +485,9 @@ static inline struct ptr_to_member_type *
 struct namespace {
 	struct tag	 tag;
 	strings_t	 name;
-	char *		 sname;
 	uint16_t	 nr_tags;
-	uint8_t		 shared_tags:1;
+	uint8_t		 shared_tags;
+	char *		 sname;
 	struct list_head tags;
 };
 
