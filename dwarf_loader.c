@@ -66,6 +66,15 @@ static void dwarf_tag__set_spec(struct dwarf_tag *self, Dwarf_Off spec)
 #define obstack_chunk_alloc malloc
 #define obstack_chunk_free free
 
+static void *obstack_zalloc(struct obstack *self, size_t size)
+{
+	void *o = obstack_alloc(self, size);
+
+	if (o)
+		memset(o, 0, size);
+	return o;
+}
+
 struct dwarf_cu {
 	struct hlist_head hash_tags[HASHTAGS__SIZE];
 	struct hlist_head hash_types[HASHTAGS__SIZE];
@@ -132,9 +141,9 @@ static struct dwarf_tag *dwarf_cu__find_type_by_id(const struct dwarf_cu *self,
 
 extern struct strings *strings;
 
-static void *memdup(const void *src, size_t len)
+static void *memdup(const void *src, size_t len, struct cu *cu)
 {
-	void *s = malloc(len);
+	void *s = obstack_alloc(&cu->obstack, len);
 	if (s != NULL)
 		memcpy(s, src, len);
 	return s;
@@ -271,15 +280,15 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 	return 1;
 }
 
-static void *__tag__alloc(struct dwarf_cu *cu, size_t size, bool spec)
+static void *__tag__alloc(struct dwarf_cu *dcu, size_t size, bool spec)
 {
-	struct dwarf_tag *dtag = obstack_alloc(&cu->obstack,
+	struct dwarf_tag *dtag = obstack_alloc(&dcu->obstack,
 					       (sizeof(*dtag) +
 					       (spec ? sizeof(Dwarf_Off) : 0)));
 	if (dtag == NULL)
 		return NULL;
 
-	struct tag *self = malloc(size);
+	struct tag *self = obstack_alloc(&dcu->cu->obstack, size);
 
 	if (self == NULL)
 		return NULL;
@@ -513,7 +522,8 @@ int tag__recode_dwarf_bitfield(struct tag *self, struct cu *cu, uint16_t bit_siz
 		if (id == self->type)
 			return id;
 
-		struct type *new_typedef = zalloc(sizeof(*new_typedef));
+		struct type *new_typedef = obstack_zalloc(&cu->obstack,
+							  sizeof(*new_typedef));
 		if (new_typedef == NULL)
 			return -ENOMEM;
 
@@ -535,7 +545,7 @@ int tag__recode_dwarf_bitfield(struct tag *self, struct cu *cu, uint16_t bit_siz
 		if (id == self->type)
 			return id;
 
-		recoded = zalloc(sizeof(*recoded));
+		recoded = obstack_zalloc(&cu->obstack, sizeof(*recoded));
 		if (recoded == NULL)
 			return -ENOMEM;
 
@@ -555,7 +565,8 @@ int tag__recode_dwarf_bitfield(struct tag *self, struct cu *cu, uint16_t bit_siz
 			return id;
 
 
-		struct base_type *new_bt = zalloc(sizeof(*new_bt));
+		struct base_type *new_bt = obstack_zalloc(&cu->obstack,
+							  sizeof(*new_bt));
 		if (new_bt == NULL)
 			return -ENOMEM;
 
@@ -578,7 +589,7 @@ int tag__recode_dwarf_bitfield(struct tag *self, struct cu *cu, uint16_t bit_siz
 			return id;
 
 		struct type *alias = tag__type(self);
-		struct type *new_enum = zalloc(sizeof(*new_enum));
+		struct type *new_enum = obstack_zalloc(&cu->obstack, sizeof(*new_enum));
 		if (new_enum == NULL)
 			return -ENOMEM;
 
@@ -989,7 +1000,7 @@ static struct tag *die__create_new_array(Dwarf_Die *die, struct cu *cu)
 	} while (dwarf_siblingof(die, die) == 0);
 
 	array->nr_entries = memdup(nr_entries,
-				   array->dimensions * sizeof(uint32_t));
+				   array->dimensions * sizeof(uint32_t), cu);
 	if (array->nr_entries == NULL)
 		goto out_free;
 
@@ -1990,6 +2001,7 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 		struct dwarf_cu dcu;
 
 		dwarf_cu__init(&dcu);
+		dcu.cu = cu;
 		cu->priv = &dcu;
 		cu->dfops = &dwarf__ops;
 

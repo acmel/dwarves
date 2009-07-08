@@ -27,6 +27,10 @@
 #include "dwarves.h"
 #include "dutil.h"
 #include "strings.h"
+#include <obstack.h>
+
+#define obstack_chunk_alloc malloc
+#define obstack_chunk_free free
 
 const char *cu__string(const struct cu *self, strings_t s)
 {
@@ -435,6 +439,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		if (self->name == NULL || self->filename == NULL)
 			goto out_free;
 
+		obstack_init(&self->obstack);
 		ptr_table__init(&self->tags_table);
 		ptr_table__init(&self->types_table);
 		ptr_table__init(&self->functions_table);
@@ -476,34 +481,14 @@ out_free:
 	goto out;
 }
 
-static void array_type__delete(struct tag *self)
-{
-	free(tag__array_type(self)->nr_entries);
-	free(self);
-}
-
-static int cu__delete_tag(struct tag *self, struct cu *cu __unused,
-			  void *cookie __unused)
-{
-	list_del_init(&self->node);
-	tag__free_orig_info(self, cu);
-	switch (self->tag) {
-	case DW_TAG_array_type:
-		array_type__delete(self); break;
-	default:
-		free(self);		  break;
-	}
-	return 0;
-}
-
 void cu__delete(struct cu *self)
 {
-	cu__for_all_tags(self, cu__delete_tag, NULL);
 	ptr_table__exit(&self->tags_table);
 	ptr_table__exit(&self->types_table);
 	ptr_table__exit(&self->functions_table);
 	if (self->dfops && self->dfops->cu__delete)
 		self->dfops->cu__delete(self);
+	obstack_free(&self->obstack, NULL);
 	free(self->filename);
 	free(self->name);
 	free(self);
