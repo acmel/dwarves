@@ -771,6 +771,7 @@ void class__reorganize(struct class *self, const struct cu *cu,
 		       const int verbose, FILE *fp)
 {
 	struct class_member *member, *brother, *last_member;
+	size_t modulo;
 
 	class__fixup_member_types(self, cu, verbose, fp);
 
@@ -787,6 +788,13 @@ restart:
 	last_member = type__last_member(&self->type);
 	if (last_member == NULL)
 		return;
+
+	modulo = (last_member->byte_offset +
+		  last_member->byte_size) % cu->addr_size;
+	if (modulo != 0) {
+		self->padding	= cu->addr_size - modulo;
+		self->type.size += self->padding;
+	}
 
 	type__for_each_data_member(&self->type, member) {
 		/* See if we have a hole after this member */
