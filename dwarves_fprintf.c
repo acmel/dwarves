@@ -1166,7 +1166,12 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 		 * DW_TAG_inheritance, have to understand why virtual public
 		 * ancestors make the offset go backwards...
 		 */
-		if (last != NULL && tag_pos->tag == DW_TAG_member) {
+		if (last != NULL && tag_pos->tag == DW_TAG_member &&
+		/*
+		 * kmemcheck bitfield tricks use zero sized arrays as markers
+		 * all over the place.
+		 */
+		    last_size != 0) {
 			if (pos->byte_offset < last->byte_offset ||
 			    (pos->byte_offset == last->byte_offset &&
 			     last->bitfield_size == 0 &&
