@@ -771,7 +771,7 @@ void class__reorganize(struct class *self, const struct cu *cu,
 		       const int verbose, FILE *fp)
 {
 	struct class_member *member, *brother, *last_member;
-	size_t modulo;
+	size_t alignment_size;
 
 	class__fixup_member_types(self, cu, verbose, fp);
 
@@ -780,6 +780,7 @@ void class__reorganize(struct class *self, const struct cu *cu,
 
 	/* Now try to combine holes */
 restart:
+	alignment_size = 0;
 	class__find_holes(self);
 	/*
 	 * It can be NULL if this class doesn't have any data members,
@@ -789,11 +790,31 @@ restart:
 	if (last_member == NULL)
 		return;
 
-	modulo = (last_member->byte_offset +
-		  last_member->byte_size) % cu->addr_size;
-	if (modulo != 0) {
-		self->padding	= cu->addr_size - modulo;
-		self->type.size += self->padding;
+	type__for_each_data_member(&self->type, member) {
+		const size_t aligned_size = member->byte_size + member->hole;
+		if (aligned_size <= cu->addr_size &&
+		    aligned_size > alignment_size)
+			alignment_size = aligned_size;
+	}
+
+	if (alignment_size != 0) {
+		size_t modulo;
+		uint16_t new_padding;
+
+		if (alignment_size > 1)
+			alignment_size = roundup(alignment_size, 2);
+		modulo = (last_member->byte_offset +
+			  last_member->byte_size) % alignment_size;
+		if (modulo != 0)
+			new_padding = cu->addr_size - modulo;
+		else
+			new_padding = 0;
+
+		if (new_padding != self->padding) {
+			self->padding	= new_padding;
+			self->type.size = (last_member->byte_offset +
+					   last_member->byte_size + new_padding);
+		}
 	}
 
 	type__for_each_data_member(&self->type, member) {
