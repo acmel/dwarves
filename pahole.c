@@ -331,7 +331,6 @@ static struct cu *cu__filter(struct cu *cu)
 static int class__packable(struct class *self, const struct cu *cu)
 {
 	struct class *clone;
-	size_t savings;
 
 	if (self->nr_holes == 0 && self->nr_bit_holes == 0)
 		return 0;
@@ -340,8 +339,7 @@ static int class__packable(struct class *self, const struct cu *cu)
 	if (clone == NULL)
 		return 0;
 	class__reorganize(clone, cu, 0, stdout);
-	savings = class__size(self) - class__size(clone);
-	if (savings != 0) {
+	if (class__size(self) > class__size(clone)) {
 		self->priv = clone;
 		return 1;
 	}
@@ -1033,7 +1031,7 @@ static struct argp pahole__argp = {
 
 static void do_reorg(struct tag *class, struct cu *cu)
 {
-	size_t savings;
+	int savings;
 	const uint8_t reorg_verbose =
 			show_reorg_steps ? 2 : global_verbose;
 	struct class *clone = class__clone(tag__class(class), NULL);
@@ -1054,7 +1052,7 @@ static void do_reorg(struct tag *class, struct cu *cu)
 		      (tag__nr_cachelines(class, cu) -
 		       tag__nr_cachelines(class__tag(clone), cu));
 
-		printf("   /* saved %zd byte%s", savings,
+		printf("   /* saved %d byte%s", savings,
 		       savings != 1 ? "s" : "");
 		if (cacheline_savings != 0)
 			printf(" and %zu cacheline%s",
