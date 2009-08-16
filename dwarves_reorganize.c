@@ -533,6 +533,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 
 		size = member->byte_size;
 	    	bytes_needed = (current_bitfield_size + 7) / 8;
+		bytes_needed = roundup(bytes_needed, 2);
 		if (bytes_needed == size)
 			continue;
 
