@@ -548,7 +548,7 @@ struct tag *cu__find_base_type_by_name(const struct cu *self,
 		const struct base_type *bt = tag__base_type(pos);
 		char bf[64];
 		const char *bname = base_type__name(bt, self, bf, sizeof(bf));
-		if (bname && strcmp(bname, name) != 0)
+		if (!bname || strcmp(bname, name) != 0)
 			continue;
 
 		if (idp != NULL)
