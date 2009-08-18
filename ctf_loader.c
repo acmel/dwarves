@@ -76,7 +76,7 @@ static int ctf__load_ftype(struct ctf *self, struct ftype *proto, uint16_t tag,
 
 	return vlen;
 out_free_parameters:
-	ftype__delete(proto);
+	ftype__delete(proto, self->priv);
 	return -ENOMEM;
 }
 
@@ -341,7 +341,7 @@ static int create_new_class(struct ctf *self, void *ptr,
 
 	return (vlen * member_size);
 out_free:
-	class__delete(class);
+	class__delete(class, self->priv);
 	return -ENOMEM;
 }
 
@@ -366,7 +366,7 @@ static int create_new_union(struct ctf *self, void *ptr,
 
 	return (vlen * member_size);
 out_free:
-	type__delete(un);
+	type__delete(un, self->priv);
 	return -ENOMEM;
 }
 
@@ -412,7 +412,7 @@ static int create_new_enumeration(struct ctf *self, void *ptr,
 
 	return (vlen * sizeof(*ep));
 out_free:
-	enumeration__delete(enumeration);
+	enumeration__delete(enumeration, self->priv);
 	return -ENOMEM;
 }
 

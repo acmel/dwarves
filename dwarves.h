@@ -330,7 +330,7 @@ struct tag {
 	void		 *priv;
 };
 
-void tag__delete(struct tag *self);
+void tag__delete(struct tag *self, struct cu *cu);
 
 static inline int tag__is_enumeration(const struct tag *self)
 {
@@ -496,7 +496,7 @@ static inline struct namespace *tag__namespace(const struct tag *self)
 	return (struct namespace *)self;
 }
 
-void namespace__delete(struct namespace *self);
+void namespace__delete(struct namespace *self, struct cu *cu);
 
 /**
  * namespace__for_each_tag - iterate thru all the tags
@@ -593,7 +593,7 @@ static inline struct lexblock *tag__lexblock(const struct tag *self)
 	return (struct lexblock *)self;
 }
 
-void lexblock__delete(struct lexblock *self);
+void lexblock__delete(struct lexblock *self, struct cu *cu);
 
 struct function;
 
@@ -638,7 +638,7 @@ static inline struct ftype *tag__ftype(const struct tag *self)
 	return (struct ftype *)self;
 }
 
-void ftype__delete(struct ftype *self);
+void ftype__delete(struct ftype *self, struct cu *cu);
 
 /**
  * ftype__for_each_parameter - iterate thru all the parameters
@@ -701,7 +701,7 @@ static inline struct tag *function__tag(const struct function *self)
 	return (struct tag *)self;
 }
 
-void function__delete(struct function *self);
+void function__delete(struct function *self, struct cu *cu);
 
 static __pure inline int tag__is_function(const struct tag *self)
 {
@@ -777,7 +777,7 @@ struct class_member {
 	uint16_t	 hole;
 };
 
-void class_member__delete(struct class_member *self);
+void class_member__delete(struct class_member *self, struct cu *cu);
 
 static inline struct class_member *tag__class_member(const struct tag *self)
 {
@@ -813,7 +813,7 @@ static inline struct class *type__class(const struct type *self)
 	return (struct class *)self;
 }
 
-void type__delete(struct type *self);
+void type__delete(struct type *self, struct cu *cu);
 
 /**
  * type__for_each_tag - iterate thru all the tags
@@ -935,8 +935,8 @@ static inline struct tag *class__tag(const struct class *self)
 }
 
 struct class *class__clone(const struct class *from,
-			   const char *new_class_name);
-void class__delete(struct class *self);
+			   const char *new_class_name, struct cu *cu);
+void class__delete(struct class *self, struct cu *cu);
 
 static inline struct list_head *class__tags(struct class *self)
 {
@@ -1058,7 +1058,7 @@ struct enumerator {
 	uint32_t	 value;
 };
 
-void enumeration__delete(struct type *self);
+void enumeration__delete(struct type *self, struct cu *cu);
 void enumeration__add(struct type *self, struct enumerator *enumerator);
 size_t enumeration__fprintf(const struct tag *tag_self, const struct cu *cu,
 			    const struct conf_fprintf *conf, FILE *fp);

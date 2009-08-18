@@ -44,43 +44,43 @@ static inline const char *s(const struct cu *self, strings_t i)
 	return cu__string(self, i);
 }
 
-static void lexblock__delete_tags(struct tag *tself)
+static void lexblock__delete_tags(struct tag *tself, struct cu *cu)
 {
 	struct lexblock *self = tag__lexblock(tself);
 	struct tag *pos, *n;
 
 	list_for_each_entry_safe(pos, n, &self->tags, node) {
 		list_del_init(&pos->node);
-		tag__delete(pos);
+		tag__delete(pos, cu);
 	}
 }
 
-void lexblock__delete(struct lexblock *self)
+void lexblock__delete(struct lexblock *self, struct cu *cu)
 {
-	lexblock__delete_tags(&self->ip.tag);
-	free(self);
+	lexblock__delete_tags(&self->ip.tag, cu);
+	obstack_free(&cu->obstack, self);
 }
 
-void tag__delete(struct tag *self)
+void tag__delete(struct tag *self, struct cu *cu)
 {
 	assert(list_empty(&self->node));
 
 	switch (self->tag) {
 	case DW_TAG_union_type:
-		type__delete(tag__type(self));		break;
+		type__delete(tag__type(self), cu);		break;
 	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
-		class__delete(tag__class(self));	break;
+		class__delete(tag__class(self), cu);		break;
 	case DW_TAG_enumeration_type:
-		enumeration__delete(tag__type(self));	break;
+		enumeration__delete(tag__type(self), cu);	break;
 	case DW_TAG_subroutine_type:
-		ftype__delete(tag__ftype(self));	break;
+		ftype__delete(tag__ftype(self), cu);		break;
 	case DW_TAG_subprogram:
-		function__delete(tag__function(self));	break;
+		function__delete(tag__function(self), cu);	break;
 	case DW_TAG_lexical_block:
-		lexblock__delete(tag__lexblock(self));	break;
+		lexblock__delete(tag__lexblock(self), cu);	break;
 	default:
-		free(self);
+		obstack_free(&cu->obstack, self);
 	}
 }
 
@@ -218,7 +218,7 @@ const char *base_type__name(const struct base_type *self, const struct cu *cu,
 	return bf;
 }
 
-void namespace__delete(struct namespace *self)
+void namespace__delete(struct namespace *self, struct cu *cu)
 {
 	struct tag *pos, *n;
 
@@ -227,11 +227,11 @@ void namespace__delete(struct namespace *self)
 
 		/* Look for nested namespaces */
 		if (tag__has_namespace(pos))
-		    	namespace__delete(tag__namespace(pos));
-		tag__delete(pos);
+			namespace__delete(tag__namespace(pos), cu);
+		tag__delete(pos, cu);
 	}
 
-	tag__delete(&self->tag);
+	tag__delete(&self->tag, cu);
 }
 
 struct class_member *
@@ -835,9 +835,9 @@ const char *variable__type_name(const struct variable *self,
 	return tag != NULL ? tag__name(tag, cu, bf, len) : NULL;
 }
 
-void class_member__delete(struct class_member *self)
+void class_member__delete(struct class_member *self, struct cu *cu)
 {
-	free(self);
+	obstack_free(&cu->obstack, self);
 }
 
 static struct class_member *class_member__clone(const struct class_member *from)
@@ -850,41 +850,41 @@ static struct class_member *class_member__clone(const struct class_member *from)
 	return self;
 }
 
-static void type__delete_class_members(struct type *self)
+static void type__delete_class_members(struct type *self, struct cu *cu)
 {
 	struct class_member *pos, *next;
 
 	type__for_each_data_member_safe(self, pos, next) {
 		list_del_init(&pos->tag.node);
-		class_member__delete(pos);
+		class_member__delete(pos, cu);
 	}
 }
 
-void class__delete(struct class *self)
+void class__delete(struct class *self, struct cu *cu)
 {
 	if (self->type.namespace.sname != NULL)
 		free(self->type.namespace.sname);
-	type__delete_class_members(&self->type);
-	free(self);
+	type__delete_class_members(&self->type, cu);
+	obstack_free(&cu->obstack, self);
 }
 
-void type__delete(struct type *self)
+void type__delete(struct type *self, struct cu *cu)
 {
-	type__delete_class_members(self);
-	free(self);
+	type__delete_class_members(self, cu);
+	obstack_free(&cu->obstack, self);
 }
 
-static void enumerator__delete(struct enumerator *self)
+static void enumerator__delete(struct enumerator *self, struct cu *cu)
 {
-	free(self);
+	obstack_free(&cu->obstack, self);
 }
 
-void enumeration__delete(struct type *self)
+void enumeration__delete(struct type *self, struct cu *cu)
 {
 	struct enumerator *pos, *n;
 	type__for_each_enumerator_safe(self, pos, n) {
 		list_del_init(&pos->tag.node);
-		enumerator__delete(pos);
+		enumerator__delete(pos, cu);
 	}
 }
 
@@ -935,9 +935,9 @@ static int type__clone_members(struct type *self, const struct type *from)
 }
 
 struct class *class__clone(const struct class *from,
-			   const char *new_class_name)
+			   const char *new_class_name, struct cu *cu)
 {
-	struct class *self = malloc(sizeof(*self));
+	struct class *self = obstack_alloc(&cu->obstack, sizeof(*self));
 
 	 if (self != NULL) {
 		memcpy(self, from, sizeof(*self));
@@ -950,7 +950,7 @@ struct class *class__clone(const struct class *from,
 			}
 		}
 		if (type__clone_members(&self->type, &from->type) != 0) {
-			class__delete(self);
+			class__delete(self, cu);
 			self = NULL;
 		}
 	}
@@ -977,12 +977,12 @@ const char *function__name(struct function *self, const struct cu *cu)
 	return s(cu, self->name);
 }
 
-static void parameter__delete(struct parameter *self)
+static void parameter__delete(struct parameter *self, struct cu *cu)
 {
-	free(self);
+	obstack_free(&cu->obstack, self);
 }
 
-void ftype__delete(struct ftype *self)
+void ftype__delete(struct ftype *self, struct cu *cu)
 {
 	struct parameter *pos, *n;
 
@@ -991,15 +991,15 @@ void ftype__delete(struct ftype *self)
 
 	ftype__for_each_parameter_safe(self, pos, n) {
 		list_del_init(&pos->tag.node);
-		parameter__delete(pos);
+		parameter__delete(pos, cu);
 	}
-	free(self);
+	obstack_free(&cu->obstack, self);
 }
 
-void function__delete(struct function *self)
+void function__delete(struct function *self, struct cu *cu)
 {
-	lexblock__delete_tags(&self->lexblock.ip.tag);
-	ftype__delete(&self->proto);
+	lexblock__delete_tags(&self->lexblock.ip.tag, cu);
+	ftype__delete(&self->proto, cu);
 }
 
 int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,

@@ -328,14 +328,14 @@ static struct cu *cu__filter(struct cu *cu)
 	return cu;
 }
 
-static int class__packable(struct class *self, const struct cu *cu)
+static int class__packable(struct class *self, struct cu *cu)
 {
 	struct class *clone;
 
 	if (self->nr_holes == 0 && self->nr_bit_holes == 0)
 		return 0;
 
-	clone = class__clone(self, NULL);
+	clone = class__clone(self, NULL, cu);
 	if (clone == NULL)
 		return 0;
 	class__reorganize(clone, cu, 0, stdout);
@@ -343,7 +343,7 @@ static int class__packable(struct class *self, const struct cu *cu)
 		self->priv = clone;
 		return 1;
 	}
-	class__delete(clone);
+	class__delete(clone, cu);
 	return 0;
 }
 
@@ -1034,7 +1034,7 @@ static void do_reorg(struct tag *class, struct cu *cu)
 	int savings;
 	const uint8_t reorg_verbose =
 			show_reorg_steps ? 2 : global_verbose;
-	struct class *clone = class__clone(tag__class(class), NULL);
+	struct class *clone = class__clone(tag__class(class), NULL, cu);
 	if (clone == NULL) {
 		fprintf(stderr, "pahole: out of memory!\n");
 		exit(EXIT_FAILURE);
@@ -1063,7 +1063,7 @@ static void do_reorg(struct tag *class, struct cu *cu)
 	} else
 		putchar('\n');
 
-	class__delete(clone);
+	class__delete(clone, cu);
 }
 
 static enum load_steal_kind pahole_stealer(struct cu *cu,

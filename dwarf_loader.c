@@ -616,7 +616,7 @@ int tag__recode_dwarf_bitfield(struct tag *self, struct cu *cu, uint16_t bit_siz
 	if (cu__add_tag(cu, recoded, &new_id) == 0)
 		return new_id;
 
-	free(recoded);
+	obstack_free(&cu->obstack, recoded);
 	return -ENOMEM;
 }
 
@@ -896,7 +896,7 @@ static struct tag *die__create_new_class(Dwarf_Die *die, struct cu *cu)
 	    dwarf_haschildren(die) != 0 &&
 	    dwarf_child(die, &child) == 0) {
 		if (die__process_class(&child, &class->type, cu) != 0) {
-			class__delete(class);
+			class__delete(class, cu);
 			class = NULL;
 		}
 	}
@@ -916,7 +916,7 @@ static struct tag *die__create_new_namespace(Dwarf_Die *die, struct cu *cu)
 	    dwarf_haschildren(die) != 0 &&
 	    dwarf_child(die, &child) == 0) {
 		if (die__process_namespace(&child, namespace, cu) != 0) {
-			namespace__delete(namespace);
+			namespace__delete(namespace, cu);
 			namespace = NULL;
 		}
 	}
@@ -933,7 +933,7 @@ static struct tag *die__create_new_union(Dwarf_Die *die, struct cu *cu)
 	    dwarf_haschildren(die) != 0 &&
 	    dwarf_child(die, &child) == 0) {
 		if (die__process_class(&child, utype, cu) != 0) {
-			type__delete(utype);
+			type__delete(utype, cu);
 			utype = NULL;
 		}
 	}
@@ -1006,7 +1006,7 @@ static struct tag *die__create_new_array(Dwarf_Die *die, struct cu *cu)
 
 	return &array->tag;
 out_free:
-	free(array);
+	obstack_free(&cu->obstack, array);
 	return NULL;
 }
 
@@ -1106,9 +1106,9 @@ hash:
 out:
 	return &ftype->tag;
 out_delete_tag:
-	tag__delete(tag);
+	tag__delete(tag, cu);
 out_delete:
-	ftype__delete(ftype);
+	ftype__delete(ftype, cu);
 	return NULL;
 }
 
@@ -1148,7 +1148,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die, struct cu *cu)
 out:
 	return &enumeration->namespace.tag;
 out_delete:
-	enumeration__delete(enumeration);
+	enumeration__delete(enumeration, cu);
 	return NULL;
 }
 
@@ -1177,7 +1177,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			long id = -1;
 
 			if (cu__table_add_tag(cu, tag, &id) < 0) {
-				tag__delete(tag);
+				tag__delete(tag, cu);
 				return -ENOMEM;
 			}
 
@@ -1222,7 +1222,7 @@ static int die__process_namespace(Dwarf_Die *die, struct namespace *namespace,
 
 	return 0;
 out_delete_tag:
-	tag__delete(tag);
+	tag__delete(tag, cu);
 out_enomem:
 	return -ENOMEM;
 }
@@ -1243,7 +1243,7 @@ static int die__create_new_lexblock(Dwarf_Die *die,
 		lexblock__add_lexblock(father, lexblock);
 	return 0;
 out_delete:
-	lexblock__delete(lexblock);
+	lexblock__delete(lexblock, cu);
 	return -ENOMEM;
 }
 
@@ -1307,7 +1307,7 @@ hash:
 
 	return 0;
 out_delete_tag:
-	tag__delete(tag);
+	tag__delete(tag, cu);
 out_enomem:
 	return -ENOMEM;
 }
@@ -1322,7 +1322,7 @@ static struct tag *die__create_new_inline_expansion(Dwarf_Die *die,
 		return NULL;
 
 	if (die__process_inline_expansion(die, cu) != 0) {
-		free(exp);
+		obstack_free(&cu->obstack, exp);
 		return NULL;
 	}
 
@@ -1392,7 +1392,7 @@ hash:
 
 	return 0;
 out_delete_tag:
-	tag__delete(tag);
+	tag__delete(tag, cu);
 out_enomem:
 	return -ENOMEM;
 }
@@ -1404,7 +1404,7 @@ static struct tag *die__create_new_function(Dwarf_Die *die, struct cu *cu)
 	if (function != NULL &&
 	    die__process_function(die, &function->proto,
 				  &function->lexblock, cu) != 0) {
-		function__delete(function);
+		function__delete(function, cu);
 		function = NULL;
 	}
 
