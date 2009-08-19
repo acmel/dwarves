@@ -342,11 +342,9 @@ static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
 			snprintf(bf + l, len - l, " %s", ptr_suffix);
 		} else {
 			char tmpbf[1024];
-			const char *stype = tag__name(type, cu, tmpbf, sizeof(tmpbf));
-			if (type->tag == DW_TAG_const_type)
-				snprintf(bf, len, "%s %s", ptr_suffix, stype);
-			else
-				snprintf(bf, len, "%s %s", stype, ptr_suffix);
+			snprintf(bf, len, "%s %s",
+				 tag__name(type, cu,
+					   tmpbf, sizeof(tmpbf)), ptr_suffix);
 		}
 	}
 
