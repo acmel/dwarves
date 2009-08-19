@@ -507,13 +507,13 @@ void namespace__delete(struct namespace *self, struct cu *cu);
 	list_for_each_entry(pos, &(self)->tags, node)
 
 /**
- * namespace__for_each_tag_safe - safely iterate thru all the tags
+ * namespace__for_each_tag_safe_reverse - safely iterate thru all the tags, in reverse order
  * @self: struct namespace instance to iterate
  * @pos: struct tag iterator
  * @n: struct class_member temp iterator
  */
-#define namespace__for_each_tag_safe(self, pos, n) \
-	list_for_each_entry_safe(pos, n, &(self)->tags, node)
+#define namespace__for_each_tag_safe_reverse(self, pos, n) \
+	list_for_each_entry_safe_reverse(pos, n, &(self)->tags, node)
 
 void namespace__add_tag(struct namespace *self, struct tag *tag);
 
@@ -656,6 +656,15 @@ void ftype__delete(struct ftype *self, struct cu *cu);
  */
 #define ftype__for_each_parameter_safe(self, pos, n) \
 	list_for_each_entry_safe(pos, n, &(self)->parms, tag.node)
+
+/**
+ * ftype__for_each_parameter_safe_reverse - safely iterate thru all the parameters, in reverse order
+ * @self: struct ftype instance to iterate
+ * @pos: struct parameter iterator
+ * @n: struct parameter temp iterator
+ */
+#define ftype__for_each_parameter_safe_reverse(self, pos, n) \
+	list_for_each_entry_safe_reverse(pos, n, &(self)->parms, tag.node)
 
 void ftype__add_parameter(struct ftype *self, struct parameter *parm);
 size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
@@ -836,14 +845,14 @@ void type__delete(struct type *self, struct cu *cu);
 	list_for_each_entry(pos, __type__for_each_enumerator_head, tag.node)
 
 /**
- * type__for_each_enumerator_safe - safely iterate thru the enumerator entries
+ * type__for_each_enumerator_safe_reverse - safely iterate thru the enumerator entries, in reverse order
  * @self: struct type instance to iterate
  * @pos: struct enumerator iterator
  * @n: struct enumerator temp iterator
  */
-#define type__for_each_enumerator_safe(self, pos, n)		   \
+#define type__for_each_enumerator_safe_reverse(self, pos, n)		   \
 	if ((self)->namespace.shared_tags) /* Do nothing */ ; else \
-	list_for_each_entry_safe(pos, n, &(self)->namespace.tags, tag.node)
+	list_for_each_entry_safe_reverse(pos, n, &(self)->namespace.tags, tag.node)
 
 /**
  * type__for_each_member - iterate thru the entries that use space
@@ -893,6 +902,15 @@ void type__delete(struct type *self, struct cu *cu);
 		if (pos->tag.tag != DW_TAG_member) \
 			continue; \
 		else
+
+/**
+ * type__for_each_tag_safe_reverse - safely iterate thru all tags in a type, in reverse order
+ * @self: struct type instance to iterate
+ * @pos: struct class_member iterator
+ * @n: struct class_member temp iterator
+ */
+#define type__for_each_tag_safe_reverse(self, pos, n) \
+	list_for_each_entry_safe_reverse(pos, n, &(self)->namespace.tags, tag.node)
 
 void type__add_member(struct type *self, struct class_member *member);
 struct class_member *

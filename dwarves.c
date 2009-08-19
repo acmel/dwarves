@@ -49,7 +49,7 @@ static void lexblock__delete_tags(struct tag *tself, struct cu *cu)
 	struct lexblock *self = tag__lexblock(tself);
 	struct tag *pos, *n;
 
-	list_for_each_entry_safe(pos, n, &self->tags, node) {
+	list_for_each_entry_safe_reverse(pos, n, &self->tags, node) {
 		list_del_init(&pos->node);
 		tag__delete(pos, cu);
 	}
@@ -222,7 +222,7 @@ void namespace__delete(struct namespace *self, struct cu *cu)
 {
 	struct tag *pos, *n;
 
-	namespace__for_each_tag_safe(self, pos, n) {
+	namespace__for_each_tag_safe_reverse(self, pos, n) {
 		list_del_init(&pos->node);
 
 		/* Look for nested namespaces */
@@ -854,7 +854,7 @@ static void type__delete_class_members(struct type *self, struct cu *cu)
 {
 	struct class_member *pos, *next;
 
-	type__for_each_data_member_safe(self, pos, next) {
+	type__for_each_tag_safe_reverse(self, pos, next) {
 		list_del_init(&pos->tag.node);
 		class_member__delete(pos, cu);
 	}
@@ -882,7 +882,7 @@ static void enumerator__delete(struct enumerator *self, struct cu *cu)
 void enumeration__delete(struct type *self, struct cu *cu)
 {
 	struct enumerator *pos, *n;
-	type__for_each_enumerator_safe(self, pos, n) {
+	type__for_each_enumerator_safe_reverse(self, pos, n) {
 		list_del_init(&pos->tag.node);
 		enumerator__delete(pos, cu);
 	}
@@ -989,7 +989,7 @@ void ftype__delete(struct ftype *self, struct cu *cu)
 	if (self == NULL)
 		return;
 
-	ftype__for_each_parameter_safe(self, pos, n) {
+	ftype__for_each_parameter_safe_reverse(self, pos, n) {
 		list_del_init(&pos->tag.node);
 		parameter__delete(pos, cu);
 	}
@@ -1254,7 +1254,7 @@ static int list__for_all_tags(struct list_head *self, struct cu *cu,
 {
 	struct tag *pos, *n;
 
-	list_for_each_entry_safe(pos, n, self, node) {
+	list_for_each_entry_safe_reverse(pos, n, self, node) {
 		if (tag__has_namespace(pos)) {
 			struct namespace *space = tag__namespace(pos);
 
