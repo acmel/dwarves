@@ -1927,7 +1927,7 @@ static int class_member__cache_byte_size(struct tag *self, struct cu *cu,
 		if (member->bitfield_size != 0) {
 			struct tag *type = tag__follow_typedef(&member->tag, cu);
 check_volatile:
-			if (tag__is_volatile(type)) {
+			if (tag__is_volatile(type) || tag__is_const(type)) {
 				type = tag__follow_typedef(type, cu);
 				goto check_volatile;
 			}

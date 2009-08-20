@@ -359,6 +359,11 @@ static inline int tag__is_union(const struct tag *self)
 	return self->tag == DW_TAG_union_type;
 }
 
+static inline int tag__is_const(const struct tag *self)
+{
+	return self->tag == DW_TAG_const_type;
+}
+
 static inline bool tag__is_variable(const struct tag *self)
 {
 	return self->tag == DW_TAG_variable;
