@@ -48,3 +48,4 @@ ostra/python/ostra.py
 ctf.h
 libctf.c
 libctf.h
+regtest.py
