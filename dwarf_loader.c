@@ -1164,6 +1164,18 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			if (member == NULL)
 				return -ENOMEM;
 
+			if (cu__is_c_plus_plus(cu)) {
+				long id = -1;
+
+				if (cu__table_add_tag(cu, &member->tag, &id) < 0) {
+					class_member__delete(member, cu);
+					return -ENOMEM;
+				}
+
+				struct dwarf_tag *dtag = member->tag.priv;
+				dtag->small_id = id;
+			}
+
 			type__add_member(class, member);
 			cu__hash(cu, &member->tag);
 		}

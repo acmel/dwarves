@@ -273,8 +273,11 @@ static size_t imported_declaration__fprintf(const struct tag *self,
 	size_t printed = fprintf(fp, "using ::");
 	const struct tag *decl = cu__function(cu, self->type);
 
-	if (decl == NULL)
-		return printed + tag__id_not_found_fprintf(fp, self->type);
+	if (decl == NULL) {
+		decl = cu__tag(cu, self->type);
+		if (decl == NULL)
+			return printed + tag__id_not_found_fprintf(fp, self->type);
+	}
 
 	return printed + fprintf(fp, "%s", tag__name(decl, cu, bf, sizeof(bf)));
 }
@@ -426,6 +429,9 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 			snprintf(bf, len, "<ERROR(%s): fmemopen failed!>",
 				 __func__);
 	}
+		break;
+	case DW_TAG_member:
+		snprintf(bf, len, "%s", class_member__name(tag__class_member(self), cu));
 		break;
 	default:
 		snprintf(bf, len, "%s%s", tag__prefix(cu, self->tag),

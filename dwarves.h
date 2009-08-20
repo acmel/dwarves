@@ -799,6 +799,11 @@ static inline const char *class_member__name(const struct class_member *self,
 	return cu__string(cu, self->name);
 }
 
+static __pure inline int tag__is_class_member(const struct tag *self)
+{
+	return self->tag == DW_TAG_member;
+}
+
 /**
  * struct type - base type for enumerations, structs and unions
  *
