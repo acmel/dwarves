@@ -433,6 +433,9 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	case DW_TAG_member:
 		snprintf(bf, len, "%s", class_member__name(tag__class_member(self), cu));
 		break;
+	case DW_TAG_variable:
+		snprintf(bf, len, "%s", variable__name(tag__variable(self), cu));
+		break;
 	default:
 		snprintf(bf, len, "%s%s", tag__prefix(cu, self->tag),
 			 type__name(tag__type(self), cu) ?: "");
