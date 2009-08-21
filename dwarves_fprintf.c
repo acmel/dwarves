@@ -269,7 +269,7 @@ size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 static size_t imported_declaration__fprintf(const struct tag *self,
 					    const struct cu *cu, FILE *fp)
 {
-	char bf[512];
+	char bf[BUFSIZ];
 	size_t printed = fprintf(fp, "using ::");
 	const struct tag *decl = cu__function(cu, self->type);
 
