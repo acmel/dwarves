@@ -95,9 +95,11 @@ def do_tool(tool, before_after, dirname, fname, prepend_obj_dir = False):
 	obj_path = os.path.join(dirname, fname)
 	if prepend_obj_dir:
 		obj_path = os.path.join(regtest_obj_dir, obj_path)
-	command = '%s %s > "%s.%s.c"' % (tool, obj_path,
-				         os.path.join(tool_output_dir,
-						      fname[:-6]), tool)
+	if os.path.islink(obj_path):
+		return
+
+	output_file = os.path.join(tool_output_dir, fname[:-6])
+	command = '%s %s > "%s.%s.c"' % (tool, obj_path, output_file, tool)
 	if verbose > 1:
 		print command
 	elif verbose > 0:
