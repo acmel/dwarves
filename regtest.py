@@ -14,7 +14,7 @@
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 #   General Public License for more details.
 
-import filecmp, os, sys
+import filecmp, os, posix, sys
 
 regtest_output_dir = "/media/tb/pahole/regtest/"
 regtest_obj_dir = "/media/tb/debuginfo/usr/lib/debug/"
@@ -22,15 +22,21 @@ tools = ("pahole -A",)
 len_debug_dir = len(regtest_obj_dir)
 len_regtest_output_dir_before = len(regtest_output_dir) + len("before/")
 verbose = 1
+diff_filename = None
 
 def diff_file(tool_filename):
-	command = 'diff -u "%s" "%s" > /tmp/regtest.diff' % \
+	global diff_filename
+	if not diff_filename:
+		diff_filename = posix.tempnam()
+	command = 'diff -up "%s" "%s" > %s' % \
 		  (os.path.join(regtest_output_dir, "before", tool_filename),
-		   os.path.join(regtest_output_dir, "after", tool_filename))
-	if verbose > 0:
+		   os.path.join(regtest_output_dir, "after", tool_filename),
+		   diff_filename)
+	if verbose > 1:
 		print command
 	os.system(command)
-	os.system("vim /tmp/regtest.diff")
+	os.system("vim %s" % diff_filename)
+	os.unlink(diff_filename)
 
 def dir_has_no_diffs(dirname):
 	return os.access(os.path.join(dirname, ".no_diffs"), os.F_OK)
@@ -46,19 +52,24 @@ def diff_dir(before, after, dir = None):
 	if dir:
 		before = os.path.join(before, dir)
 		after = os.path.join(after, dir)
-	print "\r%-120s" % before,
+	print "\r%-130s" % before[len_regtest_output_dir_before:],
 	sys.stdout.flush()
 	diff = filecmp.dircmp(before, after)
 	if not dir_has_no_diffs(after):
 		diff_files = diff.diff_files
 		if diff_files:
+			diff_files.sort()
 			print "\n  %s:\n	%s" % (before, diff_files)
 			sys.stdout.flush()
 			for f in diff_files:
 				diff_file(os.path.join(before[len_regtest_output_dir_before:], f))
 		else:
 			set_dir_has_no_diffs(after)
-	for dir in diff.common_dirs:
+	common_dirs = diff.common_dirs
+	if not common_dirs:
+		return
+	common_dirs.sort()
+	for dir in common_dirs:
 		diff_dir(before, after, dir)
 
 def do_diffs():
