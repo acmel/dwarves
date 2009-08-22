@@ -95,8 +95,6 @@ def do_tool(tool, before_after, dirname, fname, prepend_obj_dir = False):
 	obj_path = os.path.join(dirname, fname)
 	if prepend_obj_dir:
 		obj_path = os.path.join(regtest_obj_dir, obj_path)
-	if os.path.islink(obj_path):
-		return
 
 	output_file = os.path.join(tool_output_dir, fname[:-6])
 	command = '%s %s > "%s.%s.c"' % (tool, obj_path, output_file, tool)
@@ -111,7 +109,7 @@ def do_tool_on_files(arg, dirname, fnames):
 		return
 	tool, before_after = arg
 	for fname in fnames:
-		if fname[-6:] != ".debug":
+		if fname[-6:] != ".debug" or os.path.islink(obj_path):
 			continue
 
 		do_tool(tool, before_after, dirname, fname)
@@ -120,9 +118,34 @@ def do_tools(before_after):
 	for tool in tools:
 		os.path.walk(regtest_obj_dir, do_tool_on_files, (tool, before_after))
 
-def do_move():
-	print 'rm -f regtest_output_dir/before/*'
-	print 'mv -f regtest_output_dir/after/* regtest_output_dir/before/'
+def do_ctf(dirname, fname, prepend_obj_dir = False):
+	if prepend_obj_dir:
+		fname += ".debug"
+		fixed_dirname = dirname
+	else:
+		fixed_dirname = dirname[len_debug_dir:]
+	obj_path = os.path.join(dirname, fname)
+	if prepend_obj_dir:
+		obj_path = os.path.join(regtest_obj_dir, obj_path)
+
+	command = 'pahole -Z "%s"' % obj_path
+	if verbose > 1:
+		print command
+	elif verbose > 0:
+		print os.path.join(fixed_dirname, fname[:-6])
+	os.system(command)
+
+def do_ctf_on_files(arg, dirname, fnames):
+	if dirname.find("/.") >= 0:
+		return
+	for fname in fnames:
+		if fname[-6:] != ".debug" or os.path.islink(obj_path):
+			continue
+
+		do_ctf(dirname, fname)
+
+def do_ctfs(before_after):
+	os.path.walk(regtest_obj_dir, do_ctf_on_files, None)
 
 def main(argv):
 	try:
@@ -138,12 +161,16 @@ def main(argv):
 			if len(argv) > 3:
 				dirname = argv[2]
 				for fname in argv[3:]:
-					for tool in tools:
-						diff_file("%s.%s.c" % (os.path.join(dirname, fname), tool))
+					diff_file("%s.%s.c" % (os.path.join(dirname, fname)))
 			else:
 				do_diffs()
-		elif argv[1] == 'move':
-			do_move()
+		elif argv[1] == 'ctf':
+			if len(argv) > 3:
+				dirname = argv[2]
+				for fname in argv[3:]:
+					do_ctf(dirname, fname, True)
+			else:
+				do_ctfs()
 	except IOError:
 		pass
 
