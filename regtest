@@ -14,14 +14,16 @@
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 #   General Public License for more details.
 
-import filecmp, os, posix, sys
+import filecmp, os, posix, signal, sys
 
 regtest_output_dir = "/media/tb/pahole/regtest/"
 regtest_obj_dir = "/media/tb/debuginfo/usr/lib/debug/"
-tools = ("pahole -A",)
+tools = {"pahole": { "dwarf": "--flat_arrays --show_private_classes --fixup_silly_bitfields" }}
+#formats = ("ctf", "dwarf")
+formats = ("ctf", )
 len_debug_dir = len(regtest_obj_dir)
 len_regtest_output_dir_before = len(regtest_output_dir) + len("before/")
-verbose = 1
+verbose = 9
 diff_filename = None
 
 def diff_file(tool_filename):
@@ -29,8 +31,8 @@ def diff_file(tool_filename):
 	if not diff_filename:
 		diff_filename = posix.tempnam()
 	command = 'diff -up "%s" "%s" > %s' % \
-		  (os.path.join(regtest_output_dir, "before", tool_filename),
-		   os.path.join(regtest_output_dir, "after", tool_filename),
+		  (os.path.join(regtest_output_dir, "before", "dwarf", tool_filename),
+		   os.path.join(regtest_output_dir, "after", "dwarf", tool_filename),
 		   diff_filename)
 	if verbose > 1:
 		print command
@@ -77,31 +79,40 @@ def do_diffs():
 	after = os.path.join(regtest_output_dir, "after")
 	diff_dir(before, after)
 
-def do_tool(tool, before_after, dirname, fname, prepend_obj_dir = False):
+def do_tool(tool, before_after, format, dirname, fname,
+	    prepend_obj_dir = False):
 	if prepend_obj_dir:
 		fname += ".debug"
 		fixed_dirname = dirname
 	else:
 		fixed_dirname = dirname[len_debug_dir:]
 	tool_output_dir = os.path.join(regtest_output_dir,
-				       before_after,
+				       before_after, tool, format,
 				       fixed_dirname)
+	obj_path = os.path.join(dirname, fname)
+	if prepend_obj_dir:
+		obj_path = os.path.join(regtest_obj_dir, obj_path)
+	if os.path.islink(obj_path) or os.path.isdir(obj_path):
+		return
 	try:
 		os.makedirs(tool_output_dir)
 	except:
 		pass
 	if dir_has_no_diffs(tool_output_dir):
 		reset_dir_has_no_diffs(tool_output_dir)
-	obj_path = os.path.join(dirname, fname)
-	if prepend_obj_dir:
-		obj_path = os.path.join(regtest_obj_dir, obj_path)
-
 	output_file = os.path.join(tool_output_dir, fname[:-6])
-	command = '%s %s > "%s.%s.c"' % (tool, obj_path, output_file, tool)
+	if tools[tool].has_key(format):
+		options = tools[tool][format]
+	else:
+		options = ""
+	command = '%s -F %s %s %s > "%s"' % (tool, format, options,
+					     obj_path, output_file)
 	if verbose > 1:
 		print command
+		sys.stdout.flush()
 	elif verbose > 0:
-		print os.path.join(fixed_dirname, fname[:-6])
+		print "%s: %s" % (format,
+				  os.path.join(fixed_dirname, fname[:-6]))
 	os.system(command)
 
 def do_tool_on_files(arg, dirname, fnames):
@@ -109,13 +120,14 @@ def do_tool_on_files(arg, dirname, fnames):
 		return
 	tool, before_after = arg
 	for fname in fnames:
-		if fname[-6:] != ".debug" or os.path.islink(obj_path):
+		if fname[-6:] != ".debug":
 			continue
 
-		do_tool(tool, before_after, dirname, fname)
+		for format in formats:
+			do_tool(tool, before_after, format, dirname, fname)
 
 def do_tools(before_after):
-	for tool in tools:
+	for tool in tools.keys():
 		os.path.walk(regtest_obj_dir, do_tool_on_files, (tool, before_after))
 
 def do_ctf(dirname, fname, prepend_obj_dir = False):
@@ -128,7 +140,9 @@ def do_ctf(dirname, fname, prepend_obj_dir = False):
 	if prepend_obj_dir:
 		obj_path = os.path.join(regtest_obj_dir, obj_path)
 
-	command = 'pahole -Z "%s"' % obj_path
+	if os.path.islink(obj_path) or os.path.isdir(obj_path):
+		return
+	command = 'pahole -Z "%s" 2> /dev/null' % obj_path
 	if verbose > 1:
 		print command
 	elif verbose > 0:
@@ -139,22 +153,29 @@ def do_ctf_on_files(arg, dirname, fnames):
 	if dirname.find("/.") >= 0:
 		return
 	for fname in fnames:
-		if fname[-6:] != ".debug" or os.path.islink(obj_path):
+		if fname[-6:] != ".debug":
 			continue
 
 		do_ctf(dirname, fname)
 
-def do_ctfs(before_after):
+def do_ctfs():
 	os.path.walk(regtest_obj_dir, do_ctf_on_files, None)
 
+def sig_exit(sig_number, stack_frame):
+	sys.exit(1)
+
 def main(argv):
+	for sig in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
+		signal.signal(sig, sig_exit)
+
 	try:
 		if argv[1] in ('before', 'after'):
 			if len(argv) > 3:
 				dirname = argv[2]
 				for fname in argv[3:]:
-					for tool in tools:
-						do_tool(tool, argv[1], dirname, fname, True)
+					for tool in tools.keys():
+						for format in formats:
+							do_tool(tool, argv[1], format, dirname, fname, True)
 			else:
 				do_tools(argv[1])
 		elif argv[1] == 'diff':

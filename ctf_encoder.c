@@ -255,6 +255,9 @@ int cu__encode_ctf(struct cu *self)
 	if (ctf == NULL)
 		goto out;
 
+	if (cu__cache_symtab(self) < 0)
+		goto out_delete;
+
 	ctf__set_strings(ctf, &strings->gb);
 
 	uint32_t id;
@@ -273,8 +276,6 @@ int cu__encode_ctf(struct cu *self)
 		struct hlist_head *head = &hash_addr[hashaddr__fn(addr)];
 		hlist_add_head(&function->tool_hnode, head);
 	}
-
-	cu__cache_symtab(self);
 
 	uint64_t addr;
 	GElf_Sym sym;

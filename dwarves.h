@@ -208,9 +208,12 @@ void cu__delete(struct cu *self);
 
 const char *cu__string(const struct cu *self, strings_t s);
 
-static inline void cu__cache_symtab(struct cu *self)
+static inline int cu__cache_symtab(struct cu *self)
 {
-	self->cached_symtab_nr_entries = dwfl_module_getsymtab(self->dwfl);
+	int err = dwfl_module_getsymtab(self->dwfl);
+	if (err > 0)
+		self->cached_symtab_nr_entries = dwfl_module_getsymtab(self->dwfl);
+	return err;
 }
 
 static inline __pure bool cu__is_c_plus_plus(const struct cu *self)
