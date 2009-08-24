@@ -14,31 +14,26 @@
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 #   General Public License for more details.
 
-import filecmp, os, posix, signal, sys
+import filecmp, os, posix, signal, sys, tempfile
 
 regtest_output_dir = "/media/tb/pahole/regtest/"
 regtest_obj_dir = "/media/tb/debuginfo/usr/lib/debug/"
-tools = {"pahole": { "dwarf": "--flat_arrays --show_private_classes --fixup_silly_bitfields" }}
-#formats = ("ctf", "dwarf")
-formats = ("ctf", )
+tools = {"pahole": { "dwarf": "--flat_arrays --show_private_classes --fixup_silly_bitfields --first_obj_only" }}
+formats = ("ctf", "dwarf")
 len_debug_dir = len(regtest_obj_dir)
-len_regtest_output_dir_before = len(regtest_output_dir) + len("before/")
-verbose = 9
-diff_filename = None
+verbose = 1
 
-def diff_file(tool_filename):
-	global diff_filename
-	if not diff_filename:
-		diff_filename = posix.tempnam()
-	command = 'diff -up "%s" "%s" > %s' % \
-		  (os.path.join(regtest_output_dir, "before", "dwarf", tool_filename),
-		   os.path.join(regtest_output_dir, "after", "dwarf", tool_filename),
-		   diff_filename)
+def diff_file(from_filename, to_filename):
+	fd, diff_filename = tempfile.mkstemp()
+	command = 'diff -up "%s" "%s" > %s' % (from_filename,
+					       to_filename, diff_filename)
 	if verbose > 1:
 		print command
-	os.system(command)
-	os.system("vim %s" % diff_filename)
-	os.unlink(diff_filename)
+	try:
+		os.system(command)
+		os.system("vim %s" % diff_filename)
+	finally:
+		os.unlink(diff_filename)
 
 def dir_has_no_diffs(dirname):
 	return os.access(os.path.join(dirname, ".no_diffs"), os.F_OK)
@@ -50,34 +45,38 @@ def set_dir_has_no_diffs(dirname):
 def reset_dir_has_no_diffs(dirname):
 	os.unlink(os.path.join(dirname, ".no_diffs"))
 
-def diff_dir(before, after, dir = None):
+def diff_dir(from_dir, to_dir, dir = None):
 	if dir:
-		before = os.path.join(before, dir)
-		after = os.path.join(after, dir)
-	print "\r%-130s" % before[len_regtest_output_dir_before:],
+		from_dir = os.path.join(from_dir, dir)
+		to_dir = os.path.join(to_dir, dir)
+	print "\r%-130s" % from_dir
 	sys.stdout.flush()
-	diff = filecmp.dircmp(before, after)
-	if not dir_has_no_diffs(after):
+	diff = filecmp.dircmp(from_dir, to_dir)
+	if not dir_has_no_diffs(to_dir):
 		diff_files = diff.diff_files
 		if diff_files:
 			diff_files.sort()
-			print "\n  %s:\n	%s" % (before, diff_files)
+			print "\n  %s" % from_dir
 			sys.stdout.flush()
 			for f in diff_files:
-				diff_file(os.path.join(before[len_regtest_output_dir_before:], f))
+				diff_file(os.path.join(from_dir, f),
+					  os.path.join(to_dir, f))
 		else:
-			set_dir_has_no_diffs(after)
+			set_dir_has_no_diffs(to_dir)
 	common_dirs = diff.common_dirs
 	if not common_dirs:
 		return
 	common_dirs.sort()
 	for dir in common_dirs:
-		diff_dir(before, after, dir)
+		diff_dir(from_dir, to_dir, dir)
 
-def do_diffs():
-	before = os.path.join(regtest_output_dir, "before")
-	after = os.path.join(regtest_output_dir, "after")
-	diff_dir(before, after)
+def do_diff_dwarfs2ctfs():
+	diff_dir(os.path.join(regtest_output_dir, "after", "pahole", "dwarf"),
+		 os.path.join(regtest_output_dir, "after", "pahole", "ctf"))
+
+def do_diff_dwarfs():
+	diff_dir(os.path.join(regtest_output_dir, "before", "pahole", "dwarf"),
+		     os.path.join(regtest_output_dir, "after", "pahole", "dwarf"))
 
 def do_tool(tool, before_after, format, dirname, fname,
 	    prepend_obj_dir = False):
@@ -182,9 +181,10 @@ def main(argv):
 			if len(argv) > 3:
 				dirname = argv[2]
 				for fname in argv[3:]:
-					diff_file("%s.%s.c" % (os.path.join(dirname, fname)))
+					diff_file(os.path.join(regtest_output_dir, "before", "pahole", "dwarf", dirname, fname),
+						  os.path.join(regtest_output_dir, "after", "pahole", "dwarf", dirname, fname))
 			else:
-				do_diffs()
+				do_diff_dwarfs()
 		elif argv[1] == 'ctf':
 			if len(argv) > 3:
 				dirname = argv[2]
@@ -192,6 +192,14 @@ def main(argv):
 					do_ctf(dirname, fname, True)
 			else:
 				do_ctfs()
+		elif argv[1] == 'diffctf':
+			if len(argv) > 3:
+				dirname = argv[2]
+				for fname in argv[3:]:
+					diff_file(os.path.join(regtest_output_dir, "after", "pahole", "dwarf", dirname, fname),
+						  os.path.join(regtest_output_dir, "after", "pahole", "ctf", dirname, fname))
+			else:
+				do_diff_dwarfs2ctfs()
 	except IOError:
 		pass
 
