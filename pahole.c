@@ -23,6 +23,7 @@
 #include "ctf_encoder.h"
 
 static bool ctf_encode;
+static bool first_obj_only;
 
 static uint8_t class__include_anonymous;
 static uint8_t class__include_nested_anonymous;
@@ -735,6 +736,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_flat_arrays	   300
 #define ARGP_show_private_classes  301
 #define ARGP_fixup_silly_bitfields 302
+#define ARGP_first_obj_only	   303
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -943,6 +945,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Fix silly bitfields such as int foo:32",
 	},
 	{
+		.name = "first_obj_only",
+		.key  = ARGP_first_obj_only,
+		.doc  = "Only process the first object file in the binary",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1015,6 +1022,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf.show_only_data_members = 1;	break;
 	case ARGP_fixup_silly_bitfields:
 		conf_load.fixup_silly_bitfields = 1;	break;
+	case ARGP_first_obj_only:
+		first_obj_only = true;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -1072,7 +1081,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 	int ret = LSK__STOLEN;
 
 	if (!cu__filter(cu))
-		goto dump_it;
+		goto filter_it;
 
 	if (ctf_encode) {
 		cu__encode_ctf(cu);
@@ -1150,6 +1159,9 @@ dump_and_stop:
 		ret = LSK__STOP_LOADING;
 	}
 dump_it:
+	if (first_obj_only)
+		ret = LSK__STOP_LOADING;
+filter_it:
 	cu__delete(cu);
 	return ret;
 }
