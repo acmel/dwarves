@@ -611,6 +611,9 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 	type__for_each_data_member(type_self, pos) {
 		struct tag *type = tag__follow_typedef(&pos->tag, cu);
 
+		if (type == NULL) /* FIXME: C++ CTF... */
+			continue;
+
 		pos->bitfield_offset = 0;
 		pos->bitfield_size = 0;
 		pos->byte_offset = pos->bit_offset / 8;
