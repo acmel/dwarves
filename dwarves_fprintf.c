@@ -262,7 +262,7 @@ size_t typedef__fprintf(const struct tag *tag_self, const struct cu *cu,
 	}
 
 	return fprintf(fp, "typedef %s %s",
-		       tag__name(type, cu, bf, sizeof(bf)),
+		       tag__name(type, cu, bf, sizeof(bf), pconf),
 				 type__name(self, cu));
 }
 
@@ -279,7 +279,7 @@ static size_t imported_declaration__fprintf(const struct tag *self,
 			return printed + tag__id_not_found_fprintf(fp, self->type);
 	}
 
-	return printed + fprintf(fp, "%s", tag__name(decl, cu, bf, sizeof(bf)));
+	return printed + fprintf(fp, "%s", tag__name(decl, cu, bf, sizeof(bf), NULL));
 }
 
 static size_t imported_module__fprintf(const struct tag *self,
@@ -315,14 +315,17 @@ size_t enumeration__fprintf(const struct tag *tag_self, const struct cu *cu,
 				 conf->suffix ? " " : "", conf->suffix ?: "");
 }
 
-static const char *tag__prefix(const struct cu *cu, const uint32_t tag)
+static const char *tag__prefix(const struct cu *cu, const uint32_t tag,
+			       const struct conf_fprintf *conf)
 {
 	switch (tag) {
 	case DW_TAG_enumeration_type:	return "enum ";
 	case DW_TAG_structure_type:
-		return cu->language == DW_LANG_C_plus_plus ? "class " :
-							     "struct ";
-	case DW_TAG_class_type:		return "class";
+		return (!conf->classes_as_structs &&
+			cu->language == DW_LANG_C_plus_plus) ? "class " :
+							       "struct ";
+	case DW_TAG_class_type:
+		return conf->classes_as_structs ? "struct " : "class ";
 	case DW_TAG_union_type:		return "union ";
 	case DW_TAG_pointer_type:	return " *";
 	case DW_TAG_reference_type:	return " &";
@@ -347,7 +350,7 @@ static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
 			char tmpbf[1024];
 			snprintf(bf, len, "%s %s",
 				 tag__name(type, cu,
-					   tmpbf, sizeof(tmpbf)), ptr_suffix);
+					   tmpbf, sizeof(tmpbf), NULL), ptr_suffix);
 		}
 	}
 
@@ -355,9 +358,10 @@ static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
 }
 
 const char *tag__name(const struct tag *self, const struct cu *cu,
-		      char *bf, size_t len)
+		      char *bf, size_t len, const struct conf_fprintf *conf)
 {
 	struct tag *type;
+	const struct conf_fprintf *pconf = conf ?: &conf_fprintf__defaults;
 
 	if (self == NULL)
 		strncpy(bf, "void", len);
@@ -408,7 +412,7 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 			snprintf(bf, len, "%s %s ",
 				 self->tag == DW_TAG_volatile_type ?
 					"volatile" : "const",
-				 tag__name(type, cu, tmpbf, sizeof(tmpbf)));
+				 tag__name(type, cu, tmpbf, sizeof(tmpbf), pconf));
 		}
 		break;
 	case DW_TAG_array_type:
@@ -416,14 +420,14 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		if (type == NULL)
 			tag__id_not_found_snprintf(bf, len, self->type);
 		else
-			return tag__name(type, cu, bf, len);
+			return tag__name(type, cu, bf, len, pconf);
 		break;
 	case DW_TAG_subroutine_type: {
 		FILE *bfp = fmemopen(bf, len, "w");
 
 		if (bfp != NULL) {
 			ftype__fprintf(tag__ftype(self), cu, NULL, 0, 0, 0,
-				       &conf_fprintf__defaults, bfp);
+				       pconf, bfp);
 			fclose(bfp);
 		} else
 			snprintf(bf, len, "<ERROR(%s): fmemopen failed!>",
@@ -437,7 +441,7 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		snprintf(bf, len, "%s", variable__name(tag__variable(self), cu));
 		break;
 	default:
-		snprintf(bf, len, "%s%s", tag__prefix(cu, self->tag),
+		snprintf(bf, len, "%s%s", tag__prefix(cu, self->tag, pconf),
 			 type__name(tag__type(self), cu) ?: "");
 		break;
 	}
@@ -561,7 +565,8 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		/* Fall Thru */
 	default:
 		printed += fprintf(fp, "%-*s %s", conf->type_spacing,
-				   tag__name(type, cu, tbf, sizeof(tbf)), name);
+				   tag__name(type, cu, tbf, sizeof(tbf), conf),
+				   name);
 		break;
 	case DW_TAG_subroutine_type:
 		printed += ftype__fprintf(tag__ftype(type), cu, name, 0, 0,
@@ -576,7 +581,8 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 
 		if (type__name(ctype, cu) != NULL && !expand_types)
 			printed += fprintf(fp, "%s %-*s %s",
-					   type->tag == DW_TAG_class_type ? "class" : "struct",
+					   (type->tag == DW_TAG_class_type &&
+					    !conf->classes_as_structs) ? "class" : "struct",
 					   conf->type_spacing - 7,
 					   type__name(ctype, cu), name);
 		else
@@ -820,7 +826,7 @@ size_t ftype__fprintf_parms(const struct ftype *self,
 						  0, 0, 0, conf, fp);
 			continue;
 		}
-		stype = tag__name(type, cu, sbf, sizeof(sbf));
+		stype = tag__name(type, cu, sbf, sizeof(sbf), conf);
 print_it:
 		printed += fprintf(fp, "%s%s%s", stype, name ? " " : "",
 				   name ?: "");
@@ -954,7 +960,7 @@ size_t ftype__fprintf(const struct ftype *self, const struct cu *cu,
 {
 	struct tag *type = cu__type(cu, self->tag.type);
 	char sbf[128];
-	const char *stype = tag__name(type, cu, sbf, sizeof(sbf));
+	const char *stype = tag__name(type, cu, sbf, sizeof(sbf), conf);
 	size_t printed = fprintf(fp, "%s%-*s %s%s%s%s",
 				 inlined ? "inline " : "",
 				 type_spacing, stype,
@@ -1092,9 +1098,10 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 	const uint16_t t = tself->namespace.tag.tag;
 	size_t printed = fprintf(fp, "%s%s%s%s%s",
 				 cconf.prefix ?: "", cconf.prefix ? " " : "",
-				 t == DW_TAG_class_type ? "class" :
-				 t == DW_TAG_structure_type ? "struct" :
-							"interface",
+				 ((conf->classes_as_structs ||
+				   t == DW_TAG_structure_type) ? "struct" :
+				  t == DW_TAG_class_type ? "class" :
+							"interface"),
 				 type__name(tself, cu) ? " " : "",
 				 type__name(tself, cu) ?: "");
 	int indent = cconf.indent;

@@ -18,7 +18,7 @@ import filecmp, os, posix, signal, sys, tempfile
 
 regtest_output_dir = "/media/tb/pahole/regtest/"
 regtest_obj_dir = "/media/tb/debuginfo/usr/lib/debug/"
-tools = {"pahole": { "dwarf": "--flat_arrays --show_private_classes --fixup_silly_bitfields --first_obj_only" }}
+tools = {"pahole": { "dwarf": "--flat_arrays --show_private_classes --fixup_silly_bitfields --first_obj_only --classes_as_structs" }}
 formats = ("ctf", "dwarf")
 len_debug_dir = len(regtest_obj_dir)
 verbose = 1
@@ -175,7 +175,6 @@ def listdebugs(dirname):
 		if os.path.islink(obj_path) or os.path.isdir(obj_path):
 			continue
 		fnames.append(fname[:-6])
-	print fnames
 	return fnames
 
 def main(argv):

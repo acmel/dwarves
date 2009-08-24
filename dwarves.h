@@ -48,6 +48,7 @@ struct conf_load {
 /** struct conf_fprintf - hints to the __fprintf routines
  *
  * @flat_arrays - a->foo[10][2] becomes a->foo[20]
+ * @classes_as_structs - class f becomes struct f, CTF doesn't have a "class"
  */
 struct conf_fprintf {
 	const char *prefix;
@@ -68,6 +69,7 @@ struct conf_fprintf {
 	uint8_t	   show_first_biggest_size_base_type_member:1;
 	uint8_t	   flat_arrays:1;
 	uint8_t	   no_parm_names:1;
+	uint8_t	   classes_as_structs:1;
 };
 
 struct cus {
@@ -458,7 +460,7 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 		    const struct conf_fprintf *conf, FILE *fp);
 
 const char *tag__name(const struct tag *self, const struct cu *cu,
-		      char *bf, size_t len);
+		      char *bf, size_t len, const struct conf_fprintf *conf);
 void tag__not_found_die(const char *file, int line, const char *func);
 
 #define tag__assert_search_result(tag) \

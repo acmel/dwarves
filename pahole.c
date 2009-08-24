@@ -737,6 +737,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_show_private_classes  301
 #define ARGP_fixup_silly_bitfields 302
 #define ARGP_first_obj_only	   303
+#define ARGP_classes_as_structs	   304
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -950,6 +951,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Only process the first object file in the binary",
 	},
 	{
+		.name = "classes_as_structs",
+		.key  = ARGP_classes_as_structs,
+		.doc  = "Use 'struct' when printing classes",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1024,6 +1030,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.fixup_silly_bitfields = 1;	break;
 	case ARGP_first_obj_only:
 		first_obj_only = true;			break;
+	case ARGP_classes_as_structs:
+		conf.classes_as_structs = 1;		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}

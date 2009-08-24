@@ -163,9 +163,9 @@ static int check_print_change(const struct class_member *old,
 	}
 
 	if (strcmp(tag__name(old_type, old_cu, old_type_name,
-			     sizeof(old_type_name)),
+			     sizeof(old_type_name), NULL),
 		   tag__name(new_type, new_cu, new_type_name,
-			     sizeof(new_type_name))) != 0) {
+			     sizeof(new_type_name), NULL)) != 0) {
 		changes = 1;
 		terse_type_changes |= TCHANGEF__TYPE;
 	}
@@ -212,7 +212,7 @@ static int check_print_members_changes(const struct class *structure,
 				printf("    %s\n"
 				       "     removed: %-21s /* %5u(%2u) %5zd(%2d) */\n",
 				       class_member__name(member, cu),
-				       tag__name(type, cu, name, sizeof(name)),
+				       tag__name(type, cu, name, sizeof(name), NULL),
 				       member->byte_offset, member->bitfield_offset,
 				       member->byte_size, member->bitfield_size);
 			}
@@ -234,7 +234,7 @@ static int check_print_members_changes(const struct class *structure,
 			printf("    %s\n"
 			       "     added:   %-21s /* %5u(%2u) %5zd(%2d) */\n",
 			       class_member__name(member, new_cu),
-			       tag__name(type, new_cu, name, sizeof(name)),
+			       tag__name(type, new_cu, name, sizeof(name), NULL),
 			       member->byte_offset, member->bitfield_offset,
 			       member->byte_size, member->bitfield_size);
 		}
@@ -416,7 +416,7 @@ static void show_changed_member(char change, const struct class_member *member,
 
 	tag__assert_search_result(type);
 	printf("    %c%-26s %-21s /* %5u %5zd */\n",
-	       change, tag__name(type, cu, bf, sizeof(bf)),
+	       change, tag__name(type, cu, bf, sizeof(bf), NULL),
 	       class_member__name(member, cu),
 	       member->byte_offset, member->byte_size);
 }

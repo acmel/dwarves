@@ -832,7 +832,7 @@ const char *variable__type_name(const struct variable *self,
 				char *bf, size_t len)
 {
 	const struct tag *tag = cu__type(cu, self->ip.tag.type);
-	return tag != NULL ? tag__name(tag, cu, bf, len) : NULL;
+	return tag != NULL ? tag__name(tag, cu, bf, len, NULL) : NULL;
 }
 
 void class_member__delete(struct class_member *self, struct cu *cu)
