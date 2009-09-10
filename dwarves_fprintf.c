@@ -357,8 +357,9 @@ static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
 	return bf;
 }
 
-const char *tag__name(const struct tag *self, const struct cu *cu,
-		      char *bf, size_t len, const struct conf_fprintf *conf)
+static const char *__tag__name(const struct tag *self, const struct cu *cu,
+			       char *bf, size_t len, bool starts_with_const,
+			       const struct conf_fprintf *conf)
 {
 	struct tag *type;
 	const struct conf_fprintf *pconf = conf ?: &conf_fprintf__defaults;
@@ -409,10 +410,16 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 			tag__id_not_found_snprintf(bf, len, self->type);
 		else {
 			char tmpbf[128];
-			snprintf(bf, len, "%s %s ",
-				 self->tag == DW_TAG_volatile_type ?
-					"volatile" : "const",
-				 tag__name(type, cu, tmpbf, sizeof(tmpbf), pconf));
+			const char *const_str = self->tag == DW_TAG_const_type ?
+						"const": "volatile",
+				   *type_str = __tag__name(type, cu, tmpbf,
+							   sizeof(tmpbf),
+							   !starts_with_const,
+							   pconf);
+			if (starts_with_const)
+				snprintf(bf, len, "%s %s ", type_str, const_str);
+			else
+				snprintf(bf, len, "%s %s ", const_str, type_str);
 		}
 		break;
 	case DW_TAG_array_type:
@@ -420,7 +427,8 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 		if (type == NULL)
 			tag__id_not_found_snprintf(bf, len, self->type);
 		else
-			return tag__name(type, cu, bf, len, pconf);
+			return __tag__name(type, cu, bf, len,
+					   starts_with_const, pconf);
 		break;
 	case DW_TAG_subroutine_type: {
 		FILE *bfp = fmemopen(bf, len, "w");
@@ -447,6 +455,13 @@ const char *tag__name(const struct tag *self, const struct cu *cu,
 	}
 
 	return bf;
+}
+
+const char *tag__name(const struct tag *self, const struct cu *cu,
+		      char *bf, size_t len, const struct conf_fprintf *conf)
+{
+	return __tag__name(self, cu, bf, len,
+			   self->tag == DW_TAG_const_type, conf);
 }
 
 static const char *variable__prefix(const struct variable *var)
