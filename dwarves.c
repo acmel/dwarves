@@ -101,9 +101,10 @@ struct tag *tag__follow_typedef(const struct tag *tag, const struct cu *cu)
 	return type;
 }
 
-size_t __tag__id_not_found_fprintf(FILE *fp, uint16_t id, const char *fn)
+size_t __tag__id_not_found_fprintf(FILE *fp, uint16_t id,
+				   const char *fn, int line)
 {
-	return fprintf(fp, "<ERROR(%s): %d not found!>", fn, id);
+	return fprintf(fp, "<ERROR(%s:%d): %d not found!>", fn, line, id);
 }
 
 static struct base_type_name_to_size {

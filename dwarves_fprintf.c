@@ -132,14 +132,14 @@ static const char *tag__accessibility(const struct tag *self)
 }
 
 static size_t __tag__id_not_found_snprintf(char *bf, size_t len, uint16_t id,
-					   const char *fn)
+					   const char *fn, int line)
 {
-	return snprintf(bf, len, "<ERROR(%s): %#llx not found!>", fn,
+	return snprintf(bf, len, "<ERROR(%s:%d): %#llx not found!>", fn, line,
 			(unsigned long long)id);
 }
 
 #define tag__id_not_found_snprintf(bf, len, id) \
-	__tag__id_not_found_snprintf(bf, len, id, __func__)
+	__tag__id_not_found_snprintf(bf, len, id, __func__, __LINE__)
 
 size_t tag__fprintf_decl_info(const struct tag *self,
 			      const struct cu *cu, FILE *fp)
