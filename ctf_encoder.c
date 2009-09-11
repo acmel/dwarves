@@ -97,7 +97,7 @@ static int structure_type__encode(struct tag *self, uint16_t core_id,
 
 	const bool is_short = type->size < CTF_SHORT_MEMBER_LIMIT;
 	struct class_member *pos;
-	type__for_each_member(type, pos) {
+	type__for_each_data_member(type, pos) {
 		if (is_short)
 			ctf__add_short_member(ctf, pos->name, pos->tag.type,
 					      pos->bit_offset, &position);
