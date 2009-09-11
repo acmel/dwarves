@@ -334,8 +334,13 @@ static const char *tag__prefix(const struct cu *cu, const uint32_t tag,
 	return "";
 }
 
+static const char *__tag__name(const struct tag *self, const struct cu *cu,
+			       char *bf, size_t len, bool *found_const,
+			       const struct conf_fprintf *conf);
+
 static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
-				 char *bf, size_t len, const char *ptr_suffix)
+				 char *bf, size_t len, bool *found_const,
+				 const char *ptr_suffix)
 {
 	if (self->type == 0) /* No type == void */
 		snprintf(bf, len, "void %s", ptr_suffix);
@@ -349,8 +354,10 @@ static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
 		} else {
 			char tmpbf[1024];
 			snprintf(bf, len, "%s %s",
-				 tag__name(type, cu,
-					   tmpbf, sizeof(tmpbf), NULL), ptr_suffix);
+				 __tag__name(type, cu,
+					     tmpbf, sizeof(tmpbf),
+					     found_const, NULL),
+				 ptr_suffix);
 		}
 	}
 
@@ -358,7 +365,7 @@ static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
 }
 
 static const char *__tag__name(const struct tag *self, const struct cu *cu,
-			       char *bf, size_t len, bool starts_with_const,
+			       char *bf, size_t len, bool *found_const,
 			       const struct conf_fprintf *conf)
 {
 	struct tag *type;
@@ -383,9 +390,9 @@ static const char *__tag__name(const struct tag *self, const struct cu *cu,
 		strncpy(bf, function__name(tag__function(self), cu), len);
 		break;
 	case DW_TAG_pointer_type:
-		return tag__ptr_name(self, cu, bf, len, "*");
+		return tag__ptr_name(self, cu, bf, len, found_const, "*");
 	case DW_TAG_reference_type:
-		return tag__ptr_name(self, cu, bf, len, "&");
+		return tag__ptr_name(self, cu, bf, len, found_const, "&");
 	case DW_TAG_ptr_to_member_type: {
 		char suffix[512];
 		uint16_t id = tag__ptr_to_member_type(self)->containing_type;
@@ -401,7 +408,7 @@ static const char *__tag__name(const struct tag *self, const struct cu *cu,
 			snprintf(suffix + l, sizeof(suffix) - l, "::*");
 		}
 
-		return tag__ptr_name(self, cu, bf, len, suffix);
+		return tag__ptr_name(self, cu, bf, len, found_const, suffix);
 	}
 	case DW_TAG_volatile_type:
 	case DW_TAG_const_type:
@@ -410,16 +417,15 @@ static const char *__tag__name(const struct tag *self, const struct cu *cu,
 			tag__id_not_found_snprintf(bf, len, self->type);
 		else {
 			char tmpbf[128];
-			const char *const_str = self->tag == DW_TAG_const_type ?
-						"const": "volatile",
+			const char *prefix = "volatile ",
 				   *type_str = __tag__name(type, cu, tmpbf,
 							   sizeof(tmpbf),
-							   !starts_with_const,
-							   pconf);
-			if (starts_with_const)
-				snprintf(bf, len, "%s %s ", type_str, const_str);
-			else
-				snprintf(bf, len, "%s %s ", const_str, type_str);
+							   found_const, pconf);
+			if (self->tag == DW_TAG_const_type) {
+				*found_const = true;
+				prefix = "";
+			}
+			snprintf(bf, len, "%s%s ", prefix, type_str);
 		}
 		break;
 	case DW_TAG_array_type:
@@ -428,7 +434,7 @@ static const char *__tag__name(const struct tag *self, const struct cu *cu,
 			tag__id_not_found_snprintf(bf, len, self->type);
 		else
 			return __tag__name(type, cu, bf, len,
-					   starts_with_const, pconf);
+					   found_const, pconf);
 		break;
 	case DW_TAG_subroutine_type: {
 		FILE *bfp = fmemopen(bf, len, "w");
@@ -460,8 +466,39 @@ static const char *__tag__name(const struct tag *self, const struct cu *cu,
 const char *tag__name(const struct tag *self, const struct cu *cu,
 		      char *bf, size_t len, const struct conf_fprintf *conf)
 {
-	return __tag__name(self, cu, bf, len,
-			   self->tag == DW_TAG_const_type, conf);
+	char *const_bf = bf;
+	bool found_const = false;
+
+	if (self == NULL) {
+		strncpy(bf, "void", len);
+		return bf;
+	}
+
+	if (self->tag == DW_TAG_const_type) {
+		size_t printed;
+		struct tag *type = cu__type(cu, self->type);
+
+		printed = snprintf(bf, len, "%s", "const ");
+		if (printed == len)
+			return bf;
+
+		const_bf += sizeof("const ") - 1;
+		len -= sizeof("const ") - 1;
+
+		if (type == NULL && self->type != 0) {
+			tag__id_not_found_snprintf(const_bf, len, self->type);
+			return bf;
+		}
+
+		self = type;
+	}
+
+	__tag__name(self, cu, const_bf, len, &found_const, conf);
+
+	if (found_const)
+		strncat(const_bf, "const", len);
+
+	return bf;
 }
 
 static const char *variable__prefix(const struct variable *var)
