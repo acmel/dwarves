@@ -1,7 +1,7 @@
 #! /usr/bin/python
 # -*- python -*-
 # -*- coding: utf-8 -*-
-#   tuna - Application Tuning GUI
+#   dwarves - pahole and the debogey men
 #   Copyright (C) 2009 Arnaldo Carvalho de Melo
 #   Arnaldo Carvalho de Melo <acme@redhat.com>
 #
@@ -32,6 +32,11 @@ def diff_file(from_filename, to_filename):
 	try:
 		os.system(command)
 		os.system("vim %s" % diff_filename)
+		print "ok?"
+		answer = sys.stdin.readline()
+		if answer[0] == 'y':
+			os.unlink(from_filename)
+			os.link(to_filename, from_filename)
 	finally:
 		os.unlink(diff_filename)
 
