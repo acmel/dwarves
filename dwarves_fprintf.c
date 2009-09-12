@@ -94,11 +94,6 @@ static const struct conf_fprintf conf_fprintf__defaults = {
 
 static const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
-static inline const char *s(const struct cu *self, strings_t i)
-{
-	return cu__string(self, i);
-}
-
 static size_t cacheline_size;
 
 size_t tag__nr_cachelines(const struct tag *self, const struct cu *cu)
@@ -309,7 +304,7 @@ size_t enumeration__fprintf(const struct tag *tag_self, const struct cu *cu,
 
 	type__for_each_enumerator(self, pos)
 		printed += fprintf(fp, "%.*s\t%s = %u,\n", indent, tabs,
-				   s(cu, pos->name), pos->value);
+				   enumerator__name(pos, cu), pos->value);
 
 	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
 				 conf->suffix ? " " : "", conf->suffix ?: "");
@@ -680,7 +675,8 @@ static size_t struct_member__fprintf(struct class_member *self,
 	struct conf_fprintf sconf = *conf;
 	uint32_t offset = self->byte_offset;
 	size_t printed = 0;
-	const char *name = s(cu, self->name);
+	const char *cm_name = class_member__name(self, cu),
+		   *name = cm_name;
 
 	if (!sconf.rel_offset) {
 		sconf.base_offset += self->byte_offset;
@@ -707,8 +703,7 @@ static size_t struct_member__fprintf(struct class_member *self,
 	    type__name(tag__type(type), cu) == NULL) {
 		if (!sconf.suppress_offset_comment) {
 			/* Check if this is a anonymous union */
-			const int slen = self->name ?
-					(int)strlen(s(cu, self->name)) : -1;
+			const int slen = cm_name ? (int)strlen(cm_name) : -1;
 			printed += fprintf(fp, "%*s/* %5u %5u */",
 					   (sconf.type_spacing +
 					    sconf.name_spacing - slen - 3),
@@ -746,7 +741,8 @@ static size_t union_member__fprintf(struct class_member *self,
 				    const struct conf_fprintf *conf, FILE *fp)
 {
 	const size_t size = self->byte_size;
-	size_t printed = type__fprintf(type, cu, s(cu, self->name), conf, fp);
+	const char *name = class_member__name(self, cu);
+	size_t printed = type__fprintf(type, cu, name, conf, fp);
 
 	if ((tag__is_union(type) || tag__is_struct(type) ||
 	     tag__is_enumeration(type)) &&
@@ -754,7 +750,7 @@ static size_t union_member__fprintf(struct class_member *self,
 	    type__name(tag__type(type), cu) == NULL) {
 		if (!conf->suppress_offset_comment) {
 			/* Check if this is a anonymous union */
-			const int slen = self->name ? (int)strlen(s(cu, self->name)) : -1;
+			const int slen = name ? (int)strlen(name) : -1;
 			/*
 			 * Add the comment with the union size after padding the
 			 * '} member_name;' last line of the type printed in the
@@ -951,7 +947,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		fputc('\n', fp);
 		++printed;
-		c = fprintf(fp, "%s:", s(cu, label->name));
+		c = fprintf(fp, "%s:", label__name(label, cu));
 		printed += c;
 	}
 		break;
@@ -1121,7 +1117,7 @@ static size_t class__vtable_fprintf(struct class *self, const struct cu *cu,
 		printed += fprintf(fp, "%.*s   [%d] = %s(%s), \n",
 				   conf->indent, tabs, pos->vtable_entry,
 				   function__name(pos, cu),
-				   s(cu, pos->linkage_name));
+				   function__linkage_name(pos, cu));
 	}
 
 	printed += fprintf(fp, "%.*s} */", conf->indent, tabs);
@@ -1456,7 +1452,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 
 		printed += fprintf(fp, "\n%.*s/* first biggest size base type member: %s %u %zd */",
 				   cconf.indent, tabs,
-				   s(cu, m->name), m->byte_offset,
+				   class_member__name(m, cu), m->byte_offset,
 				   m->byte_size);
 	}
 
@@ -1498,7 +1494,8 @@ static size_t namespace__fprintf(const struct tag *tself, const struct cu *cu,
 {
 	struct namespace *self = tag__namespace(tself);
 	struct conf_fprintf cconf = *conf;
-	size_t printed = fprintf(fp, "namespace %s {\n", s(cu, self->name));
+	size_t printed = fprintf(fp, "namespace %s {\n",
+				 namespace__name(self, cu));
 	struct tag *pos;
 
 	++cconf.indent;
@@ -1600,7 +1597,7 @@ size_t tag__fprintf(struct tag *self, const struct cu *cu,
 
 		if (fself->linkage_name)
 			printed += fprintf(fp, " /* linkage=%s */",
-					   s(cu, fself->linkage_name));
+					   function__linkage_name(fself, cu));
 	}
 
 	if (pconf->expand_types)

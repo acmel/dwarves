@@ -737,6 +737,13 @@ static __pure inline int tag__is_function(const struct tag *self)
 	ftype__for_each_parameter(&self->proto, pos)
 
 const char *function__name(struct function *self, const struct cu *cu);
+
+static inline const char *function__linkage_name(const struct function *self,
+						 const struct cu *cu)
+{
+	return cu__string(cu, self->linkage_name);
+}
+
 size_t function__fprintf_stats(const struct tag *tag_self,
 			       const struct cu *cu,
 			       const struct conf_fprintf *conf,
@@ -1091,6 +1098,12 @@ struct enumerator {
 	strings_t	 name;
 	uint32_t	 value;
 };
+
+static inline const char *enumerator__name(const struct enumerator *self,
+					   const struct cu *cu)
+{
+	return cu__string(cu, self->name);
+}
 
 void enumeration__delete(struct type *self, struct cu *cu);
 void enumeration__add(struct type *self, struct enumerator *enumerator);
