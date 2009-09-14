@@ -50,6 +50,9 @@ int __tag__has_type_loop(const struct tag *self, const struct tag *type,
 {
 	char bbf[2048], *abf = bbf;
 
+	if (type == NULL)
+		return 0;
+
 	if (self->type == type->type) {
 		int printed;
 
