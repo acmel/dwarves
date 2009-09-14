@@ -345,8 +345,9 @@ static const char *tag__ptr_name(const struct tag *self, const struct cu *cu,
 			size_t l = tag__id_not_found_snprintf(bf, len,
 							      self->type);
 			snprintf(bf + l, len - l, " %s", ptr_suffix);
-		} else {
+		} else if (!tag__has_type_loop(self, type, bf, len, NULL)) {
 			char tmpbf[1024];
+
 			snprintf(bf, len, "%s %s",
 				 __tag__name(type, cu,
 					     tmpbf, sizeof(tmpbf), NULL),
@@ -408,7 +409,7 @@ static const char *__tag__name(const struct tag *self, const struct cu *cu,
 		type = cu__type(cu, self->type);
 		if (type == NULL && self->type != 0)
 			tag__id_not_found_snprintf(bf, len, self->type);
-		else {
+		else if (!tag__has_type_loop(self, type, bf, len, NULL)) {
 			char tmpbf[128];
 			const char *prefix = "const",
 				   *type_str = __tag__name(type, cu, tmpbf,
@@ -423,7 +424,7 @@ static const char *__tag__name(const struct tag *self, const struct cu *cu,
 		type = cu__type(cu, self->type);
 		if (type == NULL)
 			tag__id_not_found_snprintf(bf, len, self->type);
-		else
+		else if (!tag__has_type_loop(self, type, bf, len, NULL))
 			return __tag__name(type, cu, bf, len, pconf);
 		break;
 	case DW_TAG_subroutine_type: {
@@ -518,9 +519,16 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		int nr_indirections = 0;
 
 		while (type->tag == DW_TAG_pointer_type && type->type != 0) {
-			type = cu__type(cu, type->type);
-			if (type == NULL)
+			struct tag *ttype = cu__type(cu, type->type);
+			if (ttype == NULL)
 				goto out_type_not_found;
+			else {
+				printed = tag__has_type_loop(type, ttype,
+							     NULL, 0, fp);
+				if (printed)
+					return printed;
+			}
+			type = ttype;
 			++nr_indirections;
 		}
 
@@ -548,6 +556,9 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		int typedef_expanded = 0;
 
 		while (tag__is_typedef(type)) {
+			struct tag *type_type;
+			int n;
+
 			ctype = tag__type(type);
 			if (typedef_expanded)
 				printed += fprintf(fp, " -> %s",
@@ -557,9 +568,13 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 						   type__name(ctype, cu));
 				typedef_expanded = 1;
 			}
-			type = cu__type(cu, type->type);
-			if (type == NULL)
+			type_type = cu__type(cu, type->type);
+			if (type_type == NULL)
 				goto out_type_not_found;
+			n = tag__has_type_loop(type, type_type, NULL, 0, fp);
+			if (n)
+				return printed + n;
+			type = type_type;
 		}
 		if (typedef_expanded)
 			printed += fprintf(fp, " */ ");
@@ -578,9 +593,13 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	switch (type->tag) {
 	case DW_TAG_pointer_type:
 		if (type->type != 0) {
+			int n;
 			struct tag *ptype = cu__type(cu, type->type);
 			if (ptype == NULL)
 				goto out_type_not_found;
+			n = tag__has_type_loop(type, ptype, NULL, 0, fp);
+			if (n)
+				return printed + n;
 			if (ptype->tag == DW_TAG_subroutine_type) {
 				printed += ftype__fprintf(tag__ftype(ptype),
 							  cu, name, 0, 1,
@@ -835,12 +854,16 @@ size_t ftype__fprintf_parms(const struct ftype *self,
 		}
 		if (type->tag == DW_TAG_pointer_type) {
 			if (type->type != 0) {
+				int n;
 				struct tag *ptype = cu__type(cu, type->type);
 				if (ptype == NULL) {
 					printed +=
 					    tag__id_not_found_fprintf(fp, type->type);
 					continue;
 				}
+				n = tag__has_type_loop(type, ptype, NULL, 0, fp);
+				if (n)
+					return printed + n;
 				if (ptype->tag == DW_TAG_subroutine_type) {
 					printed +=
 					     ftype__fprintf(tag__ftype(ptype),

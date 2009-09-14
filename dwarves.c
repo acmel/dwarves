@@ -44,6 +44,29 @@ static inline const char *s(const struct cu *self, strings_t i)
 	return cu__string(self, i);
 }
 
+int __tag__has_type_loop(const struct tag *self, const struct tag *type,
+			 char *bf, size_t len, FILE *fp,
+			 const char *fn, int line)
+{
+	char bbf[2048], *abf = bbf;
+
+	if (self->type == type->type) {
+		int printed;
+
+		if (bf != NULL)
+			abf = bf;
+		else
+			len = sizeof(bbf);
+		printed = snprintf(abf, len, "<ERROR(%s:%d): detected type loop: type=%d, tag=%s>",
+			 fn, line, self->type, dwarf_tag_name(self->tag));
+		if (bf == NULL)
+			printed = fprintf(fp ?: stderr, "%s\n", abf);
+		return printed;
+	}
+
+	return 0;
+}
+
 static void lexblock__delete_tags(struct tag *tself, struct cu *cu)
 {
 	struct lexblock *self = tag__lexblock(tself);
@@ -811,7 +834,8 @@ size_t tag__size(const struct tag *self, const struct cu *cu)
 		if (type == NULL) {
 			tag__id_not_found_fprintf(stderr, self->type);
 			return -1;
-		}
+		} else if (tag__has_type_loop(self, type, NULL, 0, NULL))
+			return -1;
 		size = tag__size(type, cu);
 	}
 

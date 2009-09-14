@@ -476,6 +476,12 @@ size_t __tag__id_not_found_fprintf(FILE *fp, uint16_t id,
 #define tag__id_not_found_fprintf(fp, id) \
 	__tag__id_not_found_fprintf(fp, id, __func__, __LINE__)
 
+int __tag__has_type_loop(const struct tag *self, const struct tag *type,
+			 char *bf, size_t len, FILE *fp,
+			 const char *fn, int line);
+#define tag__has_type_loop(self, type, bf, len, fp) \
+	__tag__has_type_loop(self, type, bf, len, fp, __func__, __LINE__)
+
 struct ptr_to_member_type {
 	struct tag tag;
 	uint16_t   containing_type;
