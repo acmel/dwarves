@@ -1,7 +1,7 @@
 #! /usr/bin/python
 # -*- python -*-
 # -*- coding: utf-8 -*-
-#   dwarves - pahole and the debogey men
+#   tuna - Application Tuning GUI
 #   Copyright (C) 2009 Arnaldo Carvalho de Melo
 #   Arnaldo Carvalho de Melo <acme@redhat.com>
 #
@@ -14,14 +14,18 @@
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 #   General Public License for more details.
 
-import filecmp, os, posix, signal, sys, tempfile
+import filecmp, getopt, os, posix, signal, sys, tempfile
 
 regtest_output_dir = "/media/tb/pahole/regtest/"
 regtest_obj_dir = "/media/tb/debuginfo/usr/lib/debug/"
 tools = {"pahole": { "dwarf": "--flat_arrays --show_private_classes --fixup_silly_bitfields --first_obj_only --classes_as_structs" }}
-formats = ("ctf", "dwarf")
+all_formats = ("ctf", "dwarf")
+formats = all_formats
 len_debug_dir = len(regtest_obj_dir)
 verbose = 1
+
+# Turn this on when testing CTF generated files
+use_options = False
 
 def diff_file(from_filename, to_filename):
 	fd, diff_filename = tempfile.mkstemp()
@@ -32,11 +36,6 @@ def diff_file(from_filename, to_filename):
 	try:
 		os.system(command)
 		os.system("vim %s" % diff_filename)
-		print "ok?"
-		answer = sys.stdin.readline()
-		if answer[0] == 'y':
-			os.unlink(from_filename)
-			os.link(to_filename, from_filename)
 	finally:
 		os.unlink(diff_filename)
 
@@ -107,7 +106,7 @@ def do_tool(tool, before_after, format, dirname, fname,
 	if dir_has_no_diffs(tool_output_dir):
 		reset_dir_has_no_diffs(tool_output_dir)
 	output_file = os.path.join(tool_output_dir, fname[:-6])
-	if tools[tool].has_key(format):
+	if use_options and tools[tool].has_key(format):
 		options = tools[tool][format]
 	else:
 		options = ""
@@ -182,54 +181,100 @@ def listdebugs(dirname):
 		fnames.append(fname[:-6])
 	return fnames
 
+def usage():
+	print 'Usage: regtest [OPTIONS]'
+	fmt = '\t%-20s %s'
+	print fmt % ('-h, --help',	 'Give this help list')
+	print fmt % ('-a, --after',	 'Generate new output')
+	print fmt % ('-b, --before',	 'Generate old output')
+	print fmt % ('-c, --ctf_diff',	 'Diff between DWARF and CTF for new output')
+	print fmt % ('-C, --ctf_encode', 'Encode CTF into object files')
+	print fmt % ('-d, --diff',	 'Diff between old and new output')
+	print fmt % ('-f, --formats',	 'formats used (default: %s)' ','.join(formats))
+
 def main(argv):
+	global formats
+
 	for sig in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
 		signal.signal(sig, sig_exit)
 
 	try:
-		if len(argv) > 2:
-			dirname = argv[2]
-			if len(argv) > 3:
-				fnames = argv[3:]
-			elif argv[1] in ('before', 'after', 'ctf'):
-				fnames = listdebugs(dirname)
+		short = "habcCdf:"
+		long = ("help", "after", "before", "ctf_diff", "ctf_encode",
+			"diff", "formats")
+		opts, args = getopt.getopt(sys.argv[1:], short, long)
+	except getopt.GetoptError, err:
+		usage()
+		print str(err)
+		sys.exit(2)
 
-		if argv[1] in ('before', 'after'):
-			if len(argv) > 2:
-				for tool in tools.keys():
-					arg = (tool, argv[1])
-					do_tool_on_files(arg, dirname, fnames, True)
-			else:
-				do_tools(argv[1])
-		elif argv[1] == 'diff':
-			if len(argv) > 2:
-				from_dir = os.path.join(regtest_output_dir, "before", "pahole", "dwarf", dirname)
-				to_dir = os.path.join(regtest_output_dir, "after", "pahole", "dwarf", dirname)
-				if len(argv) > 3:
-					for fname in fnames:
-						diff_file(os.path.join(from_dir, fname), os.path.join(to_dir, fname))
+	for o, a in opts:
+		if o in ("-h", "--help"):
+			usage()
+			return
+		elif o in ("-f", "--formats"):
+			formats = a.split(',')
+		elif o in ("-a", "--after",
+			   "-b", "--before",
+			   "-c", "--ctf_diff",
+			   "-C", "--ctf_encode",
+			   "-d", "--diff"):
+
+			if len(args) > 0:
+				dirname = args[0]
+				if len(args) > 1:
+					fnames = args[1:]
+				elif o in ('before', 'after', 'ctf'):
+					fnames = listdebugs(dirname)
+
+			if o in ('-b', '--before', '-a', '--after'):
+				if o in ('-b', '--before'):
+					when = 'before'
 				else:
-					diff_dir(from_dir, to_dir, recursive = False)
-			else:
-				do_diff_dwarfs()
-		elif argv[1] == 'ctf':
-			if len(argv) > 2:
-				do_ctf_on_files(None, dirname, fnames, True)
-			else:
-				do_ctfs()
-		elif argv[1] == 'diffctf':
-			if len(argv) > 2:
-				from_dir = os.path.join(regtest_output_dir, "after", "pahole", "dwarf", dirname)
-				to_dir = os.path.join(regtest_output_dir, "after", "pahole", "ctf", dirname)
-				if len(argv) > 3:
-					for fname in fnames:
-						diff_file(os.path.join(from_dir, fname), os.path.join(to_dir, fname))
+					when = 'after'
+				if len(args) > 0:
+					for tool in tools.keys():
+						arg = (tool, when)
+						do_tool_on_files(arg, dirname, fnames, True)
 				else:
-					diff_dir(from_dir, to_dir, recursive = False)
-			else:
-				do_diff_dwarfs2ctfs()
-	except IOError:
-		pass
+					do_tools(when)
+			elif o in ('-d', 'diff'):
+				if len(args) > 0:
+					from_dir = os.path.join(regtest_output_dir,
+								"before", "pahole",
+								"dwarf", dirname)
+					to_dir = os.path.join(regtest_output_dir,
+							      "after", "pahole",
+							      "dwarf", dirname)
+					if len(args) > 1:
+						for fname in fnames:
+							diff_file(os.path.join(from_dir, fname),
+								  os.path.join(to_dir, fname))
+					else:
+						diff_dir(from_dir, to_dir, recursive = False)
+				else:
+					do_diff_dwarfs()
+			elif o in ('-C', 'ctf'):
+				if len(args) > 0:
+					do_ctf_on_files(None, dirname, fnames, True)
+				else:
+					do_ctfs()
+			elif o in ('-c', 'ctf_diff'):
+				if len(args) > 0:
+					from_dir = os.path.join(regtest_output_dir,
+								"after", "pahole",
+								"dwarf", dirname)
+					to_dir = os.path.join(regtest_output_dir,
+							      "after", "pahole",
+							      "ctf", dirname)
+					if len(args) > 1:
+						for fname in fnames:
+							diff_file(os.path.join(from_dir, fname),
+								  os.path.join(to_dir, fname))
+					else:
+						diff_dir(from_dir, to_dir, recursive = False)
+				else:
+					do_diff_dwarfs2ctfs()
 
 if __name__ == '__main__':
     main(sys.argv)
