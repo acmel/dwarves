@@ -632,8 +632,13 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 			break;
 		case DW_TAG_base_type: {
 			struct base_type *bt = tag__base_type(type);
+			char name[256];
 			type_bit_size = bt->bit_size;
 			integral_bit_size = base_type__name_to_size(bt, cu);
+			if (integral_bit_size == 0)
+				fprintf(stderr, "%s: unknown base type name \"%s\"!\n",
+					__func__, base_type__name(bt, cu, name,
+								  sizeof(name)));
 		}
 			break;
 		default:
@@ -652,8 +657,6 @@ static int class__fixup_ctf_bitfields(struct tag *self, struct cu *cu)
 		pos->byte_size = integral_bit_size / 8;
 
 		if (integral_bit_size == 0 || type_bit_size == integral_bit_size) {
-			if (integral_bit_size == 0)
-				fprintf(stderr, "boo!\n");
 			pos->bit_size = integral_bit_size;
 			continue;
 		}
