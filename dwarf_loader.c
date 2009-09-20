@@ -755,9 +755,10 @@ static void lexblock__init(struct lexblock *self, struct cu *cu,
 {
 	Dwarf_Off high_pc;
 
-	if (!cu->has_addr_info || dwarf_lowpc(die, &self->ip.addr))
+	if (!cu->has_addr_info || dwarf_lowpc(die, &self->ip.addr)) {
 		self->ip.addr = 0;
-	else if (dwarf_highpc(die, &high_pc))
+		self->size = 0;
+	} else if (dwarf_highpc(die, &high_pc))
 		self->size = 0;
 	else
 		self->size = high_pc - self->ip.addr;
