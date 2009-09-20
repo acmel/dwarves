@@ -869,9 +869,10 @@ void class_member__delete(struct class_member *self, struct cu *cu)
 	obstack_free(&cu->obstack, self);
 }
 
-static struct class_member *class_member__clone(const struct class_member *from)
+static struct class_member *class_member__clone(const struct class_member *from,
+						struct cu *cu)
 {
-	struct class_member *self = malloc(sizeof(*self));
+	struct class_member *self = obstack_alloc(&cu->obstack, sizeof(*self));
 
 	if (self != NULL)
 		memcpy(self, from, sizeof(*self));
@@ -945,7 +946,8 @@ struct class_member *type__last_member(struct type *self)
 	return NULL;
 }
 
-static int type__clone_members(struct type *self, const struct type *from)
+static int type__clone_members(struct type *self, const struct type *from,
+			       struct cu *cu)
 {
 	struct class_member *pos;
 
@@ -953,11 +955,11 @@ static int type__clone_members(struct type *self, const struct type *from)
 	INIT_LIST_HEAD(&self->namespace.tags);
 
 	type__for_each_member(from, pos) {
-		struct class_member *member_clone = class_member__clone(pos);
+		struct class_member *clone = class_member__clone(pos, cu);
 
-		if (member_clone == NULL)
+		if (clone == NULL)
 			return -1;
-		type__add_member(self, member_clone);
+		type__add_member(self, clone);
 	}
 
 	return 0;
@@ -978,7 +980,7 @@ struct class *class__clone(const struct class *from,
 				return NULL;
 			}
 		}
-		if (type__clone_members(&self->type, &from->type) != 0) {
+		if (type__clone_members(&self->type, &from->type, cu) != 0) {
 			class__delete(self, cu);
 			self = NULL;
 		}
