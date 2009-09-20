@@ -344,7 +344,10 @@ static int class__packable(struct class *self, struct cu *cu)
 		self->priv = clone;
 		return 1;
 	}
+	/* FIXME: we need to free in the right order,
+	 *	  cu->obstack is being corrupted...
 	class__delete(clone, cu);
+	*/
 	return 0;
 }
 
@@ -1080,7 +1083,10 @@ static void do_reorg(struct tag *class, struct cu *cu)
 	} else
 		putchar('\n');
 
-	class__delete(clone, cu);
+	/* FIXME: we need to free in the right order,
+	 *	  cu->obstack is being corrupted...
+	 class__delete(clone, cu);
+	*/
 }
 
 static enum load_steal_kind pahole_stealer(struct cu *cu,
