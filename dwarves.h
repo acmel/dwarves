@@ -70,6 +70,7 @@ struct conf_fprintf {
 	uint8_t	   flat_arrays:1;
 	uint8_t	   no_parm_names:1;
 	uint8_t	   classes_as_structs:1;
+	uint8_t	   hex_fmt:1;
 };
 
 struct cus {

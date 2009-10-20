@@ -703,7 +703,9 @@ static size_t struct_member__fprintf(struct class_member *self,
 		if (!sconf.suppress_offset_comment) {
 			/* Check if this is a anonymous union */
 			const int slen = cm_name ? (int)strlen(cm_name) : -1;
-			printed += fprintf(fp, "%*s/* %5u %5u */",
+			printed += fprintf(fp, sconf.hex_fmt ?
+							"%*s/* %#5x %#5x */" :
+							"%*s/* %5u %5u */",
 					   (sconf.type_spacing +
 					    sconf.name_spacing - slen - 3),
 					   " ", offset, size);
@@ -719,17 +721,21 @@ static size_t struct_member__fprintf(struct class_member *self,
 		if (!sconf.suppress_offset_comment) {
 			int size_spacing = 5;
 
-			printed += fprintf(fp, "%*s/* %5u",
+			printed += fprintf(fp, sconf.hex_fmt ?
+						"%*s/* %#5x" : "%*s/* %5u",
 					   spacing > 0 ? spacing : 0, " ",
 					   offset);
 
 			if (self->bitfield_size != 0) {
-				printed += fprintf(fp, ":%2d",
+				printed += fprintf(fp, sconf.hex_fmt ?
+							":%#2x" : ":%2u",
 						   self->bitfield_offset);
 				size_spacing -= 3;
 			}
 
-			printed += fprintf(fp, " %*u */", size_spacing, size);
+			printed += fprintf(fp, sconf.hex_fmt ?
+						" %#*x */" : " %*u */",
+					   size_spacing, size);
 		}
 	}
 	return printed;
@@ -755,7 +761,9 @@ static size_t union_member__fprintf(struct class_member *self,
 			 * '} member_name;' last line of the type printed in the
 			 * above call to type__fprintf.
 			 */
-			printed += fprintf(fp, ";%*s/* %11zd */",
+			printed += fprintf(fp, conf->hex_fmt ?
+							";%*s/* %#11zx */" :
+							";%*s/* %11zd */",
 					   (conf->type_spacing +
 					    conf->name_spacing - slen - 3), " ", size);
 		}
@@ -764,7 +772,9 @@ static size_t union_member__fprintf(struct class_member *self,
 
 		if (!conf->suppress_offset_comment) {
 			const int spacing = conf->type_spacing + conf->name_spacing - printed;
-			printed += fprintf(fp, "%*s/* %11zd */",
+			printed += fprintf(fp, conf->hex_fmt ?
+							"%*s/* %#11zx */" :
+							"%*s/* %11zd */",
 					   spacing > 0 ? spacing : 0, " ", size);
 		}
 	}

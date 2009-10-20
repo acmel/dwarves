@@ -741,6 +741,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_fixup_silly_bitfields 302
 #define ARGP_first_obj_only	   303
 #define ARGP_classes_as_structs	   304
+#define ARGP_hex_fmt		   305
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -959,6 +960,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Use 'struct' when printing classes",
 	},
 	{
+		.name = "hex",
+		.key  = ARGP_hex_fmt,
+		.doc  = "Print offsets and sizes in hexadecimal",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1035,6 +1041,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		first_obj_only = true;			break;
 	case ARGP_classes_as_structs:
 		conf.classes_as_structs = 1;		break;
+	case ARGP_hex_fmt:
+		conf.hex_fmt = 1;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
