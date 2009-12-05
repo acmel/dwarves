@@ -330,8 +330,8 @@ struct tag {
 	struct list_head node;
 	uint16_t	 type;
 	uint16_t	 tag;
-	uint16_t	 visited:1;
-	uint16_t	 top_level:1;
+	bool		 visited;
+	bool		 top_level;
 	uint16_t	 recursivity_level;
 	void		 *priv;
 };
