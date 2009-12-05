@@ -531,7 +531,7 @@ static int ctf__load_types(struct ctf *self)
 		} else if (type == CTF_TYPE_KIND_UNKN) {
 			cu__table_nullify_type_entry(self->priv, type_index);
 			fprintf(stderr,
-				"CTF: idx: %d, off: %lu, root: %s Unknown\n",
+				"CTF: idx: %d, off: %zd, root: %s Unknown\n",
 				type_index, ((void *)type_ptr) - type_section,
 				CTF_ISROOT(val) ? "yes" : "no");
 			vlen = 0;
