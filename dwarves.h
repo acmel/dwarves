@@ -1069,7 +1069,7 @@ struct base_type {
 	uint8_t		is_signed:1;
 	uint8_t		is_bool:1;
 	uint8_t		is_varargs:1;
-	uint8_t		float_type;
+	uint8_t		float_type:4;
 };
 
 static inline struct base_type *tag__base_type(const struct tag *self)
