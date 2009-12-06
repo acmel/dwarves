@@ -1,8 +1,154 @@
-This file contains changes that will appear in the next release.
+After a long time without a new release because I was trying to get the CTF
+support completed, and due to the very strong gravity force in the Linux kernel
+perf tools, here it is 1.8, with lots of performance improvements, bug fixes
+and changes to better use these tools in scripts.
 
-After 1.0:
+For full details please take a look at the git changesets, repo available at:
+
+http://git.kernel.org/?p=linux/kernel/git/acme/pahole.git
+
+- Arnaldo
 
 pahole:
 
-The summary modes (--sizes, etc) now uses a common field separator, that can be
-changed using the -t or --separator cmdline options.
+. Allow list of structs to be passed to pahole.
+
+	E.g.: 'pahole -C str_node,strings'
+
+  Suggested by Zack Weinberg <zweinberg@mozilla.com>, for scripting.
+
+. Introduce --hex to print offsets and sizes in hexadecimal
+
+codiff:
+
+. Improve detection of removal and addition of members in structs
+
+. Detect changes in padding and the number of holes/bit_holes
+
+pfunct:
+
+. --no_parm_names
+
+    Because CTF doesn't encodes the names of the parameters and I want to
+    test the upcoming CTF function section code in ctftwdiff.
+
+. pfunct --addr
+
+    Using an rbtree to find in which function the given addr is.
+
+libdwarves:
+
+. Greatly reduce the data structures footprint and lookup by recoding
+  the IDs as short integers, that was done to facilitate support for CTF
+  but benefited the core libraries greatly.
+
+. Handle GCC support for vector instructions
+
+    So now it recognizes, as printed by pdwtags:
+
+    908 typedef int __m64 __attribute__ ((__vector_size__ (8))); size: 8
+    909 int         array __attribute__ ((__vector_size__ (8))); size: 8
+    910 int         array __attribute__ ((__vector_size__ (4))); size: 4
+    911 short int   array __attribute__ ((__vector_size__ (2))); size: 2
+    912 char        array __attribute__ ((__vector_size__ (1))); size: 1
+
+. Destructors were added so that no leaks are left if this library is to
+  be used in other tools that don't end the program when done using this lib.
+
+. Allow the tools to pass a callback that is used after loading each object
+  file (CU/Compile Unit), so that we can more quickly find tags and stop
+  the processing sooner, or at least delete the CU if it doesn't have anything
+  needed by the tool. This _greatly_ speeded up most of the tools.
+
+. Tools now can pass a debug format "path", specifying the order it wants to
+  try, so that if a file have both DWARF and CTF, specifying 'ctf,dwarf' will
+  use the CTF info.
+
+. Now the formatting routines are in a separate file, dwarves_fprintf.c. This
+  was done for organizational purposes but also to pave the way for multiple
+  formatting backends, so that we can print, for instance, in CSV the structs,
+  for easier scripting like done by several folks out there.
+
+. Handle volatile typedef bitfields, like:
+
+    struct _GClosure {
+            volatile guint ref_count:15;    /* 0:17  4 */
+            volatile guint meta_marshal:1;  /* 0:16  4 */
+            volatile guint n_guards:1;      /* 0:15  4 */
+
+. Load java 'interfaces' as a struct/class.
+
+. Fix buffer expansion bug, detected thanks to boost that provided things like:
+
+        virtual int undefine(class
+    grammar_helper<boost::spirit::grammar<boost::detail::graph::dot_skipper,
+    boost::spirit::parser_context<boost::spirit::nil, class
+    grammar<boost::detail::graph::dot_skipper,
+    boost::spirit::parser_context<boost::spirit::nil_t> > *); /*
+    linkage=_ZN5boost6spirit4impl14grammar_helperINS0_7grammarINS_6detail5graph11dot_skipperENS0_14parser_contextINS0_5nil_tEEEEES6_NS0_7scannerINS0_10multi_passISt16istream_i
+    */
+
+. Allow optional addr information loading, speeding up some apps that don't
+  use such addresses (or in modes where addrs aren't used) such as pahole.
+
+. Use a obstacks, speeding up apps as measured with the perf tools.
+
+. Support zero sized arrays in the middle of a struct.
+
+. Fix padding calculation in the reorganize routines.
+
+. Fix bitfield demotion in the reorganize routines.
+
+. Support "using" pointing to data members (C++).
+
+. Properly support pointers to const, reported by Jan Engelhardt <jengelh@medozas.de>:
+
+. Support more compact DW_AT_data_member_location form, pointed out by Mark
+  Wielaard <mjw@redhat.com> and reported by Mike Snitzer <snitzer@redhat.com>
+
+Experimental CTF support:
+
+libdwarves was reorganized so that it can support multiple debugging formats,
+with the first one being supported being the Compact C Type Format that comes
+from the OpenSolaris world.
+
+David S. Miller contributed an initial CTF decoder and from there I wrote an
+encoder.
+
+To test this a regression testing harness (regtest in the sources) that will
+take files with DWARF info and from there encode its contents in CTF in another
+ELF section in the same file (.SUN_ctf).  Then it will decode both the DWARF
+and CTF sections and compare the results for pahole running with some new
+flags that cope with some subtleties in the way CTF encodes things.
+
+  --flat_arrays
+
+	We have just one dimension in CTF, with the total number of entries,
+	in DWARF we can express this, but not in CTF:
+
+	__u8            addr[0][6];    /*   4  0 */
+
+	So --flat_arrays will show it as:
+
+	__u8            addr[0];       /*   4  0 */
+
+  --show_private_classes
+  --fixup_silly_bitfields
+
+	To cope with things like 'char foo:8' that since CTF has only the
+	number of bits, can't be expressed as we don't know if it is a
+	bitfield or just a char without the ':8' suffix.
+
+  --first_obj_only
+
+	Look only at the first object file in a file with multiple object
+	files, like vmlinux. This is because the CTF support is not complete yet,
+	needing the merging of types in multiple object files to be done.
+
+  --classes_as_structs
+
+	CTF has only a type for structs, not for classes like DWARF (DW_TAG_class_type
+	is not present in CTF), so print them all as 'struct'.
+
+Running with the above limitations produce just a few mismatches, related to
+packed structs and enumerations and bitfields.

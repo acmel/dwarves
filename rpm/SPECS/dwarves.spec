@@ -2,10 +2,10 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.8pre1
+Version: 1.8
 Release: 1%{?dist}
 License: GPLv2
-Summary: Dwarf Tools
+Summary: Debugging Information Manipulation Tools
 Group: Development/Tools
 URL: http://oops.ghostprotocols.net:81/blog
 Source: http://fedorapeople.org/~acme/dwarves/%{name}-%{version}.tar.bz2
@@ -14,7 +14,7 @@ BuildRequires: elfutils-devel >= 0.130
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 %description
-dwarves is a set of tools that use the DWARF debugging information inserted in
+dwarves is a set of tools that use the debugging information inserted in
 ELF binaries by compilers such as GCC, used by well known debuggers such as
 GDB, and more recent ones such as systemtap.
 
@@ -31,23 +31,20 @@ code generate on the resulting binaries.
 Another tool is pfunct, that can be used to find all sorts of information about
 functions, inlines, decisions made by the compiler about inlining, etc.
 
-The documentation about ctracer is not updated to the latest developments: it
-now generates systemtap scripts, stay tuned for improvements in this area!
-
 %package -n %{libname}%{libver}
-Summary: DWARF processing library
+Summary: Debugging information  processing library
 Group: Development/Libraries
 
 %description -n %{libname}%{libver}
-DWARF processing library
+Debugging information processing library.
 
 %package -n %{libname}%{libver}-devel
-Summary: DWARF processing library development files
+Summary: Debugging information library development files
 Group: Development/Libraries
 Requires: %{libname}%{libver} = %{version}-%{release}
 
 %description -n %{libname}%{libver}-devel
-DWARF processing library development files
+Debugging information processing library development files.
 
 %prep
 %setup -q -c -n %{name}-%{version}
@@ -115,207 +112,8 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
-* Thu Apr 23 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.8pre1-1
-- MANIFEST: add missing files
-- dwarf_loader: Add containing_type to dwarf_tag
-- dwarves: Move the fprintf code to a new source file.
-- code: Combine the debugging_formats and debug_fmt_ops structs
-- ctracer: blacklist functions in .init.text (__init marked)
-- elf_symtab: Add elf_sym__section helper
-- core: Be more strict with the return of __name() routines
-- dutil: Allow returning the section index in elf_section_by_name
-- strlist: Return false if NULL is passed to strlist__has_entry
-- strlist: Allow strlist__add to distinguish ENOMEM from EEXIST
-- libctf: ctf__delete must call elf_symtab__delete
-- pahole: remove the alloc_detective include, it is not included yet :-\
-- elf_symtab: elf_symtab__delete must free ->name too
-- ctf_encoder: ctf__encode has to free the buf when compressing
-- ctf_encoder: We have to free the gobuffer entries for the sections
-- core: list__for_all_tags should delete shared enumerations
-- core: Add ->init and ->exit hooks to be called at dwarves__{init,exit}
-- core: cu__delete must delete ->filename too
-- pahole: structure__delete should free ->name too.
-- dwarf_loader: tag__recode_dwarf_bitfield should use cu__add_tag
-- core: Only DWARF uses the global strings table, so move it there
-- ctf: Plug debug_fmt_ops->strings__ptr
-- core: Stop using strings__ptr(strings, i) directly
-- pahole: Don't assume all strings are in the global strings table
-- core: tag__name can't assume all cus use the global string table
-- base_type: Don't combine names with attributes
-- reorganize: class__demote_bitfield_members should update member->byte_size
-- dwarf_loader: Handle volatile bitfields in class_member__cache_byte_size
-- core: Fix thinko in type__find_first_biggest_size_base_type_member
-- ctf_encoder: Add void entries for variables not found on DWARF
-- core: Add variable__name to struct debug_fmt_ops
-- pdwtags: Allow specifying the debug format to be decoded
-- core: class__vtable_fprintf should use function__name
-- core: cu__find_function_by_name must use function__name()
-- core: Check if the debug_fmt_ops methods are available
-- core: function__name in CTF gets the name from .strtab
-- core: Rename cu_orig_info to debug_fmt_ops
-- ctf_encoder: Add void (void) signature for functions not found on DWARF
-- libctf: Ignore hidden symbols
-- codiff: Support -F/--format_path
-- core: Hasta la vista cu__for_each_tag
-- codiff: Stop using cu__for_each_tag
-- core: Fix cu__for_each_struct and cu__for_each_type
-- pfunct: Stop using cu__for_each_tag
-- prefcnt: Stop using cu__for_each_tag
-- pglobal: Stop using cu__for_each_tag
-- ctf_loader: Fill in the binding information for variables and functions
-- syscse: Stop using cu__for_each_tag
-- dtagnames: Stop using cu__for_each_tag
-- pahole: Stop using cu__for_each_tag
-- ctfdwdiff: Don't ask for variables and inline expansions in pfunct
-- dwarf_loader: Delay recoding bitfield types
-- dwarf_loader: Handle const and volatile bitfields in tag__recode_dwarf_bitfield
-- ctf_encoder: ctf__ignore_symtab_object should ignore symbols with dots
-- dwarf_loader: Fix thinko class_member__cache_byte_size
-- core: Remove duplicate test for enums in tag__is_tag_type
-- core: Fix cu__for_each_variable to cover an empty tags table
-- ctf_encoder: Create objects section (data/variables)
-- ctf_encoder: Rename hashaddr__find to hashaddr__find_function
-- elf_symtab: Introduce elf_sym__is_local_object
-- variable: Add ->addr member
-- pdwtags: Print functions and variables too
-- core: Introduce cu__for_each_variable
-- gobuffer: Introduce gobuffer__copy
-- core: Introduce cu__cache_symtab
-- ctf_encoder: Convert DWARF functions to CTF
-- ctf_loader: Load the function section
-- ctf_encoder: Interface to encode functions
-- core: Allow reusing the symtab already loaded and relocated
-- libctf: fix ctf__delete
-- core: Allow cachine an open Elf file handle for reuse
-- pfunct: Introduce --no_parm_names
-- elf_symtab: Fix bogus elf_symtab__is_local_function
-- elf_symtab: Allow passing the name of the symtab to be parsed
-- elf_symtab: Add accessor for the symbol size
-- elf_symtab: Introduce elf_symtab__for_each_symbol
-- dwarf_loader: Ditch that fugly oom crap, propagate errors
-- core: Add destructors for the function and lexblock classes
-- tag: Make tag__delete call the right destructors for non-trivial types
-- ctf_loader: Ditch that fugly oom crap, propagate errors
-- enumerator: Introduce enumerator__delete
-- type: Introduce type__delete
-- ftype: Introduce ftype__delete
-- core: Introduce ftype__for_each_parameter_safe
-- ctf: Move ctf_format_flt_attrs from the loader to libctf
-- core: Add a per object file functions_table
-- core: function__tag_fprintf should check if the alias name is NULL
-- pahole: Remove --dwarf_offset/-O option
-- ctf_loader: create_new_subroutine_type should create just a ftype
-- ctf: combine the structs ctf_state and ctf
-- ctf_loader: Remove the elf iteration functions/structs
-- libctf: Adopt ctf__string from ctf_loader.c
-- Also introduce a ctf__string32 for the very common idiom:
-- elf_symtab: Introduce elf_symtab
-- dutil: Move elf_section_by_name to dutil
-- core: Rename {cus,dwarf,ctf}__load to {cus,dwarf,ctf}__load_file
-- pfunct: Add --format_path/-F as in pahole
-- dwarf: Handle DW_AT_GNU_vector attributes in arrays
-- core: Handle GCC support for vector instructions
-- pahole: Remove a not needed "the" article in the man page.
-- core: Handle GCC support for vector instructions
-- tag: tag__follow_typedef doesn't change self, make it const
-- pdwtags: Use conf_load.stealer
-- ctf_loader: One more attempt at handling packed enums
-- ctfdwdiff: allow specifying just one file again
-- ctfdwdiff: Handle files without DWARF info too
-- ctfdwdiff: Make it work in directories
-- pahole: don't print private members inside types when using show_private_classes
-- dwarves: Fixup the flat_arrays code
-- base_type: floats are 32 bits
-- ctf_encoder: Check if something was encoded before saving the info
-- dwarf: share the enumerators when recoding an enum bitfield
-- enumeration: Allow sharing the enumerators
-- ctf_encoder: Allow encoding a bit_size in enumeration types
-- ctf_loader: enums can have a bit_size less than 8 * size(int)
-- pahole: Introduce --show_private_classes
-- strings: Allow calling strings__delete with a NULL pointer
-- pahole: Introduce --flat_array
-- ctfdwdiff: Make it more bulk test friendly
-- base_type: Add "float" to base_type_name_to_size_table
-- libctf: Encode VARARGS an extra 0 short at the end of the parm list
-- ctfdwdiff: Simple shell script for testing the CTF encoder/decoder
-- libctf: give up "for now" on using libelf to add a section to an existing file
-- libctf: comment out some debug messages
-- ctf: Give some more info about UNKNOWN types
-- pahole: Add --format_path/-F to specify a list of formats to try
-- ctf: Include the initial implementation of a ctf encoder
-- ctf: class__fixup_ctf_bitfields has to handle enums
-- ctf: Stop returning "(anonymous)" in ctf_string
-- ctf: Add a filename member to struct ctf
-- cus: Allow passing a debugging format path to cus__load
-- enumeration: type->size for enumerations is in bits, not in bytes
-- base_type__name_to_size: Complain when not finding the requested type name
-- base_type_name_to_size: Add "long double long double"
-- cu: Add a filename member
-- gobuffer: Introduce gobuffer__allocate
-- cu: Rename cu__find_{type,tag}_by_id to cu__{type,tag}
-- class_member: Reencode DWARF bitfield types
-- cu: Introduce cu__find_enumeration_by_sname_and_size
-- base_type: Move base_type__name_to_size from the ctf loader to the core
-- dutil: Move zalloc to dutil
-- class_member: cache the byte size of the member
-- class_member: cache byte_size
-- ctf: improve base_type__name_to_size
-- dwarves: Rename the class_member bitfields size and offset members
-- pdwtags: cu->types_tables can have some NULL slots
-- ctf: ctf_load can receive a NULL conf_load
-- dwarves: Move abstract_origin to dwarf_tag
-- dwarves: Don't double free vtable entries
-- dwarves: the variable abstract_origin is resolved at load time too
-- dwarf_loader: conf_load can be NULL
-- dwarves: Remove some unused functions
-- dwarves: reorganize dwarves.h to group classes with its methods
-- coding style: remove trailing whitespaces, etc
-- headers: remove not needed 'extern' noise from function prototypes
-- dwarves: Introduce cu__find_base_type_by_sname_and_size
-- pahole: Use the new progressive processing scheme
-- dwarves: Allow the apps to steal compile units as they are created
-- dwarves: Introduce cu__find_struct_by_sname
-- dwarves: Fix cu__for_each_function when there are no functions
-- dwarves: Rename cus__loadfl with cus__load_files
-- dwarves: Ditch old cus__load and cus__load_filename
-- dwarves: cu__find_struct_by_name should set id for non declarations
-- ctracer: skip object files that don't have the target class
-- dwarves: Add destructors
-- dwarf: separate dwarf_tag from tag
-- dwarves: Introduce cu__for_all_tags
-- dwarves: replace high_pc by size in struct lex_block
-- dwarves: Reduce the size of some data structures
-- reorganize: Fix bug in cu__find_base_type_of_size alternate type names
-- dwarf__loader: optimize tag__init a bit more
-- dwarves: find holes when adding a fresh compile unit
-- ctracer: Remove superfluous calls to class__find_holes in class__clone_base_types
-- dwarves: use tag__is_function in the tools
-- dwarves: Introduce tag__is_function()
-- dwarves: check if the current pos is NULL in cu__for_each_function
-- dwarves: remove now unused 'cu' argument to {type,class}__name
-- dwarves: Ditch parameter__type and simplify parameter__name
-- dwarves: Remove some more DWARF details from the core
-- dwarf_loader: DW_TAG_label can have DW_AT_abstract_origin
-- dwarf_loader: Accept empty enums, seen in the wild
-- dwarves: Print arrays in tag__fprintf too
-- dwarf_loader: Optimize tag__init a bit
-- dwarves: Use hlist for the hashtables
-- man-pages: Fixup typo
-- dwarves: Add missing bits of separate hash table for types
-- dwarves: Add DW_TAG_ptr_to_member_type to tag__is_tag_type
-- dwarves: Add DW_TAG_reference_type to tag__is_tag_type
-- dwarves: Move hashtags__find out of cu__find_tag_by_id
-- dwarves: Introduce cu__hash
-- dwarves: Introduce tag__is_tag_type
-- dwarves: rename tag->refcnt to tag->visited and shrink it to 1 bit
-- codiff: Detect changes in padding and the number of holes/bit_holes
-- codiff: improve detection removal and addition of members in structs
-- dwarves: Introduce tag__has_namespace
-- reorganize: cu__find_base_type_of_size should look for alternative CTF base type names
-- ctf: No need to concat "char " if attrs & CTF_TYPE_INT_CHAR is true
-- ctf_loader: Fix up bitfields
-- dwarves: Implement cu__find_base_type_by_name_and_size
-- ctf: Find out word size on the ELF header
+* Fri Dec  4 2009 Apr 23 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.8-1
+- New release
 
 * Fri Feb 13 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.7-2
 - Own /usr/share/dwarves, fixes #473645 
