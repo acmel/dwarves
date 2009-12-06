@@ -1106,7 +1106,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto filter_it;
 
 	if (ctf_encode) {
-		cu__encode_ctf(cu);
+		cu__encode_ctf(cu, global_verbose);
 		/*
 		 * We still have to get the type signature code merged to eliminate
 		 * dups, reference another CTF file, etc, so for now just encode the

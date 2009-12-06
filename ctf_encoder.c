@@ -247,7 +247,7 @@ static struct variable *hashaddr__find_variable(const struct hlist_head hashtabl
  */
 extern struct strings *strings;
 
-int cu__encode_ctf(struct cu *self)
+int cu__encode_ctf(struct cu *self, int verbose)
 {
 	int err = -1;
 	struct ctf *ctf = ctf__new(self->filename, self->elf);
@@ -288,10 +288,11 @@ int cu__encode_ctf(struct cu *self)
 		int64_t position;
 		function = hashaddr__find_function(hash_addr, addr);
 		if (function == NULL) {
-			fprintf(stderr,
-				"function %4d: %-20s %#llx %5u NOT FOUND!\n",
-				id, sym_name,
-				(unsigned long long)addr, elf_sym__size(&sym));
+			if (verbose)
+				fprintf(stderr,
+					"function %4d: %-20s %#Lx %5u NOT FOUND!\n",
+					id, sym_name, addr,
+					elf_sym__size(&sym));
 			err = ctf__add_function(ctf, 0, 0, 0, &position);
 			if (err != 0)
 				goto out_err_ctf;
@@ -330,10 +331,11 @@ int cu__encode_ctf(struct cu *self)
 
 		var = hashaddr__find_variable(hash_addr, addr);
 		if (var == NULL) {
-			fprintf(stderr,
-				"variable %4d: %-20s %#llx %5u NOT FOUND!\n",
-				id, sym_name, (unsigned long long)addr,
-				elf_sym__size(&sym));
+			if (verbose)
+				fprintf(stderr,
+					"variable %4d: %-20s %#Lx %5u NOT FOUND!\n",
+					id, sym_name, addr,
+					elf_sym__size(&sym));
 			err = ctf__add_object(ctf, 0);
 			if (err != 0)
 				goto out_err_ctf;
