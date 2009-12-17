@@ -38,17 +38,18 @@ set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer strings
 		     dutil.c elf_symtab.c rbtree.c)
 add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
+set_target_properties(dwarves PROPERTIES LINK_INTERFACE_LIBRARIES "")
 target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES})
 
 set(dwarves_emit_LIB_SRCS dwarves_emit.c)
 add_library(dwarves_emit SHARED ${dwarves_emit_LIB_SRCS})
 set_target_properties(dwarves_emit PROPERTIES VERSION 1.0.0 SOVERSION 1)
-target_link_libraries(dwarves_emit ${DWARF_LIBRARIES} dwarves)
+target_link_libraries(dwarves_emit dwarves)
 
 set(dwarves_reorganize_LIB_SRCS dwarves_reorganize.c)
 add_library(dwarves_reorganize SHARED ${dwarves_reorganize_LIB_SRCS})
 set_target_properties(dwarves_reorganize PROPERTIES VERSION 1.0.0 SOVERSION 1)
-target_link_libraries(dwarves_reorganize ${DWARF_LIBRARIES} dwarves)
+target_link_libraries(dwarves_reorganize dwarves)
 
 set(codiff_SRCS codiff.c)
 add_executable(codiff ${codiff_SRCS})
