@@ -657,7 +657,7 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	GElf_Shdr *shdr;
 	Elf_Scn *scn = NULL;
 
-	elf_getshstrndx(elf, &strndx);
+	elf_getshdrstrndx(elf, &strndx);
 
 	while ((scn = elf_nextscn(elf, scn)) != NULL) {
 		shdr = gelf_getshdr(scn, &shdr_mem);
