@@ -77,6 +77,7 @@ rm -rf %{buildroot}
 %{_bindir}/pfunct
 %{_bindir}/pglobal
 %{_bindir}/prefcnt
+%{_bindir}/scncopy
 %{_bindir}/syscse
 %{_bindir}/ostra-cg
 %dir %{_datadir}/dwarves/
