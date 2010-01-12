@@ -65,8 +65,10 @@ int main(int argc, char *argv[])
 			n++;
 			outfile = argv[n];
 			continue;
-		} else if (!strcmp(argv[n], "-?") || !strcmp(argv[n],"--usage")) {
-			printf("usage: pjoc -s section 0 [[-s section1] ... -s sectionN] -o outfile infile\n");
+		} else if (!strcmp(argv[n], "-?") ||
+				!strcmp(argv[n], "--help") ||
+				!strcmp(argv[n], "--usage")) {
+			printf("usage: scncopy [-s section0 [[-s section1] ... -s sectionN] | -a ] -o outfile infile\n");
 			return 0;
 		} else if (n == argc-1) {
 			infile = argv[n];
