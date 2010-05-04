@@ -30,6 +30,7 @@ static int show_externals;
 static int show_cc_inlined;
 static int show_cc_uninlined;
 static char *symtab_name;
+static bool show_prototypes;
 static bool expand_types;
 static struct type_emissions emissions;
 static uint64_t addr;
@@ -149,9 +150,11 @@ static void fn_stats_size_fmtr(const struct fn_stats *self)
 
 static void fn_stats_fmtr(const struct fn_stats *self)
 {
-	if (verbose) {
+	if (verbose || show_prototypes) {
 		tag__fprintf(self->tag, self->cu, &conf, stdout);
 		putchar('\n');
+		if (show_prototypes)
+			return;
 		if (show_variables || show_inline_expansions)
 			function__fprintf_stats(self->tag, self->cu, &conf, stdout);
 		printf("/* definitions: %u */\n", self->nr_files);
@@ -540,6 +543,11 @@ static const struct argp_option pfunct__options[] = {
 		.doc  = "show number of parameters",
 	},
 	{
+		.key  = 'P',
+		.name = "prototypes",
+		.doc  = "show function prototypes",
+	},
+	{
 		.key  = 'S',
 		.name = "nr_variables",
 		.doc  = "show number of variables",
@@ -596,6 +604,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 		  conf_load.get_addr_info = true;	 break;
 	case 'S': formatter = fn_stats_variables_fmtr;	 break;
 	case 'p': formatter = fn_stats_nr_parms_fmtr;	 break;
+	case 'P': show_prototypes = true;		 break;
 	case 'g': formatter = fn_stats_labels_fmtr;	 break;
 	case 'G': show_cc_uninlined = 1;		 break;
 	case 'H': show_cc_inlined = 1;			 break;
