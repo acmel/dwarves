@@ -27,7 +27,7 @@ if (NOT CMAKE_BUILD_TYPE)
 	     FORCE)
 endif (NOT CMAKE_BUILD_TYPE)
 
-add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.8pre1")
+add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.8")
 find_package(DWARF REQUIRED)
 find_package(ZLIB REQUIRED)
 
@@ -83,12 +83,16 @@ set(prefcnt_SRCS prefcnt.c)
 add_executable(prefcnt ${prefcnt_SRCS})
 target_link_libraries(prefcnt dwarves)
 
+set(scncopy_SRCS scncopy.c elfcreator.c)
+add_executable(scncopy ${scncopy_SRCS})
+target_link_libraries(scncopy dwarves)
+
 set(syscse_SRCS syscse.c)
 add_executable(syscse ${syscse_SRCS})
 target_link_libraries(syscse dwarves)
 
 install(TARGETS codiff ctracer dtagnames pahole pdwtags
-		pfunct pglobal prefcnt syscse RUNTIME DESTINATION
+		pfunct pglobal prefcnt scncopy syscse RUNTIME DESTINATION
 		${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 install(TARGETS dwarves dwarves_emit dwarves_reorganize LIBRARY DESTINATION ${LIB_INSTALL_DIR})

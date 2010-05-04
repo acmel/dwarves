@@ -15,6 +15,8 @@ CMakeLists.txt
 codiff.c
 ctracer.c
 dtagnames.c
+elfcreator.c
+elfcreator.h
 elf_symtab.c
 elf_symtab.h
 gobuffer.c
@@ -30,6 +32,7 @@ pglobal.c
 prefcnt.c
 rbtree.c
 rbtree.h
+scncopy.c
 syscse.c
 strings.c
 strings.h
