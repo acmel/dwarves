@@ -57,7 +57,7 @@ target_link_libraries(codiff dwarves)
 
 set(ctracer_SRCS ctracer.c)
 add_executable(ctracer ${ctracer_SRCS})
-target_link_libraries(ctracer dwarves dwarves_emit dwarves_reorganize)
+target_link_libraries(ctracer dwarves dwarves_emit dwarves_reorganize ${ELF_LIBRARY})
 
 set(dtagnames_SRCS dtagnames.c)
 add_executable(dtagnames ${dtagnames_SRCS})
@@ -77,7 +77,7 @@ target_link_libraries(pglobal dwarves)
 
 set(pfunct_SRCS pfunct.c )
 add_executable(pfunct ${pfunct_SRCS})
-target_link_libraries(pfunct dwarves dwarves_emit)
+target_link_libraries(pfunct dwarves dwarves_emit ${ELF_LIBRARY})
 
 set(prefcnt_SRCS prefcnt.c)
 add_executable(prefcnt ${prefcnt_SRCS})
@@ -85,7 +85,7 @@ target_link_libraries(prefcnt dwarves)
 
 set(scncopy_SRCS scncopy.c elfcreator.c)
 add_executable(scncopy ${scncopy_SRCS})
-target_link_libraries(scncopy dwarves)
+target_link_libraries(scncopy dwarves ${ELF_LIBRARY})
 
 set(syscse_SRCS syscse.c)
 add_executable(syscse ${syscse_SRCS})
