@@ -36,6 +36,31 @@ struct strings *strings;
 
 #define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
 
+static void __tag__print_not_supported(uint32_t tag, const char *func)
+{
+
+	static bool dwarf_tags_warned[DW_TAG_rvalue_reference_type];
+	static bool dwarf_gnu_tags_warned[DW_TAG_GNU_formal_parameter_pack - DW_TAG_MIPS_loop];
+
+	if (tag < DW_TAG_MIPS_loop) {
+		if (dwarf_tags_warned[tag])
+			return;
+		dwarf_tags_warned[tag] = true;
+	} else {
+		uint32_t t = tag - DW_TAG_MIPS_loop;
+
+		if (dwarf_gnu_tags_warned[t])
+			return;
+		dwarf_gnu_tags_warned[t] = true;
+	}
+
+	fprintf(stderr, "%s: tag not supported (%s)!\n", func,
+		dwarf_tag_name(tag));
+}
+
+#define tag__print_not_supported(tag) \
+	__tag__print_not_supported(tag, __func__)
+
 struct dwarf_tag {
 	struct hlist_node hash_node;
 	Dwarf_Off	 type;
@@ -1176,10 +1201,13 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 {
 	do {
 		switch (dwarf_tag(die)) {
+		case DW_TAG_GNU_template_template_param:
+		case DW_TAG_GNU_template_parameter_pack:
 		case DW_TAG_template_type_parameter:
 		case DW_TAG_template_value_parameter:
 			/* FIXME: probably we'll have to attach this as a list of
  			 * template parameters to use at class__fprintf time... */
+			tag__print_not_supported(dwarf_tag(die));
 			continue;
 		case DW_TAG_inheritance:
 		case DW_TAG_member: {
@@ -1386,6 +1414,7 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			/* FIXME: probably we'll have to attach this as a list of
  			 * template parameters to use at class__fprintf time... 
  			 * See die__process_class */
+			tag__print_not_supported(dwarf_tag(die));
 			continue;
 		case DW_TAG_formal_parameter:
 			tag = die__create_new_parameter(die, ftype, lexblock, cu);
