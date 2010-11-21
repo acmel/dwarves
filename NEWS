@@ -1,3 +1,13 @@
+v1.9:
+
+Ignore DW_TAG_template_{type,value}_parameter, fixing a bug reported at:
+
+https://bugzilla.redhat.com/show_bug.cgi?id=654471
+
+More work is needed to properly support these tags.
+
+-----------------------------------------
+
 After a long time without a new release because I was trying to get the CTF
 support completed, and due to the very strong gravity force in the Linux kernel
 perf tools, here it is 1.8, with lots of performance improvements, bug fixes

@@ -1381,6 +1381,12 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 		long id = -1;
 
 		switch (dwarf_tag(die)) {
+		case DW_TAG_template_type_parameter:
+		case DW_TAG_template_value_parameter:
+			/* FIXME: probably we'll have to attach this as a list of
+ 			 * template parameters to use at class__fprintf time... 
+ 			 * See die__process_class */
+			continue;
 		case DW_TAG_formal_parameter:
 			tag = die__create_new_parameter(die, ftype, lexblock, cu);
 			break;

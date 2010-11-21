@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.8
+Version: 1.9
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools
@@ -113,7 +113,10 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
-* Fri Dec  4 2009 Apr 23 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.8-1
+* Sat Nov 20 2010 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.9-1
+- New release
+
+* Fri Dec  4 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.8-1
 - New release
 
 * Fri Feb 13 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.7-2
