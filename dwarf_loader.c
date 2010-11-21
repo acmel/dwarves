@@ -358,6 +358,8 @@ static void tag__init(struct tag *self, struct cu *cu, Dwarf_Die *die)
 		dwarf_decl_line(die, &decl_line);
 		dtag->decl_line = decl_line;
 	}
+
+	INIT_LIST_HEAD(&self->node);
 }
 
 static struct tag *tag__new(Dwarf_Die *die, struct cu *cu)
