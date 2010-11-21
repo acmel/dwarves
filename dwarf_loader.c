@@ -867,8 +867,10 @@ static uint64_t attr_upper_bound(Dwarf_Die *die)
 
 static void __cu__tag_not_handled(Dwarf_Die *die, const char *fn)
 {
-	fprintf(stderr, "%s: DW_TAG_%s @ <%#llx> not handled!\n",
-		fn, dwarf_tag_name(dwarf_tag(die)),
+	uint32_t tag = dwarf_tag(die);
+
+	fprintf(stderr, "%s: DW_TAG_%s (%#x) @ <%#llx> not handled!\n",
+		fn, dwarf_tag_name(tag), tag,
 		(unsigned long long)dwarf_dieoffset(die));
 }
 
