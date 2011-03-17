@@ -72,4 +72,12 @@ void *zalloc(const size_t size);
 Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
 			     GElf_Shdr *shp, const char *name, size_t *index);
 
+#ifndef SHT_GNU_ATTRIBUTES
+/* Just a way to check if we're using an old elfutils version */
+static inline int elf_getshdrstrndx(Elf *elf, size_t *dst)
+{
+	return elf_getshstrndx(elf, dst);
+}
+#endif
+
 #endif /* _DUTIL_H_ */

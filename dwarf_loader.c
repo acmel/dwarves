@@ -38,9 +38,13 @@ struct strings *strings;
 
 static void __tag__print_not_supported(uint32_t tag, const char *func)
 {
-
+#ifdef STB_GNU_UNIQUE
 	static bool dwarf_tags_warned[DW_TAG_rvalue_reference_type];
 	static bool dwarf_gnu_tags_warned[DW_TAG_GNU_formal_parameter_pack - DW_TAG_MIPS_loop];
+#else
+	static bool dwarf_tags_warned[DW_TAG_shared_type];
+	static bool dwarf_gnu_tags_warned[DW_TAG_class_template - DW_TAG_MIPS_loop];
+#endif
 
 	if (tag < DW_TAG_MIPS_loop) {
 		if (dwarf_tags_warned[tag])
@@ -1201,8 +1205,10 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 {
 	do {
 		switch (dwarf_tag(die)) {
+#ifdef STB_GNU_UNIQUE
 		case DW_TAG_GNU_template_template_param:
 		case DW_TAG_GNU_template_parameter_pack:
+#endif
 		case DW_TAG_template_type_parameter:
 		case DW_TAG_template_value_parameter:
 			/* FIXME: probably we'll have to attach this as a list of

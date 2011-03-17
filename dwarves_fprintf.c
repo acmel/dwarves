@@ -77,8 +77,10 @@ static const char *dwarf_tag_names[] = {
 	[DW_TAG_mutable_type]		  = "mutable_type",
 	[DW_TAG_condition]		  = "condition",
 	[DW_TAG_shared_type]		  = "shared_type",
+#ifdef STB_GNU_UNIQUE
 	[DW_TAG_type_unit]		  = "type_unit",
 	[DW_TAG_rvalue_reference_type]    = "rvalue_reference_type",
+#endif
 };
 
 static const char *dwarf_gnu_tag_names[] = {
@@ -86,18 +88,32 @@ static const char *dwarf_gnu_tag_names[] = {
 	[DW_TAG_format_label - DW_TAG_MIPS_loop]		= "format_label",
 	[DW_TAG_function_template - DW_TAG_MIPS_loop]		= "function_template",
 	[DW_TAG_class_template - DW_TAG_MIPS_loop]		= "class_template",
+#ifdef STB_GNU_UNIQUE
 	[DW_TAG_GNU_BINCL - DW_TAG_MIPS_loop]			= "BINCL",
 	[DW_TAG_GNU_EINCL - DW_TAG_MIPS_loop]			= "EINCL",
 	[DW_TAG_GNU_template_template_param - DW_TAG_MIPS_loop] = "template_template_param",
 	[DW_TAG_GNU_template_parameter_pack - DW_TAG_MIPS_loop] = "template_parameter_pack",
 	[DW_TAG_GNU_formal_parameter_pack - DW_TAG_MIPS_loop]	= "formal_parameter_pack",
+#endif
 };
 
 const char *dwarf_tag_name(const uint32_t tag)
 {
-	if (tag >= DW_TAG_array_type && tag <= DW_TAG_rvalue_reference_type)
+	if (tag >= DW_TAG_array_type && tag <=
+#ifdef STB_GNU_UNIQUE
+		DW_TAG_rvalue_reference_type
+#else
+		DW_TAG_shared_type
+#endif
+	    )
 		return dwarf_tag_names[tag];
-	else if (tag >= DW_TAG_MIPS_loop && tag <= DW_TAG_GNU_formal_parameter_pack)
+	else if (tag >= DW_TAG_MIPS_loop && tag <=
+#ifdef STB_GNU_UNIQUE
+		 DW_TAG_GNU_formal_parameter_pack
+#else
+		 DW_TAG_class_template
+#endif
+		)
 		return dwarf_gnu_tag_names[tag - DW_TAG_MIPS_loop];
 	return "INVALID";
 }
