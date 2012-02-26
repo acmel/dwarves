@@ -1191,7 +1191,7 @@ size_t class__fprintf(struct class *self, const struct cu *cu,
 	const uint16_t t = tself->namespace.tag.tag;
 	size_t printed = fprintf(fp, "%s%s%s%s%s",
 				 cconf.prefix ?: "", cconf.prefix ? " " : "",
-				 ((conf->classes_as_structs ||
+				 ((cconf.classes_as_structs ||
 				   t == DW_TAG_structure_type) ? "struct" :
 				  t == DW_TAG_class_type ? "class" :
 							"interface"),
