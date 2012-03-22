@@ -1940,13 +1940,6 @@ static unsigned long long dwarf_tag__orig_id(const struct tag *self,
 	return cu->extra_dbg_info ? dtag->id : 0;
 }
 
-static unsigned long long dwarf_tag__orig_type(const struct tag *self,
-					       const struct cu *cu)
-{
-	struct dwarf_tag *dtag = self->priv;
-	return cu->extra_dbg_info ? dtag->type : 0;
-}
-
 static const char *dwarf__strings_ptr(const struct cu *cu __unused,
 				      strings_t s)
 {
@@ -2240,5 +2233,4 @@ struct debug_fmt_ops dwarf__ops = {
 	.tag__decl_file	     = dwarf_tag__decl_file,
 	.tag__decl_line	     = dwarf_tag__decl_line,
 	.tag__orig_id	     = dwarf_tag__orig_id,
-	.tag__orig_type	     = dwarf_tag__orig_type,
 };

@@ -160,8 +160,6 @@ struct debug_fmt_ops {
 					     const struct cu *cu);
 	unsigned long long (*tag__orig_id)(const struct tag *self,
 					   const struct cu *cu);
-	unsigned long long (*tag__orig_type)(const struct tag *self,
-					     const struct cu *cu);
 	void		   (*tag__free_orig_info)(struct tag *self,
 						  struct cu *cu);
 	const char	   *(*function__name)(struct function *self,
@@ -438,14 +436,6 @@ static inline unsigned long long tag__orig_id(const struct tag *self,
 {
 	if (cu->dfops && cu->dfops->tag__orig_id)
 		return cu->dfops->tag__orig_id(self, cu);
-	return 0;
-}
-
-static inline unsigned long long tag__orig_type(const struct tag *self,
-						const struct cu *cu)
-{
-	if (cu->dfops && cu->dfops->tag__orig_type)
-		return cu->dfops->tag__orig_type(self, cu);
 	return 0;
 }
 
