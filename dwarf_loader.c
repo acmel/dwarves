@@ -34,6 +34,11 @@ struct strings *strings;
 #define DW_AT_GNU_vector 0x2107
 #endif
 
+#ifndef DW_TAG_GNU_call_site
+#define DW_TAG_GNU_call_site 0x4109
+#define DW_TAG_GNU_call_site_parameter 0x410a
+#endif
+
 #define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
 
 static void __tag__print_not_supported(uint32_t tag, const char *func)
@@ -1420,6 +1425,14 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 		long id = -1;
 
 		switch (dwarf_tag(die)) {
+		case DW_TAG_GNU_call_site:
+		case DW_TAG_GNU_call_site_parameter:
+			/*
+ 			 * FIXME: read http://www.dwarfstd.org/ShowIssue.php?issue=100909.2&type=open
+ 			 * and write proper support.
+ 			 */
+			tag__print_not_supported(dwarf_tag(die));
+			continue;
 		case DW_TAG_template_type_parameter:
 		case DW_TAG_template_value_parameter:
 			/* FIXME: probably we'll have to attach this as a list of
