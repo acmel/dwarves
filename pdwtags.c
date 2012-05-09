@@ -75,8 +75,7 @@ static enum load_steal_kind pdwtags_stealer(struct cu *cu,
 					    struct conf_load *conf_load __unused)
 {
 	cu__emit_tags(cu);
-	cu__delete(cu);
-	return LSK__STOLEN;
+	return LSK__DELETE;
 }
 
 static struct conf_load pdwtags_conf_load = {
