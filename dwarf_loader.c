@@ -2065,18 +2065,18 @@ static int cus__load_module(struct cus *self, struct conf_load *conf,
 	size_t cuhl;
 	GElf_Addr vaddr;
 	const unsigned char *build_id = NULL;
+	uint8_t pointer_size, offset_size;
 
 #ifdef HAVE_DWFL_MODULE_BUILD_ID
 	int build_id_len = dwfl_module_build_id(mod, &build_id, &vaddr);
 #else
 	int build_id_len = 0;
 #endif
-	while (dwarf_nextcu(dw, off, &noff, &cuhl, NULL, NULL, NULL) == 0) {
-		Dwarf_Die die_mem, tmp;
+	while (dwarf_nextcu(dw, off, &noff, &cuhl, NULL, &pointer_size,
+			    &offset_size) == 0) {
+		Dwarf_Die die_mem;
 		Dwarf_Die *cu_die = dwarf_offdie(dw, off + cuhl, &die_mem);
-		uint8_t pointer_size, offset_size;
 
-		dwarf_diecu(cu_die, &tmp, &pointer_size, &offset_size);
 		/*
 		 * DW_AT_name in DW_TAG_compile_unit can be NULL, first
 		 * seen in:
