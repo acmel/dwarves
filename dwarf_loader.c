@@ -1645,11 +1645,11 @@ static int namespace__recode_dwarf_types(struct tag *self, struct cu *cu)
 			ftype__recode_dwarf_types(pos, cu);
 			break;
 		case DW_TAG_imported_module:
-			dtype = dwarf_cu__find_type_by_ref(dcu, &dpos->type);
+			dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->type);
 			goto check_type;
 		/* Can be for both types and non types */
 		case DW_TAG_imported_declaration:
-			dtype = dwarf_cu__find_type_by_ref(dcu, &dpos->type);
+			dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->type);
 			if (dtype != NULL)
 				goto next;
 			goto find_type;
@@ -1756,7 +1756,7 @@ static void lexblock__recode_dwarf_types(struct lexblock *self, struct cu *cu)
 			lexblock__recode_dwarf_types(tag__lexblock(pos), cu);
 			continue;
 		case DW_TAG_inlined_subroutine:
-			dtype = dwarf_cu__find_type_by_ref(dcu, &dpos->type);
+			dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->type);
 			if (dtype == NULL) {
 				tag__print_type_not_found(pos);
 				continue;
@@ -1911,11 +1911,11 @@ static int tag__recode_dwarf_type(struct tag *self, struct cu *cu)
 	   The others also point to routines, so are in tags_table */
 	case DW_TAG_inlined_subroutine:
 	case DW_TAG_imported_module:
-		dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
+		dtype = dwarf_cu__find_tag_by_ref(cu->priv, &dtag->type);
 		goto check_type;
 	/* Can be for both types and non types */
 	case DW_TAG_imported_declaration:
-		dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
+		dtype = dwarf_cu__find_tag_by_ref(cu->priv, &dtag->type);
 		if (dtype != NULL)
 			goto out;
 		goto find_type;
