@@ -241,7 +241,12 @@ static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 	}
 		break;
 	case DW_FORM_flag:
-		return 1;
+	case DW_FORM_flag_present: {
+		bool value;
+		if (dwarf_formflag(&attr, &value) == 0)
+			return value;
+	}
+		break;
 	default:
 		fprintf(stderr, "DW_AT_<0x%x>=0x%x\n", name, form);
 		break;
