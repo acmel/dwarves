@@ -240,7 +240,7 @@ def main(argv):
 						do_tool_on_files(arg, dirname, fnames, True)
 				else:
 					do_tools(when)
-			elif o in ('-d', 'diff'):
+			elif o in ('-d', '--diff'):
 				if len(args) > 0:
 					from_dir = os.path.join(regtest_output_dir,
 								"before", "pahole",
