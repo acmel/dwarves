@@ -1100,7 +1100,7 @@ static void do_reorg(struct tag *class, struct cu *cu)
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load __unused)
 {
-	int ret = LSK__STOLEN;
+	int ret = LSK__DELETE;
 
 	if (!cu__filter(cu))
 		goto filter_it;
@@ -1184,7 +1184,6 @@ dump_it:
 	if (first_obj_only)
 		ret = LSK__STOP_LOADING;
 filter_it:
-	cu__delete(cu);
 	return ret;
 }
 
