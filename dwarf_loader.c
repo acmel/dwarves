@@ -1369,6 +1369,14 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct cu *cu)
 		long id = -1;
 
 		switch (dwarf_tag(die)) {
+		case DW_TAG_GNU_call_site:
+		case DW_TAG_GNU_call_site_parameter:
+			/*
+ 			 * FIXME: read http://www.dwarfstd.org/ShowIssue.php?issue=100909.2&type=open
+ 			 * and write proper support.
+ 			 */
+			tag__print_not_supported(dwarf_tag(die));
+			continue;
 		case DW_TAG_lexical_block:
 			if (die__create_new_lexblock(die, cu, NULL) != 0)
 				goto out_enomem;
