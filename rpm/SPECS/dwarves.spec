@@ -2,12 +2,12 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.9
+Version: 1.10
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools
 Group: Development/Tools
-URL: http://oops.ghostprotocols.net:81/blog
+URL: http://acmel.wordpress.com
 Source: http://fedorapeople.org/~acme/dwarves/%{name}-%{version}.tar.bz2
 BuildRequires: cmake
 BuildRequires: elfutils-devel >= 0.130
@@ -113,6 +113,9 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Wed May 30 2012 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.10-1
+- New release
+
 * Sat Nov 20 2010 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.9-1
 - New release
 

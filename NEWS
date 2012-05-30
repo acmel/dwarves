@@ -1,3 +1,15 @@
+v1.10
+
+Wed May 30 2012
+
+. Initial DWARF4 support, by Tom Tromey
+
+. Add stubs for some new GNU Tags
+
+. Fix build on older systems
+
+. Fix a crash when pahole is called with -R -S, from Tal Kelrich
+
 v1.9:
 
 Ignore DW_TAG_template_{type,value}_parameter, fixing a bug reported at:
