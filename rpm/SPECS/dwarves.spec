@@ -10,6 +10,7 @@ Group: Development/Tools
 URL: http://acmel.wordpress.com
 Source: http://fedorapeople.org/~acme/dwarves/%{name}-%{version}.tar.bz2
 BuildRequires: cmake
+BuildRequires: zlib-devel
 BuildRequires: elfutils-devel >= 0.130
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
