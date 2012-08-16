@@ -1539,6 +1539,8 @@ static struct tag *die__create_new_function(Dwarf_Die *die, struct cu *cu)
 	return function ? &function->proto.tag : NULL;
 }
 
+static struct tag unsupported_tag;
+
 static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 				      int top_level, const char *fn)
 {
@@ -1578,7 +1580,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 		tag = die__create_new_variable(die, cu);	break;
 	default:
 		__cu__tag_not_handled(die, fn);
-		tag = NULL;
+		tag = &unsupported_tag;
 		break;
 	}
 
@@ -1594,6 +1596,9 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu)
 		struct tag *tag = die__process_tag(die, cu, 1);
 		if (tag == NULL)
 			return -ENOMEM;
+
+		if (tag == &unsupported_tag)
+			continue;
 
 		long id = -1;
 		cu__add_tag(cu, tag, &id);
