@@ -50,24 +50,24 @@ struct fn_stats {
 
 static struct fn_stats *fn_stats__new(struct tag *tag, const struct cu *cu)
 {
-	struct fn_stats *self = malloc(sizeof(*self));
+	struct fn_stats *stats = malloc(sizeof(*stats));
 
-	if (self != NULL) {
+	if (stats != NULL) {
 		const struct function *fn = tag__function(tag);
 
-		self->tag = tag;
-		self->cu = cu;
-		self->nr_files = 1;
-		self->nr_expansions = fn->cu_total_nr_inline_expansions;
-		self->size_expansions = fn->cu_total_size_inline_expansions;
+		stats->tag = tag;
+		stats->cu = cu;
+		stats->nr_files = 1;
+		stats->nr_expansions = fn->cu_total_nr_inline_expansions;
+		stats->size_expansions = fn->cu_total_size_inline_expansions;
 	}
 
-	return self;
+	return stats;
 }
 
-static void fn_stats__delete(struct fn_stats *self)
+static void fn_stats__delete(struct fn_stats *stats)
 {
-	free(self);
+	free(stats);
 }
 
 static LIST_HEAD(fn_stats__list);
@@ -100,68 +100,68 @@ static void fn_stats__add(struct tag *tag, const struct cu *cu)
 		list_add(&fns->node, &fn_stats__list);
 }
 
-static void fn_stats_inline_exps_fmtr(const struct fn_stats *self)
+static void fn_stats_inline_exps_fmtr(const struct fn_stats *stats)
 {
-	struct function *fn = tag__function(self->tag);
+	struct function *fn = tag__function(stats->tag);
 	if (fn->lexblock.nr_inline_expansions > 0)
-		printf("%s: %u %d\n", function__name(fn, self->cu),
+		printf("%s: %u %d\n", function__name(fn, stats->cu),
 		       fn->lexblock.nr_inline_expansions,
 		       fn->lexblock.size_inline_expansions);
 }
 
-static void fn_stats_labels_fmtr(const struct fn_stats *self)
+static void fn_stats_labels_fmtr(const struct fn_stats *stats)
 {
-	struct function *fn = tag__function(self->tag);
+	struct function *fn = tag__function(stats->tag);
 	if (fn->lexblock.nr_labels > 0)
-		printf("%s: %u\n", function__name(fn, self->cu),
+		printf("%s: %u\n", function__name(fn, stats->cu),
 		       fn->lexblock.nr_labels);
 }
 
-static void fn_stats_variables_fmtr(const struct fn_stats *self)
+static void fn_stats_variables_fmtr(const struct fn_stats *stats)
 {
-	struct function *fn = tag__function(self->tag);
+	struct function *fn = tag__function(stats->tag);
 	if (fn->lexblock.nr_variables > 0)
-		printf("%s: %u\n", function__name(fn, self->cu),
+		printf("%s: %u\n", function__name(fn, stats->cu),
 		       fn->lexblock.nr_variables);
 }
 
-static void fn_stats_nr_parms_fmtr(const struct fn_stats *self)
+static void fn_stats_nr_parms_fmtr(const struct fn_stats *stats)
 {
-	struct function *fn = tag__function(self->tag);
-	printf("%s: %u\n", function__name(fn, self->cu),
+	struct function *fn = tag__function(stats->tag);
+	printf("%s: %u\n", function__name(fn, stats->cu),
 	       fn->proto.nr_parms);
 }
 
-static void fn_stats_name_len_fmtr(const struct fn_stats *self)
+static void fn_stats_name_len_fmtr(const struct fn_stats *stats)
 {
-	struct function *fn = tag__function(self->tag);
-	const char *name = function__name(fn, self->cu);
+	struct function *fn = tag__function(stats->tag);
+	const char *name = function__name(fn, stats->cu);
 	printf("%s: %zd\n", name, strlen(name));
 }
 
-static void fn_stats_size_fmtr(const struct fn_stats *self)
+static void fn_stats_size_fmtr(const struct fn_stats *stats)
 {
-	struct function *fn = tag__function(self->tag);
+	struct function *fn = tag__function(stats->tag);
 	const size_t size = function__size(fn);
 
 	if (size != 0)
-		printf("%s: %zd\n", function__name(fn, self->cu), size);
+		printf("%s: %zd\n", function__name(fn, stats->cu), size);
 }
 
-static void fn_stats_fmtr(const struct fn_stats *self)
+static void fn_stats_fmtr(const struct fn_stats *stats)
 {
 	if (verbose || show_prototypes) {
-		tag__fprintf(self->tag, self->cu, &conf, stdout);
+		tag__fprintf(stats->tag, stats->cu, &conf, stdout);
 		putchar('\n');
 		if (show_prototypes)
 			return;
 		if (show_variables || show_inline_expansions)
-			function__fprintf_stats(self->tag, self->cu, &conf, stdout);
-		printf("/* definitions: %u */\n", self->nr_files);
+			function__fprintf_stats(stats->tag, stats->cu, &conf, stdout);
+		printf("/* definitions: %u */\n", stats->nr_files);
 		putchar('\n');
 	} else {
-		struct function *fn = tag__function(self->tag);
-		puts(function__name(fn, self->cu));
+		struct function *fn = tag__function(stats->tag);
+		puts(function__name(fn, stats->cu));
 	}
 }
 
@@ -173,14 +173,14 @@ static void print_fn_stats(void (*formatter)(const struct fn_stats *f))
 		formatter(pos);
 }
 
-static void fn_stats_inline_stats_fmtr(const struct fn_stats *self)
+static void fn_stats_inline_stats_fmtr(const struct fn_stats *stats)
 {
-	if (self->nr_expansions > 1)
+	if (stats->nr_expansions > 1)
 		printf("%-31.31s %6u %7u  %6u %6u\n",
-		       function__name(tag__function(self->tag), self->cu),
-		       self->size_expansions, self->nr_expansions,
-		       self->size_expansions / self->nr_expansions,
-		       self->nr_files);
+		       function__name(tag__function(stats->tag), stats->cu),
+		       stats->size_expansions, stats->nr_expansions,
+		       stats->size_expansions / stats->nr_expansions,
+		       stats->nr_files);
 }
 
 static void print_total_inline_stats(void)
@@ -190,8 +190,8 @@ static void print_total_inline_stats(void)
 	print_fn_stats(fn_stats_inline_stats_fmtr);
 }
 
-static void fn_stats__dupmsg(struct function *self,
-			     const struct cu *self_cu,
+static void fn_stats__dupmsg(struct function *func,
+			     const struct cu *func_cu,
 			     struct function *dup __unused,
 			     const struct cu *dup_cu,
 			     char *hdr, const char *fmt, ...)
@@ -200,8 +200,8 @@ static void fn_stats__dupmsg(struct function *self,
 
 	if (!*hdr)
 		printf("function: %s\nfirst: %s\ncurrent: %s\n",
-		       function__name(self, self_cu),
-		       self_cu->name,
+		       function__name(func, func_cu),
+		       func_cu->name,
 		       dup_cu->name);
 
 	va_start(args, fmt);
@@ -210,24 +210,24 @@ static void fn_stats__dupmsg(struct function *self,
 	*hdr = 1;
 }
 
-static void fn_stats__chkdupdef(struct function *self,
-				const struct cu *self_cu,
+static void fn_stats__chkdupdef(struct function *func,
+				const struct cu *func_cu,
 				struct function *dup,
 				const struct cu *dup_cu)
 {
 	char hdr = 0;
-	const size_t self_size = function__size(self);
+	const size_t func_size = function__size(func);
 	const size_t dup_size = function__size(dup);
 
-	if (self_size != dup_size)
-		fn_stats__dupmsg(self, self_cu, dup, dup_cu,
+	if (func_size != dup_size)
+		fn_stats__dupmsg(func, func_cu, dup, dup_cu,
 				 &hdr, "size: %zd != %zd\n",
-				 self_size, dup_size);
+				 func_size, dup_size);
 
-	if (self->proto.nr_parms != dup->proto.nr_parms)
-		fn_stats__dupmsg(self, self_cu, dup, dup_cu,
+	if (func->proto.nr_parms != dup->proto.nr_parms)
+		fn_stats__dupmsg(func, func_cu, dup, dup_cu,
 				 &hdr, "nr_parms: %u != %u\n",
-				 self->proto.nr_parms, dup->proto.nr_parms);
+				 func->proto.nr_parms, dup->proto.nr_parms);
 
 	/* XXX put more checks here: member types, member ordering, etc */
 
@@ -318,12 +318,12 @@ static int cu_class_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
-static int function__emit_type_definitions(struct function *self,
+static int function__emit_type_definitions(struct function *func,
 					   struct cu *cu, FILE *fp)
 {
 	struct parameter *pos;
 
-	function__for_each_parameter(self, pos) {
+	function__for_each_parameter(func, pos) {
 		struct tag *type = cu__type(cu, pos->tag.type);
 	try_again:
 		if (type == NULL)
@@ -344,12 +344,12 @@ static int function__emit_type_definitions(struct function *self,
 	return 0;
 }
 
-static void function__show(struct function *self, struct cu *cu)
+static void function__show(struct function *func, struct cu *cu)
 {
-	struct tag *tag = function__tag(self);
+	struct tag *tag = function__tag(func);
 
 	if (expand_types)
-		function__emit_type_definitions(self, cu, stdout);
+		function__emit_type_definitions(func, cu, stdout);
 	tag__fprintf(tag, cu, &conf, stdout);
 	putchar('\n');
 	if (show_variables || show_inline_expansions)

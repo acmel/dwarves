@@ -23,87 +23,87 @@
 #define GOBUFFER__BCHUNK (8 * 1024)
 #define GOBUFFER__ZCHUNK (8 * 1024)
 
-void gobuffer__init(struct gobuffer *self)
+void gobuffer__init(struct gobuffer *gb)
 {
-	self->entries = NULL;
-	self->nr_entries = self->allocated_size = 0;
+	gb->entries = NULL;
+	gb->nr_entries = gb->allocated_size = 0;
 	/* 0 == NULL */
-	self->index = 1;
+	gb->index = 1;
 }
 
 struct gobuffer *gobuffer__new(void)
 {
-	struct gobuffer *self = malloc(sizeof(*self));
+	struct gobuffer *gb = malloc(sizeof(*gb));
 
-	if (self != NULL)
-		gobuffer__init(self);
+	if (gb != NULL)
+		gobuffer__init(gb);
 
-	return self;
+	return gb;
 }
 
-void __gobuffer__delete(struct gobuffer *self)
+void __gobuffer__delete(struct gobuffer *gb)
 {
-	free(self->entries);
+	free(gb->entries);
 }
 
-void gobuffer__delete(struct gobuffer *self)
+void gobuffer__delete(struct gobuffer *gb)
 {
-	__gobuffer__delete(self);
-	free(self);
+	__gobuffer__delete(gb);
+	free(gb);
 }
 
-void *gobuffer__ptr(const struct gobuffer *self, unsigned int s)
+void *gobuffer__ptr(const struct gobuffer *gb, unsigned int s)
 {
-	return s ? self->entries + s : NULL;
+	return s ? gb->entries + s : NULL;
 }
 
-int gobuffer__allocate(struct gobuffer *self, unsigned int len)
+int gobuffer__allocate(struct gobuffer *gb, unsigned int len)
 {
-	const unsigned int rc = self->index;
-	const unsigned int index = self->index + len;
+	const unsigned int rc = gb->index;
+	const unsigned int index = gb->index + len;
 
-	if (index >= self->allocated_size) {
-		unsigned int allocated_size = (self->allocated_size +
+	if (index >= gb->allocated_size) {
+		unsigned int allocated_size = (gb->allocated_size +
 					       GOBUFFER__BCHUNK);
 		if (allocated_size < index)
 			allocated_size = index + GOBUFFER__BCHUNK;
-		char *entries = realloc(self->entries, allocated_size);
+		char *entries = realloc(gb->entries, allocated_size);
 
 		if (entries == NULL)
 			return -ENOMEM;
 
-		self->allocated_size = allocated_size;
-		self->entries = entries;
+		gb->allocated_size = allocated_size;
+		gb->entries = entries;
 	}
 
-	self->index = index;
+	gb->index = index;
 	return rc;
 }
 
-int gobuffer__add(struct gobuffer *self, const void *s, unsigned int len)
+int gobuffer__add(struct gobuffer *gb, const void *s, unsigned int len)
 {
-	const int rc = gobuffer__allocate(self, len);
+	const int rc = gobuffer__allocate(gb, len);
 
 	if (rc >= 0) {
-		++self->nr_entries;
-		memcpy(self->entries + rc, s, len);
+		++gb->nr_entries;
+		memcpy(gb->entries + rc, s, len);
 	}
 	return rc;
 }
 
-void gobuffer__copy(const struct gobuffer *self, void *dest)
+void gobuffer__copy(const struct gobuffer *gb, void *dest)
 {
-	memcpy(dest, self->entries, gobuffer__size(self));
+	memcpy(dest, gb->entries, gobuffer__size(gb));
 }
 
-const void *gobuffer__compress(struct gobuffer *self, unsigned int *size)
+const void *gobuffer__compress(struct gobuffer *gb, unsigned int *size)
 {
 	z_stream z = {
 		.zalloc	  = Z_NULL,
 		.zfree	  = Z_NULL,
 		.opaque	  = Z_NULL,
-		.avail_in = gobuffer__size(self),
-		.next_in  = (Bytef *)gobuffer__entries(self),
+		.avail_in = gobuffer__size(gb),
+		.next_in  = (Bytef *)gobuffer__entries(gb),
 	};
 	void *bf = NULL;
 	unsigned int bf_size = 0;

@@ -13,37 +13,37 @@
 #include "dwarves_reorganize.h"
 #include "dwarves.h"
 
-void class__subtract_offsets_from(struct class *self,
+void class__subtract_offsets_from(struct class *class,
 				  struct class_member *from,
 				  const uint16_t size)
 {
 	struct class_member *member =
-		list_prepare_entry(from, class__tags(self), tag.node);
+		list_prepare_entry(from, class__tags(class), tag.node);
 
-	list_for_each_entry_continue(member, class__tags(self), tag.node)
+	list_for_each_entry_continue(member, class__tags(class), tag.node)
 		if (member->tag.tag == DW_TAG_member)
 			member->byte_offset -= size;
 
-	if (self->padding != 0) {
+	if (class->padding != 0) {
 		struct class_member *last_member =
-					type__last_member(&self->type);
-		const ssize_t new_padding = (class__size(self) -
+					type__last_member(&class->type);
+		const ssize_t new_padding = (class__size(class) -
 					     (last_member->byte_offset +
 					      last_member->byte_size));
 		if (new_padding > 0)
-			self->padding = new_padding;
+			class->padding = new_padding;
 		else
-			self->padding = 0;
+			class->padding = 0;
 	}
 }
 
-void class__add_offsets_from(struct class *self, struct class_member *from,
+void class__add_offsets_from(struct class *class, struct class_member *from,
 			     const uint16_t size)
 {
 	struct class_member *member =
-		list_prepare_entry(from, class__tags(self), tag.node);
+		list_prepare_entry(from, class__tags(class), tag.node);
 
-	list_for_each_entry_continue(member, class__tags(self), tag.node)
+	list_for_each_entry_continue(member, class__tags(class), tag.node)
 		if (member->tag.tag == DW_TAG_member)
 			member->byte_offset += size;
 }
@@ -53,14 +53,14 @@ void class__add_offsets_from(struct class *self, struct class_member *from,
  * to lazy to do class__remove_member properly, adjusting alignments and
  * holes as we go removing fields. Ditto for class__add_offsets_from.
  */
-void class__fixup_alignment(struct class *self, const struct cu *cu)
+void class__fixup_alignment(struct class *class, const struct cu *cu)
 {
 	struct class_member *pos, *last_member = NULL;
 	size_t power2;
 
-	type__for_each_data_member(&self->type, pos) {
+	type__for_each_data_member(&class->type, pos) {
 		if (last_member == NULL && pos->byte_offset != 0) { /* paranoid! */
-			class__subtract_offsets_from(self, pos,
+			class__subtract_offsets_from(class, pos,
 						     (pos->byte_offset -
 						      pos->byte_size));
 			pos->byte_offset = 0;
@@ -71,10 +71,10 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 
 			last_member->hole -= dec;
 			if (last_member->hole == 0)
-				--self->nr_holes;
+				--class->nr_holes;
 			pos->byte_offset -= dec;
-			self->type.size -= dec;
-			class__subtract_offsets_from(self, pos, dec);
+			class->type.size -= dec;
+			class__subtract_offsets_from(class, pos, dec);
 		} else for (power2 = cu->addr_size; power2 >= 2; power2 /= 2) {
 			const size_t remainder = pos->byte_offset % power2;
 
@@ -84,18 +84,18 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 				if (last_member->hole >= remainder) {
 					last_member->hole -= remainder;
 					if (last_member->hole == 0)
-						--self->nr_holes;
+						--class->nr_holes;
 					pos->byte_offset -= remainder;
-					class__subtract_offsets_from(self, pos, remainder);
+					class__subtract_offsets_from(class, pos, remainder);
 				} else {
 					const size_t inc = power2 - remainder;
 
 					if (last_member->hole == 0)
-						++self->nr_holes;
+						++class->nr_holes;
 					last_member->hole += inc;
 					pos->byte_offset += inc;
-					self->type.size += inc;
-					class__add_offsets_from(self, pos, inc);
+					class->type.size += inc;
+					class__add_offsets_from(class, pos, inc);
 				}
 			}
 		}
@@ -105,7 +105,7 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 
 	if (last_member != NULL) {
 		struct class_member *m =
-		 type__find_first_biggest_size_base_type_member(&self->type, cu);
+		 type__find_first_biggest_size_base_type_member(&class->type, cu);
 		size_t unpadded_size = last_member->byte_offset + last_member->byte_size;
 		size_t m_size = m->byte_size, remainder;
 
@@ -115,8 +115,8 @@ void class__fixup_alignment(struct class *self, const struct cu *cu)
 
 		remainder = unpadded_size % m_size;
 		if (remainder != 0) {
-			self->padding = m_size - remainder;
-			self->type.size = unpadded_size + self->padding;
+			class->padding = m_size - remainder;
+			class->type.size = unpadded_size + class->padding;
 		}
 	}
 }
@@ -198,7 +198,7 @@ static struct class_member *
 #if 0
 	/*
 	 * FIXME: Handle the case where the bit padding is on the same bitfield
-	 * that we're looking, i.e. we can't combine a bitfield with itself,
+	 * that we're looking, i.e. we can't combine a bitfield with itclass,
 	 * perhaps we should tag bitfields with a sequential, clearly marking
 	 * each of the bitfields in advance, so that all the algoriths that
 	 * have to deal with bitfields, moving them around, demoting, etc, can
@@ -671,15 +671,15 @@ restart:
 	}
 }
 
-static void class__fixup_bitfield_types(struct class *self,
+static void class__fixup_bitfield_types(struct class *class,
 					struct class_member *from,
 					struct class_member *to_before,
 					uint16_t type)
 {
 	struct class_member *member =
-		list_prepare_entry(from, class__tags(self), tag.node);
+		list_prepare_entry(from, class__tags(class), tag.node);
 
-	list_for_each_entry_from(member, class__tags(self), tag.node) {
+	list_for_each_entry_from(member, class__tags(class), tag.node) {
 		if (member->tag.tag != DW_TAG_member)
 			continue;
 		if (member == to_before)
@@ -712,13 +712,13 @@ static void class__fixup_bitfield_types(struct class *self,
  * the reorganizing routines we just do the demotion ourselves, fixing up the
  * sizes.
 */
-static void class__fixup_member_types(struct class *self, const struct cu *cu,
+static void class__fixup_member_types(struct class *class, const struct cu *cu,
 				      const uint8_t verbose, FILE *fp)
 {
 	struct class_member *pos, *bitfield_head = NULL;
 	uint8_t fixup_was_done = 0;
 
-	type__for_each_data_member(&self->type, pos) {
+	type__for_each_data_member(&class->type, pos) {
 		/*
 		 * Is this bitfield member?
 		 */
@@ -750,7 +750,7 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 						__func__, real_size);
 					continue;
 				}
-				class__fixup_bitfield_types(self,
+				class__fixup_bitfield_types(class,
 							    bitfield_head, pos,
 							    new_type_id);
 				fixup_was_done = 1;
@@ -761,37 +761,37 @@ static void class__fixup_member_types(struct class *self, const struct cu *cu,
 	if (verbose && fixup_was_done) {
 		fprintf(fp, "/* bitfield types were fixed */\n");
 		if (verbose > 1) {
-			class__find_holes(self);
-			class__fprintf(self, cu, NULL, fp);
+			class__find_holes(class);
+			class__fprintf(class, cu, NULL, fp);
 			fputc('\n', fp);
 		}
 	}
 }
 
-void class__reorganize(struct class *self, const struct cu *cu,
+void class__reorganize(struct class *class, const struct cu *cu,
 		       const int verbose, FILE *fp)
 {
 	struct class_member *member, *brother, *last_member;
 	size_t alignment_size;
 
-	class__fixup_member_types(self, cu, verbose, fp);
+	class__fixup_member_types(class, cu, verbose, fp);
 
-	while (class__demote_bitfields(self, cu, verbose, fp))
-		class__reorganize_bitfields(self, cu, verbose, fp);
+	while (class__demote_bitfields(class, cu, verbose, fp))
+		class__reorganize_bitfields(class, cu, verbose, fp);
 
 	/* Now try to combine holes */
 restart:
 	alignment_size = 0;
-	class__find_holes(self);
+	class__find_holes(class);
 	/*
 	 * It can be NULL if this class doesn't have any data members,
 	 * just inheritance entries
 	 */
-	last_member = type__last_member(&self->type);
+	last_member = type__last_member(&class->type);
 	if (last_member == NULL)
 		return;
 
-	type__for_each_data_member(&self->type, member) {
+	type__for_each_data_member(&class->type, member) {
 		const size_t aligned_size = member->byte_size + member->hole;
 		if (aligned_size <= cu->addr_size &&
 		    aligned_size > alignment_size)
@@ -811,21 +811,21 @@ restart:
 		else
 			new_padding = 0;
 
-		if (new_padding != self->padding) {
-			self->padding	= new_padding;
-			self->type.size = (last_member->byte_offset +
+		if (new_padding != class->padding) {
+			class->padding	= new_padding;
+			class->type.size = (last_member->byte_offset +
 					   last_member->byte_size + new_padding);
 		}
 	}
 
-	type__for_each_data_member(&self->type, member) {
+	type__for_each_data_member(&class->type, member) {
 		/* See if we have a hole after this member */
 		if (member->hole != 0) {
 			/*
 			 * OK, try to find a member that has a hole after it
 			 * and that has a size that fits the current hole:
 			*/
-			brother = class__find_next_hole_of_size(self, member,
+			brother = class__find_next_hole_of_size(class, member,
 								member->hole);
 			if (brother != NULL) {
 				struct class_member *brother_prev =
@@ -839,7 +839,7 @@ restart:
 				 * kernel.
 				 */
 				if (brother_prev != member) {
-					class__move_member(self, member,
+					class__move_member(class, member,
 							   brother, cu, 0,
 							   verbose, fp);
 					goto restart;
@@ -852,11 +852,11 @@ restart:
 			 * we can move it after the current member, reducing
 			 * the padding or eliminating it altogether.
 			 */
-			if (self->padding > 0 &&
+			if (class->padding > 0 &&
 			    member != last_member &&
 			    last_member->byte_size != 0 &&
 			    last_member->byte_size <= member->hole) {
-				class__move_member(self, member, last_member,
+				class__move_member(class, member, last_member,
 						   cu, 1, verbose, fp);
 				goto restart;
 			}
@@ -864,13 +864,13 @@ restart:
 	}
 
 	/* Now try to move members at the tail to after holes */
-	if (self->nr_holes == 0)
+	if (class->nr_holes == 0)
 		return;
 
-	type__for_each_data_member(&self->type, member) {
+	type__for_each_data_member(&class->type, member) {
 		/* See if we have a hole after this member */
 		if (member->hole != 0) {
-			brother = class__find_last_member_of_size(self, member,
+			brother = class__find_last_member_of_size(class, member,
 								  member->hole);
 			if (brother != NULL) {
 				struct class_member *brother_prev =
@@ -884,7 +884,7 @@ restart:
 				 * kernel.
 				 */
 				if (brother_prev != member) {
-					class__move_member(self, member,
+					class__move_member(class, member,
 							   brother, cu, 0,
 							   verbose, fp);
 					goto restart;

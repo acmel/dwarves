@@ -30,20 +30,20 @@ bool ctf__ignore_symtab_object(const GElf_Sym *sym, const char *sym_name)
 		strchr(sym_name, '.') != NULL);
 }
 
-uint16_t ctf__get16(struct ctf *self, uint16_t *p)
+uint16_t ctf__get16(struct ctf *ctf, uint16_t *p)
 {
 	uint16_t val = *p;
 
-	if (self->swapped)
+	if (ctf->swapped)
 		val = ((val >> 8) | (val << 8));
 	return val;
 }
 
-uint32_t ctf__get32(struct ctf *self, uint32_t *p)
+uint32_t ctf__get32(struct ctf *ctf, uint32_t *p)
 {
 	uint32_t val = *p;
 
-	if (self->swapped)
+	if (ctf->swapped)
 		val = ((val >> 24) |
 		       ((val >> 8) & 0x0000ff00) |
 		       ((val << 8) & 0x00ff0000) |
@@ -51,16 +51,16 @@ uint32_t ctf__get32(struct ctf *self, uint32_t *p)
 	return val;
 }
 
-void ctf__put16(struct ctf *self, uint16_t *p, uint16_t val)
+void ctf__put16(struct ctf *ctf, uint16_t *p, uint16_t val)
 {
-	if (self->swapped)
+	if (ctf->swapped)
 		val = ((val >> 8) | (val << 8));
 	*p = val;
 }
 
-void ctf__put32(struct ctf *self, uint32_t *p, uint32_t val)
+void ctf__put32(struct ctf *ctf, uint32_t *p, uint32_t val)
 {
-	if (self->swapped)
+	if (ctf->swapped)
 		val = ((val >> 24) |
 		       ((val >> 8) & 0x0000ff00) |
 		       ((val << 8) & 0x00ff0000) |
@@ -68,7 +68,7 @@ void ctf__put32(struct ctf *self, uint32_t *p, uint32_t val)
 	*p = val;
 }
 
-static int ctf__decompress(struct ctf *self, void *orig_buf, size_t orig_size)
+static int ctf__decompress(struct ctf *ctf, void *orig_buf, size_t orig_size)
 {
 	struct ctf_header *hp = orig_buf;
 	const char *err_str;
@@ -76,8 +76,8 @@ static int ctf__decompress(struct ctf *self, void *orig_buf, size_t orig_size)
 	size_t len;
 	void *new;
 
-	len = (ctf__get32(self, &hp->ctf_str_off) +
-	       ctf__get32(self, &hp->ctf_str_len));
+	len = (ctf__get32(ctf, &hp->ctf_str_off) +
+	       ctf__get32(ctf, &hp->ctf_str_len));
 	new = malloc(len + sizeof(*hp));
 	if (!new) {
 		fprintf(stderr, "CTF decompression allocation failure.\n");
@@ -111,8 +111,8 @@ static int ctf__decompress(struct ctf *self, void *orig_buf, size_t orig_size)
 		goto err;
 	}
 
-	self->buf = new;
-	self->size = len + sizeof(*hp);
+	ctf->buf = new;
+	ctf->size = len + sizeof(*hp);
 
 	return 0;
 
@@ -122,11 +122,11 @@ err:
 	return -EINVAL;
 }
 
-int ctf__load(struct ctf *self)
+int ctf__load(struct ctf *ctf)
 {
 	int err = -ENOTSUP;
 	GElf_Shdr shdr;
-	Elf_Scn *sec = elf_section_by_name(self->elf, &self->ehdr,
+	Elf_Scn *sec = elf_section_by_name(ctf->elf, &ctf->ehdr,
 					   &shdr, ".SUNW_ctf", NULL);
 
 	if (sec == NULL)
@@ -147,42 +147,42 @@ int ctf__load(struct ctf *self)
 
 	err = -EINVAL;
 	if (hp->ctf_magic == CTF_MAGIC)
-		self->swapped = 0;
+		ctf->swapped = 0;
 	else if (hp->ctf_magic == CTF_MAGIC_SWAP)
-		self->swapped = 1;
+		ctf->swapped = 1;
 	else
 		goto out;
 
 	if (!(hp->ctf_flags & CTF_FLAGS_COMPR)) {
 		err = -ENOMEM;
-		self->buf = malloc(orig_size);
-		if (self->buf != NULL) {
-			memcpy(self->buf, hp, orig_size);
-			self->size = orig_size;
+		ctf->buf = malloc(orig_size);
+		if (ctf->buf != NULL) {
+			memcpy(ctf->buf, hp, orig_size);
+			ctf->size = orig_size;
 			err = 0;
 		}
 	} else
-		err = ctf__decompress(self, hp, orig_size);
+		err = ctf__decompress(ctf, hp, orig_size);
 out:
 	return err;
 }
 
 struct ctf *ctf__new(const char *filename, Elf *elf)
 {
-	struct ctf *self = zalloc(sizeof(*self));
+	struct ctf *ctf = zalloc(sizeof(*ctf));
 
-	if (self != NULL) {
-		self->filename = strdup(filename);
-		if (self->filename == NULL)
+	if (ctf != NULL) {
+		ctf->filename = strdup(filename);
+		if (ctf->filename == NULL)
 			goto out_delete;
 
 		if (elf != NULL) {
-			self->in_fd = -1;
-			self->elf = elf;
+			ctf->in_fd = -1;
+			ctf->elf = elf;
 		} else {
 
-			self->in_fd = open(filename, O_RDONLY);
-			if (self->in_fd < 0)
+			ctf->in_fd = open(filename, O_RDONLY);
+			if (ctf->in_fd < 0)
 				goto out_delete_filename;
 
 			if (elf_version(EV_CURRENT) == EV_NONE) {
@@ -191,99 +191,99 @@ struct ctf *ctf__new(const char *filename, Elf *elf)
 				goto out_close;
 			}
 
-			self->elf = elf_begin(self->in_fd, ELF_C_READ_MMAP, NULL);
-			if (!self->elf) {
+			ctf->elf = elf_begin(ctf->in_fd, ELF_C_READ_MMAP, NULL);
+			if (!ctf->elf) {
 				fprintf(stderr, "%s: cannot read %s ELF file.\n",
 					__func__, filename);
 				goto out_close;
 			}
 		}
 
-		if (gelf_getehdr(self->elf, &self->ehdr) == NULL) {
+		if (gelf_getehdr(ctf->elf, &ctf->ehdr) == NULL) {
 			fprintf(stderr, "%s: cannot get elf header.\n", __func__);
 			goto out_elf_end;
 		}
 
-		switch (self->ehdr.e_ident[EI_CLASS]) {
-		case ELFCLASS32: self->wordsize = 4; break;
-		case ELFCLASS64: self->wordsize = 8; break;
-		default:	 self->wordsize = 0; break;
+		switch (ctf->ehdr.e_ident[EI_CLASS]) {
+		case ELFCLASS32: ctf->wordsize = 4; break;
+		case ELFCLASS64: ctf->wordsize = 8; break;
+		default:	 ctf->wordsize = 0; break;
 		}
 	}
 
-	return self;
+	return ctf;
 out_elf_end:
 	if (elf == NULL)
-		elf_end(self->elf);
+		elf_end(ctf->elf);
 out_close:
 	if (elf == NULL)
-		close(self->in_fd);
+		close(ctf->in_fd);
 out_delete_filename:
-	free(self->filename);
+	free(ctf->filename);
 out_delete:
-	free(self);
+	free(ctf);
 	return NULL;
 }
 
-void ctf__delete(struct ctf *self)
+void ctf__delete(struct ctf *ctf)
 {
-	if (self != NULL) {
-		if (self->in_fd != -1) {
-			elf_end(self->elf);
-			close(self->in_fd);
+	if (ctf != NULL) {
+		if (ctf->in_fd != -1) {
+			elf_end(ctf->elf);
+			close(ctf->in_fd);
 		}
-		__gobuffer__delete(&self->objects);
-		__gobuffer__delete(&self->types);
-		__gobuffer__delete(&self->funcs);
-		elf_symtab__delete(self->symtab);
-		free(self->filename);
-		free(self->buf);
-		free(self);
+		__gobuffer__delete(&ctf->objects);
+		__gobuffer__delete(&ctf->types);
+		__gobuffer__delete(&ctf->funcs);
+		elf_symtab__delete(ctf->symtab);
+		free(ctf->filename);
+		free(ctf->buf);
+		free(ctf);
 	}
 }
 
-char *ctf__string(struct ctf *self, uint32_t ref)
+char *ctf__string(struct ctf *ctf, uint32_t ref)
 {
-	struct ctf_header *hp = self->buf;
+	struct ctf_header *hp = ctf->buf;
 	uint32_t off = CTF_REF_OFFSET(ref);
 	char *name;
 
 	if (CTF_REF_TBL_ID(ref) != CTF_STR_TBL_ID_0)
 		return "(external ref)";
 
-	if (off >= ctf__get32(self, &hp->ctf_str_len))
+	if (off >= ctf__get32(ctf, &hp->ctf_str_len))
 		return "(ref out-of-bounds)";
 
-	if ((off + ctf__get32(self, &hp->ctf_str_off)) >= self->size)
+	if ((off + ctf__get32(ctf, &hp->ctf_str_off)) >= ctf->size)
 		return "(string table truncated)";
 
-	name = ((char *)(hp + 1) + ctf__get32(self, &hp->ctf_str_off) + off);
+	name = ((char *)(hp + 1) + ctf__get32(ctf, &hp->ctf_str_off) + off);
 
 	return name[0] == '\0' ? NULL : name;
 }
 
-void *ctf__get_buffer(struct ctf *self)
+void *ctf__get_buffer(struct ctf *ctf)
 {
-	return self->buf;
+	return ctf->buf;
 }
 
-size_t ctf__get_size(struct ctf *self)
+size_t ctf__get_size(struct ctf *ctf)
 {
-	return self->size;
+	return ctf->size;
 }
 
-int ctf__load_symtab(struct ctf *self)
+int ctf__load_symtab(struct ctf *ctf)
 {
-	self->symtab = elf_symtab__new(".symtab", self->elf, &self->ehdr);
-	return self->symtab == NULL ? -1 : 0;
+	ctf->symtab = elf_symtab__new(".symtab", ctf->elf, &ctf->ehdr);
+	return ctf->symtab == NULL ? -1 : 0;
 }
 
-void ctf__set_strings(struct ctf *self, struct gobuffer *strings)
+void ctf__set_strings(struct ctf *ctf, struct gobuffer *strings)
 {
-	self->strings = strings;
+	ctf->strings = strings;
 }
 
-int ctf__add_base_type(struct ctf *self, uint32_t name, uint16_t size)
+int ctf__add_base_type(struct ctf *ctf, uint32_t name, uint16_t size)
 {
 	struct ctf_full_type t;
 
@@ -292,11 +292,11 @@ int ctf__add_base_type(struct ctf *self, uint32_t name, uint16_t size)
 	t.base.ctf_size = size;
 	t.ctf_size_high = CTF_TYPE_INT_ENCODE(0, 0, size);
 
-	gobuffer__add(&self->types, &t, sizeof(t) - sizeof(uint32_t));
-	return ++self->type_index;
+	gobuffer__add(&ctf->types, &t, sizeof(t) - sizeof(uint32_t));
+	return ++ctf->type_index;
 }
 
-int ctf__add_short_type(struct ctf *self, uint16_t kind, uint16_t type,
+int ctf__add_short_type(struct ctf *ctf, uint16_t kind, uint16_t type,
 			uint32_t name)
 {
 	struct ctf_short_type t;
@@ -305,16 +305,16 @@ int ctf__add_short_type(struct ctf *self, uint16_t kind, uint16_t type,
 	t.ctf_info = CTF_INFO_ENCODE(kind, 0, 0);
 	t.ctf_type = type;
 
-	gobuffer__add(&self->types, &t, sizeof(t));
-	return ++self->type_index;
+	gobuffer__add(&ctf->types, &t, sizeof(t));
+	return ++ctf->type_index;
 }
 
-int ctf__add_fwd_decl(struct ctf *self, uint32_t name)
+int ctf__add_fwd_decl(struct ctf *ctf, uint32_t name)
 {
-	return ctf__add_short_type(self, CTF_TYPE_KIND_FWD, 0, name);
+	return ctf__add_short_type(ctf, CTF_TYPE_KIND_FWD, 0, name);
 }
 
-int ctf__add_array(struct ctf *self, uint16_t type, uint16_t index_type,
+int ctf__add_array(struct ctf *ctf, uint16_t type, uint16_t index_type,
 		   uint32_t nelems)
 {
 	struct {
@@ -329,11 +329,11 @@ int ctf__add_array(struct ctf *self, uint16_t type, uint16_t index_type,
 	array.a.ctf_array_index_type = index_type;
 	array.a.ctf_array_nelems     = nelems;
 
-	gobuffer__add(&self->types, &array, sizeof(array));
-	return ++self->type_index;
+	gobuffer__add(&ctf->types, &array, sizeof(array));
+	return ++ctf->type_index;
 }
 
-void ctf__add_short_member(struct ctf *self, uint32_t name, uint16_t type,
+void ctf__add_short_member(struct ctf *ctf, uint32_t name, uint16_t type,
 			   uint16_t offset, int64_t *position)
 {
 	struct ctf_short_member m = {
@@ -342,11 +342,11 @@ void ctf__add_short_member(struct ctf *self, uint32_t name, uint16_t type,
 		.ctf_member_offset = offset,
 	};
 
-	memcpy(gobuffer__ptr(&self->types, *position), &m, sizeof(m));
+	memcpy(gobuffer__ptr(&ctf->types, *position), &m, sizeof(m));
 	*position += sizeof(m);
 }
 
-void ctf__add_full_member(struct ctf *self, uint32_t name, uint16_t type,
+void ctf__add_full_member(struct ctf *ctf, uint32_t name, uint16_t type,
 			  uint64_t offset, int64_t *position)
 {
 	struct ctf_full_member m = {
@@ -356,11 +356,11 @@ void ctf__add_full_member(struct ctf *self, uint32_t name, uint16_t type,
 		.ctf_member_offset_low  = offset & 0xffffffffl,
 	};
 
-	memcpy(gobuffer__ptr(&self->types, *position), &m, sizeof(m));
+	memcpy(gobuffer__ptr(&ctf->types, *position), &m, sizeof(m));
 	*position += sizeof(m);
 }
 
-int ctf__add_struct(struct ctf *self, uint16_t kind, uint32_t name,
+int ctf__add_struct(struct ctf *ctf, uint16_t kind, uint32_t name,
 		    uint64_t size, uint16_t nr_members, int64_t *position)
 {
 	const bool is_short = size < CTF_SHORT_MEMBER_LIMIT;
@@ -382,20 +382,20 @@ int ctf__add_struct(struct ctf *self, uint16_t kind, uint32_t name,
 		t.ctf_size_low	= size & 0xffffffff;
 	}
 
-	gobuffer__add(&self->types, &t, len);
-	*position = gobuffer__allocate(&self->types, members_len);
-	return ++self->type_index;
+	gobuffer__add(&ctf->types, &t, len);
+	*position = gobuffer__allocate(&ctf->types, members_len);
+	return ++ctf->type_index;
 }
 
-void ctf__add_parameter(struct ctf *self, uint16_t type, int64_t *position)
+void ctf__add_parameter(struct ctf *ctf, uint16_t type, int64_t *position)
 {
-	uint16_t *parm = gobuffer__ptr(&self->types, *position);
+	uint16_t *parm = gobuffer__ptr(&ctf->types, *position);
 
 	*parm = type;
 	*position += sizeof(*parm);
 }
 
-int ctf__add_function_type(struct ctf *self, uint16_t type, uint16_t nr_parms,
+int ctf__add_function_type(struct ctf *ctf, uint16_t type, uint16_t nr_parms,
 			   bool varargs, int64_t *position)
 {
 	struct ctf_short_type t;
@@ -412,18 +412,18 @@ int ctf__add_function_type(struct ctf *self, uint16_t type, uint16_t nr_parms,
 				     nr_parms + !!varargs, 0);
 	t.ctf_type = type;
 
-	gobuffer__add(&self->types, &t, sizeof(t));
-	*position = gobuffer__allocate(&self->types, len);
+	gobuffer__add(&ctf->types, &t, sizeof(t));
+	*position = gobuffer__allocate(&ctf->types, len);
 	if (varargs) {
 		unsigned int pos = *position + (nr_parms * sizeof(uint16_t));
-		uint16_t *end_of_args = gobuffer__ptr(&self->types, pos);
+		uint16_t *end_of_args = gobuffer__ptr(&ctf->types, pos);
 		*end_of_args = 0;
 	}
 
-	return ++self->type_index;
+	return ++ctf->type_index;
 }
 
-int ctf__add_enumeration_type(struct ctf *self, uint32_t name, uint16_t size,
+int ctf__add_enumeration_type(struct ctf *ctf, uint32_t name, uint16_t size,
 			      uint16_t nr_entries, int64_t *position)
 {
 	struct ctf_short_type e;
@@ -432,13 +432,13 @@ int ctf__add_enumeration_type(struct ctf *self, uint32_t name, uint16_t size,
 	e.ctf_info = CTF_INFO_ENCODE(CTF_TYPE_KIND_ENUM, nr_entries, 0);
 	e.ctf_size = size;
 
-	gobuffer__add(&self->types, &e, sizeof(e));
-	*position = gobuffer__allocate(&self->types,
+	gobuffer__add(&ctf->types, &e, sizeof(e));
+	*position = gobuffer__allocate(&ctf->types,
 				       nr_entries * sizeof(struct ctf_enum));
-	return ++self->type_index;
+	return ++ctf->type_index;
 }
 
-void ctf__add_enumerator(struct ctf *self, uint32_t name, uint32_t value,
+void ctf__add_enumerator(struct ctf *ctf, uint32_t name, uint32_t value,
 			 int64_t *position)
 {
 	struct ctf_enum m = {
@@ -446,20 +446,20 @@ void ctf__add_enumerator(struct ctf *self, uint32_t name, uint32_t value,
 		.ctf_enum_val  = value,
 	};
 
-	memcpy(gobuffer__ptr(&self->types, *position), &m, sizeof(m));
+	memcpy(gobuffer__ptr(&ctf->types, *position), &m, sizeof(m));
 	*position += sizeof(m);
 }
 
-void ctf__add_function_parameter(struct ctf *self, uint16_t type,
+void ctf__add_function_parameter(struct ctf *ctf, uint16_t type,
 				 int64_t *position)
 {
-	uint16_t *parm = gobuffer__ptr(&self->funcs, *position);
+	uint16_t *parm = gobuffer__ptr(&ctf->funcs, *position);
 
 	*parm = type;
 	*position += sizeof(*parm);
 }
 
-int ctf__add_function(struct ctf *self, uint16_t type, uint16_t nr_parms,
+int ctf__add_function(struct ctf *ctf, uint16_t type, uint16_t nr_parms,
 		      bool varargs, int64_t *position)
 {
 	struct ctf_short_type func;
@@ -479,21 +479,21 @@ int ctf__add_function(struct ctf *self, uint16_t type, uint16_t nr_parms,
 	 * We don't store the name for the function, it comes from the
 	 * symtab.
 	 */
-	gobuffer__add(&self->funcs, &func.ctf_info,
+	gobuffer__add(&ctf->funcs, &func.ctf_info,
 		      sizeof(func) - sizeof(func.ctf_name));
-	*position = gobuffer__allocate(&self->funcs, len);
+	*position = gobuffer__allocate(&ctf->funcs, len);
 	if (varargs) {
 		unsigned int pos = *position + (nr_parms * sizeof(uint16_t));
-		uint16_t *end_of_args = gobuffer__ptr(&self->funcs, pos);
+		uint16_t *end_of_args = gobuffer__ptr(&ctf->funcs, pos);
 		*end_of_args = 0;
 	}
 
 	return 0;
 }
 
-int ctf__add_object(struct ctf *self, uint16_t type)
+int ctf__add_object(struct ctf *ctf, uint16_t type)
 {
-	return gobuffer__add(&self->objects, &type,
+	return gobuffer__add(&ctf->objects, &type,
 			     sizeof(type)) >= 0 ? 0 : -ENOMEM;
 }
 
@@ -549,7 +549,7 @@ out_close_and_free:
 	goto out;
 }
 
-int ctf__encode(struct ctf *self, uint8_t flags)
+int ctf__encode(struct ctf *ctf, uint8_t flags)
 {
 	struct ctf_header *hdr;
 	unsigned int size;
@@ -557,23 +557,23 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 	int err = -1;
 
 	/* Empty file, nothing to do, so... done! */
-	if (gobuffer__size(&self->types) == 0)
+	if (gobuffer__size(&ctf->types) == 0)
 		return 0;
 
-	size = (gobuffer__size(&self->types) +
-		gobuffer__size(&self->objects) +
-		gobuffer__size(&self->funcs) +
-		gobuffer__size(self->strings));
+	size = (gobuffer__size(&ctf->types) +
+		gobuffer__size(&ctf->objects) +
+		gobuffer__size(&ctf->funcs) +
+		gobuffer__size(ctf->strings));
 
-	self->size = sizeof(*hdr) + size;
-	self->buf = malloc(self->size);
+	ctf->size = sizeof(*hdr) + size;
+	ctf->buf = malloc(ctf->size);
 
-	if (self->buf == NULL) {
+	if (ctf->buf == NULL) {
 		fprintf(stderr, "%s: malloc failed!\n", __func__);
 		return -ENOMEM;
 	}
 
-	hdr = self->buf;
+	hdr = ctf->buf;
 	memset(hdr, 0, sizeof(*hdr));
 	hdr->ctf_magic    = CTF_MAGIC;
 	hdr->ctf_version  = 2;
@@ -581,23 +581,23 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 
 	uint32_t offset = 0;
 	hdr->ctf_object_off = offset;
-	offset += gobuffer__size(&self->objects);
+	offset += gobuffer__size(&ctf->objects);
 	hdr->ctf_func_off = offset;
-	offset += gobuffer__size(&self->funcs);
+	offset += gobuffer__size(&ctf->funcs);
 	hdr->ctf_type_off = offset;
-	offset += gobuffer__size(&self->types);
+	offset += gobuffer__size(&ctf->types);
 	hdr->ctf_str_off  = offset;
-	hdr->ctf_str_len  = gobuffer__size(self->strings);
+	hdr->ctf_str_len  = gobuffer__size(ctf->strings);
 
-	void *payload = self->buf + sizeof(*hdr);
-	gobuffer__copy(&self->objects, payload + hdr->ctf_object_off);
-	gobuffer__copy(&self->funcs, payload + hdr->ctf_func_off);
-	gobuffer__copy(&self->types, payload + hdr->ctf_type_off);
-	gobuffer__copy(self->strings, payload + hdr->ctf_str_off);
+	void *payload = ctf->buf + sizeof(*hdr);
+	gobuffer__copy(&ctf->objects, payload + hdr->ctf_object_off);
+	gobuffer__copy(&ctf->funcs, payload + hdr->ctf_func_off);
+	gobuffer__copy(&ctf->types, payload + hdr->ctf_type_off);
+	gobuffer__copy(ctf->strings, payload + hdr->ctf_str_off);
 
-	*(char *)(self->buf + sizeof(*hdr) + hdr->ctf_str_off) = '\0';
+	*(char *)(ctf->buf + sizeof(*hdr) + hdr->ctf_str_off) = '\0';
 	if (flags & CTF_FLAGS_COMPR) {
-		bf = (void *)ctf__compress(self->buf + sizeof(*hdr), &size);
+		bf = (void *)ctf__compress(ctf->buf + sizeof(*hdr), &size);
 		if (bf == NULL) {
 			printf("%s: ctf__compress failed!\n", __func__);
 			return -ENOMEM;
@@ -611,20 +611,20 @@ int ctf__encode(struct ctf *self, uint8_t flags)
 		bf = new_bf;
 		size += sizeof(*hdr);
 	} else {
-		bf   = self->buf;
-		size = self->size;
+		bf   = ctf->buf;
+		size = ctf->size;
 	}
 #if 0
 	printf("\n\ntypes:\n entries: %d\n size: %u"
 		 "\nstrings:\n entries: %u\n size: %u\ncompressed size: %d\n",
-	       self->type_index,
-	       gobuffer__size(&self->types),
-	       gobuffer__nr_entries(self->strings),
-	       gobuffer__size(self->strings), size);
+	       ctf->type_index,
+	       gobuffer__size(&ctf->types),
+	       gobuffer__nr_entries(ctf->strings),
+	       gobuffer__size(ctf->strings), size);
 #endif
-	int fd = open(self->filename, O_RDWR);
+	int fd = open(ctf->filename, O_RDWR);
 	if (fd < 0) {
-		fprintf(stderr, "Cannot open %s\n", self->filename);
+		fprintf(stderr, "Cannot open %s\n", ctf->filename);
 		return -1;
 	}
 
@@ -724,7 +724,7 @@ found_SUNW_ctf_str:
 	elf_flagshdr(newscn, ELF_C_SET, ELF_F_DIRTY);
 #else
 	char pathname[PATH_MAX];
-	snprintf(pathname, sizeof(pathname), "%s.SUNW_ctf", self->filename);
+	snprintf(pathname, sizeof(pathname), "%s.SUNW_ctf", ctf->filename);
 	fd = creat(pathname, S_IRUSR | S_IWUSR);
 	if (fd == -1) {
 		fprintf(stderr, "%s: open(%s) failed!\n", __func__, pathname);
@@ -738,7 +738,7 @@ found_SUNW_ctf_str:
 
 	char cmd[PATH_MAX];
 	snprintf(cmd, sizeof(cmd), "objcopy --add-section .SUNW_ctf=%s %s",
-		 pathname, self->filename);
+		 pathname, ctf->filename);
 	if (system(cmd) == 0)
 		err = 0;
 out_unlink:
@@ -758,7 +758,7 @@ out_update:
 	elf_end(elf);
 	err = 0;
 out_close:
-	if (bf != self->buf)
+	if (bf != ctf->buf)
 		free(bf);
 	close(fd);
 	return err;

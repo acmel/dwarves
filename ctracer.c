@@ -109,14 +109,14 @@ struct structure {
 
 static struct structure *structure__new(struct tag *class, struct cu *cu)
 {
-	struct structure *self = malloc(sizeof(*self));
+	struct structure *st = malloc(sizeof(*st));
 
-	if (self != NULL) {
-		self->class = class;
-		self->cu    = cu;
+	if (st != NULL) {
+		st->class = class;
+		st->cu    = cu;
 	}
 
-	return self;
+	return st;
 }
 
 /*
@@ -130,9 +130,9 @@ static LIST_HEAD(aliases);
  */
 static LIST_HEAD(pointers);
 
-static const char *structure__name(const struct structure *self)
+static const char *structure__name(const struct structure *st)
 {
-	return class__name(tag__class(self->class), self->cu);
+	return class__name(tag__class(st->class), st->cu);
 }
 
 static struct structure *structures__find(struct list_head *list, const char *name)
@@ -251,7 +251,7 @@ static struct class_member *class_member__bitfield_tail(struct class_member *hea
 /*
  * Bitfields are removed as one for simplification right now.
  */
-static struct class_member *class__remove_member(struct class *self, const struct cu *cu,
+static struct class_member *class__remove_member(struct class *class, const struct cu *cu,
 						 struct class_member *member)
 {
 	size_t size = member->byte_size;
@@ -260,29 +260,29 @@ static struct class_member *class__remove_member(struct class *self, const struc
 	uint16_t member_hole = member->hole;
 
 	if (member->bitfield_size != 0) {
-		bitfield_tail = class_member__bitfield_tail(member, self);
+		bitfield_tail = class_member__bitfield_tail(member, class);
 		member_hole = bitfield_tail->hole;
 	}
 	/*
 	 * Is this the first member?
 	 */
-	if (member->tag.node.prev == class__tags(self)) {
-		self->type.size -= size + member_hole;
-		class__subtract_offsets_from(self, bitfield_tail ?: member,
+	if (member->tag.node.prev == class__tags(class)) {
+		class->type.size -= size + member_hole;
+		class__subtract_offsets_from(class, bitfield_tail ?: member,
 					     size + member_hole);
 	/*
 	 * Is this the last member?
 	 */
-	} else if (member->tag.node.next == class__tags(self)) {
-		if (size + self->padding >= cu->addr_size) {
-			self->type.size -= size + self->padding;
-			self->padding = 0;
+	} else if (member->tag.node.next == class__tags(class)) {
+		if (size + class->padding >= cu->addr_size) {
+			class->type.size -= size + class->padding;
+			class->padding = 0;
 		} else
-			self->padding += size;
+			class->padding += size;
 	} else {
 		if (size + member_hole >= cu->addr_size) {
-			self->type.size -= size + member_hole;
-			class__subtract_offsets_from(self,
+			class->type.size -= size + member_hole;
+			class__subtract_offsets_from(class,
 						     bitfield_tail ?: member,
 						     size + member_hole);
 		} else {
@@ -291,18 +291,18 @@ static struct class_member *class__remove_member(struct class *self, const struc
 						   struct class_member,
 						   tag.node);
 			if (from_prev->hole == 0)
-				self->nr_holes++;
+				class->nr_holes++;
 			from_prev->hole += size + member_hole;
 		}
 	}
 	if (member_hole != 0)
-		self->nr_holes--;
+		class->nr_holes--;
 
 	if (bitfield_tail != NULL) {
 		next = bitfield_tail->tag.node.next;
 		list_del_range(&member->tag.node, &bitfield_tail->tag.node);
 		if (bitfield_tail->bit_hole != 0)
-			self->nr_bit_holes--;
+			class->nr_bit_holes--;
 	} else {
 		next = member->tag.node.next;
 		list_del(&member->tag.node);
@@ -311,13 +311,13 @@ static struct class_member *class__remove_member(struct class *self, const struc
 	return list_entry(next, struct class_member, tag.node);
 }
 
-static size_t class__find_biggest_member_name(const struct class *self,
+static size_t class__find_biggest_member_name(const struct class *class,
 					      const struct cu *cu)
 {
 	struct class_member *pos;
 	size_t biggest_name_len = 0;
 
-	type__for_each_data_member(&self->type, pos) {
+	type__for_each_data_member(&class->type, pos) {
 		const size_t len = pos->name ?
 					strlen(class_member__name(pos, cu)) : 0;
 
@@ -328,7 +328,7 @@ static size_t class__find_biggest_member_name(const struct class *self,
 	return biggest_name_len;
 }
 
-static void class__emit_class_state_collector(struct class *self,
+static void class__emit_class_state_collector(struct class *class,
 					      const struct cu *cu,
 					      struct class *clone)
 {
@@ -340,7 +340,7 @@ static void class__emit_class_state_collector(struct class *self,
 	        "{\n"
 		"\tconst struct %s *obj = from;\n"
 		"\tstruct %s *mini_obj = to;\n\n",
-		class__name(self, cu), class__name(clone, cu));
+		class__name(class, cu), class__name(clone, cu));
 	type__for_each_data_member(&clone->type, pos)
 		fprintf(fp_collector, "\tmini_obj->%-*s = obj->%s;\n", len,
 			class_member__name(pos, cu),
@@ -348,14 +348,14 @@ static void class__emit_class_state_collector(struct class *self,
 	fputs("}\n\n", fp_collector);
 }
 
-static int tag__is_base_type(const struct tag *self, const struct cu *cu)
+static int tag__is_base_type(const struct tag *tag, const struct cu *cu)
 {
-	switch (self->tag) {
+	switch (tag->tag) {
 	case DW_TAG_base_type:
 		return 1;
 
 	case DW_TAG_typedef: {
-		const struct tag *type = cu__type(cu, self->type);
+		const struct tag *type = cu__type(cu, tag->type);
 
 		if (type == NULL)
 			return 0;
@@ -365,13 +365,13 @@ static int tag__is_base_type(const struct tag *self, const struct cu *cu)
 	return 0;
 }
 
-static struct class *class__clone_base_types(const struct tag *tag_self,
+static struct class *class__clone_base_types(const struct tag *tag,
 					     struct cu *cu,
 					     const char *new_class_name)
 {
-	struct class *self = tag__class(tag_self);
+	struct class *class = tag__class(tag);
 	struct class_member *pos, *next;
-	struct class *clone = class__clone(self, new_class_name, cu);
+	struct class *clone = class__clone(class, new_class_name, cu);
 
 	if (clone == NULL)
 		return NULL;
@@ -409,10 +409,10 @@ static void emit_struct_member_table_entry(FILE *fp,
  * ostra-cg to preprocess the raw data collected from the debugfs/relay
  * channel.
  */
-static int class__emit_ostra_converter(struct tag *tag_self,
+static int class__emit_ostra_converter(struct tag *tag,
 				       const struct cu *cu)
 {
-	struct class *self = tag__class(tag_self);
+	struct class *class = tag__class(tag);
 	struct class_member *pos;
 	struct type *type = &mini_class->type;
 	int field = 0, first = 1;
@@ -422,7 +422,7 @@ static int class__emit_ostra_converter(struct tag *tag_self,
 	size_t n;
 	size_t plen = sizeof(parm_list);
 	FILE *fp_fields, *fp_converter;
-	const char *name = class__name(self, cu);
+	const char *name = class__name(class, cu);
 
 	snprintf(filename, sizeof(filename), "%s/%s.fields", src_dir, name);
 	fp_fields = fopen(filename, "w");
@@ -651,22 +651,22 @@ static void emit_list_of_types(struct list_head *list, const struct cu *cu)
 	}
 }
 
-static int class__emit_classes(struct tag *tag_self, struct cu *cu)
+static int class__emit_classes(struct tag *tag, struct cu *cu)
 {
-	struct class *self = tag__class(tag_self);
+	struct class *class = tag__class(tag);
 	int err = -1;
 	char mini_class_name[128];
 
 	snprintf(mini_class_name, sizeof(mini_class_name), "ctracer__mini_%s",
-		 class__name(self, cu));
+		 class__name(class, cu));
 
-	mini_class = class__clone_base_types(tag_self, cu, mini_class_name);
+	mini_class = class__clone_base_types(tag, cu, mini_class_name);
 	if (mini_class == NULL)
 		goto out;
 
-	type__emit_definitions(tag_self, cu, &emissions, fp_classes);
+	type__emit_definitions(tag, cu, &emissions, fp_classes);
 
-	type__emit(tag_self, cu, NULL, NULL, fp_classes);
+	type__emit(tag, cu, NULL, NULL, fp_classes);
 	fputs("\n/* class aliases */\n\n", fp_classes);
 
 	emit_list_of_types(&aliases, cu);
@@ -677,7 +677,7 @@ static int class__emit_classes(struct tag *tag_self, struct cu *cu)
 
 	class__fprintf(mini_class, cu, NULL, fp_classes);
 	fputs(";\n\n", fp_classes);
-	class__emit_class_state_collector(self, cu, mini_class);
+	class__emit_class_state_collector(class, cu, mini_class);
 	err = 0;
 out:
 	return err;
@@ -690,13 +690,13 @@ out:
  * This marks the function entry, function__emit_kretprobes will emit the
  * probe for the function exit.
  */
-static int function__emit_probes(struct function *self, uint32_t function_id,
+static int function__emit_probes(struct function *func, uint32_t function_id,
 				 const struct cu *cu,
 				 const uint16_t target_type_id, int probe_type,
 				 const char *member)
 {
 	struct parameter *pos;
-	const char *name = function__name(self, cu);
+	const char *name = function__name(func, cu);
 
 	fprintf(fp_methods, "probe %s%s = kernel.function(\"%s@%s\")%s\n"
 			    "{\n"
@@ -710,7 +710,7 @@ static int function__emit_probes(struct function *self, uint32_t function_id,
 			    name,
 			    probe_type == 0 ? "" : "__return");
 
-	list_for_each_entry(pos, &self->proto.parms, tag.node) {
+	list_for_each_entry(pos, &func->proto.parms, tag.node) {
 		struct tag *type = cu__type(cu, pos->tag.type);
 
 		tag__assert_search_result(type);

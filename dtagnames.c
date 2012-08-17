@@ -21,22 +21,22 @@ static void print_malloc_stats(void)
 	fprintf(stderr, "size: %u\n", m.uordblks);
 }
 
-static int class__tag_name(struct tag *self, struct cu *cu __unused,
+static int class__tag_name(struct tag *tag, struct cu *cu __unused,
 			   void *cookie __unused)
 {
-	puts(dwarf_tag_name(self->tag));
+	puts(dwarf_tag_name(tag->tag));
 	return 0;
 }
 
-static int cu__dump_class_tag_names(struct cu *self, void *cookie __unused)
+static int cu__dump_class_tag_names(struct cu *cu, void *cookie __unused)
 {
-	cu__for_all_tags(self, class__tag_name, NULL);
+	cu__for_all_tags(cu, class__tag_name, NULL);
 	return 0;
 }
 
-static void cus__dump_class_tag_names(struct cus *self)
+static void cus__dump_class_tag_names(struct cus *cus)
 {
-	cus__for_each_cu(self, cu__dump_class_tag_names, NULL, NULL);
+	cus__for_each_cu(cus, cu__dump_class_tag_names, NULL, NULL);
 }
 
 int main(int argc __unused, char *argv[])

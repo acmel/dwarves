@@ -20,14 +20,14 @@
 
 struct strings *strings__new(void)
 {
-	struct strings *self = malloc(sizeof(*self));
+	struct strings *strs = malloc(sizeof(*strs));
 
-	if (self != NULL) {
-		self->tree = NULL;
-		gobuffer__init(&self->gb);
+	if (strs != NULL) {
+		strs->tree = NULL;
+		gobuffer__init(&strs->gb);
 	}
 
-	return self;
+	return strs;
 
 }
 
@@ -35,22 +35,22 @@ static void do_nothing(void *ptr __unused)
 {
 }
 
-void strings__delete(struct strings *self)
+void strings__delete(struct strings *strs)
 {
-	if (self == NULL)
+	if (strs == NULL)
 		return;
-	tdestroy(self->tree, do_nothing);
-	__gobuffer__delete(&self->gb);
-	free(self);
+	tdestroy(strs->tree, do_nothing);
+	__gobuffer__delete(&strs->gb);
+	free(strs);
 }
 
-static strings_t strings__insert(struct strings *self, const char *s)
+static strings_t strings__insert(struct strings *strs, const char *s)
 {
-	return gobuffer__add(&self->gb, s, strlen(s) + 1);
+	return gobuffer__add(&strs->gb, s, strlen(s) + 1);
 }
 
 struct search_key {
-	struct strings *self;
+	struct strings *strs;
 	const char *str;
 };
 
@@ -58,29 +58,29 @@ static int strings__compare(const void *a, const void *b)
 {
 	const struct search_key *key = a;
 
-	return strcmp(key->str, key->self->gb.entries + (unsigned long)b);
+	return strcmp(key->str, key->strs->gb.entries + (unsigned long)b);
 }
 
-strings_t strings__add(struct strings *self, const char *str)
+strings_t strings__add(struct strings *strs, const char *str)
 {
 	unsigned long *s;
 	strings_t index;
 	struct search_key key = {
-		.self = self,
+		.strs = strs,
 		.str = str,
 	};
 
 	if (str == NULL)
 		return 0;
 
-	s = tsearch(&key, &self->tree, strings__compare);
+	s = tsearch(&key, &strs->tree, strings__compare);
 	if (s != NULL) {
 		if (*(struct search_key **)s == (void *)&key) { /* Not found, replace with the right key */
-			index = strings__insert(self, str);
+			index = strings__insert(strs, str);
 			if (index != 0)
 				*s = (unsigned long)index;
 			else {
-				tdelete(&key, &self->tree, strings__compare);
+				tdelete(&key, &strs->tree, strings__compare);
 				return 0;
 			}
 		} else /* Found! */
@@ -91,23 +91,23 @@ strings_t strings__add(struct strings *self, const char *str)
 	return index;
 }
 
-strings_t strings__find(struct strings *self, const char *str)
+strings_t strings__find(struct strings *strs, const char *str)
 {
 	strings_t *s;
 	struct search_key key = {
-		.self = self,
+		.strs = strs,
 		.str = str,
 	};
 
 	if (str == NULL)
 		return 0;
 
-	s = tfind(&key, &self->tree, strings__compare);
+	s = tfind(&key, &strs->tree, strings__compare);
 	return s ? *s : 0;
 }
 
-int strings__cmp(const struct strings *self, strings_t a, strings_t b)
+int strings__cmp(const struct strings *strs, strings_t a, strings_t b)
 {
-	return a == b ? 0 : strcmp(strings__ptr(self, a),
-				   strings__ptr(self, b));
+	return a == b ? 0 : strcmp(strings__ptr(strs, a),
+				   strings__ptr(strs, b));
 }

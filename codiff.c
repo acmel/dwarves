@@ -58,16 +58,16 @@ static struct diff_info *diff_info__new(const struct tag *twin,
 					const struct cu *cu,
 					int32_t diff)
 {
-	struct diff_info *self = malloc(sizeof(*self));
+	struct diff_info *dinfo = malloc(sizeof(*dinfo));
 
-	if (self == NULL) {
+	if (dinfo == NULL) {
 		puts("out of memory!");
 		exit(1);
 	}
-	self->tag  = twin;
-	self->cu   = cu;
-	self->diff = diff;
-	return self;
+	dinfo->tag  = twin;
+	dinfo->cu   = cu;
+	dinfo->diff = diff;
+	return dinfo;
 }
 
 static void cu__check_max_len_changed_item(struct cu *cu, const char *name,

@@ -74,25 +74,25 @@ struct structure {
 
 static struct structure *structure__new(const char *name)
 {
-	struct structure *self = malloc(sizeof(*self));
+	struct structure *st = malloc(sizeof(*st));
 
-	if (self != NULL) {
-		self->name = strdup(name);
-		if (self->name == NULL) {
-			free(self);
+	if (st != NULL) {
+		st->name = strdup(name);
+		if (st->name == NULL) {
+			free(st);
 			return NULL;
 		}
-		self->nr_files   = 1;
-		self->nr_methods = 0;
+		st->nr_files   = 1;
+		st->nr_methods = 0;
 	}
 
-	return self;
+	return st;
 }
 
-static void structure__delete(struct structure *self)
+static void structure__delete(struct structure *st)
 {
-	free(self->name);
-	free(self);
+	free(st->name);
+	free(st);
 }
 
 static struct rb_root structures__tree = RB_ROOT;
@@ -150,48 +150,48 @@ void structures__delete(void)
 	}
 }
 
-static void nr_definitions_formatter(struct structure *self)
+static void nr_definitions_formatter(struct structure *st)
 {
-	printf("%s%c%u\n", self->name, separator, self->nr_files);
+	printf("%s%c%u\n", st->name, separator, st->nr_files);
 }
 
-static void nr_members_formatter(struct class *self,
+static void nr_members_formatter(struct class *class,
 				 struct cu *cu, uint16_t id __unused)
 {
-	printf("%s%c%u\n", class__name(self, cu), separator,
-	       class__nr_members(self));
+	printf("%s%c%u\n", class__name(class, cu), separator,
+	       class__nr_members(class));
 }
 
-static void nr_methods_formatter(struct structure *self)
+static void nr_methods_formatter(struct structure *st)
 {
-	printf("%s%c%u\n", self->name, separator, self->nr_methods);
+	printf("%s%c%u\n", st->name, separator, st->nr_methods);
 }
 
-static void size_formatter(struct class *self,
+static void size_formatter(struct class *class,
 			   struct cu *cu, uint16_t id __unused)
 {
-	printf("%s%c%d%c%u\n", class__name(self, cu), separator,
-	       class__size(self), separator, self->nr_holes);
+	printf("%s%c%d%c%u\n", class__name(class, cu), separator,
+	       class__size(class), separator, class->nr_holes);
 }
 
-static void class_name_len_formatter(struct class *self, struct cu *cu,
+static void class_name_len_formatter(struct class *class, struct cu *cu,
 				     uint16_t id __unused)
 {
-	const char *name = class__name(self, cu);
+	const char *name = class__name(class, cu);
 	printf("%s%c%zd\n", name, separator, strlen(name));
 }
 
-static void class_name_formatter(struct class *self,
+static void class_name_formatter(struct class *class,
 				 struct cu *cu, uint16_t id __unused)
 {
-	puts(class__name(self, cu));
+	puts(class__name(class, cu));
 }
 
-static void class_formatter(struct class *self, struct cu *cu, uint16_t id)
+static void class_formatter(struct class *class, struct cu *cu, uint16_t id)
 {
 	struct tag *typedef_alias = NULL;
-	struct tag *tag = class__tag(self);
-	const char *name = class__name(self, cu);
+	struct tag *tag = class__tag(class);
+	const char *name = class__name(class, cu);
 
 	if (name == NULL) {
 		/*
@@ -256,7 +256,7 @@ static void print_packable_info(struct class *c, struct cu *cu, uint16_t id)
 		       savings);
 }
 
-static void (*stats_formatter)(struct structure *self) = NULL;
+static void (*stats_formatter)(struct structure *st);
 
 static void print_stats(void)
 {
@@ -269,7 +269,7 @@ static void print_stats(void)
 static struct class *class__filter(struct class *class, struct cu *cu,
 				   uint16_t tag_id);
 
-static void (*formatter)(struct class *self,
+static void (*formatter)(struct class *class,
 			 struct cu *cu, uint16_t id) = class_formatter;
 
 static void print_classes(struct cu *cu)
@@ -329,19 +329,19 @@ static struct cu *cu__filter(struct cu *cu)
 	return cu;
 }
 
-static int class__packable(struct class *self, struct cu *cu)
+static int class__packable(struct class *class, struct cu *cu)
 {
 	struct class *clone;
 
-	if (self->nr_holes == 0 && self->nr_bit_holes == 0)
+	if (class->nr_holes == 0 && class->nr_bit_holes == 0)
 		return 0;
 
-	clone = class__clone(self, NULL, cu);
+	clone = class__clone(class, NULL, cu);
 	if (clone == NULL)
 		return 0;
 	class__reorganize(clone, cu, 0, stdout);
-	if (class__size(self) > class__size(clone)) {
-		self->priv = clone;
+	if (class__size(class) > class__size(clone)) {
+		class->priv = clone;
 		return 1;
 	}
 	/* FIXME: we need to free in the right order,
@@ -427,9 +427,9 @@ static void union__find_new_size(struct tag *tag, struct cu *cu);
 static void class__resize_LP(struct tag *tag, struct cu *cu)
 {
 	struct tag *tag_pos;
-	struct class *self = tag__class(tag);
+	struct class *class = tag__class(tag);
 	size_t word_size_diff;
-	size_t orig_size = self->type.size;
+	size_t orig_size = class->type.size;
 
 	if (tag__type(tag)->resized)
 		return;
@@ -496,36 +496,36 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		if (diff != 0) {
 			struct class_member *m = tag__class_member(tag_pos);
 			if (original_word_size > word_size) {
-				self->type.size -= diff;
-				class__subtract_offsets_from(self, m, diff);
+				class->type.size -= diff;
+				class__subtract_offsets_from(class, m, diff);
 			} else {
-				self->type.size += diff;
-				class__add_offsets_from(self, m, diff);
+				class->type.size += diff;
+				class__add_offsets_from(class, m, diff);
 			}
 		}
 	}
 
 	if (original_word_size > word_size)
-		tag__type(tag)->size_diff = orig_size - self->type.size;
+		tag__type(tag)->size_diff = orig_size - class->type.size;
 	else
-		tag__type(tag)->size_diff = self->type.size - orig_size;
+		tag__type(tag)->size_diff = class->type.size - orig_size;
 
-	class__find_holes(self);
-	class__fixup_alignment(self, cu);
+	class__find_holes(class);
+	class__fixup_alignment(class, cu);
 }
 
 static void union__find_new_size(struct tag *tag, struct cu *cu)
 {
 	struct tag *tag_pos;
-	struct type *self = tag__type(tag);
+	struct type *type = tag__type(tag);
 	size_t max_size = 0;
 
-	if (self->resized)
+	if (type->resized)
 		return;
 
-	self->resized = 1;
+	type->resized = 1;
 
-	type__for_each_tag(self, tag_pos) {
+	type__for_each_tag(type, tag_pos) {
 		struct tag *type;
 		size_t size;
 
@@ -549,12 +549,12 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 			max_size = size;
 	}
 
-	if (max_size > self->size)
-		self->size_diff = max_size - self->size;
+	if (max_size > type->size)
+		type->size_diff = max_size - type->size;
 	else
-		self->size_diff = self->size - max_size;
+		type->size_diff = type->size - max_size;
 
-	self->size = max_size;
+	type->size = max_size;
 }
 
 static void tag__fixup_word_size(struct tag *tag, struct cu *cu)
@@ -607,21 +607,21 @@ static void cu_fixup_word_size_iterator(struct cu *cu)
 		tag__fixup_word_size(pos, cu);
 }
 
-static void cu__account_nr_methods(struct cu *self)
+static void cu__account_nr_methods(struct cu *cu)
 {
 	struct function *pos_function;
 	struct structure *str;
 	uint32_t id;
 
-	cu__for_each_function(self, id, pos_function) {
+	cu__for_each_function(cu, id, pos_function) {
 		struct class_member *pos;
 		list_for_each_entry(pos, &pos_function->proto.parms, tag.node) {
-			struct tag *type = cu__type(self, pos->tag.type);
+			struct tag *type = cu__type(cu, pos->tag.type);
 
 			if (type == NULL || type->tag != DW_TAG_pointer_type)
 				continue;
 
-			type = cu__type(self, type->type);
+			type = cu__type(cu, type->type);
 			if (type == NULL || !tag__is_struct(type))
 				continue;
 
@@ -631,15 +631,15 @@ static void cu__account_nr_methods(struct cu *self)
 
 			struct class *class = tag__class(type);
 
-			if (!class__filter(class, self, 0))
+			if (!class__filter(class, cu, 0))
 				continue;
 
 			bool existing_entry;
-			str = structures__add(class, self, &existing_entry);
+			str = structures__add(class, cu, &existing_entry);
 			if (str == NULL) {
 				fprintf(stderr, "pahole: insufficient memory "
 					"for processing %s, skipping it...\n",
-					self->name);
+					cu->name);
 				return;
 			}
 

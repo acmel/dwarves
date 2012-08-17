@@ -33,19 +33,19 @@
 #define obstack_chunk_alloc malloc
 #define obstack_chunk_free free
 
-const char *cu__string(const struct cu *self, strings_t s)
+const char *cu__string(const struct cu *cu, strings_t s)
 {
-	if (self->dfops && self->dfops->strings__ptr)
-		return self->dfops->strings__ptr(self, s);
+	if (cu->dfops && cu->dfops->strings__ptr)
+		return cu->dfops->strings__ptr(cu, s);
 	return NULL;
 }
 
-static inline const char *s(const struct cu *self, strings_t i)
+static inline const char *s(const struct cu *cu, strings_t i)
 {
-	return cu__string(self, i);
+	return cu__string(cu, i);
 }
 
-int __tag__has_type_loop(const struct tag *self, const struct tag *type,
+int __tag__has_type_loop(const struct tag *tag, const struct tag *type,
 			 char *bf, size_t len, FILE *fp,
 			 const char *fn, int line)
 {
@@ -54,7 +54,7 @@ int __tag__has_type_loop(const struct tag *self, const struct tag *type,
 	if (type == NULL)
 		return 0;
 
-	if (self->type == type->type) {
+	if (tag->type == type->type) {
 		int printed;
 
 		if (bf != NULL)
@@ -62,7 +62,7 @@ int __tag__has_type_loop(const struct tag *self, const struct tag *type,
 		else
 			len = sizeof(bbf);
 		printed = snprintf(abf, len, "<ERROR(%s:%d): detected type loop: type=%d, tag=%s>",
-			 fn, line, self->type, dwarf_tag_name(self->tag));
+			 fn, line, tag->type, dwarf_tag_name(tag->tag));
 		if (bf == NULL)
 			printed = fprintf(fp ?: stderr, "%s\n", abf);
 		return printed;
@@ -71,43 +71,43 @@ int __tag__has_type_loop(const struct tag *self, const struct tag *type,
 	return 0;
 }
 
-static void lexblock__delete_tags(struct tag *tself, struct cu *cu)
+static void lexblock__delete_tags(struct tag *tag, struct cu *cu)
 {
-	struct lexblock *self = tag__lexblock(tself);
+	struct lexblock *block = tag__lexblock(tag);
 	struct tag *pos, *n;
 
-	list_for_each_entry_safe_reverse(pos, n, &self->tags, node) {
+	list_for_each_entry_safe_reverse(pos, n, &block->tags, node) {
 		list_del_init(&pos->node);
 		tag__delete(pos, cu);
 	}
 }
 
-void lexblock__delete(struct lexblock *self, struct cu *cu)
+void lexblock__delete(struct lexblock *block, struct cu *cu)
 {
-	lexblock__delete_tags(&self->ip.tag, cu);
-	obstack_free(&cu->obstack, self);
+	lexblock__delete_tags(&block->ip.tag, cu);
+	obstack_free(&cu->obstack, block);
 }
 
-void tag__delete(struct tag *self, struct cu *cu)
+void tag__delete(struct tag *tag, struct cu *cu)
 {
-	assert(list_empty(&self->node));
+	assert(list_empty(&tag->node));
 
-	switch (self->tag) {
+	switch (tag->tag) {
 	case DW_TAG_union_type:
-		type__delete(tag__type(self), cu);		break;
+		type__delete(tag__type(tag), cu);		break;
 	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
-		class__delete(tag__class(self), cu);		break;
+		class__delete(tag__class(tag), cu);		break;
 	case DW_TAG_enumeration_type:
-		enumeration__delete(tag__type(self), cu);	break;
+		enumeration__delete(tag__type(tag), cu);	break;
 	case DW_TAG_subroutine_type:
-		ftype__delete(tag__ftype(self), cu);		break;
+		ftype__delete(tag__ftype(tag), cu);		break;
 	case DW_TAG_subprogram:
-		function__delete(tag__function(self), cu);	break;
+		function__delete(tag__function(tag), cu);	break;
 	case DW_TAG_lexical_block:
-		lexblock__delete(tag__lexblock(self), cu);	break;
+		lexblock__delete(tag__lexblock(tag), cu);	break;
 	default:
-		obstack_free(&cu->obstack, self);
+		obstack_free(&cu->obstack, tag);
 	}
 }
 
@@ -183,20 +183,20 @@ void base_type_name_to_size_table__init(struct strings *strings)
 	}
 }
 
-size_t base_type__name_to_size(struct base_type *self, struct cu *cu)
+size_t base_type__name_to_size(struct base_type *bt, struct cu *cu)
 {
 	int i = 0;
 	char bf[64];
 	const char *name;
 
-	if (self->name_has_encoding)
-		name = s(cu, self->name);
+	if (bt->name_has_encoding)
+		name = s(cu, bt->name);
 	else
-		name = base_type__name(self, cu, bf, sizeof(bf));
+		name = base_type__name(bt, cu, bf, sizeof(bf));
 
 	while (base_type_name_to_size_table[i].name != NULL) {
-		if (self->name_has_encoding) {
-			if (base_type_name_to_size_table[i].sname == self->name) {
+		if (bt->name_has_encoding) {
+			if (base_type_name_to_size_table[i].sname == bt->name) {
 				size_t size;
 found:
 				size = base_type_name_to_size_table[i].size;
@@ -209,7 +209,7 @@ found:
 		++i;
 	}
 	fprintf(stderr, "%s: %s %s\n",
-		 __func__, dwarf_tag_name(self->tag.tag), name);
+		 __func__, dwarf_tag_name(bt->tag.tag), name);
 	return 0;
 }
 
@@ -228,30 +228,30 @@ static const char *base_type_fp_type_str[] = {
 	[BT_FP_IMGRY_LDBL] = "imaginary long double",
 };
 
-const char *base_type__name(const struct base_type *self, const struct cu *cu,
+const char *base_type__name(const struct base_type *bt, const struct cu *cu,
 			    char *bf, size_t len)
 {
-	if (self->name_has_encoding)
-		return s(cu, self->name);
+	if (bt->name_has_encoding)
+		return s(cu, bt->name);
 
-	if (self->float_type)
+	if (bt->float_type)
 		snprintf(bf, len, "%s %s",
-			 base_type_fp_type_str[self->float_type],
-			 s(cu, self->name));
+			 base_type_fp_type_str[bt->float_type],
+			 s(cu, bt->name));
 	else
 		snprintf(bf, len, "%s%s%s%s",
-			 self->is_signed ? "signed " : "",
-			 self->is_bool ? "bool " : "",
-			 self->is_varargs ? "... " : "",
-			 s(cu, self->name));
+			 bt->is_signed ? "signed " : "",
+			 bt->is_bool ? "bool " : "",
+			 bt->is_varargs ? "... " : "",
+			 s(cu, bt->name));
 	return bf;
 }
 
-void namespace__delete(struct namespace *self, struct cu *cu)
+void namespace__delete(struct namespace *space, struct cu *cu)
 {
 	struct tag *pos, *n;
 
-	namespace__for_each_tag_safe_reverse(self, pos, n) {
+	namespace__for_each_tag_safe_reverse(space, pos, n) {
 		list_del_init(&pos->node);
 
 		/* Look for nested namespaces */
@@ -260,17 +260,17 @@ void namespace__delete(struct namespace *self, struct cu *cu)
 		tag__delete(pos, cu);
 	}
 
-	tag__delete(&self->tag, cu);
+	tag__delete(&space->tag, cu);
 }
 
 struct class_member *
-	type__find_first_biggest_size_base_type_member(struct type *self,
+	type__find_first_biggest_size_base_type_member(struct type *type,
 						       const struct cu *cu)
 {
 	struct class_member *pos, *result = NULL;
 	size_t result_size = 0;
 
-	type__for_each_data_member(self, pos) {
+	type__for_each_data_member(type, pos) {
 		struct tag *type = cu__type(cu, pos->tag.type);
 		size_t member_size = 0, power2;
 		struct class_member *inner = NULL;
@@ -329,83 +329,83 @@ reevaluate:
 	return result;
 }
 
-static void cu__find_class_holes(struct cu *self)
+static void cu__find_class_holes(struct cu *cu)
 {
 	uint16_t id;
 	struct class *pos;
 
-	cu__for_each_struct(self, id, pos)
+	cu__for_each_struct(cu, id, pos)
 		class__find_holes(pos);
 }
 
-void cus__add(struct cus *self, struct cu *cu)
+void cus__add(struct cus *cus, struct cu *cu)
 {
-	list_add_tail(&cu->node, &self->cus);
+	list_add_tail(&cu->node, &cus->cus);
 	cu__find_class_holes(cu);
 }
 
-static void ptr_table__init(struct ptr_table *self)
+static void ptr_table__init(struct ptr_table *pt)
 {
-	self->entries = NULL;
-	self->nr_entries = self->allocated_entries = 0;
+	pt->entries = NULL;
+	pt->nr_entries = pt->allocated_entries = 0;
 }
 
-static void ptr_table__exit(struct ptr_table *self)
+static void ptr_table__exit(struct ptr_table *pt)
 {
-	free(self->entries);
-	self->entries = NULL;
+	free(pt->entries);
+	pt->entries = NULL;
 }
 
-static long ptr_table__add(struct ptr_table *self, void *ptr)
+static long ptr_table__add(struct ptr_table *pt, void *ptr)
 {
-	const uint32_t nr_entries = self->nr_entries + 1;
-	const long rc = self->nr_entries;
+	const uint32_t nr_entries = pt->nr_entries + 1;
+	const long rc = pt->nr_entries;
 
-	if (nr_entries > self->allocated_entries) {
-		uint32_t allocated_entries = self->allocated_entries + 256;
-		void *entries = realloc(self->entries,
+	if (nr_entries > pt->allocated_entries) {
+		uint32_t allocated_entries = pt->allocated_entries + 256;
+		void *entries = realloc(pt->entries,
 					sizeof(void *) * allocated_entries);
 		if (entries == NULL)
 			return -ENOMEM;
 
-		self->allocated_entries = allocated_entries;
-		self->entries = entries;
+		pt->allocated_entries = allocated_entries;
+		pt->entries = entries;
 	}
 
-	self->entries[rc] = ptr;
-	self->nr_entries = nr_entries;
+	pt->entries[rc] = ptr;
+	pt->nr_entries = nr_entries;
 	return rc;
 }
 
-static int ptr_table__add_with_id(struct ptr_table *self, void *ptr,
+static int ptr_table__add_with_id(struct ptr_table *pt, void *ptr,
 				  uint32_t id)
 {
 	/* Assume we won't be fed with the same id more than once */
-	if (id >= self->allocated_entries) {
+	if (id >= pt->allocated_entries) {
 		uint32_t allocated_entries = roundup(id + 1, 256);
-		void *entries = realloc(self->entries,
+		void *entries = realloc(pt->entries,
 					sizeof(void *) * allocated_entries);
 		if (entries == NULL)
 			return -ENOMEM;
 
-		self->allocated_entries = allocated_entries;
-		self->entries = entries;
+		pt->allocated_entries = allocated_entries;
+		pt->entries = entries;
 	}
 
-	self->entries[id] = ptr;
-	++self->nr_entries;
+	pt->entries[id] = ptr;
+	++pt->nr_entries;
 	return 0;
 }
 
-static void *ptr_table__entry(const struct ptr_table *self, uint32_t id)
+static void *ptr_table__entry(const struct ptr_table *pt, uint32_t id)
 {
-	return id >= self->nr_entries ? NULL : self->entries[id];
+	return id >= pt->nr_entries ? NULL : pt->entries[id];
 }
 
-static void cu__insert_function(struct cu *self, struct tag *tag)
+static void cu__insert_function(struct cu *cu, struct tag *tag)
 {
 	struct function *function = tag__function(tag);
-        struct rb_node **p = &self->functions.rb_node;
+        struct rb_node **p = &cu->functions.rb_node;
         struct rb_node *parent = NULL;
         struct function *f;
 
@@ -418,18 +418,18 @@ static void cu__insert_function(struct cu *self, struct tag *tag)
                         p = &(*p)->rb_right;
         }
         rb_link_node(&function->rb_node, parent, p);
-        rb_insert_color(&function->rb_node, &self->functions);
+        rb_insert_color(&function->rb_node, &cu->functions);
 }
 
-int cu__table_add_tag(struct cu *self, struct tag *tag, long *id)
+int cu__table_add_tag(struct cu *cu, struct tag *tag, long *id)
 {
-	struct ptr_table *pt = &self->tags_table;
+	struct ptr_table *pt = &cu->tags_table;
 
 	if (tag__is_tag_type(tag))
-		pt = &self->types_table;
+		pt = &cu->types_table;
 	else if (tag__is_function(tag)) {
-		pt = &self->functions_table;
-		cu__insert_function(self, tag);
+		pt = &cu->functions_table;
+		cu__insert_function(cu, tag);
 	}
 
 	if (*id < 0) {
@@ -441,17 +441,17 @@ int cu__table_add_tag(struct cu *self, struct tag *tag, long *id)
 	return 0;
 }
 
-int cu__table_nullify_type_entry(struct cu *self, uint32_t id)
+int cu__table_nullify_type_entry(struct cu *cu, uint32_t id)
 {
-	return ptr_table__add_with_id(&self->types_table, NULL, id);
+	return ptr_table__add_with_id(&cu->types_table, NULL, id);
 }
 
-int cu__add_tag(struct cu *self, struct tag *tag, long *id)
+int cu__add_tag(struct cu *cu, struct tag *tag, long *id)
 {
-	int err = cu__table_add_tag(self, tag, id);
+	int err = cu__table_add_tag(cu, tag, id);
 
 	if (err == 0)
-		list_add_tail(&tag->node, &self->tags);
+		list_add_tail(&tag->node, &cu->tags);
 
 	return err;
 }
@@ -460,123 +460,123 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id, int build_id_len,
 		   const char *filename)
 {
-	struct cu *self = malloc(sizeof(*self) + build_id_len);
+	struct cu *cu = malloc(sizeof(*cu) + build_id_len);
 
-	if (self != NULL) {
-		self->name = strdup(name);
-		self->filename = strdup(filename);
-		if (self->name == NULL || self->filename == NULL)
+	if (cu != NULL) {
+		cu->name = strdup(name);
+		cu->filename = strdup(filename);
+		if (cu->name == NULL || cu->filename == NULL)
 			goto out_free;
 
-		obstack_init(&self->obstack);
-		ptr_table__init(&self->tags_table);
-		ptr_table__init(&self->types_table);
-		ptr_table__init(&self->functions_table);
+		obstack_init(&cu->obstack);
+		ptr_table__init(&cu->tags_table);
+		ptr_table__init(&cu->types_table);
+		ptr_table__init(&cu->functions_table);
 		/*
 		 * the first entry is historically associated with void,
 		 * so make sure we don't use it
 		 */
-		if (ptr_table__add(&self->types_table, NULL) < 0)
+		if (ptr_table__add(&cu->types_table, NULL) < 0)
 			goto out_free_name;
 
-		self->functions = RB_ROOT;
+		cu->functions = RB_ROOT;
 
-		self->dfops	= NULL;
-		INIT_LIST_HEAD(&self->tags);
-		INIT_LIST_HEAD(&self->tool_list);
+		cu->dfops	= NULL;
+		INIT_LIST_HEAD(&cu->tags);
+		INIT_LIST_HEAD(&cu->tool_list);
 
-		self->addr_size = addr_size;
-		self->extra_dbg_info = 0;
+		cu->addr_size = addr_size;
+		cu->extra_dbg_info = 0;
 
-		self->nr_inline_expansions   = 0;
-		self->size_inline_expansions = 0;
-		self->nr_structures_changed    = 0;
-		self->nr_functions_changed     = 0;
-		self->max_len_changed_item     = 0;
-		self->function_bytes_added     = 0;
-		self->function_bytes_removed   = 0;
-		self->build_id_len	       = build_id_len;
+		cu->nr_inline_expansions   = 0;
+		cu->size_inline_expansions = 0;
+		cu->nr_structures_changed  = 0;
+		cu->nr_functions_changed   = 0;
+		cu->max_len_changed_item   = 0;
+		cu->function_bytes_added   = 0;
+		cu->function_bytes_removed = 0;
+		cu->build_id_len	   = build_id_len;
 		if (build_id_len > 0)
-			memcpy(self->build_id, build_id, build_id_len);
+			memcpy(cu->build_id, build_id, build_id_len);
 	}
 out:
-	return self;
+	return cu;
 out_free_name:
-	free(self->name);
-	free(self->filename);
+	free(cu->name);
+	free(cu->filename);
 out_free:
-	free(self);
-	self = NULL;
+	free(cu);
+	cu = NULL;
 	goto out;
 }
 
-void cu__delete(struct cu *self)
+void cu__delete(struct cu *cu)
 {
-	ptr_table__exit(&self->tags_table);
-	ptr_table__exit(&self->types_table);
-	ptr_table__exit(&self->functions_table);
-	if (self->dfops && self->dfops->cu__delete)
-		self->dfops->cu__delete(self);
-	obstack_free(&self->obstack, NULL);
-	free(self->filename);
-	free(self->name);
-	free(self);
+	ptr_table__exit(&cu->tags_table);
+	ptr_table__exit(&cu->types_table);
+	ptr_table__exit(&cu->functions_table);
+	if (cu->dfops && cu->dfops->cu__delete)
+		cu->dfops->cu__delete(cu);
+	obstack_free(&cu->obstack, NULL);
+	free(cu->filename);
+	free(cu->name);
+	free(cu);
 }
 
-bool cu__same_build_id(const struct cu *self, const struct cu *other)
+bool cu__same_build_id(const struct cu *cu, const struct cu *other)
 {
-	return self->build_id_len != 0 &&
-	       self->build_id_len == other->build_id_len &&
-	       memcmp(self->build_id, other->build_id, self->build_id_len) == 0;
+	return cu->build_id_len != 0 &&
+	       cu->build_id_len == other->build_id_len &&
+	       memcmp(cu->build_id, other->build_id, cu->build_id_len) == 0;
 }
 
-struct tag *cu__function(const struct cu *self, const uint32_t id)
+struct tag *cu__function(const struct cu *cu, const uint32_t id)
 {
-	return self ? ptr_table__entry(&self->functions_table, id) : NULL;
+	return cu ? ptr_table__entry(&cu->functions_table, id) : NULL;
 }
 
-struct tag *cu__tag(const struct cu *self, const uint32_t id)
+struct tag *cu__tag(const struct cu *cu, const uint32_t id)
 {
-	return self ? ptr_table__entry(&self->tags_table, id) : NULL;
+	return cu ? ptr_table__entry(&cu->tags_table, id) : NULL;
 }
 
-struct tag *cu__type(const struct cu *self, const uint16_t id)
+struct tag *cu__type(const struct cu *cu, const uint16_t id)
 {
-	return self ? ptr_table__entry(&self->types_table, id) : NULL;
+	return cu ? ptr_table__entry(&cu->types_table, id) : NULL;
 }
 
-struct tag *cu__find_first_typedef_of_type(const struct cu *self,
+struct tag *cu__find_first_typedef_of_type(const struct cu *cu,
 					   const uint16_t type)
 {
 	uint16_t id;
 	struct tag *pos;
 
-	if (self == NULL || type == 0)
+	if (cu == NULL || type == 0)
 		return NULL;
 
-	cu__for_each_type(self, id, pos)
+	cu__for_each_type(cu, id, pos)
 		if (tag__is_typedef(pos) && pos->type == type)
 			return pos;
 
 	return NULL;
 }
 
-struct tag *cu__find_base_type_by_name(const struct cu *self,
+struct tag *cu__find_base_type_by_name(const struct cu *cu,
 				       const char *name, uint16_t *idp)
 {
 	uint16_t id;
 	struct tag *pos;
 
-	if (self == NULL || name == NULL)
+	if (cu == NULL || name == NULL)
 		return NULL;
 
-	cu__for_each_type(self, id, pos) {
+	cu__for_each_type(cu, id, pos) {
 		if (pos->tag != DW_TAG_base_type)
 			continue;
 
 		const struct base_type *bt = tag__base_type(pos);
 		char bf[64];
-		const char *bname = base_type__name(bt, self, bf, sizeof(bf));
+		const char *bname = base_type__name(bt, cu, bf, sizeof(bf));
 		if (!bname || strcmp(bname, name) != 0)
 			continue;
 
@@ -588,7 +588,7 @@ struct tag *cu__find_base_type_by_name(const struct cu *self,
 	return NULL;
 }
 
-struct tag *cu__find_base_type_by_sname_and_size(const struct cu *self,
+struct tag *cu__find_base_type_by_sname_and_size(const struct cu *cu,
 						 strings_t sname,
 						 uint16_t bit_size,
 						 uint16_t *idp)
@@ -599,7 +599,7 @@ struct tag *cu__find_base_type_by_sname_and_size(const struct cu *self,
 	if (sname == 0)
 		return NULL;
 
-	cu__for_each_type(self, id, pos) {
+	cu__for_each_type(cu, id, pos) {
 		if (pos->tag == DW_TAG_base_type) {
 			const struct base_type *bt = tag__base_type(pos);
 
@@ -615,7 +615,7 @@ struct tag *cu__find_base_type_by_sname_and_size(const struct cu *self,
 	return NULL;
 }
 
-struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *self,
+struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *cu,
 						   strings_t sname,
 						   uint16_t bit_size,
 						   uint16_t *idp)
@@ -626,7 +626,7 @@ struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *self,
 	if (sname == 0)
 		return NULL;
 
-	cu__for_each_type(self, id, pos) {
+	cu__for_each_type(cu, id, pos) {
 		if (pos->tag == DW_TAG_enumeration_type) {
 			const struct type *t = tag__type(pos);
 
@@ -642,7 +642,7 @@ struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *self,
 	return NULL;
 }
 
-struct tag *cu__find_struct_by_sname(const struct cu *self, strings_t sname,
+struct tag *cu__find_struct_by_sname(const struct cu *cu, strings_t sname,
 				     const int include_decls, uint16_t *idp)
 {
 	uint16_t id;
@@ -651,7 +651,7 @@ struct tag *cu__find_struct_by_sname(const struct cu *self, strings_t sname,
 	if (sname == 0)
 		return NULL;
 
-	cu__for_each_type(self, id, pos) {
+	cu__for_each_type(cu, id, pos) {
 		struct type *type;
 
 		if (!tag__is_struct(pos))
@@ -675,22 +675,22 @@ found:
 
 }
 
-struct tag *cu__find_struct_by_name(const struct cu *self, const char *name,
+struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
 				    const int include_decls, uint16_t *idp)
 {
-	if (self == NULL || name == NULL)
+	if (cu == NULL || name == NULL)
 		return NULL;
 
 	uint16_t id;
 	struct tag *pos;
-	cu__for_each_type(self, id, pos) {
+	cu__for_each_type(cu, id, pos) {
 		struct type *type;
 
 		if (!tag__is_struct(pos))
 			continue;
 
 		type = tag__type(pos);
-		const char *tname = type__name(type, self);
+		const char *tname = type__name(type, cu);
 		if (tname && strcmp(tname, name) == 0) {
 			if (!type->declaration)
 				goto found;
@@ -707,13 +707,13 @@ found:
 	return pos;
 }
 
-struct tag *cus__find_struct_by_name(const struct cus *self,
+struct tag *cus__find_struct_by_name(const struct cus *cus,
 				     struct cu **cu, const char *name,
 				     const int include_decls, uint16_t *id)
 {
 	struct cu *pos;
 
-	list_for_each_entry(pos, &self->cus, node) {
+	list_for_each_entry(pos, &cus->cus, node) {
 		struct tag *tag = cu__find_struct_by_name(pos, name,
 							  include_decls,
 							  id);
@@ -727,15 +727,15 @@ struct tag *cus__find_struct_by_name(const struct cus *self,
 	return NULL;
 }
 
-struct function *cu__find_function_at_addr(const struct cu *self,
+struct function *cu__find_function_at_addr(const struct cu *cu,
 					   uint64_t addr)
 {
         struct rb_node *n;
 
-        if (self == NULL)
+        if (cu == NULL)
                 return NULL;
 
-        n = self->functions.rb_node;
+        n = cu->functions.rb_node;
 
         while (n) {
                 struct function *f = rb_entry(n, struct function, rb_node);
@@ -752,12 +752,12 @@ struct function *cu__find_function_at_addr(const struct cu *self,
 
 }
 
-struct function *cus__find_function_at_addr(const struct cus *self,
+struct function *cus__find_function_at_addr(const struct cus *cus,
 					    uint64_t addr, struct cu **cu)
 {
 	struct cu *pos;
 
-	list_for_each_entry(pos, &self->cus, node) {
+	list_for_each_entry(pos, &cus->cus, node) {
 		struct function *f = cu__find_function_at_addr(pos, addr);
 
 		if (f != NULL) {
@@ -769,26 +769,26 @@ struct function *cus__find_function_at_addr(const struct cus *self,
 	return NULL;
 }
 
-struct cu *cus__find_cu_by_name(const struct cus *self, const char *name)
+struct cu *cus__find_cu_by_name(const struct cus *cus, const char *name)
 {
 	struct cu *pos;
 
-	list_for_each_entry(pos, &self->cus, node)
+	list_for_each_entry(pos, &cus->cus, node)
 		if (pos->name && strcmp(pos->name, name) == 0)
 			return pos;
 
 	return NULL;
 }
 
-struct tag *cu__find_function_by_name(const struct cu *self, const char *name)
+struct tag *cu__find_function_by_name(const struct cu *cu, const char *name)
 {
-	if (self == NULL || name == NULL)
+	if (cu == NULL || name == NULL)
 		return NULL;
 
 	uint32_t id;
 	struct function *pos;
-	cu__for_each_function(self, id, pos) {
-		const char *fname = function__name(pos, self);
+	cu__for_each_function(cu, id, pos) {
+		const char *fname = function__name(pos, cu);
 		if (fname && strcmp(fname, name) == 0)
 			return function__tag(pos);
 	}
@@ -796,171 +796,171 @@ struct tag *cu__find_function_by_name(const struct cu *self, const char *name)
 	return NULL;
 }
 
-static size_t array_type__nr_entries(const struct array_type *self)
+static size_t array_type__nr_entries(const struct array_type *at)
 {
 	int i;
 	size_t nr_entries = 1;
 
-	for (i = 0; i < self->dimensions; ++i)
-		nr_entries *= self->nr_entries[i];
+	for (i = 0; i < at->dimensions; ++i)
+		nr_entries *= at->nr_entries[i];
 
 	return nr_entries;
 }
 
-size_t tag__size(const struct tag *self, const struct cu *cu)
+size_t tag__size(const struct tag *tag, const struct cu *cu)
 {
 	size_t size;
 
-	switch (self->tag) {
+	switch (tag->tag) {
 	case DW_TAG_member: {
 		/* Is it cached already? */
-		size = tag__class_member(self)->byte_size;
+		size = tag__class_member(tag)->byte_size;
 		if (size != 0)
 			return size;
 		break;
 	}
 	case DW_TAG_pointer_type:
 	case DW_TAG_reference_type:	return cu->addr_size;
-	case DW_TAG_base_type:		return base_type__size(self);
-	case DW_TAG_enumeration_type:	return tag__type(self)->size / 8;
+	case DW_TAG_base_type:		return base_type__size(tag);
+	case DW_TAG_enumeration_type:	return tag__type(tag)->size / 8;
 	}
 
-	if (self->type == 0) { /* struct class: unions, structs */
-		struct type *type = tag__type(self);
+	if (tag->type == 0) { /* struct class: unions, structs */
+		struct type *type = tag__type(tag);
 
 		/* empty base optimization trick */
 		if (type->size == 1 && type->nr_members == 0)
 			size = 0;
 		else
-			size = tag__type(self)->size;
+			size = tag__type(tag)->size;
 	} else {
-		const struct tag *type = cu__type(cu, self->type);
+		const struct tag *type = cu__type(cu, tag->type);
 
 		if (type == NULL) {
-			tag__id_not_found_fprintf(stderr, self->type);
+			tag__id_not_found_fprintf(stderr, tag->type);
 			return -1;
-		} else if (tag__has_type_loop(self, type, NULL, 0, NULL))
+		} else if (tag__has_type_loop(tag, type, NULL, 0, NULL))
 			return -1;
 		size = tag__size(type, cu);
 	}
 
-	if (self->tag == DW_TAG_array_type)
-		return size * array_type__nr_entries(tag__array_type(self));
+	if (tag->tag == DW_TAG_array_type)
+		return size * array_type__nr_entries(tag__array_type(tag));
 
 	return size;
 }
 
-const char *variable__name(const struct variable *self, const struct cu *cu)
+const char *variable__name(const struct variable *var, const struct cu *cu)
 {
 	if (cu->dfops && cu->dfops->variable__name)
-		return cu->dfops->variable__name(self, cu);
-	return s(cu, self->name);
+		return cu->dfops->variable__name(var, cu);
+	return s(cu, var->name);
 }
 
-const char *variable__type_name(const struct variable *self,
+const char *variable__type_name(const struct variable *var,
 				const struct cu *cu,
 				char *bf, size_t len)
 {
-	const struct tag *tag = cu__type(cu, self->ip.tag.type);
+	const struct tag *tag = cu__type(cu, var->ip.tag.type);
 	return tag != NULL ? tag__name(tag, cu, bf, len, NULL) : NULL;
 }
 
-void class_member__delete(struct class_member *self, struct cu *cu)
+void class_member__delete(struct class_member *member, struct cu *cu)
 {
-	obstack_free(&cu->obstack, self);
+	obstack_free(&cu->obstack, member);
 }
 
 static struct class_member *class_member__clone(const struct class_member *from,
 						struct cu *cu)
 {
-	struct class_member *self = obstack_alloc(&cu->obstack, sizeof(*self));
+	struct class_member *member = obstack_alloc(&cu->obstack, sizeof(*member));
 
-	if (self != NULL)
-		memcpy(self, from, sizeof(*self));
+	if (member != NULL)
+		memcpy(member, from, sizeof(*member));
 
-	return self;
+	return member;
 }
 
-static void type__delete_class_members(struct type *self, struct cu *cu)
+static void type__delete_class_members(struct type *type, struct cu *cu)
 {
 	struct class_member *pos, *next;
 
-	type__for_each_tag_safe_reverse(self, pos, next) {
+	type__for_each_tag_safe_reverse(type, pos, next) {
 		list_del_init(&pos->tag.node);
 		class_member__delete(pos, cu);
 	}
 }
 
-void class__delete(struct class *self, struct cu *cu)
+void class__delete(struct class *class, struct cu *cu)
 {
-	if (self->type.namespace.sname != NULL)
-		free(self->type.namespace.sname);
-	type__delete_class_members(&self->type, cu);
-	obstack_free(&cu->obstack, self);
+	if (class->type.namespace.sname != NULL)
+		free(class->type.namespace.sname);
+	type__delete_class_members(&class->type, cu);
+	obstack_free(&cu->obstack, class);
 }
 
-void type__delete(struct type *self, struct cu *cu)
+void type__delete(struct type *type, struct cu *cu)
 {
-	type__delete_class_members(self, cu);
-	obstack_free(&cu->obstack, self);
+	type__delete_class_members(type, cu);
+	obstack_free(&cu->obstack, type);
 }
 
-static void enumerator__delete(struct enumerator *self, struct cu *cu)
+static void enumerator__delete(struct enumerator *enumerator, struct cu *cu)
 {
-	obstack_free(&cu->obstack, self);
+	obstack_free(&cu->obstack, enumerator);
 }
 
-void enumeration__delete(struct type *self, struct cu *cu)
+void enumeration__delete(struct type *type, struct cu *cu)
 {
 	struct enumerator *pos, *n;
-	type__for_each_enumerator_safe_reverse(self, pos, n) {
+	type__for_each_enumerator_safe_reverse(type, pos, n) {
 		list_del_init(&pos->tag.node);
 		enumerator__delete(pos, cu);
 	}
 }
 
-void class__add_vtable_entry(struct class *self, struct function *vtable_entry)
+void class__add_vtable_entry(struct class *class, struct function *vtable_entry)
 {
-	++self->nr_vtable_entries;
-	list_add_tail(&vtable_entry->vtable_node, &self->vtable);
+	++class->nr_vtable_entries;
+	list_add_tail(&vtable_entry->vtable_node, &class->vtable);
 }
 
-void namespace__add_tag(struct namespace *self, struct tag *tag)
+void namespace__add_tag(struct namespace *space, struct tag *tag)
 {
-	++self->nr_tags;
-	list_add_tail(&tag->node, &self->tags);
+	++space->nr_tags;
+	list_add_tail(&tag->node, &space->tags);
 }
 
-void type__add_member(struct type *self, struct class_member *member)
+void type__add_member(struct type *type, struct class_member *member)
 {
-	++self->nr_members;
-	namespace__add_tag(&self->namespace, &member->tag);
+	++type->nr_members;
+	namespace__add_tag(&type->namespace, &member->tag);
 }
 
-struct class_member *type__last_member(struct type *self)
+struct class_member *type__last_member(struct type *type)
 {
 	struct class_member *pos;
 
-	list_for_each_entry_reverse(pos, &self->namespace.tags, tag.node)
+	list_for_each_entry_reverse(pos, &type->namespace.tags, tag.node)
 		if (pos->tag.tag == DW_TAG_member)
 			return pos;
 	return NULL;
 }
 
-static int type__clone_members(struct type *self, const struct type *from,
+static int type__clone_members(struct type *type, const struct type *from,
 			       struct cu *cu)
 {
 	struct class_member *pos;
 
-	self->nr_members = 0;
-	INIT_LIST_HEAD(&self->namespace.tags);
+	type->nr_members = 0;
+	INIT_LIST_HEAD(&type->namespace.tags);
 
 	type__for_each_member(from, pos) {
 		struct class_member *clone = class_member__clone(pos, cu);
 
 		if (clone == NULL)
 			return -1;
-		type__add_member(self, clone);
+		type__add_member(type, clone);
 	}
 
 	return 0;
@@ -969,77 +969,77 @@ static int type__clone_members(struct type *self, const struct type *from,
 struct class *class__clone(const struct class *from,
 			   const char *new_class_name, struct cu *cu)
 {
-	struct class *self = obstack_alloc(&cu->obstack, sizeof(*self));
+	struct class *class = obstack_alloc(&cu->obstack, sizeof(*class));
 
-	 if (self != NULL) {
-		memcpy(self, from, sizeof(*self));
+	 if (class != NULL) {
+		memcpy(class, from, sizeof(*class));
 		if (new_class_name != NULL) {
-			self->type.namespace.name = 0;
-			self->type.namespace.sname = strdup(new_class_name);
-			if (self->type.namespace.sname == NULL) {
-				free(self);
+			class->type.namespace.name = 0;
+			class->type.namespace.sname = strdup(new_class_name);
+			if (class->type.namespace.sname == NULL) {
+				free(class);
 				return NULL;
 			}
 		}
-		if (type__clone_members(&self->type, &from->type, cu) != 0) {
-			class__delete(self, cu);
-			self = NULL;
+		if (type__clone_members(&class->type, &from->type, cu) != 0) {
+			class__delete(class, cu);
+			class = NULL;
 		}
 	}
 
-	return self;
+	return class;
 }
 
-void enumeration__add(struct type *self, struct enumerator *enumerator)
+void enumeration__add(struct type *type, struct enumerator *enumerator)
 {
-	++self->nr_members;
-	namespace__add_tag(&self->namespace, &enumerator->tag);
+	++type->nr_members;
+	namespace__add_tag(&type->namespace, &enumerator->tag);
 }
 
-void lexblock__add_lexblock(struct lexblock *self, struct lexblock *child)
+void lexblock__add_lexblock(struct lexblock *block, struct lexblock *child)
 {
-	++self->nr_lexblocks;
-	list_add_tail(&child->ip.tag.node, &self->tags);
+	++block->nr_lexblocks;
+	list_add_tail(&child->ip.tag.node, &block->tags);
 }
 
-const char *function__name(struct function *self, const struct cu *cu)
+const char *function__name(struct function *func, const struct cu *cu)
 {
 	if (cu->dfops && cu->dfops->function__name)
-		return cu->dfops->function__name(self, cu);
-	return s(cu, self->name);
+		return cu->dfops->function__name(func, cu);
+	return s(cu, func->name);
 }
 
-static void parameter__delete(struct parameter *self, struct cu *cu)
+static void parameter__delete(struct parameter *parm, struct cu *cu)
 {
-	obstack_free(&cu->obstack, self);
+	obstack_free(&cu->obstack, parm);
 }
 
-void ftype__delete(struct ftype *self, struct cu *cu)
+void ftype__delete(struct ftype *type, struct cu *cu)
 {
 	struct parameter *pos, *n;
 
-	if (self == NULL)
+	if (type == NULL)
 		return;
 
-	ftype__for_each_parameter_safe_reverse(self, pos, n) {
+	ftype__for_each_parameter_safe_reverse(type, pos, n) {
 		list_del_init(&pos->tag.node);
 		parameter__delete(pos, cu);
 	}
-	obstack_free(&cu->obstack, self);
+	obstack_free(&cu->obstack, type);
 }
 
-void function__delete(struct function *self, struct cu *cu)
+void function__delete(struct function *func, struct cu *cu)
 {
-	lexblock__delete_tags(&self->lexblock.ip.tag, cu);
-	ftype__delete(&self->proto, cu);
+	lexblock__delete_tags(&func->lexblock.ip.tag, cu);
+	ftype__delete(&func->proto, cu);
 }
 
-int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
+int ftype__has_parm_of_type(const struct ftype *ftype, const uint16_t target,
 			    const struct cu *cu)
 {
 	struct parameter *pos;
 
-	ftype__for_each_parameter(self, pos) {
+	ftype__for_each_parameter(ftype, pos) {
 		struct tag *type = cu__type(cu, pos->tag.type);
 
 		if (type != NULL && type->tag == DW_TAG_pointer_type) {
@@ -1050,45 +1050,45 @@ int ftype__has_parm_of_type(const struct ftype *self, const uint16_t target,
 	return 0;
 }
 
-void ftype__add_parameter(struct ftype *self, struct parameter *parm)
+void ftype__add_parameter(struct ftype *ftype, struct parameter *parm)
 {
-	++self->nr_parms;
-	list_add_tail(&parm->tag.node, &self->parms);
+	++ftype->nr_parms;
+	list_add_tail(&parm->tag.node, &ftype->parms);
 }
 
-void lexblock__add_tag(struct lexblock *self, struct tag *tag)
+void lexblock__add_tag(struct lexblock *block, struct tag *tag)
 {
-	list_add_tail(&tag->node, &self->tags);
+	list_add_tail(&tag->node, &block->tags);
 }
 
-void lexblock__add_inline_expansion(struct lexblock *self,
+void lexblock__add_inline_expansion(struct lexblock *block,
 				    struct inline_expansion *exp)
 {
-	++self->nr_inline_expansions;
-	self->size_inline_expansions += exp->size;
-	lexblock__add_tag(self, &exp->ip.tag);
+	++block->nr_inline_expansions;
+	block->size_inline_expansions += exp->size;
+	lexblock__add_tag(block, &exp->ip.tag);
 }
 
-void lexblock__add_variable(struct lexblock *self, struct variable *var)
+void lexblock__add_variable(struct lexblock *block, struct variable *var)
 {
-	++self->nr_variables;
-	lexblock__add_tag(self, &var->ip.tag);
+	++block->nr_variables;
+	lexblock__add_tag(block, &var->ip.tag);
 }
 
-void lexblock__add_label(struct lexblock *self, struct label *label)
+void lexblock__add_label(struct lexblock *block, struct label *label)
 {
-	++self->nr_labels;
-	lexblock__add_tag(self, &label->ip.tag);
+	++block->nr_labels;
+	lexblock__add_tag(block, &label->ip.tag);
 }
 
-const struct class_member *class__find_bit_hole(const struct class *self,
+const struct class_member *class__find_bit_hole(const struct class *class,
 					    const struct class_member *trailer,
 						const uint16_t bit_hole_size)
 {
 	struct class_member *pos;
 	const size_t byte_hole_size = bit_hole_size / 8;
 
-	type__for_each_data_member(&self->type, pos)
+	type__for_each_data_member(&class->type, pos)
 		if (pos == trailer)
 			break;
 		else if (pos->hole >= byte_hole_size ||
@@ -1098,16 +1098,16 @@ const struct class_member *class__find_bit_hole(const struct class *self,
 	return NULL;
 }
 
-void class__find_holes(struct class *self)
+void class__find_holes(struct class *class)
 {
-	const struct type *ctype = &self->type;
+	const struct type *ctype = &class->type;
 	struct class_member *pos, *last = NULL;
 	size_t last_size = 0;
 	uint32_t bit_sum = 0;
 	uint32_t bitfield_real_offset = 0;
 
-	self->nr_holes = 0;
-	self->nr_bit_holes = 0;
+	class->nr_holes = 0;
+	class->nr_bit_holes = 0;
 
 	type__for_each_member(ctype, pos) {
 		/* XXX for now just skip these */
@@ -1142,7 +1142,7 @@ void class__find_holes(struct class *self)
 
 				last->hole = cc_last_size - last_size;
 				if (last->hole > 0)
-					++self->nr_holes;
+					++class->nr_holes;
 
 				if (bit_sum != 0) {
 					if (bitfield_real_offset != 0) {
@@ -1153,7 +1153,7 @@ void class__find_holes(struct class *self)
 					last->bit_hole = (last_size * 8) -
 							 bit_sum;
 					if (last->bit_hole != 0)
-						++self->nr_bit_holes;
+						++class->nr_bit_holes;
 
 					last->bitfield_end = 1;
 					bit_sum = 0;
@@ -1180,34 +1180,34 @@ void class__find_holes(struct class *self)
 
 	if (last != NULL) {
 		if (last->byte_offset + last_size != ctype->size)
-			self->padding = ctype->size -
+			class->padding = ctype->size -
 					(last->byte_offset + last_size);
 		if (last->bitfield_size != 0)
-			self->bit_padding = (last_size * 8) - bit_sum;
+			class->bit_padding = (last_size * 8) - bit_sum;
 	} else
 		/* No members? Zero sized C++ class */
-		self->padding = 0;
+		class->padding = 0;
 }
 
 /** class__has_hole_ge - check if class has a hole greater or equal to @size
- * @self - class instance
+ * @class - class instance
  * @size - hole size to check
  */
-int class__has_hole_ge(const struct class *self, const uint16_t size)
+int class__has_hole_ge(const struct class *class, const uint16_t size)
 {
 	struct class_member *pos;
 
-	if (self->nr_holes == 0)
+	if (class->nr_holes == 0)
 		return 0;
 
-	type__for_each_data_member(&self->type, pos)
+	type__for_each_data_member(&class->type, pos)
 		if (pos->hole >= size)
 			return 1;
 
 	return 0;
 }
 
-struct class_member *type__find_member_by_name(const struct type *self,
+struct class_member *type__find_member_by_name(const struct type *type,
 					       const struct cu *cu,
 					       const char *name)
 {
@@ -1215,7 +1215,7 @@ struct class_member *type__find_member_by_name(const struct type *self,
 		return NULL;
 
 	struct class_member *pos;
-	type__for_each_data_member(self, pos) {
+	type__for_each_data_member(type, pos) {
 		const char *curr_name = class_member__name(pos, cu);
 		if (curr_name && strcmp(curr_name, name) == 0)
 			return pos;
@@ -1224,27 +1224,27 @@ struct class_member *type__find_member_by_name(const struct type *self,
 	return NULL;
 }
 
-uint32_t type__nr_members_of_type(const struct type *self, const uint16_t type)
+uint32_t type__nr_members_of_type(const struct type *type, const uint16_t type_id)
 {
 	struct class_member *pos;
 	uint32_t nr_members_of_type = 0;
 
-	type__for_each_member(self, pos)
-		if (pos->tag.type == type)
+	type__for_each_member(type, pos)
+		if (pos->tag.type == type_id)
 			++nr_members_of_type;
 
 	return nr_members_of_type;
 }
 
-static void lexblock__account_inline_expansions(struct lexblock *self,
+static void lexblock__account_inline_expansions(struct lexblock *block,
 						const struct cu *cu)
 {
 	struct tag *pos, *type;
 
-	if (self->nr_inline_expansions == 0)
+	if (block->nr_inline_expansions == 0)
 		return;
 
-	list_for_each_entry(pos, &self->tags, node) {
+	list_for_each_entry(pos, &block->tags, node) {
 		if (pos->tag == DW_TAG_lexical_block) {
 			lexblock__account_inline_expansions(tag__lexblock(pos),
 							    cu);
@@ -1264,29 +1264,29 @@ static void lexblock__account_inline_expansions(struct lexblock *self,
 	}
 }
 
-void cu__account_inline_expansions(struct cu *self)
+void cu__account_inline_expansions(struct cu *cu)
 {
 	struct tag *pos;
 	struct function *fpos;
 
-	list_for_each_entry(pos, &self->tags, node) {
+	list_for_each_entry(pos, &cu->tags, node) {
 		if (!tag__is_function(pos))
 			continue;
 		fpos = tag__function(pos);
-		lexblock__account_inline_expansions(&fpos->lexblock, self);
-		self->nr_inline_expansions   += fpos->lexblock.nr_inline_expansions;
-		self->size_inline_expansions += fpos->lexblock.size_inline_expansions;
+		lexblock__account_inline_expansions(&fpos->lexblock, cu);
+		cu->nr_inline_expansions   += fpos->lexblock.nr_inline_expansions;
+		cu->size_inline_expansions += fpos->lexblock.size_inline_expansions;
 	}
 }
 
-static int list__for_all_tags(struct list_head *self, struct cu *cu,
+static int list__for_all_tags(struct list_head *list, struct cu *cu,
 			      int (*iterator)(struct tag *tag,
 					      struct cu *cu, void *cookie),
 			      void *cookie)
 {
 	struct tag *pos, *n;
 
-	list_for_each_entry_safe_reverse(pos, n, self, node) {
+	list_for_each_entry_safe_reverse(pos, n, list, node) {
 		if (tag__has_namespace(pos)) {
 			struct namespace *space = tag__namespace(pos);
 
@@ -1325,22 +1325,22 @@ static int list__for_all_tags(struct list_head *self, struct cu *cu,
 	return 0;
 }
 
-int cu__for_all_tags(struct cu *self,
+int cu__for_all_tags(struct cu *cu,
 		     int (*iterator)(struct tag *tag,
 				     struct cu *cu, void *cookie),
 		     void *cookie)
 {
-	return list__for_all_tags(&self->tags, self, iterator, cookie);
+	return list__for_all_tags(&cu->tags, cu, iterator, cookie);
 }
 
-void cus__for_each_cu(struct cus *self,
+void cus__for_each_cu(struct cus *cus,
 		      int (*iterator)(struct cu *cu, void *cookie),
 		      void *cookie,
 		      struct cu *(*filter)(struct cu *cu))
 {
 	struct cu *pos;
 
-	list_for_each_entry(pos, &self->cus, node) {
+	list_for_each_entry(pos, &cus->cus, node) {
 		struct cu *cu = pos;
 		if (filter != NULL) {
 			cu = filter(pos);
@@ -1352,7 +1352,7 @@ void cus__for_each_cu(struct cus *self,
 	}
 }
 
-int cus__load_dir(struct cus *self, struct conf_load *conf,
+int cus__load_dir(struct cus *cus, struct conf_load *conf,
 		  const char *dirname, const char *filename_mask,
 		  const int recursive)
 {
@@ -1383,12 +1383,12 @@ int cus__load_dir(struct cus *self, struct conf_load *conf,
 			if (!recursive)
 				continue;
 
-			err = cus__load_dir(self, conf, pathname,
+			err = cus__load_dir(cus, conf, pathname,
 					    filename_mask, recursive);
 			if (err != 0)
 				break;
 		} else if (fnmatch(filename_mask, entry->d_name, 0) == 0) {
-			err = cus__load_file(self, conf, pathname);
+			err = cus__load_file(cus, conf, pathname);
 			if (err != 0)
 				break;
 		}
@@ -1423,7 +1423,7 @@ static int debugging_formats__loader(const char *name)
 	return -1;
 }
 
-int cus__load_file(struct cus *self, struct conf_load *conf,
+int cus__load_file(struct cus *cus, struct conf_load *conf,
 		   const char *filename)
 {
 	int i = 0, err = 0;
@@ -1446,7 +1446,7 @@ int cus__load_file(struct cus *self, struct conf_load *conf,
 				break;
 
 			err = 0;
-			if (debug_fmt_table[loader]->load_file(self, conf,
+			if (debug_fmt_table[loader]->load_file(cus, conf,
 							       filename) == 0)
 				break;
 
@@ -1461,7 +1461,7 @@ int cus__load_file(struct cus *self, struct conf_load *conf,
 	}
 
 	while (debug_fmt_table[i] != NULL) {
-		if (debug_fmt_table[i]->load_file(self, conf, filename) == 0)
+		if (debug_fmt_table[i]->load_file(cus, conf, filename) == 0)
 			return 0;
 		++i;
 	}
@@ -1469,13 +1469,13 @@ int cus__load_file(struct cus *self, struct conf_load *conf,
 	return -EINVAL;
 }
 
-int cus__load_files(struct cus *self, struct conf_load *conf,
+int cus__load_files(struct cus *cus, struct conf_load *conf,
 		    char *filenames[])
 {
 	int i = 0;
 
 	while (filenames[i] != NULL) {
-		if (cus__load_file(self, conf, filenames[i]))
+		if (cus__load_file(cus, conf, filenames[i]))
 			return -i;
 		++i;
 	}
@@ -1485,27 +1485,27 @@ int cus__load_files(struct cus *self, struct conf_load *conf,
 
 struct cus *cus__new(void)
 {
-	struct cus *self = malloc(sizeof(*self));
+	struct cus *cus = malloc(sizeof(*cus));
 
-	if (self != NULL)
-		INIT_LIST_HEAD(&self->cus);
+	if (cus != NULL)
+		INIT_LIST_HEAD(&cus->cus);
 
-	return self;
+	return cus;
 }
 
-void cus__delete(struct cus *self)
+void cus__delete(struct cus *cus)
 {
 	struct cu *pos, *n;
 
-	if (self == NULL)
+	if (cus == NULL)
 		return;
 
-	list_for_each_entry_safe(pos, n, &self->cus, node) {
+	list_for_each_entry_safe(pos, n, &cus->cus, node) {
 		list_del_init(&pos->node);
 		cu__delete(pos);
 	}
 
-	free(self);
+	free(cus);
 }
 
 void dwarves__fprintf_init(uint16_t user_cacheline_size);

@@ -13,12 +13,12 @@
 #include "hash.h"
 #include "elf_symtab.h"
 
-static int tag__check_id_drift(const struct tag *self,
+static int tag__check_id_drift(const struct tag *tag,
 			       uint16_t core_id, uint16_t ctf_id)
 {
 	if (ctf_id != core_id) {
 		fprintf(stderr, "%s: %s id drift, core: %u, libctf: %d\n",
-			__func__, dwarf_tag_name(self->tag), core_id, ctf_id);
+			__func__, dwarf_tag_name(tag->tag), core_id, ctf_id);
 		return -1;
 	}
 	return 0;
@@ -38,61 +38,61 @@ static int dwarf_to_ctf_type(uint16_t tag)
 	return 0xffff;
 }
 
-static int base_type__encode(struct tag *self, uint16_t core_id,
+static int base_type__encode(struct tag *tag, uint16_t core_id,
 			     struct ctf *ctf)
 {
-	struct base_type *bt = tag__base_type(self);
+	struct base_type *bt = tag__base_type(tag);
 	int ctf_id = ctf__add_base_type(ctf, bt->name, bt->bit_size);
 
-	if (ctf_id < 0 || tag__check_id_drift(self, core_id, ctf_id))
+	if (ctf_id < 0 || tag__check_id_drift(tag, core_id, ctf_id))
 		return -1;
 
 	return 0;
 }
 
-static int pointer_type__encode(struct tag *self, uint16_t core_id,
+static int pointer_type__encode(struct tag *tag, uint16_t core_id,
 				struct ctf *ctf)
 {
-	int ctf_id = ctf__add_short_type(ctf, dwarf_to_ctf_type(self->tag),
-					 self->type, 0);
+	int ctf_id = ctf__add_short_type(ctf, dwarf_to_ctf_type(tag->tag),
+					 tag->type, 0);
 
-	if (ctf_id < 0 || tag__check_id_drift(self, core_id, ctf_id))
+	if (ctf_id < 0 || tag__check_id_drift(tag, core_id, ctf_id))
 		return -1;
 
 	return 0;
 }
 
-static int typedef__encode(struct tag *self, uint16_t core_id, struct ctf *ctf)
+static int typedef__encode(struct tag *tag, uint16_t core_id, struct ctf *ctf)
 {
-	int ctf_id = ctf__add_short_type(ctf, CTF_TYPE_KIND_TYPDEF, self->type,
-					 tag__namespace(self)->name);
+	int ctf_id = ctf__add_short_type(ctf, CTF_TYPE_KIND_TYPDEF, tag->type,
+					 tag__namespace(tag)->name);
 
-	if (ctf_id < 0 || tag__check_id_drift(self, core_id, ctf_id))
+	if (ctf_id < 0 || tag__check_id_drift(tag, core_id, ctf_id))
 		return -1;
 
 	return 0;
 }
 
-static int fwd_decl__encode(struct tag *self, uint16_t core_id, struct ctf *ctf)
+static int fwd_decl__encode(struct tag *tag, uint16_t core_id, struct ctf *ctf)
 {
-	int ctf_id = ctf__add_fwd_decl(ctf, tag__namespace(self)->name);
+	int ctf_id = ctf__add_fwd_decl(ctf, tag__namespace(tag)->name);
 
-	if (ctf_id < 0 || tag__check_id_drift(self, core_id, ctf_id))
+	if (ctf_id < 0 || tag__check_id_drift(tag, core_id, ctf_id))
 		return -1;
 
 	return 0;
 }
 
-static int structure_type__encode(struct tag *self, uint16_t core_id,
+static int structure_type__encode(struct tag *tag, uint16_t core_id,
 				  struct ctf *ctf)
 {
-	struct type *type = tag__type(self);
+	struct type *type = tag__type(tag);
 	int64_t position;
-	int ctf_id = ctf__add_struct(ctf, dwarf_to_ctf_type(self->tag),
+	int ctf_id = ctf__add_struct(ctf, dwarf_to_ctf_type(tag->tag),
 				     type->namespace.name, type->size,
 				     type->nr_members, &position);
 
-	if (ctf_id < 0 || tag__check_id_drift(self, core_id, ctf_id))
+	if (ctf_id < 0 || tag__check_id_drift(tag, core_id, ctf_id))
 		return -1;
 
 	const bool is_short = type->size < CTF_SHORT_MEMBER_LIMIT;
@@ -109,11 +109,11 @@ static int structure_type__encode(struct tag *self, uint16_t core_id,
 	return 0;
 }
 
-static uint32_t array_type__nelems(struct tag *self)
+static uint32_t array_type__nelems(struct tag *tag)
 {
 	int i;
 	uint32_t nelem = 1;
-	struct array_type *array = tag__array_type(self);
+	struct array_type *array = tag__array_type(tag);
 
 	for (i = array->dimensions - 1; i >= 0; --i)
 		nelem *= array->nr_entries[i];
@@ -121,28 +121,28 @@ static uint32_t array_type__nelems(struct tag *self)
 	return nelem;
 }
 
-static int array_type__encode(struct tag *self, uint16_t core_id,
+static int array_type__encode(struct tag *tag, uint16_t core_id,
 			      struct ctf *ctf)
 {
-	const uint32_t nelems = array_type__nelems(self);
-	int ctf_id = ctf__add_array(ctf, self->type, 0, nelems);
+	const uint32_t nelems = array_type__nelems(tag);
+	int ctf_id = ctf__add_array(ctf, tag->type, 0, nelems);
 
-	if (ctf_id < 0 || tag__check_id_drift(self, core_id, ctf_id))
+	if (ctf_id < 0 || tag__check_id_drift(tag, core_id, ctf_id))
 		return -1;
 
 	return 0;
 }
 
-static int subroutine_type__encode(struct tag *self, uint16_t core_id,
+static int subroutine_type__encode(struct tag *tag, uint16_t core_id,
 				   struct ctf *ctf)
 {
 	struct parameter *pos;
 	int64_t position;
-	struct ftype *ftype = tag__ftype(self);
-	int ctf_id = ctf__add_function_type(ctf, self->type, ftype->nr_parms,
+	struct ftype *ftype = tag__ftype(tag);
+	int ctf_id = ctf__add_function_type(ctf, tag->type, ftype->nr_parms,
 					    ftype->unspec_parms, &position);
 
-	if (ctf_id < 0 || tag__check_id_drift(self, core_id, ctf_id))
+	if (ctf_id < 0 || tag__check_id_drift(tag, core_id, ctf_id))
 		return -1;
 
 	ftype__for_each_parameter(ftype, pos)
@@ -151,16 +151,16 @@ static int subroutine_type__encode(struct tag *self, uint16_t core_id,
 	return 0;
 }
 
-static int enumeration_type__encode(struct tag *self, uint16_t core_id,
+static int enumeration_type__encode(struct tag *tag, uint16_t core_id,
 				    struct ctf *ctf)
 {
-	struct type *etype = tag__type(self);
+	struct type *etype = tag__type(tag);
 	int64_t position;
 	int ctf_id = ctf__add_enumeration_type(ctf, etype->namespace.name,
 					       etype->size, etype->nr_members,
 					       &position);
 
-	if (ctf_id < 0 || tag__check_id_drift(self, core_id, ctf_id))
+	if (ctf_id < 0 || tag__check_id_drift(tag, core_id, ctf_id))
 		return -1;
 
 	struct enumerator *pos;
@@ -170,37 +170,37 @@ static int enumeration_type__encode(struct tag *self, uint16_t core_id,
 	return 0;
 }
 
-static void tag__encode_ctf(struct tag *self, uint16_t core_id, struct ctf *ctf)
+static void tag__encode_ctf(struct tag *tag, uint16_t core_id, struct ctf *ctf)
 {
-	switch (self->tag) {
+	switch (tag->tag) {
 	case DW_TAG_base_type:
-		base_type__encode(self, core_id, ctf);
+		base_type__encode(tag, core_id, ctf);
 		break;
 	case DW_TAG_const_type:
 	case DW_TAG_pointer_type:
 	case DW_TAG_restrict_type:
 	case DW_TAG_volatile_type:
-		pointer_type__encode(self, core_id, ctf);
+		pointer_type__encode(tag, core_id, ctf);
 		break;
 	case DW_TAG_typedef:
-		typedef__encode(self, core_id, ctf);
+		typedef__encode(tag, core_id, ctf);
 		break;
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
 	case DW_TAG_class_type:
-		if (tag__type(self)->declaration)
-			fwd_decl__encode(self, core_id, ctf);
+		if (tag__type(tag)->declaration)
+			fwd_decl__encode(tag, core_id, ctf);
 		else
-			structure_type__encode(self, core_id, ctf);
+			structure_type__encode(tag, core_id, ctf);
 		break;
 	case DW_TAG_array_type:
-		array_type__encode(self, core_id, ctf);
+		array_type__encode(tag, core_id, ctf);
 		break;
 	case DW_TAG_subroutine_type:
-		subroutine_type__encode(self, core_id, ctf);
+		subroutine_type__encode(tag, core_id, ctf);
 		break;
 	case DW_TAG_enumeration_type:
-		enumeration_type__encode(self, core_id, ctf);
+		enumeration_type__encode(tag, core_id, ctf);
 		break;
 	}
 }
@@ -247,22 +247,22 @@ static struct variable *hashaddr__find_variable(const struct hlist_head hashtabl
  */
 extern struct strings *strings;
 
-int cu__encode_ctf(struct cu *self, int verbose)
+int cu__encode_ctf(struct cu *cu, int verbose)
 {
 	int err = -1;
-	struct ctf *ctf = ctf__new(self->filename, self->elf);
+	struct ctf *ctf = ctf__new(cu->filename, cu->elf);
 
 	if (ctf == NULL)
 		goto out;
 
-	if (cu__cache_symtab(self) < 0)
+	if (cu__cache_symtab(cu) < 0)
 		goto out_delete;
 
 	ctf__set_strings(ctf, &strings->gb);
 
 	uint32_t id;
 	struct tag *pos;
-	cu__for_each_type(self, id, pos)
+	cu__for_each_type(cu, id, pos)
 		tag__encode_ctf(pos, id, ctf);
 
 	struct hlist_head hash_addr[HASHADDR__SIZE];
@@ -271,7 +271,7 @@ int cu__encode_ctf(struct cu *self, int verbose)
 		INIT_HLIST_HEAD(&hash_addr[id]);
 
 	struct function *function;
-	cu__for_each_function(self, id, function) {
+	cu__for_each_function(cu, id, function) {
 		uint64_t addr = function->lexblock.ip.addr;
 		struct hlist_head *head = &hash_addr[hashaddr__fn(addr)];
 		hlist_add_head(&function->tool_hnode, head);
@@ -280,7 +280,7 @@ int cu__encode_ctf(struct cu *self, int verbose)
 	uint64_t addr;
 	GElf_Sym sym;
 	const char *sym_name;
-	cu__for_each_cached_symtab_entry(self, id, sym, sym_name) {
+	cu__for_each_cached_symtab_entry(cu, id, sym, sym_name) {
 		if (ctf__ignore_symtab_function(&sym, sym_name))
 			continue;
 
@@ -316,7 +316,7 @@ int cu__encode_ctf(struct cu *self, int verbose)
 		INIT_HLIST_HEAD(&hash_addr[id]);
 
 	struct variable *var;
-	cu__for_each_variable(self, id, pos) {
+	cu__for_each_variable(cu, id, pos) {
 		var = tag__variable(pos);
 		if (var->location != LOCATION_GLOBAL)
 			continue;
@@ -324,7 +324,7 @@ int cu__encode_ctf(struct cu *self, int verbose)
 		hlist_add_head(&var->tool_hnode, head);
 	}
 
-	cu__for_each_cached_symtab_entry(self, id, sym, sym_name) {
+	cu__for_each_cached_symtab_entry(cu, id, sym, sym_name) {
 		if (ctf__ignore_symtab_object(&sym, sym_name))
 			continue;
 		addr = elf_sym__value(&sym);

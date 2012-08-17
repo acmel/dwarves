@@ -31,40 +31,40 @@ struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr)
 	if (gelf_getshdr(sec, &shdr) == NULL)
 		return NULL;
 
-	struct elf_symtab *self = malloc(sizeof(*self));
-	if (self == NULL)
+	struct elf_symtab *symtab = malloc(sizeof(*symtab));
+	if (symtab == NULL)
 		return NULL;
 
-	self->name = strdup(name);
-	if (self->name == NULL)
+	symtab->name = strdup(name);
+	if (symtab->name == NULL)
 		goto out_delete;
 
-	self->syms = elf_getdata(sec, NULL);
-	if (self->syms == NULL)
+	symtab->syms = elf_getdata(sec, NULL);
+	if (symtab->syms == NULL)
 		goto out_free_name;
 
 	sec = elf_getscn(elf, shdr.sh_link);
 	if (sec == NULL)
 		goto out_free_name;
 
-	self->symstrs = elf_getdata(sec, NULL);
-	if (self->symstrs == NULL)
+	symtab->symstrs = elf_getdata(sec, NULL);
+	if (symtab->symstrs == NULL)
 		goto out_free_name;
 
-	self->nr_syms = shdr.sh_size / shdr.sh_entsize;
+	symtab->nr_syms = shdr.sh_size / shdr.sh_entsize;
 
-	return self;
+	return symtab;
 out_free_name:
-	free(self->name);
+	free(symtab->name);
 out_delete:
-	free(self);
+	free(symtab);
 	return NULL;
 }
 
-void elf_symtab__delete(struct elf_symtab *self)
+void elf_symtab__delete(struct elf_symtab *symtab)
 {
-	if (self == NULL)
+	if (symtab == NULL)
 		return;
-	free(self->name);
-	free(self);
+	free(symtab->name);
+	free(symtab);
 }

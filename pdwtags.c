@@ -18,53 +18,53 @@ static struct conf_fprintf conf = {
 	.emit_stats	= 1,
 };
 
-static void emit_tag(struct tag *self, uint32_t tag_id, struct cu *cu)
+static void emit_tag(struct tag *tag, uint32_t tag_id, struct cu *cu)
 {
 	printf("/* %d */\n", tag_id);
 
-	if (self->tag == DW_TAG_base_type) {
+	if (tag->tag == DW_TAG_base_type) {
 		char bf[64];
-		const char *name = base_type__name(tag__base_type(self), cu,
+		const char *name = base_type__name(tag__base_type(tag), cu,
 						   bf, sizeof(bf));
 
 		if (name == NULL)
 			printf("anonymous base_type\n");
 		else
 			puts(name);
-	} else if (self->tag == DW_TAG_pointer_type)
-		printf(" /* pointer to %lld */\n", (unsigned long long)self->type);
+	} else if (tag->tag == DW_TAG_pointer_type)
+		printf(" /* pointer to %lld */\n", (unsigned long long)tag->type);
 	else
-		tag__fprintf(self, cu, &conf, stdout);
+		tag__fprintf(tag, cu, &conf, stdout);
 
-	printf(" /* size: %zd */\n\n", tag__size(self, cu));
+	printf(" /* size: %zd */\n\n", tag__size(tag, cu));
 }
 
-static int cu__emit_tags(struct cu *self)
+static int cu__emit_tags(struct cu *cu)
 {
 	uint32_t i;
 	struct tag *tag;
 
 	puts("/* Types: */\n");
-	cu__for_each_type(self, i, tag)
-		emit_tag(tag, i, self);
+	cu__for_each_type(cu, i, tag)
+		emit_tag(tag, i, cu);
 
 	puts("/* Functions: */\n");
 	conf.no_semicolon = true;
 	struct function *function;
-	cu__for_each_function(self, i, function) {
-		tag__fprintf(function__tag(function), self, &conf, stdout);
+	cu__for_each_function(cu, i, function) {
+		tag__fprintf(function__tag(function), cu, &conf, stdout);
 		putchar('\n');
-		lexblock__fprintf(&function->lexblock, self, function, 0,
+		lexblock__fprintf(&function->lexblock, cu, function, 0,
 				  &conf, stdout);
 		printf(" /* size: %zd */\n\n",
-		       tag__size(function__tag(function), self));
+		       tag__size(function__tag(function), cu));
 	}
 	conf.no_semicolon = false;
 
 	puts("\n\n/* Variables: */\n");
-	cu__for_each_variable(self, i, tag) {
-		tag__fprintf(tag, self, NULL, stdout);
-		printf(" /* size: %zd */\n\n", tag__size(tag, self));
+	cu__for_each_variable(cu, i, tag) {
+		tag__fprintf(tag, cu, NULL, stdout);
+		printf(" /* size: %zd */\n\n", tag__size(tag, cu));
 	}
 
 
