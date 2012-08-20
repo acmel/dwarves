@@ -515,6 +515,7 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu)
 	type->fwd_decl_emitted	 = 0;
 	type->resized		 = 0;
 	type->nr_members	 = 0;
+	type->nr_static_members	 = 0;
 }
 
 static struct type *type__new(Dwarf_Die *die, struct cu *cu)
@@ -713,13 +714,16 @@ int class_member__dwarf_recode_bitfield(struct class_member *member,
 	return 0;
 }
 
-static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu)
+static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
+					      bool in_union)
 {
 	struct class_member *member = tag__alloc(cu, sizeof(*member));
 
 	if (member != NULL) {
 		tag__init(&member->tag, cu, die);
 		member->name = strings__add(strings, attr_string(die, DW_AT_name));
+		member->is_static   = !in_union && !dwarf_hasattr(die, DW_AT_data_member_location);
+		member->const_value = attr_numeric(die, DW_AT_const_value);
 		member->byte_offset = attr_offset(die, DW_AT_data_member_location);
 		/*
 		 * Will be cached later, in class_member__cache_byte_size
@@ -1237,6 +1241,8 @@ out_delete:
 static int die__process_class(Dwarf_Die *die, struct type *class,
 			      struct cu *cu)
 {
+	const bool is_union = tag__is_union(&class->namespace.tag);
+
 	do {
 		switch (dwarf_tag(die)) {
 #ifdef STB_GNU_UNIQUE
@@ -1251,7 +1257,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			continue;
 		case DW_TAG_inheritance:
 		case DW_TAG_member: {
-			struct class_member *member = class_member__new(die, cu);
+			struct class_member *member = class_member__new(die, cu, is_union);
 
 			if (member == NULL)
 				return -ENOMEM;
@@ -2041,55 +2047,63 @@ static int die__process_and_recode(Dwarf_Die *die, struct cu *cu)
 static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 					 void *cookie)
 {
-	if (tag->tag == DW_TAG_member || tag->tag == DW_TAG_inheritance) {
-		struct conf_load *conf_load = cookie;
-		struct class_member *member = tag__class_member(tag);
+	struct class_member *member = tag__class_member(tag);
+	struct conf_load *conf_load = cookie;
 
-		if (member->bitfield_size != 0) {
-			struct tag *type = tag__follow_typedef(&member->tag, cu);
+	if (tag__is_class_member(tag)) {
+		if (member->is_static)
+			return 0;
+	} else if (tag->tag != DW_TAG_inheritance) {
+		return 0;
+	}
+
+	if (member->bitfield_size != 0) {
+		struct tag *type = tag__follow_typedef(&member->tag, cu);
 check_volatile:
-			if (tag__is_volatile(type) || tag__is_const(type)) {
-				type = tag__follow_typedef(type, cu);
-				goto check_volatile;
-			}
-
-			uint16_t type_bit_size;
-			size_t integral_bit_size;
-
-			if (tag__is_enumeration(type)) {
-				type_bit_size = tag__type(type)->size;
-				integral_bit_size = sizeof(int) * 8; /* FIXME: always this size? */
-			} else {
-				struct base_type *bt = tag__base_type(type);
-				type_bit_size = bt->bit_size;
-				integral_bit_size = base_type__name_to_size(bt, cu);
-			}
-			/*
-			 * XXX: integral_bit_size can be zero if base_type__name_to_size doesn't
-			 * know about the base_type name, so one has to add there when
-			 * such base_type isn't found. pahole will put zero on the
-			 * struct output so it should be easy to spot the name when
-			 * such unlikely thing happens.
-			 */
-			member->byte_size = integral_bit_size / 8;
-
-			if (integral_bit_size == 0)
-				return 0;
-
-			if (type_bit_size == integral_bit_size) {
-				member->bit_size = integral_bit_size;
-				if (conf_load && conf_load->fixup_silly_bitfields) {
-					member->bitfield_size = 0;
-					member->bitfield_offset = 0;
-				}
-				return 0;
-			}
-
-			member->bit_size = type_bit_size;
-		} else {
-			member->byte_size = tag__size(tag, cu);
-			member->bit_size = member->byte_size * 8;
+		if (tag__is_volatile(type) || tag__is_const(type)) {
+			type = tag__follow_typedef(type, cu);
+			goto check_volatile;
 		}
+
+		uint16_t type_bit_size;
+		size_t integral_bit_size;
+
+		if (tag__is_enumeration(type)) {
+			type_bit_size = tag__type(type)->size;
+			integral_bit_size = sizeof(int) * 8; /* FIXME: always this size? */
+		} else {
+			struct base_type *bt = tag__base_type(type);
+			type_bit_size = bt->bit_size;
+			integral_bit_size = base_type__name_to_size(bt, cu);
+		}
+
+		/*
+		 * XXX: integral_bit_size can be zero if
+		 * base_type__name_to_size doesn't know about the base_type
+		 * name, so one has to add there when such base_type isn't
+		 * found. pahole will put zero on the struct output so it
+		 * should be easy to spot the name when such unlikely thing
+		 * happens.
+		 */
+
+		member->byte_size = integral_bit_size / 8;
+
+		if (integral_bit_size == 0)
+			return 0;
+
+		if (type_bit_size == integral_bit_size) {
+			member->bit_size = integral_bit_size;
+			if (conf_load && conf_load->fixup_silly_bitfields) {
+				member->bitfield_size = 0;
+				member->bitfield_offset = 0;
+			}
+			return 0;
+		}
+
+		member->bit_size = type_bit_size;
+	} else {
+		member->byte_size = tag__size(tag, cu);
+		member->bit_size = member->byte_size * 8;
 	}
 
 	return 0;

@@ -718,11 +718,17 @@ static size_t struct_member__fprintf(struct class_member *member,
 		printed += fprintf(fp, "/* ");
 	}
 
+	if (member->is_static)
+		printed += fprintf(fp, "static ");
+
 	printed += type__fprintf(type, cu, name, &sconf, fp);
 
-	if (member->bitfield_size != 0)
+	if (member->is_static) {
+		if (member->const_value != 0)
+			printed += fprintf(fp, " = %lld;", member->const_value);
+	} else if (member->bitfield_size != 0) {
 		printed += fprintf(fp, ":%u;", member->bitfield_size);
-	else {
+	} else {
 		fputc(';', fp);
 		++printed;
 	}
@@ -1453,11 +1459,20 @@ size_t class__fprintf(struct class *class, const struct cu *cu,
 	if (!cconf.emit_stats)
 		goto out;
 
-	printed += fprintf(fp, "\n%.*s/* size: %zd, cachelines: %zd, members: %u */",
+	printed += fprintf(fp, "\n%.*s/* size: %zd, cachelines: %zd, members: %u",
 			   cconf.indent, tabs,
-			   tag__size(class__tag(class), cu),
+			   class__size(class),
 			   tag__nr_cachelines(class__tag(class), cu),
-			   type->nr_members);
+			   type->nr_members,
+			   type->nr_static_members);
+
+	if (type->nr_static_members != 0) {
+		printed += fprintf(fp, ", static members: %u */",
+				   type->nr_static_members);
+	} else {
+		printed += fprintf(fp, " */");
+	}
+
 	if (sum_holes > 0)
 		printed += fprintf(fp, "\n%.*s/* sum members: %u, holes: %d, "
 				   "sum holes: %u */",

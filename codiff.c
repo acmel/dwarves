@@ -219,7 +219,8 @@ static int check_print_members_changes(const struct class *structure,
 		}
 	}
 
-	if (nr_twins_found == new_structure->type.nr_members)
+	if (nr_twins_found == (new_structure->type.nr_members +
+			       new_structure->type.nr_static_members))
 		goto out;
 
 	changes = 1;

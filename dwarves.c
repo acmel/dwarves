@@ -271,6 +271,9 @@ struct class_member *
 	size_t result_size = 0;
 
 	type__for_each_data_member(type, pos) {
+		if (pos->is_static)
+			continue;
+
 		struct tag *type = cu__type(cu, pos->tag.type);
 		size_t member_size = 0, power2;
 		struct class_member *inner = NULL;
@@ -813,8 +816,11 @@ size_t tag__size(const struct tag *tag, const struct cu *cu)
 
 	switch (tag->tag) {
 	case DW_TAG_member: {
+		struct class_member *member = tag__class_member(tag);
+		if (member->is_static)
+			return 0;
 		/* Is it cached already? */
-		size = tag__class_member(tag)->byte_size;
+		size = member->byte_size;
 		if (size != 0)
 			return size;
 		break;
@@ -933,7 +939,10 @@ void namespace__add_tag(struct namespace *space, struct tag *tag)
 
 void type__add_member(struct type *type, struct class_member *member)
 {
-	++type->nr_members;
+	if (member->is_static)
+		++type->nr_static_members;
+	else
+		++type->nr_members;
 	namespace__add_tag(&type->namespace, &member->tag);
 }
 
@@ -952,7 +961,7 @@ static int type__clone_members(struct type *type, const struct type *from,
 {
 	struct class_member *pos;
 
-	type->nr_members = 0;
+	type->nr_members = type->nr_static_members = 0;
 	INIT_LIST_HEAD(&type->namespace.tags);
 
 	type__for_each_member(from, pos) {
@@ -1113,6 +1122,9 @@ void class__find_holes(struct class *class)
 		/* XXX for now just skip these */
 		if (pos->tag.tag == DW_TAG_inheritance &&
 		    pos->virtuality == DW_VIRTUALITY_virtual)
+			continue;
+
+		if (pos->is_static)
 			continue;
 
 		if (last != NULL) {

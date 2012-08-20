@@ -795,7 +795,9 @@ struct class_member {
 	uint8_t		 bitfield_size;
 	uint8_t		 bit_hole;
 	uint8_t		 bitfield_end:1;
+	uint64_t	 const_value;
 	uint8_t		 visited:1;
+	uint8_t		 is_static:1;
 	uint8_t		 accessibility:2;
 	uint8_t		 virtuality:2;
 	uint16_t	 hole;
@@ -822,7 +824,8 @@ static __pure inline int tag__is_class_member(const struct tag *self)
 /**
  * struct type - base type for enumerations, structs and unions
  *
- * @nr_members: number of DW_TAG_member entries
+ * @nnr_members: number of non static DW_TAG_member entries
+ * @nr_static_members: number of static DW_TAG_member entries
  * @nr_tags: number of tags
  */
 struct type {
@@ -830,6 +833,7 @@ struct type {
 	struct list_head node;
 	uint32_t	 size;
 	int32_t		 size_diff;
+	uint16_t	 nr_static_members;
 	uint16_t	 nr_members;
 	uint8_t		 declaration; /* only one bit used */
 	uint8_t		 definition_emitted:1;
