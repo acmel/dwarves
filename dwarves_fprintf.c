@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #include "config.h"
 #include "dwarves.h"
@@ -725,7 +726,7 @@ static size_t struct_member__fprintf(struct class_member *member,
 
 	if (member->is_static) {
 		if (member->const_value != 0)
-			printed += fprintf(fp, " = %lld;", member->const_value);
+			printed += fprintf(fp, " = %" PRIu64 ";", member->const_value);
 	} else if (member->bitfield_size != 0) {
 		printed += fprintf(fp, ":%u;", member->bitfield_size);
 	} else {
@@ -1466,7 +1467,7 @@ size_t class__fprintf(struct class *class, const struct cu *cu,
 	if (!cconf.emit_stats)
 		goto out;
 
-	printed += fprintf(fp, "\n%.*s/* size: %zd, cachelines: %zd, members: %u",
+	printed += fprintf(fp, "\n%.*s/* size: %d, cachelines: %zd, members: %u",
 			   cconf.indent, tabs,
 			   class__size(class),
 			   tag__nr_cachelines(class__tag(class), cu),
