@@ -1386,10 +1386,17 @@ size_t class__fprintf(struct class *class, const struct cu *cu,
 		++printed;
 
 		/* XXX for now just skip these */
-		if (tag_pos->tag == DW_TAG_inheritance &&
-		    pos->virtuality == DW_VIRTUALITY_virtual)
+		if (tag_pos->tag == DW_TAG_inheritance)
 			continue;
-
+#if 0
+		/*
+ 		 * This one was being skipped but caused problems with:
+ 		 * http://article.gmane.org/gmane.comp.debugging.dwarves/185
+ 		 * http://www.spinics.net/lists/dwarves/msg00119.html
+ 		 */
+		if (pos->virtuality == DW_VIRTUALITY_virtual)
+			continue;
+#endif
 		/*
 		 * Check if we have to adjust size because bitfields were
 		 * combined with previous fields.
