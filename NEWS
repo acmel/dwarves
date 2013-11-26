@@ -27,7 +27,7 @@ and changes to better use these tools in scripts.
 
 For full details please take a look at the git changesets, repo available at:
 
-http://git.kernel.org/?p=linux/kernel/git/acme/pahole.git
+http://git.kernel.org/cgit/devel/pahole/pahole.git
 
 - Arnaldo
 

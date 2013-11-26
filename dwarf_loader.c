@@ -309,6 +309,8 @@ static Dwarf_Off attr_offset(Dwarf_Die *die, const uint32_t name)
 	switch (dwarf_whatform(&attr)) {
 	case DW_FORM_data1:
 	case DW_FORM_data2:
+	case DW_FORM_data4:
+	case DW_FORM_data8:
 	case DW_FORM_sdata:
 	case DW_FORM_udata: {
 		Dwarf_Word value;

@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #include "config.h"
 #include "dwarves.h"
@@ -366,7 +367,8 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 			       const struct conf_fprintf *conf);
 
 static const char *tag__ptr_name(const struct tag *tag, const struct cu *cu,
-				 char *bf, size_t len, const char *ptr_suffix)
+				 char *bf, size_t len, const char *ptr_suffix,
+         const struct conf_fprintf *conf)
 {
 	if (tag->type == 0) /* No type == void */
 		snprintf(bf, len, "void %s", ptr_suffix);
@@ -381,7 +383,7 @@ static const char *tag__ptr_name(const struct tag *tag, const struct cu *cu,
 
 			snprintf(bf, len, "%s %s",
 				 __tag__name(type, cu,
-					     tmpbf, sizeof(tmpbf), NULL),
+					     tmpbf, sizeof(tmpbf), conf),
 				 ptr_suffix);
 		}
 	}
@@ -415,9 +417,9 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 		strncpy(bf, function__name(tag__function(tag), cu), len);
 		break;
 	case DW_TAG_pointer_type:
-		return tag__ptr_name(tag, cu, bf, len, "*");
+		return tag__ptr_name(tag, cu, bf, len, "*", conf);
 	case DW_TAG_reference_type:
-		return tag__ptr_name(tag, cu, bf, len, "&");
+		return tag__ptr_name(tag, cu, bf, len, "&", conf);
 	case DW_TAG_ptr_to_member_type: {
 		char suffix[512];
 		uint16_t id = tag__ptr_to_member_type(tag)->containing_type;
@@ -433,7 +435,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 			snprintf(suffix + l, sizeof(suffix) - l, "::*");
 		}
 
-		return tag__ptr_name(tag, cu, bf, len, suffix);
+		return tag__ptr_name(tag, cu, bf, len, suffix, conf);
 	}
 	case DW_TAG_volatile_type:
 	case DW_TAG_const_type:
@@ -725,7 +727,7 @@ static size_t struct_member__fprintf(struct class_member *member,
 
 	if (member->is_static) {
 		if (member->const_value != 0)
-			printed += fprintf(fp, " = %lld;", member->const_value);
+			printed += fprintf(fp, " = %" PRIu64 ";", member->const_value);
 	} else if (member->bitfield_size != 0) {
 		printed += fprintf(fp, ":%u;", member->bitfield_size);
 	} else {
@@ -1386,10 +1388,17 @@ size_t class__fprintf(struct class *class, const struct cu *cu,
 		++printed;
 
 		/* XXX for now just skip these */
-		if (tag_pos->tag == DW_TAG_inheritance &&
-		    pos->virtuality == DW_VIRTUALITY_virtual)
+		if (tag_pos->tag == DW_TAG_inheritance)
 			continue;
-
+#if 0
+		/*
+ 		 * This one was being skipped but caused problems with:
+ 		 * http://article.gmane.org/gmane.comp.debugging.dwarves/185
+ 		 * http://www.spinics.net/lists/dwarves/msg00119.html
+ 		 */
+		if (pos->virtuality == DW_VIRTUALITY_virtual)
+			continue;
+#endif
 		/*
 		 * Check if we have to adjust size because bitfields were
 		 * combined with previous fields.
@@ -1459,7 +1468,7 @@ size_t class__fprintf(struct class *class, const struct cu *cu,
 	if (!cconf.emit_stats)
 		goto out;
 
-	printed += fprintf(fp, "\n%.*s/* size: %zd, cachelines: %zd, members: %u",
+	printed += fprintf(fp, "\n%.*s/* size: %d, cachelines: %zd, members: %u",
 			   cconf.indent, tabs,
 			   class__size(class),
 			   tag__nr_cachelines(class__tag(class), cu),

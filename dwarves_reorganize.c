@@ -533,7 +533,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 
 		size = member->byte_size;
 	    	bytes_needed = (current_bitfield_size + 7) / 8;
-		bytes_needed = roundup(bytes_needed, 2);
+		bytes_needed = roundup_pow_of_two(bytes_needed);
 		if (bytes_needed == size)
 			continue;
 
@@ -738,7 +738,29 @@ static void class__fixup_member_types(struct class *class, const struct cu *cu,
 			const uint16_t real_size = (pos->byte_offset -
 						  bitfield_head->byte_offset);
 			const size_t size = bitfield_head->byte_size;
-			if (real_size != size) {
+			/*
+			 * Another case:
+struct irq_cfg {
+	struct irq_pin_list *      irq_2_pin;            / *     0     8 * /
+	cpumask_var_t              domain;               / *     8    16 * /
+	cpumask_var_t              old_domain;           / *    24    16 * /
+	u8                         vector;               / *    40     1 * /
+	u8                         move_in_progress:1;   / *    41: 7  1 * /
+	u8                         remapped:1;           / *    41: 6  1 * /
+
+	/ * XXX 6 bits hole, try to pack * /
+	/ * XXX 6 bytes hole, try to pack * /
+
+	union {
+		struct irq_2_iommu irq_2_iommu;          / *          16 * /
+		struct irq_2_irte  irq_2_irte;           / *           4 * /
+	};                                               / *    48    16 * /
+	/ *  --- cacheline 1 boundary (64 bytes) --- * /
+
+			 * So just fix it up if the byte_size of the bitfield is
+			 * greater than what it really uses.
+			 */
+			if (real_size < size) {
 				uint16_t new_type_id;
 				struct tag *new_type_tag =
 					cu__find_base_type_of_size(cu,

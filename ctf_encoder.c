@@ -12,6 +12,7 @@
 #include "ctf.h"
 #include "hash.h"
 #include "elf_symtab.h"
+#include <inttypes.h>
 
 static int tag__check_id_drift(const struct tag *tag,
 			       uint16_t core_id, uint16_t ctf_id)
@@ -290,7 +291,7 @@ int cu__encode_ctf(struct cu *cu, int verbose)
 		if (function == NULL) {
 			if (verbose)
 				fprintf(stderr,
-					"function %4d: %-20s %#Lx %5u NOT FOUND!\n",
+					"function %4d: %-20s %#" PRIx64 " %5u NOT FOUND!\n",
 					id, sym_name, addr,
 					elf_sym__size(&sym));
 			err = ctf__add_function(ctf, 0, 0, 0, &position);
@@ -333,7 +334,7 @@ int cu__encode_ctf(struct cu *cu, int verbose)
 		if (var == NULL) {
 			if (verbose)
 				fprintf(stderr,
-					"variable %4d: %-20s %#Lx %5u NOT FOUND!\n",
+					"variable %4d: %-20s %#" PRIx64 " %5u NOT FOUND!\n",
 					id, sym_name, addr,
 					elf_sym__size(&sym));
 			err = ctf__add_object(ctf, 0);
