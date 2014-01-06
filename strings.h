@@ -19,37 +19,37 @@ struct strings {
 
 struct strings *strings__new(void);
 
-void strings__delete(struct strings *self);
+void strings__delete(struct strings *strings);
 
-strings_t strings__add(struct strings *self, const char *str);
-strings_t strings__find(struct strings *self, const char *str);
+strings_t strings__add(struct strings *strings, const char *str);
+strings_t strings__find(struct strings *strings, const char *str);
 
-int strings__cmp(const struct strings *self, strings_t a, strings_t b);
+int strings__cmp(const struct strings *strings, strings_t a, strings_t b);
 
-static inline const char *strings__ptr(const struct strings *self, strings_t s)
+static inline const char *strings__ptr(const struct strings *strings, strings_t s)
 {
-	return gobuffer__ptr(&self->gb, s);
+	return gobuffer__ptr(&strings->gb, s);
 }
 
-static inline const char *strings__entries(const struct strings *self)
+static inline const char *strings__entries(const struct strings *strings)
 {
-	return gobuffer__entries(&self->gb);
+	return gobuffer__entries(&strings->gb);
 }
 
-static inline unsigned int strings__nr_entries(const struct strings *self)
+static inline unsigned int strings__nr_entries(const struct strings *strings)
 {
-	return gobuffer__nr_entries(&self->gb);
+	return gobuffer__nr_entries(&strings->gb);
 }
 
-static inline strings_t strings__size(const struct strings *self)
+static inline strings_t strings__size(const struct strings *strings)
 {
-	return gobuffer__size(&self->gb);
+	return gobuffer__size(&strings->gb);
 }
 
-static inline const char *strings__compress(struct strings *self,
+static inline const char *strings__compress(struct strings *strings,
 					    unsigned int *size)
 {
-	return gobuffer__compress(&self->gb, size);
+	return gobuffer__compress(&strings->gb, size);
 }
 
 #endif /* _STRINGS_H_ */

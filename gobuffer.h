@@ -17,32 +17,32 @@ struct gobuffer {
 
 struct gobuffer *gobuffer__new(void);
 
-void gobuffer__init(struct gobuffer *self);
-void gobuffer__delete(struct gobuffer *self);
-void __gobuffer__delete(struct gobuffer *self);
+void gobuffer__init(struct gobuffer *gb);
+void gobuffer__delete(struct gobuffer *gb);
+void __gobuffer__delete(struct gobuffer *gb);
 
-void gobuffer__copy(const struct gobuffer *self, void *dest);
+void gobuffer__copy(const struct gobuffer *gb, void *dest);
 
-int gobuffer__add(struct gobuffer *self, const void *s, unsigned int len);
-int gobuffer__allocate(struct gobuffer *self, unsigned int len);
+int gobuffer__add(struct gobuffer *gb, const void *s, unsigned int len);
+int gobuffer__allocate(struct gobuffer *gb, unsigned int len);
 
-static inline const void *gobuffer__entries(const struct gobuffer *self)
+static inline const void *gobuffer__entries(const struct gobuffer *gb)
 {
-	return self->entries;
+	return gb->entries;
 }
 
-static inline unsigned int gobuffer__nr_entries(const struct gobuffer *self)
+static inline unsigned int gobuffer__nr_entries(const struct gobuffer *gb)
 {
-	return self->nr_entries;
+	return gb->nr_entries;
 }
 
-static inline unsigned int gobuffer__size(const struct gobuffer *self)
+static inline unsigned int gobuffer__size(const struct gobuffer *gb)
 {
-	return self->index;
+	return gb->index;
 }
 
-void *gobuffer__ptr(const struct gobuffer *self, unsigned int s);
+void *gobuffer__ptr(const struct gobuffer *gb, unsigned int s);
 
-const void *gobuffer__compress(struct gobuffer *self, unsigned int *size);
+const void *gobuffer__compress(struct gobuffer *gb, unsigned int *size);
 
 #endif /* _GOBUFFER_H_ */

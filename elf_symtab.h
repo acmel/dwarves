@@ -22,11 +22,11 @@ struct elf_symtab {
 };
 
 struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr);
-void elf_symtab__delete(struct elf_symtab *self);
+void elf_symtab__delete(struct elf_symtab *symtab);
 
-static inline uint32_t elf_symtab__nr_symbols(const struct elf_symtab *self)
+static inline uint32_t elf_symtab__nr_symbols(const struct elf_symtab *symtab)
 {
-	return self->nr_syms;
+	return symtab->nr_syms;
 }
 
 static inline const char *elf_sym__name(const GElf_Sym *sym,
@@ -82,13 +82,13 @@ static inline bool elf_sym__is_local_object(const GElf_Sym *sym)
 /**
  * elf_symtab__for_each_symbol - iterate thru all the symbols
  *
- * @self: struct elf_symtab instance to iterate
+ * @symtab: struct elf_symtab instance to iterate
  * @index: uint32_t index
  * @sym: GElf_Sym iterator
  */
-#define elf_symtab__for_each_symbol(self, index, sym) \
-	for (index = 0, gelf_getsym(self->syms, index, &sym);\
-	     index < self->nr_syms; \
-	     index++, gelf_getsym(self->syms, index, &sym))
+#define elf_symtab__for_each_symbol(symtab, index, sym) \
+	for (index = 0, gelf_getsym(symtab->syms, index, &sym);\
+	     index < symtab->nr_syms; \
+	     index++, gelf_getsym(symtab->syms, index, &sym))
 
 #endif /* _ELF_SYMTAB_H_ */

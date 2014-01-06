@@ -11,6 +11,6 @@
 
 struct cu;
 
-int cu__encode_ctf(struct cu *self, int verbose);
+int cu__encode_ctf(struct cu *cu, int verbose);
 
 #endif /* _CTF_ENCODER_H_ */

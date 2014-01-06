@@ -272,17 +272,17 @@ struct strlist {
 };
 
 struct strlist *strlist__new(bool dupstr);
-void strlist__delete(struct strlist *self);
+void strlist__delete(struct strlist *slist);
 
-void strlist__remove(struct strlist *self, struct str_node *sn);
-int strlist__load(struct strlist *self, const char *filename);
-int strlist__add(struct strlist *self, const char *str);
+void strlist__remove(struct strlist *slist, struct str_node *sn);
+int strlist__load(struct strlist *slist, const char *filename);
+int strlist__add(struct strlist *slist, const char *str);
 
-bool strlist__has_entry(struct strlist *self, const char *entry);
+bool strlist__has_entry(struct strlist *slist, const char *entry);
 
-static inline bool strlist__empty(const struct strlist *self)
+static inline bool strlist__empty(const struct strlist *slist)
 {
-	return rb_first(&self->entries) == NULL;
+	return rb_first(&slist->entries) == NULL;
 }
 
 void *zalloc(const size_t size);
