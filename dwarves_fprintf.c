@@ -75,7 +75,6 @@ static const char *dwarf_tag_names[] = {
 	[DW_TAG_unspecified_type]	  = "unspecified_type",
 	[DW_TAG_partial_unit]		  = "partial_unit",
 	[DW_TAG_imported_unit]		  = "imported_unit",
-	[DW_TAG_mutable_type]		  = "mutable_type",
 	[DW_TAG_condition]		  = "condition",
 	[DW_TAG_shared_type]		  = "shared_type",
 #ifdef STB_GNU_UNIQUE
