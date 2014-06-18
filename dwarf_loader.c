@@ -369,7 +369,7 @@ static void *__tag__alloc(struct dwarf_cu *dcu, size_t size, bool spec)
 	if (dtag == NULL)
 		return NULL;
 
-	struct tag *tag = obstack_alloc(&dcu->cu->obstack, size);
+	struct tag *tag = obstack_zalloc(&dcu->cu->obstack, size);
 
 	if (tag == NULL)
 		return NULL;
