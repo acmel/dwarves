@@ -63,8 +63,8 @@ static void __tag__print_not_supported(uint32_t tag, const char *func)
 		dwarf_gnu_tags_warned[t] = true;
 	}
 
-	fprintf(stderr, "%s: tag not supported (%s)!\n", func,
-		dwarf_tag_name(tag));
+	fprintf(stderr, "%s: tag not supported %#x (%s)!\n", func,
+		tag, dwarf_tag_name(tag));
 }
 
 #define tag__print_not_supported(tag) \
