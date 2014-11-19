@@ -1587,6 +1587,11 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 		tag = die__create_new_variable(die, cu);	break;
 	default:
 		__cu__tag_not_handled(die, fn);
+		/* fall thru */
+	case DW_TAG_dwarf_procedure:
+		/*
+		 * Ignore it, just location expressions, that we have no use for (so far).
+		 */
 		tag = &unsupported_tag;
 		break;
 	}
