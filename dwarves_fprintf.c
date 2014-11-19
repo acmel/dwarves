@@ -90,11 +90,11 @@ static const char *dwarf_gnu_tag_names[] = {
 	[DW_TAG_function_template - DW_TAG_MIPS_loop]		= "function_template",
 	[DW_TAG_class_template - DW_TAG_MIPS_loop]		= "class_template",
 #ifdef STB_GNU_UNIQUE
-	[DW_TAG_GNU_BINCL - DW_TAG_MIPS_loop]			= "BINCL",
-	[DW_TAG_GNU_EINCL - DW_TAG_MIPS_loop]			= "EINCL",
-	[DW_TAG_GNU_template_template_param - DW_TAG_MIPS_loop] = "template_template_param",
-	[DW_TAG_GNU_template_parameter_pack - DW_TAG_MIPS_loop] = "template_parameter_pack",
-	[DW_TAG_GNU_formal_parameter_pack - DW_TAG_MIPS_loop]	= "formal_parameter_pack",
+	[DW_TAG_GNU_BINCL - DW_TAG_MIPS_loop]			= "GNU_BINCL",
+	[DW_TAG_GNU_EINCL - DW_TAG_MIPS_loop]			= "GNU_EINCL",
+	[DW_TAG_GNU_template_template_param - DW_TAG_MIPS_loop] = "GNU_template_template_param",
+	[DW_TAG_GNU_template_parameter_pack - DW_TAG_MIPS_loop] = "GNU_template_parameter_pack",
+	[DW_TAG_GNU_formal_parameter_pack - DW_TAG_MIPS_loop]	= "GNU_formal_parameter_pack",
 #endif
 #if _ELFUTILS_PREREQ(0, 153)
 	[DW_TAG_GNU_call_site - DW_TAG_MIPS_loop]		= "GNU_call_site",
