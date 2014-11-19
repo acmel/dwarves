@@ -15,6 +15,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <inttypes.h>
+#include <elfutils/version.h>
 
 #include "config.h"
 #include "dwarves.h"
@@ -95,6 +96,10 @@ static const char *dwarf_gnu_tag_names[] = {
 	[DW_TAG_GNU_template_parameter_pack - DW_TAG_MIPS_loop] = "template_parameter_pack",
 	[DW_TAG_GNU_formal_parameter_pack - DW_TAG_MIPS_loop]	= "formal_parameter_pack",
 #endif
+#if _ELFUTILS_PREREQ(0, 153)
+	[DW_TAG_GNU_call_site - DW_TAG_MIPS_loop]		= "GNU_call_site",
+	[DW_TAG_GNU_call_site_parameter - DW_TAG_MIPS_loop]	= "GNU_call_site_parameter",
+#endif
 };
 
 const char *dwarf_tag_name(const uint32_t tag)
@@ -108,7 +113,9 @@ const char *dwarf_tag_name(const uint32_t tag)
 	    )
 		return dwarf_tag_names[tag];
 	else if (tag >= DW_TAG_MIPS_loop && tag <=
-#ifdef STB_GNU_UNIQUE
+#if _ELFUTILS_PREREQ(0, 153)
+	         DW_TAG_GNU_call_site_parameter
+#elif STB_GNU_UNIQUE
 		 DW_TAG_GNU_formal_parameter_pack
 #else
 		 DW_TAG_class_template
