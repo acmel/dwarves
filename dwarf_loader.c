@@ -707,8 +707,12 @@ int class_member__dwarf_recode_bitfield(struct class_member *member,
 {
 	struct dwarf_tag *dtag = member->tag.priv;
 	struct dwarf_tag *type = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
-	int recoded_type_id = tag__recode_dwarf_bitfield(type->tag, cu,
-							 member->bitfield_size);
+	int recoded_type_id;
+
+	if (type == NULL)
+		return -ENOENT;
+
+	recoded_type_id = tag__recode_dwarf_bitfield(type->tag, cu, member->bitfield_size);
 	if (recoded_type_id < 0)
 		return recoded_type_id;
 
