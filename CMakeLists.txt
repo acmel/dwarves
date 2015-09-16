@@ -38,7 +38,7 @@ set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer strings
 		     dutil.c elf_symtab.c rbtree.c)
 add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
-set_target_properties(dwarves PROPERTIES LINK_INTERFACE_LIBRARIES "")
+set_target_properties(dwarves PROPERTIES INTERFACE_LINK_LIBRARIES "")
 target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES})
 
 set(dwarves_emit_LIB_SRCS dwarves_emit.c)
