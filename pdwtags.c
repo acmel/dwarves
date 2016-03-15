@@ -127,7 +127,7 @@ static struct argp pdwtags__argp = {
 
 int main(int argc, char *argv[])
 {
-	int remaining, rc = EXIT_FAILURE;
+	int remaining, rc = EXIT_FAILURE, err;
 	struct cus *cus = cus__new();
 
 	if (dwarves__init(0) || cus == NULL) {
@@ -141,8 +141,13 @@ int main(int argc, char *argv[])
                 goto out;
 	}
 
-	if (cus__load_files(cus, &pdwtags_conf_load, argv + remaining) == 0)
+	err = cus__load_files(cus, &pdwtags_conf_load, argv + remaining);
+	if (err == 0) {
 		rc = EXIT_SUCCESS;
+		goto out;
+	}
+
+	fprintf(stderr, "%s: %s: %s\n", basename(argv[0]), argv[remaining + -err - 1], strerror(errno));
 out:
 	cus__delete(cus);
 	dwarves__exit();
