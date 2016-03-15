@@ -143,8 +143,10 @@ int main(int argc __unused, char *argv[])
 	}
 
 	err = cus__load_files(cus, NULL, argv + 1);
-	if (err != 0)
+	if (err != 0) {
+		cus__fprintf_load_files_err(cus, "prefcnt", argv + 1, err, stderr);
 		return EXIT_FAILURE;
+	}
 
 	cus__for_each_cu(cus, cu_refcnt_iterator, NULL, NULL);
 	cus__for_each_cu(cus, cu_lost_iterator, NULL, NULL);

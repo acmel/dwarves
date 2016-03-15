@@ -162,8 +162,10 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
 	}
 	err = cus__load_files(cus, NULL, argv + remaining);
-	if (err != 0)
+	if (err != 0) {
+		cus__fprintf_load_files_err(cus, "syscse", argv + remaining, err, stderr);
 		return EXIT_FAILURE;
+	}
 
 	cus__emit_wrapper(cus);
 	return EXIT_SUCCESS;

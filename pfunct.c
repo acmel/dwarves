@@ -663,8 +663,10 @@ int main(int argc, char *argv[])
 	}
 
 	err = cus__load_files(cus, &conf_load, argv + remaining);
-	if (err != 0)
+	if (err != 0) {
+		cus__fprintf_load_files_err(cus, "pfunct", argv + remaining, err, stderr);
 		goto out_cus_delete;
+	}
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, NULL);
 

@@ -302,8 +302,10 @@ int main(int argc, char *argv[])
 	}
 
 	err = cus__load_files(cus, NULL, argv + remaining);
-	if (err != 0)
+	if (err != 0) {
+		cus__fprintf_load_files_err(cus, "pglobal", argv + remaining, err, stderr);
 		goto out_cus_delete;
+	}
 
 	if (walk_var) {
 		cus__for_each_cu(cus, cu_extvar_iterator, NULL, NULL);

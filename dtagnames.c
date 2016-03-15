@@ -50,8 +50,10 @@ int main(int argc __unused, char *argv[])
 	}
 
 	err = cus__load_files(cus, NULL, argv + 1);
-	if (err != 0)
+	if (err != 0) {
+		cus__fprintf_load_files_err(cus, "dtagnames", argv + 1, err, stderr);
 		goto out;
+	}
 
 	cus__dump_class_tag_names(cus);
 	print_malloc_stats();
