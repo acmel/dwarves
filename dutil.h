@@ -148,6 +148,12 @@ int __ilog2_u64(uint64_t n)
 	return fls64(n) - 1;
 }
 
+/*
+ * deal with unrepresentable constant logarithms
+ */
+extern __attribute__((const, noreturn))
+int ____ilog2_NaN(void);
+
 /**
  * ilog2 - log of base 2 of 32-bit or a 64-bit unsigned value
  * @n - parameter
