@@ -359,6 +359,11 @@ static inline int tag__is_typedef(const struct tag *tag)
 	return tag->tag == DW_TAG_typedef;
 }
 
+static inline int tag__is_rvalue_reference_type(const struct tag *tag)
+{
+	return tag->tag == DW_TAG_rvalue_reference_type;
+}
+
 static inline int tag__is_union(const struct tag *tag)
 {
 	return tag->tag == DW_TAG_union_type;
@@ -396,6 +401,7 @@ static inline int tag__is_type(const struct tag *tag)
 	return tag__is_union(tag)   ||
 	       tag__is_struct(tag)  ||
 	       tag__is_typedef(tag) ||
+	       tag__is_rvalue_reference_type(tag) ||
 	       tag__is_enumeration(tag);
 }
 
@@ -410,6 +416,7 @@ static inline int tag__is_tag_type(const struct tag *tag)
 	       tag->tag == DW_TAG_base_type ||
 	       tag->tag == DW_TAG_const_type ||
 	       tag->tag == DW_TAG_pointer_type ||
+	       tag->tag == DW_TAG_rvalue_reference_type ||
 	       tag->tag == DW_TAG_ptr_to_member_type ||
 	       tag->tag == DW_TAG_reference_type ||
 	       tag->tag == DW_TAG_subroutine_type ||

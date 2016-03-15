@@ -1583,6 +1583,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 		tag = die__create_new_function(die, cu);	break;
 	case DW_TAG_subroutine_type:
 		tag = die__create_new_subroutine_type(die, cu);	break;
+	case DW_TAG_rvalue_reference_type:
 	case DW_TAG_typedef:
 		tag = die__create_new_typedef(die, cu);		break;
 	case DW_TAG_union_type:
