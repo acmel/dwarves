@@ -1488,7 +1488,7 @@ int cus__load_files(struct cus *cus, struct conf_load *conf,
 
 	while (filenames[i] != NULL) {
 		if (cus__load_file(cus, conf, filenames[i]))
-			return -i;
+			return -++i;
 		++i;
 	}
 
