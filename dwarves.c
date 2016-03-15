@@ -1495,6 +1495,13 @@ int cus__load_files(struct cus *cus, struct conf_load *conf,
 	return 0;
 }
 
+int cus__fprintf_load_files_err(struct cus *cus, const char *tool, char *argv[], int err, FILE *output)
+{
+	/* errno is not properly preserved in some cases, sigh */
+	return fprintf(output, "%s: %s: %s\n", tool, argv[-err - 1],
+		       errno ? strerror(errno) : "No debugging information found");
+}
+
 struct cus *cus__new(void)
 {
 	struct cus *cus = malloc(sizeof(*cus));

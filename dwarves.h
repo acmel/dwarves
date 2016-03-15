@@ -84,6 +84,8 @@ int cus__load_file(struct cus *cus, struct conf_load *conf,
 		   const char *filename);
 int cus__load_files(struct cus *cus, struct conf_load *conf,
 		    char *filenames[]);
+int cus__fprintf_load_files_err(struct cus *cus, const char *tool,
+				char *argv[], int err, FILE *output);
 int cus__load_dir(struct cus *cus, struct conf_load *conf,
 		  const char *dirname, const char *filename_mask,
 		  const int recursive);

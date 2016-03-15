@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	fprintf(stderr, "%s: %s: %s\n", basename(argv[0]), argv[remaining + -err - 1], strerror(errno));
+	cus__fprintf_load_files_err(cus, "pdwtags", argv + remaining, err, stderr);
 out:
 	cus__delete(cus);
 	dwarves__exit();
