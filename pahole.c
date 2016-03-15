@@ -1249,7 +1249,9 @@ int main(int argc, char *argv[])
 
 	err = cus__load_files(cus, &conf_load, argv + remaining);
 	if (err != 0) {
-		fputs("pahole: No debugging information found\n", stderr);
+		/* errno is not properly preserved in some cases, sigh */
+		fprintf(stderr, "pahole: %s: %s\n", argv[remaining + -err - 1],
+			errno ? strerror(errno) : "No debugging information found");
 		goto out_cus_delete;
 	}
 
