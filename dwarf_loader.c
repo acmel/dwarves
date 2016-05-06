@@ -1567,6 +1567,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	case DW_TAG_imported_module:
 	case DW_TAG_pointer_type:
 	case DW_TAG_reference_type:
+	case DW_TAG_restrict_type:
 	case DW_TAG_volatile_type:
 		tag = die__create_new_tag(die, cu);		break;
 	case DW_TAG_ptr_to_member_type:
