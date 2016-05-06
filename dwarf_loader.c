@@ -1385,8 +1385,12 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct cu *cu)
 			/*
  			 * FIXME: read http://www.dwarfstd.org/ShowIssue.php?issue=100909.2&type=open
  			 * and write proper support.
- 			 */
-			tag__print_not_supported(dwarf_tag(die));
+			 *
+			 * From a quick read there is not much we can use in
+			 * the existing dwarves tools, so just stop warning the user,
+			 * developers will find these notes if wanting to use in a
+			 * new tool.
+			 */
 			continue;
 		case DW_TAG_lexical_block:
 			if (die__create_new_lexblock(die, cu, NULL) != 0)
@@ -1472,10 +1476,14 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 		case DW_TAG_GNU_call_site:
 		case DW_TAG_GNU_call_site_parameter:
 			/*
- 			 * FIXME: read http://www.dwarfstd.org/ShowIssue.php?issue=100909.2&type=open
- 			 * and write proper support.
- 			 */
-			tag__print_not_supported(dwarf_tag(die));
+			 * XXX: read http://www.dwarfstd.org/ShowIssue.php?issue=100909.2&type=open
+			 * and write proper support.
+			 *
+			 * From a quick read there is not much we can use in
+			 * the existing dwarves tools, so just stop warning the user,
+			 * developers will find these notes if wanting to use in a
+			 * new tool.
+			 */
 			continue;
 		case DW_TAG_template_type_parameter:
 		case DW_TAG_template_value_parameter:
