@@ -445,6 +445,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 	case DW_TAG_volatile_type:
 	case DW_TAG_const_type:
 	case DW_TAG_restrict_type:
+	case DW_TAG_unspecified_type:
 		type = cu__type(cu, tag->type);
 		if (type == NULL && tag->type != 0)
 			tag__id_not_found_snprintf(bf, len, tag->type);
