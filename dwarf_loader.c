@@ -1485,6 +1485,12 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			 * new tool.
 			 */
 			continue;
+		case DW_TAG_dwarf_procedure:
+			/*
+			 * Ignore it, just location expressions, that we have no use for (so far).
+			 */
+			continue;
+		case DW_TAG_GNU_template_parameter_pack:
 		case DW_TAG_template_type_parameter:
 		case DW_TAG_template_value_parameter:
 			/* FIXME: probably we'll have to attach this as a list of
