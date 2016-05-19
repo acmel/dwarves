@@ -1252,8 +1252,9 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 	do {
 		switch (dwarf_tag(die)) {
 #ifdef STB_GNU_UNIQUE
-		case DW_TAG_GNU_template_template_param:
+		case DW_TAG_GNU_formal_parameter_pack:
 		case DW_TAG_GNU_template_parameter_pack:
+		case DW_TAG_GNU_template_template_param:
 #endif
 		case DW_TAG_template_type_parameter:
 		case DW_TAG_template_value_parameter:
@@ -1492,8 +1493,11 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			 * Ignore it, just location expressions, that we have no use for (so far).
 			 */
 			continue;
+#ifdef STB_GNU_UNIQUE
 		case DW_TAG_GNU_formal_parameter_pack:
 		case DW_TAG_GNU_template_parameter_pack:
+		case DW_TAG_GNU_template_template_param:
+#endif
 		case DW_TAG_template_type_parameter:
 		case DW_TAG_template_value_parameter:
 			/* FIXME: probably we'll have to attach this as a list of
