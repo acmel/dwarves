@@ -114,7 +114,7 @@ void tag__delete(struct tag *tag, struct cu *cu)
 void tag__not_found_die(const char *file, int line, const char *func)
 {
 	fprintf(stderr, "%s::%s(%d): tag not found, please report to "
-			"acme@ghostprotocols.net\n", file, func, line);
+			"acme@kernel.org\n", file, func, line);
 	exit(1);
 }
 

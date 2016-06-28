@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+  Copyright (C) 2007-2016 Arnaldo Carvalho de Melo <acme@kernel.org>
 
   This program is free software; you can redistribute it and/or modify it
   under the terms of version 2 of the GNU General Public License as
