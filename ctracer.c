@@ -675,7 +675,7 @@ static int class__emit_classes(struct tag *tag, struct cu *cu)
 
 	emit_list_of_types(&pointers, cu);
 
-	class__fprintf(mini_class, cu, NULL, fp_classes);
+	class__fprintf(mini_class, cu, fp_classes);
 	fputs(";\n\n", fp_classes);
 	class__emit_class_state_collector(class, cu, mini_class);
 	err = 0;

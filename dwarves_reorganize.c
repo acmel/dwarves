@@ -351,7 +351,7 @@ static void class__move_member(struct class *class, struct class_member *dest,
 
 	if (verbose > 1) {
 		class__find_holes(class);
-		class__fprintf(class, cu, NULL, fp);
+		class__fprintf(class, cu, fp);
 		fputc('\n', fp);
 	}
 }
@@ -428,7 +428,7 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 	dest->hole = 0;
 	if (verbose > 1) {
 		class__find_holes(class);
-		class__fprintf(class, cu, NULL, fp);
+		class__fprintf(class, cu, fp);
 		fputc('\n', fp);
 	}
 }
@@ -577,7 +577,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			--class->nr_bit_holes;
 		if (verbose > 1) {
 			class__find_holes(class);
-			class__fprintf(class, cu, NULL, fp);
+			class__fprintf(class, cu, fp);
 			fputc('\n', fp);
 		}
 	}
@@ -636,7 +636,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 			some_was_demoted = 1;
 			if (verbose > 1) {
 				class__find_holes(class);
-				class__fprintf(class, cu, NULL, fp);
+				class__fprintf(class, cu, fp);
 				fputc('\n', fp);
 			}
 		}
@@ -784,7 +784,7 @@ struct irq_cfg {
 		fprintf(fp, "/* bitfield types were fixed */\n");
 		if (verbose > 1) {
 			class__find_holes(class);
-			class__fprintf(class, cu, NULL, fp);
+			class__fprintf(class, cu, fp);
 			fputc('\n', fp);
 		}
 	}

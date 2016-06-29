@@ -1020,8 +1020,7 @@ static inline int class__is_struct(const struct class *cls)
 
 void class__find_holes(struct class *cls);
 int class__has_hole_ge(const struct class *cls, const uint16_t size);
-size_t class__fprintf(struct class *cls, const struct cu *cu,
-		      const struct conf_fprintf *conf, FILE *fp);
+size_t class__fprintf(struct class *cls, const struct cu *cu, FILE *fp);
 
 void class__add_vtable_entry(struct class *cls, struct function *vtable_entry);
 static inline struct class_member *

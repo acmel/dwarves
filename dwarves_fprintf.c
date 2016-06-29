@@ -543,6 +543,9 @@ static const char *variable__prefix(const struct variable *var)
 static size_t union__fprintf(struct type *type, const struct cu *cu,
 			     const struct conf_fprintf *conf, FILE *fp);
 
+static size_t __class__fprintf(struct class *class, const struct cu *cu,
+			       const struct conf_fprintf *conf, FILE *fp);
+
 static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			    const char *name, const struct conf_fprintf *conf,
 			    FILE *fp)
@@ -675,8 +678,8 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 					   conf->type_spacing - 7,
 					   type__name(ctype, cu), name);
 		else
-			printed += class__fprintf(tag__class(type),
-						  cu, &tconf, fp);
+			printed += __class__fprintf(tag__class(type),
+						    cu, &tconf, fp);
 		break;
 	case DW_TAG_union_type:
 		ctype = tag__type(type);
@@ -1183,8 +1186,8 @@ out:
 	return printed;
 }
 
-size_t class__fprintf(struct class *class, const struct cu *cu,
-		      const struct conf_fprintf *conf, FILE *fp)
+static size_t __class__fprintf(struct class *class, const struct cu *cu,
+			       const struct conf_fprintf *conf, FILE *fp)
 {
 	struct type *type = &class->type;
 	size_t last_size = 0, size;
@@ -1543,6 +1546,11 @@ out:
 				 cconf.suffix ? " ": "", cconf.suffix ?: "");
 }
 
+size_t class__fprintf(struct class *class, const struct cu *cu, FILE *fp)
+{
+	return __class__fprintf(class, cu, NULL, fp);
+}
+
 static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 				const struct conf_fprintf *conf, FILE *fp)
 {
@@ -1634,7 +1642,7 @@ size_t tag__fprintf(struct tag *tag, const struct cu *cu,
 	case DW_TAG_class_type:
 	case DW_TAG_interface_type:
 	case DW_TAG_structure_type:
-		printed += class__fprintf(tag__class(tag), cu, pconf, fp);
+		printed += __class__fprintf(tag__class(tag), cu, pconf, fp);
 		break;
 	case DW_TAG_namespace:
 		printed += namespace__fprintf(tag, cu, pconf, fp);
