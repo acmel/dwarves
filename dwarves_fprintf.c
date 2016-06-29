@@ -712,14 +712,18 @@ out_type_not_found:
 	goto out;
 }
 
+static size_t class__fprintf_cacheline_boundary(struct conf_fprintf *conf,
+						uint32_t offset,
+						FILE *fp);
+
 static size_t struct_member__fprintf(struct class_member *member,
 				     struct tag *type, const struct cu *cu,
-				     const struct conf_fprintf *conf, FILE *fp)
+				     struct conf_fprintf *conf, FILE *fp)
 {
 	const int size = member->byte_size;
 	struct conf_fprintf sconf = *conf;
 	uint32_t offset = member->byte_offset;
-	size_t printed = 0;
+	size_t printed = 0, printed_cacheline = 0;
 	const char *cm_name = class_member__name(member, cu),
 		   *name = cm_name;
 
@@ -727,6 +731,9 @@ static size_t struct_member__fprintf(struct class_member *member,
 		sconf.base_offset += member->byte_offset;
 		offset = sconf.base_offset;
 	}
+
+	if (!conf->suppress_comments)
+		printed_cacheline = class__fprintf_cacheline_boundary(conf, offset, fp);
 
 	if (member->tag.tag == DW_TAG_inheritance) {
 		name = "<ancestor>";
@@ -790,7 +797,7 @@ static size_t struct_member__fprintf(struct class_member *member,
 					   size_spacing, size);
 		}
 	}
-	return printed;
+	return printed + printed_cacheline;
 }
 
 static size_t union_member__fprintf(struct class_member *member,
@@ -1126,38 +1133,31 @@ size_t function__fprintf_stats(const struct tag *tag, const struct cu *cu,
 	return printed + fprintf(fp, " */\n");
 }
 
-static size_t class__fprintf_cacheline_boundary(uint32_t last_cacheline,
-						size_t sum, size_t sum_holes,
-						uint8_t *newline,
-						uint32_t *cacheline,
-						int indent, FILE *fp)
+static size_t class__fprintf_cacheline_boundary(struct conf_fprintf *conf,
+						uint32_t offset,
+						FILE *fp)
 {
-	const size_t real_sum = sum + sum_holes;
+	int indent = conf->indent;
+	uint32_t cacheline = offset / cacheline_size;
 	size_t printed = 0;
 
-	*cacheline = real_sum / cacheline_size;
-
-	if (*cacheline > last_cacheline) {
-		const uint32_t cacheline_pos = real_sum % cacheline_size;
-		const uint32_t cacheline_in_bytes = real_sum - cacheline_pos;
-
-		if (*newline) {
-			fputc('\n', fp);
-			*newline = 0;
-			++printed;
-		}
-
-		printed += fprintf(fp, "%.*s", indent, tabs);
+	if (cacheline > *conf->cachelinep) {
+		const uint32_t cacheline_pos = offset % cacheline_size;
+		const uint32_t cacheline_in_bytes = offset - cacheline_pos;
 
 		if (cacheline_pos == 0)
 			printed += fprintf(fp, "/* --- cacheline %u boundary "
-					   "(%u bytes) --- */\n", *cacheline,
+					   "(%u bytes) --- */\n", cacheline,
 					   cacheline_in_bytes);
 		else
 			printed += fprintf(fp, "/* --- cacheline %u boundary "
 					   "(%u bytes) was %u bytes ago --- "
-					   "*/\n", *cacheline,
+					   "*/\n", cacheline,
 					   cacheline_in_bytes, cacheline_pos);
+
+		printed += fprintf(fp, "%.*s", indent, tabs);
+
+		*conf->cachelinep = cacheline;
 	}
 	return printed;
 }
@@ -1197,7 +1197,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	uint32_t sum_holes = 0;
 	uint32_t sum_paddings = 0;
 	uint32_t sum_bit_holes = 0;
-	uint32_t last_cacheline = 0;
+	uint32_t cacheline = 0;
 	uint32_t bitfield_real_offset = 0;
 	int first = 1;
 	struct class_member *pos, *last = NULL;
@@ -1217,6 +1217,9 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 
 	if (indent >= (int)sizeof(tabs))
 		indent = sizeof(tabs) - 1;
+
+	if (cconf.cachelinep == NULL)
+		cconf.cachelinep = &cacheline;
 
 	cconf.indent = indent + 1;
 	cconf.no_semicolon = 0;
@@ -1275,17 +1278,6 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			continue;
 		}
 		pos = tag__class_member(tag_pos);
-
-		if (last != NULL &&
-		    pos->byte_offset != last->byte_offset &&
-		    !cconf.suppress_comments)
-			printed +=
-			    class__fprintf_cacheline_boundary(last_cacheline,
-							      sum, sum_holes,
-							      &newline,
-							      &last_cacheline,
-							      cconf.indent,
-							      fp);
 		/*
 		 * These paranoid checks doesn't make much sense on
 		 * DW_TAG_inheritance, have to understand why virtual public
@@ -1469,12 +1461,6 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		bitfield_real_offset = 0;
 	}
 
-	if (!cconf.suppress_comments)
-		printed += class__fprintf_cacheline_boundary(last_cacheline,
-							     sum, sum_holes,
-							     &newline,
-							     &last_cacheline,
-							     cconf.indent, fp);
 	if (!cconf.show_only_data_members)
 		class__vtable_fprintf(class, cu, &cconf, fp);
 
@@ -1518,11 +1504,11 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		printed += fprintf(fp, "\n%.*s/* bit_padding: %u bits */",
 				   cconf.indent, tabs,
 				   class->bit_padding);
-	last_cacheline = type->size % cacheline_size;
-	if (last_cacheline != 0)
+	cacheline = (cconf.base_offset + type->size) % cacheline_size;
+	if (cacheline != 0)
 		printed += fprintf(fp, "\n%.*s/* last cacheline: %u bytes */",
 				   cconf.indent, tabs,
-				   last_cacheline);
+				   cacheline);
 	if (cconf.show_first_biggest_size_base_type_member &&
 	    type->nr_members != 0) {
 		struct class_member *m = type__find_first_biggest_size_base_type_member(type, cu);

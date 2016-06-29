@@ -49,6 +49,8 @@ struct conf_load {
  *
  * @flat_arrays - a->foo[10][2] becomes a->foo[20]
  * @classes_as_structs - class f becomes struct f, CTF doesn't have a "class"
+ * @cachelinep - pointer to current cacheline, so that when expanding types we keep track of it,
+ * 		 needs to be "global", i.e. not set at each recursion.
  */
 struct conf_fprintf {
 	const char *prefix;
@@ -56,6 +58,7 @@ struct conf_fprintf {
 	int32_t	   type_spacing;
 	int32_t	   name_spacing;
 	uint32_t   base_offset;
+	uint32_t   *cachelinep;
 	uint8_t	   indent;
 	uint8_t	   expand_types:1;
 	uint8_t	   expand_pointers:1;
