@@ -1116,6 +1116,9 @@ void class__find_holes(struct class *class)
 	uint32_t bit_sum = 0;
 	uint32_t bitfield_real_offset = 0;
 
+	if (class->holes_searched)
+		return;
+
 	class->nr_holes = 0;
 	class->nr_bit_holes = 0;
 
@@ -1200,6 +1203,8 @@ void class__find_holes(struct class *class)
 	} else
 		/* No members? Zero sized C++ class */
 		class->padding = 0;
+
+	class->holes_searched = true;
 }
 
 /** class__has_hole_ge - check if class has a hole greater or equal to @size

@@ -976,6 +976,7 @@ struct class {
 	uint8_t		 nr_bit_holes;
 	uint16_t	 padding;
 	uint8_t		 bit_padding;
+	bool		 holes_searched;
 	void		 *priv;
 };
 

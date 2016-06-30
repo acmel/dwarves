@@ -1348,7 +1348,15 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		printed += struct_member__fprintf(pos, type, cu, &cconf, fp);
 
 		if (tag__is_struct(type) && !cconf.suppress_comments) {
-			const uint16_t padding = tag__class(type)->padding;
+			struct class *tclass = tag__class(type);
+			uint16_t padding;
+			/*
+			 * We may not yet have looked for holes and paddings
+			 * in this member's struct type.
+			 */
+			class__find_holes(tclass);
+
+			padding = tclass->padding;
 			if (padding > 0) {
 				++nr_paddings;
 				sum_paddings += padding;
