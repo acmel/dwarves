@@ -671,15 +671,20 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	case DW_TAG_structure_type:
 		ctype = tag__type(type);
 
-		if (type__name(ctype, cu) != NULL && !expand_types)
+		if (type__name(ctype, cu) != NULL && !expand_types) {
 			printed += fprintf(fp, "%s %-*s %s",
 					   (type->tag == DW_TAG_class_type &&
 					    !conf->classes_as_structs) ? "class" : "struct",
 					   conf->type_spacing - 7,
 					   type__name(ctype, cu), name);
-		else
-			printed += __class__fprintf(tag__class(type),
-						    cu, &tconf, fp);
+		} else {
+			struct class *cclass = tag__class(type);
+
+			if (!conf->suppress_comments)
+				class__find_holes(cclass);
+
+			printed += __class__fprintf(cclass, cu, &tconf, fp);
+		}
 		break;
 	case DW_TAG_union_type:
 		ctype = tag__type(type);
