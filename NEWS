@@ -1,3 +1,50 @@
+v1.11
+
+Wed Jun 2017
+
+5a57eb074170 man-pages: Update URL to the dwarves paper
+b52386d041fa dwarves_fprintf: Find holes when expanding types
+103e89bb257d dwarves_fprintf: Find holes on structs embedded in other structs
+ab97c07a7ebe dwarves_fprintf: Fixup cacheline boundary printing on expanded structs
+046ad67af383 dwarves_fprintf: Shorten class__fprintf() sig
+44130bf70e1c dwarves: Update e-mail address
+327757975b94 dwarf_loader: Add URL for template tags description
+f4d5e21fd1b2 dwarf_loader: Tidy up template tags usage
+e12bf9999944 dwarf_loader: Do not hash unsupported tags
+3afcfbec9e08 dwarf_loader: Add DW_TAG_GNU_formal_parameter_pack stub in process_function
+55d9b20dbaf6 dwarf_loader: Ignore DW_TAG_dwarf_procedure when processing functions
+45618c7ec122 dwarf_loader: Initial support for DW_TAG_unspecified_type
+658a238b9890 dwarf_loader: Stop emitting warnings about DW_TAG_call_site
+0fbb39291d59 dwarf_loader: Add support for DW_TAG_restrict_type
+9df42c68265d dwarves: Initial support for rvalue_reference_type
+8af5ccd86d21 dwarves: Use cus__fprintf_load_files_err() in the remaining tools
+10515a7c4db7 dwarves: Introduce cus__fprintf_load_files_err()
+0e6463635082 pahole: Show more informative message when errno is properly set on error
+2566cc2c8715 pdwtags: Show proper error messages for files it can't handle
+9f3f67e78679 dwarves: Fix cus__load_files() error return
+ae3a2720c3d3 dutil: Add ____ilog2_NaN declaration to silence compiler warning
+0b81b5ad4743 Update version in CMakeLists.txt
+79536f4f9587 cmake: Use INTERFACE_LINK_LIBRARIES
+1decb1bc4a41 dwarf_loader: Check cu__find_type_by_ref result
+956343d05a41 Add instructions on how to build with debug info
+e71353c3fa0a dwarf_loader: Ignore DW_TAG_dwarf_procedure
+189695907242 dwarves_fprintf: Add the missing GNU_ suffix to DWARF_TAG_ created by the GNU project
+d973b1d5daf0 dwarf_fprintf: Handle DW_TAG_GNU_call_site{_parameter}
+c23eab4b1253 dwarf_loader: Print unknown tags as an hex number
+943a0de0679a dwarves_fprintf: DW_TAG_mutable_type doesn't exist.
+a8e562a15767 dwarf_loader: Use obstack_zalloc when allocating tag
+fd3838ae9aa3 dwarves: Stop using 'self'
+5ecf1aab9e10 dwarf_loader: Support DW_FORM_data{4,8} for reading class member offsets
+c4ccdd5ae63b dwarves_reorganize: Fix member type fixup
+e31fda3063e3 dwarves_reorganize: Fixup calculation of bytes needed for bitfield
+1e461ec7e0e8 dwarves_fprintf: Fix printf types on 64bit linux
+222f0067a9c3 dwarves_fprintf: Don't ignore virtual data members
+e512e3f9b36b dwarves: Update git url
+8c6378fd8834 dwarves: Support static class data members
+a54515fa6ee4 dwarves: Stop using 'self'
+6035b0d91f19 rpm: Add missing BuildRequires: zlib-devel
+be7b691756ff dwarf_loader: Don't stop processing after finding unsupported tag
+
 v1.10
 
 Wed May 30 2012
