@@ -643,7 +643,7 @@ int main(int argc, char *argv[])
 	int err, remaining, rc = EXIT_FAILURE;
 
 	if (argp_parse(&pfunct__argp, argc, argv, 0, &remaining, NULL) ||
-	    remaining == argc) {
+	    (remaining == argc && class_name == NULL && function_name == NULL)) {
                 argp_help(&pfunct__argp, stderr, ARGP_HELP_SEE, argv[0]);
                 goto out;
 	}

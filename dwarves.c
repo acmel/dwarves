@@ -18,10 +18,12 @@
 #include <libelf.h>
 #include <search.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/utsname.h>
 
 #include "config.h"
 #include "list.h"
@@ -1487,6 +1489,356 @@ int cus__load_file(struct cus *cus, struct conf_load *conf,
 	return -EINVAL;
 }
 
+#define BUILD_ID_SIZE   20
+#define SBUILD_ID_SIZE  (BUILD_ID_SIZE * 2 + 1)
+
+#define NOTE_ALIGN(sz) (((sz) + 3) & ~3)
+
+#define NT_GNU_BUILD_ID	3
+
+#ifndef min
+#define min(x, y) ({				\
+	typeof(x) _min1 = (x);			\
+	typeof(y) _min2 = (y);			\
+	(void) (&_min1 == &_min2);		\
+	_min1 < _min2 ? _min1 : _min2; })
+#endif
+
+/* Force a compilation error if condition is true, but also produce a
+   result (of value 0 and type size_t), so the expression can be used
+   e.g. in a structure initializer (or where-ever else comma expressions
+   aren't permitted). */
+#define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
+
+/* Are two types/vars the same type (ignoring qualifiers)? */
+#ifndef __same_type
+# define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
+#endif
+
+/* &a[0] degrades to a pointer: a different type from an array */
+#define __must_be_array(a)	BUILD_BUG_ON_ZERO(__same_type((a), &(a)[0]))
+
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
+
+static int sysfs__read_build_id(const char *filename, void *build_id, size_t size)
+{
+	int fd, err = -1;
+
+	if (size < BUILD_ID_SIZE)
+		goto out;
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0)
+		goto out;
+
+	while (1) {
+		char bf[BUFSIZ];
+		GElf_Nhdr nhdr;
+		size_t namesz, descsz;
+
+		if (read(fd, &nhdr, sizeof(nhdr)) != sizeof(nhdr))
+			break;
+
+		namesz = NOTE_ALIGN(nhdr.n_namesz);
+		descsz = NOTE_ALIGN(nhdr.n_descsz);
+		if (nhdr.n_type == NT_GNU_BUILD_ID &&
+		    nhdr.n_namesz == sizeof("GNU")) {
+			if (read(fd, bf, namesz) != (ssize_t)namesz)
+				break;
+			if (memcmp(bf, "GNU", sizeof("GNU")) == 0) {
+				size_t sz = min(descsz, size);
+				if (read(fd, build_id, sz) == (ssize_t)sz) {
+					memset(build_id + sz, 0, size - sz);
+					err = 0;
+					break;
+				}
+			} else if (read(fd, bf, descsz) != (ssize_t)descsz)
+				break;
+		} else {
+			int n = namesz + descsz;
+
+			if (n > (int)sizeof(bf)) {
+				n = sizeof(bf);
+				fprintf(stderr, "%s: truncating reading of build id in sysfs file %s: n_namesz=%u, n_descsz=%u.\n",
+					 __func__, filename, nhdr.n_namesz, nhdr.n_descsz);
+			}
+			if (read(fd, bf, n) != n)
+				break;
+		}
+	}
+	close(fd);
+out:
+	return err;
+}
+
+static int elf_read_build_id(Elf *elf, void *bf, size_t size)
+{
+	int err = -1;
+	GElf_Ehdr ehdr;
+	GElf_Shdr shdr;
+	Elf_Data *data;
+	Elf_Scn *sec;
+	Elf_Kind ek;
+	void *ptr;
+
+	if (size < BUILD_ID_SIZE)
+		goto out;
+
+	ek = elf_kind(elf);
+	if (ek != ELF_K_ELF)
+		goto out;
+
+	if (gelf_getehdr(elf, &ehdr) == NULL) {
+		fprintf(stderr, "%s: cannot get elf header.\n", __func__);
+		goto out;
+	}
+
+	/*
+	 * Check following sections for notes:
+	 *   '.note.gnu.build-id'
+	 *   '.notes'
+	 *   '.note' (VDSO specific)
+	 */
+	do {
+		sec = elf_section_by_name(elf, &ehdr, &shdr,
+					  ".note.gnu.build-id", NULL);
+		if (sec)
+			break;
+
+		sec = elf_section_by_name(elf, &ehdr, &shdr,
+					  ".notes", NULL);
+		if (sec)
+			break;
+
+		sec = elf_section_by_name(elf, &ehdr, &shdr,
+					  ".note", NULL);
+		if (sec)
+			break;
+
+		return err;
+
+	} while (0);
+
+	data = elf_getdata(sec, NULL);
+	if (data == NULL)
+		goto out;
+
+	ptr = data->d_buf;
+	while (ptr < (data->d_buf + data->d_size)) {
+		GElf_Nhdr *nhdr = ptr;
+		size_t namesz = NOTE_ALIGN(nhdr->n_namesz),
+		       descsz = NOTE_ALIGN(nhdr->n_descsz);
+		const char *name;
+
+		ptr += sizeof(*nhdr);
+		name = ptr;
+		ptr += namesz;
+		if (nhdr->n_type == NT_GNU_BUILD_ID &&
+		    nhdr->n_namesz == sizeof("GNU")) {
+			if (memcmp(name, "GNU", sizeof("GNU")) == 0) {
+				size_t sz = min(size, descsz);
+				memcpy(bf, ptr, sz);
+				memset(bf + sz, 0, size - sz);
+				err = descsz;
+				break;
+			}
+		}
+		ptr += descsz;
+	}
+
+out:
+	return err;
+}
+
+static int filename__read_build_id(const char *filename, void *bf, size_t size)
+{
+	int fd, err = -1;
+	Elf *elf;
+
+	if (size < BUILD_ID_SIZE)
+		goto out;
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0)
+		goto out;
+
+	elf = elf_begin(fd, ELF_C_READ, NULL);
+	if (elf == NULL) {
+		fprintf(stderr, "%s: cannot read %s ELF file.\n", __func__, filename);
+		goto out_close;
+	}
+
+	err = elf_read_build_id(elf, bf, size);
+
+	elf_end(elf);
+out_close:
+	close(fd);
+out:
+	return err;
+}
+
+static int build_id__sprintf(const unsigned char *build_id, int len, char *bf)
+{
+	char *bid = bf;
+	const unsigned char *raw = build_id;
+	int i;
+
+	for (i = 0; i < len; ++i) {
+		sprintf(bid, "%02x", *raw);
+		++raw;
+		bid += 2;
+	}
+
+	return (bid - bf) + 1;
+}
+
+static int sysfs__sprintf_build_id(const char *root_dir, char *sbuild_id)
+{
+	char notes[PATH_MAX];
+	unsigned char build_id[BUILD_ID_SIZE];
+	int ret;
+
+	if (!root_dir)
+		root_dir = "";
+
+	snprintf(notes, sizeof(notes), "%s/sys/kernel/notes", root_dir);
+
+	ret = sysfs__read_build_id(notes, build_id, sizeof(build_id));
+	if (ret < 0)
+		return ret;
+
+	return build_id__sprintf(build_id, sizeof(build_id), sbuild_id);
+}
+
+static int filename__sprintf_build_id(const char *pathname, char *sbuild_id)
+{
+	unsigned char build_id[BUILD_ID_SIZE];
+	int ret;
+
+	ret = filename__read_build_id(pathname, build_id, sizeof(build_id));
+	if (ret < 0)
+		return ret;
+	else if (ret != sizeof(build_id))
+		return -EINVAL;
+
+	return build_id__sprintf(build_id, sizeof(build_id), sbuild_id);
+}
+
+/* asnprintf consolidates asprintf and snprintf */
+static int asnprintf(char **strp, size_t size, const char *fmt, ...)
+{
+	va_list ap;
+	int ret;
+
+	if (!strp)
+		return -EINVAL;
+
+	va_start(ap, fmt);
+	if (*strp)
+		ret = vsnprintf(*strp, size, fmt, ap);
+	else
+		ret = vasprintf(strp, fmt, ap);
+	va_end(ap);
+
+	return ret;
+}
+
+#define zfree(ptr) ({ free(*ptr); *ptr = NULL; })
+
+static int vmlinux_path__nr_entries;
+static char **vmlinux_path;
+
+static void vmlinux_path__exit(void)
+{
+	while (--vmlinux_path__nr_entries >= 0)
+		zfree(&vmlinux_path[vmlinux_path__nr_entries]);
+	vmlinux_path__nr_entries = 0;
+
+	zfree(&vmlinux_path);
+}
+
+static const char * const vmlinux_paths[] = {
+	"vmlinux",
+	"/boot/vmlinux"
+};
+
+static const char * const vmlinux_paths_upd[] = {
+	"/boot/vmlinux-%s",
+	"/usr/lib/debug/boot/vmlinux-%s",
+	"/lib/modules/%s/build/vmlinux",
+	"/usr/lib/debug/lib/modules/%s/vmlinux",
+	"/usr/lib/debug/boot/vmlinux-%s.debug"
+};
+
+static int vmlinux_path__add(const char *new_entry)
+{
+	vmlinux_path[vmlinux_path__nr_entries] = strdup(new_entry);
+	if (vmlinux_path[vmlinux_path__nr_entries] == NULL)
+		return -1;
+	++vmlinux_path__nr_entries;
+
+	return 0;
+}
+
+static int vmlinux_path__init(void)
+{
+	struct utsname uts;
+	char bf[PATH_MAX];
+	char *kernel_version;
+	unsigned int i;
+
+	vmlinux_path = malloc(sizeof(char *) * (ARRAY_SIZE(vmlinux_paths) +
+			      ARRAY_SIZE(vmlinux_paths_upd)));
+	if (vmlinux_path == NULL)
+		return -1;
+
+	for (i = 0; i < ARRAY_SIZE(vmlinux_paths); i++)
+		if (vmlinux_path__add(vmlinux_paths[i]) < 0)
+			goto out_fail;
+
+	if (uname(&uts) < 0)
+		goto out_fail;
+
+	kernel_version = uts.release;
+
+	for (i = 0; i < ARRAY_SIZE(vmlinux_paths_upd); i++) {
+		snprintf(bf, sizeof(bf), vmlinux_paths_upd[i], kernel_version);
+		if (vmlinux_path__add(bf) < 0)
+			goto out_fail;
+	}
+
+	return 0;
+
+out_fail:
+	vmlinux_path__exit();
+	return -1;
+}
+
+static int cus__load_running_kernel(struct cus *cus, struct conf_load *conf)
+{
+	int i, err = 0;
+	char running_sbuild_id[SBUILD_ID_SIZE];
+
+	elf_version(EV_CURRENT);
+	vmlinux_path__init();
+
+	sysfs__sprintf_build_id(NULL, running_sbuild_id);
+
+	for (i = 0; i < vmlinux_path__nr_entries; ++i) {
+		char sbuild_id[SBUILD_ID_SIZE];
+
+		if (filename__sprintf_build_id(vmlinux_path[i], sbuild_id) > 0 &&
+		    strcmp(sbuild_id, running_sbuild_id) == 0) {
+			err = cus__load_file(cus, conf, vmlinux_path[i]);
+			break;
+		}
+	}
+
+	vmlinux_path__exit();
+
+	return err;
+}
+
 int cus__load_files(struct cus *cus, struct conf_load *conf,
 		    char *filenames[])
 {
@@ -1498,7 +1850,7 @@ int cus__load_files(struct cus *cus, struct conf_load *conf,
 		++i;
 	}
 
-	return 0;
+	return i ?: cus__load_running_kernel(cus, conf);
 }
 
 int cus__fprintf_load_files_err(struct cus *cus, const char *tool, char *argv[], int err, FILE *output)
