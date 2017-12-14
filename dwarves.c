@@ -1850,7 +1850,7 @@ int cus__load_files(struct cus *cus, struct conf_load *conf,
 		++i;
 	}
 
-	return i ?: cus__load_running_kernel(cus, conf);
+	return i ? 0 : cus__load_running_kernel(cus, conf);
 }
 
 int cus__fprintf_load_files_err(struct cus *cus, const char *tool, char *argv[], int err, FILE *output)
