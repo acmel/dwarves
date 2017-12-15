@@ -721,7 +721,7 @@ static size_t class__fprintf_cacheline_boundary(struct conf_fprintf *conf,
 						uint32_t offset,
 						FILE *fp);
 
-static size_t struct_member__fprintf(struct class_member *member,
+static size_t class_member__fprintf(struct class_member *member, bool union_member,
 				     struct tag *type, const struct cu *cu,
 				     struct conf_fprintf *conf, FILE *fp)
 {
@@ -733,8 +733,9 @@ static size_t struct_member__fprintf(struct class_member *member,
 		   *name = cm_name;
 
 	if (!sconf.rel_offset) {
-		sconf.base_offset += member->byte_offset;
-		offset = sconf.base_offset;
+		offset += sconf.base_offset;
+		if (!union_member)
+			sconf.base_offset = offset;
 	}
 
 	if (!conf->suppress_comments)
@@ -805,45 +806,18 @@ static size_t struct_member__fprintf(struct class_member *member,
 	return printed + printed_cacheline;
 }
 
+static size_t struct_member__fprintf(struct class_member *member,
+				     struct tag *type, const struct cu *cu,
+				     struct conf_fprintf *conf, FILE *fp)
+{
+	return class_member__fprintf(member, false, type, cu, conf, fp);
+}
+
 static size_t union_member__fprintf(struct class_member *member,
 				    struct tag *type, const struct cu *cu,
-				    const struct conf_fprintf *conf, FILE *fp)
+				    struct conf_fprintf *conf, FILE *fp)
 {
-	const size_t size = member->byte_size;
-	const char *name = class_member__name(member, cu);
-	size_t printed = type__fprintf(type, cu, name, conf, fp);
-
-	if ((tag__is_union(type) || tag__is_struct(type) ||
-	     tag__is_enumeration(type)) &&
-		/* Look if is a type defined inline */
-	    type__name(tag__type(type), cu) == NULL) {
-		if (!conf->suppress_offset_comment) {
-			/* Check if this is a anonymous union */
-			const int slen = name ? (int)strlen(name) : -1;
-			/*
-			 * Add the comment with the union size after padding the
-			 * '} member_name;' last line of the type printed in the
-			 * above call to type__fprintf.
-			 */
-			printed += fprintf(fp, conf->hex_fmt ?
-							";%*s/* %#11zx */" :
-							";%*s/* %11zd */",
-					   (conf->type_spacing +
-					    conf->name_spacing - slen - 3), " ", size);
-		}
-	} else {
-		printed += fprintf(fp, ";");
-
-		if (!conf->suppress_offset_comment) {
-			const int spacing = conf->type_spacing + conf->name_spacing - printed;
-			printed += fprintf(fp, conf->hex_fmt ?
-							"%*s/* %#11zx */" :
-							"%*s/* %11zd */",
-					   spacing > 0 ? spacing : 0, " ", size);
-		}
-	}
-
-	return printed;
+	return class_member__fprintf(member, true, type, cu, conf, fp);
 }
 
 static size_t union__fprintf(struct type *type, const struct cu *cu,
