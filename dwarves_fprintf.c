@@ -1598,6 +1598,8 @@ size_t tag__fprintf(struct tag *tag, const struct cu *cu,
 
 	if (pconf->show_decl_info) {
 		printed += fprintf(fp, "%.*s", pconf->indent, tabs);
+		printed += fprintf(fp, "/* Used at: %s */\n", cu->name);
+		printed += fprintf(fp, "%.*s", pconf->indent, tabs);
 		printed += tag__fprintf_decl_info(tag, cu, fp);
 	}
 	printed += fprintf(fp, "%.*s", pconf->indent, tabs);
