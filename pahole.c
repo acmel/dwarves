@@ -21,7 +21,9 @@
 #include "dwarves.h"
 #include "dutil.h"
 #include "ctf_encoder.h"
+#include "btf_encoder.h"
 
+static bool btf_encode;
 static bool ctf_encode;
 static bool first_obj_only;
 
@@ -965,6 +967,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Print offsets and sizes in hexadecimal",
 	},
 	{
+		.name = "btf_encode",
+		.key  = 'J',
+		.doc  = "Encode as BTF",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -995,6 +1002,7 @@ static error_t pahole__options_parser(int key, char *arg,
 		  conf_load.extra_dbg_info = 1;		break;
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
+	case 'J': btf_encode = 1;			break;
 	case 'l': conf.show_first_biggest_size_base_type_member = 1;	break;
 	case 'M': conf.show_only_data_members = 1;	break;
 	case 'm': stats_formatter = nr_methods_formatter; break;
@@ -1104,6 +1112,11 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	if (!cu__filter(cu))
 		goto filter_it;
+
+	if (btf_encode) {
+		cu__encode_btf(cu, global_verbose);
+		goto dump_and_stop;
+	}
 
 	if (ctf_encode) {
 		cu__encode_ctf(cu, global_verbose);

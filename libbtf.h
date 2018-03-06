@@ -1,0 +1,49 @@
+#ifndef _LIBBTF_H
+#define _LIBBTF_H
+
+#include "gobuffer.h"
+
+#include <stdint.h>
+
+struct btf {
+	union {
+		struct btf_header *hdr;
+		void		  *data;
+	};
+	void		  *priv;
+	Elf		  *elf;
+	GElf_Ehdr	  ehdr;
+	struct gobuffer	  types;
+	struct gobuffer   *strings;
+	char		  *filename;
+	size_t		  size;
+	int		  swapped;
+	int		  in_fd;
+	uint8_t		  wordsize;
+	uint32_t	  type_index;
+};
+
+extern uint8_t btf_verbose;
+#define btf_verbose_log(fmt, ...) { if (btf_verbose) printf(fmt, __VA_ARGS__); }
+
+struct base_type;
+
+struct btf *btf__new(const char *filename, Elf *elf);
+void btf__free(struct btf *btf);
+
+int32_t btf__add_base_type(struct btf *btf, const struct base_type *bt);
+int32_t btf__add_ref_type(struct btf *btf, uint16_t kind, uint32_t type,
+			  uint32_t name);
+int btf__add_member(struct btf *btf, uint32_t name, uint32_t type,
+		    uint32_t bit_offset);
+int32_t btf__add_struct(struct btf *btf, uint8_t kind, uint32_t name,
+			uint32_t size, uint16_t nr_members);
+int32_t btf__add_array(struct btf *btf, uint32_t type, uint32_t index_type,
+		       uint32_t nelems);
+int32_t btf__add_enum(struct btf *btf, uint32_t name, uint32_t size,
+		      uint16_t nr_entries);
+int btf__add_enum_val(struct btf *btf, uint32_t name, int32_t value);
+void btf__set_strings(struct btf *btf, struct gobuffer *strings);
+int  btf__encode(struct btf *btf, uint8_t flags);
+
+#endif /* _LIBBTF_H */
