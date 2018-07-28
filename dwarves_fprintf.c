@@ -827,6 +827,7 @@ static size_t union__fprintf(struct type *type, const struct cu *cu,
 	size_t printed = 0;
 	int indent = conf->indent;
 	struct conf_fprintf uconf;
+	uint32_t initial_union_cacheline;
 
 	if (indent >= (int)sizeof(tabs))
 		indent = sizeof(tabs) - 1;
@@ -838,6 +839,12 @@ static size_t union__fprintf(struct type *type, const struct cu *cu,
 
 	uconf = *conf;
 	uconf.indent = indent + 1;
+	/*
+	 * Save the cacheline we're in, then, after each union member, get
+	 * back to it. Else we'll end up showing cacheline boundaries in
+	 * just the first of a multi struct union, for instance.
+	 */
+	initial_union_cacheline = *uconf.cachelinep;
 	type__for_each_member(type, pos) {
 		struct tag *type = cu__type(cu, pos->tag.type);
 
@@ -851,6 +858,7 @@ static size_t union__fprintf(struct type *type, const struct cu *cu,
 		printed += union_member__fprintf(pos, type, cu, &uconf, fp);
 		fputc('\n', fp);
 		++printed;
+		*uconf.cachelinep = initial_union_cacheline;
 	}
 
 	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
