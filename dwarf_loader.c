@@ -2056,8 +2056,8 @@ static int die__process(Dwarf_Die *die, struct cu *cu)
 	Dwarf_Die child;
 	const uint16_t tag = dwarf_tag(die);
 
-	if (tag != DW_TAG_compile_unit && tag != DW_TAG_type_unit) {
-		fprintf(stderr, "%s: DW_TAG_compile_unit or DW_TAG_type_unit expected got %s!\n",
+	if (tag != DW_TAG_compile_unit && tag != DW_TAG_type_unit && tag != DW_TAG_partial_unit) {
+		fprintf(stderr, "%s: DW_TAG_compile_unit, DW_TAG_type_unit or DW_TAG_partial_unit expected got %s!\n",
 			__FUNCTION__, dwarf_tag_name(tag));
 		return -EINVAL;
 	}
