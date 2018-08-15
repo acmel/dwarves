@@ -1,0 +1,245 @@
+We'll test the BTF encoder using perf's eBPF integration, but really we can plain
+use clang directly, setting up all its options.
+
+Using perf's integration will save some time here, to see all it does, use
+'perf trace -vv' plus the options used below, then all the steps will be shown.
+
+Build perf from the latest kernel sources, use it with clang/llvm like:
+
+  [root@seventh ~]# clang --version
+  clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566eefef9c3777bd780ec4cbb9efa764633b76c)
+  Target: x86_64-unknown-linux-gnu
+  Thread model: posix
+  InstalledDir: /usr/local/bin
+  [root@seventh ~]# llc --version | head -17
+  LLVM (http://llvm.org/):
+    LLVM version 8.0.0svn
+    DEBUG build with assertions.
+    Default target: x86_64-unknown-linux-gnu
+    Host CPU: skylake
+
+    Registered Targets:
+      aarch64    - AArch64 (little endian)
+      aarch64_be - AArch64 (big endian)
+      amdgcn     - AMD GCN GPUs
+      arm        - ARM
+      arm64      - ARM64 (little endian)
+      armeb      - ARM (big endian)
+      bpf        - BPF (host endian)
+      bpfeb      - BPF (big endian)
+      bpfel      - BPF (little endian)
+      hexagon    - Hexagon
+  [root@seventh ~]# 
+
+Then enable saving the object file build as part of perf's handling of foo.c type
+events, i.e. eBPF programs that will be compiled with clang and then loaded with
+sys_bpf() to possibly insert events in perf's ring buffer via bpf_perf_event_output(),
+or interact with the system via bpf_trace_printk() or just work as filters, etc:
+
+  # cat ~/.perfconfig
+  [llvm]
+	dump-obj = true
+
+Then run a simple example, found in the kernel sources:
+
+  # perf trace -e tools/perf/examples/bpf/hello.c cat /etc/passwd > /dev/null
+  LLVM: dumping tools/perf/examples/bpf/hello.o
+     0.000 __bpf_stdout__:Hello, world
+     0.028 __bpf_stdout__:Hello, world
+     0.291 __bpf_stdout__:Hello, world
+  #
+
+Notice that "LLVM: dumping..." line, look at the ELF sections in that file:
+
+  [root@seventh perf]# readelf -SW tools/perf/examples/bpf/hello.o
+  There are 11 section headers, starting at offset 0x220:
+
+  Section Headers:
+    [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al
+    [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0
+    [ 1] .strtab           STRTAB          0000000000000000 00018c 00008d 00      0   0  1
+    [ 2] .text             PROGBITS        0000000000000000 000040 000000 00  AX  0   0  4
+    [ 3] syscalls:sys_enter_openat PROGBITS        0000000000000000 000040 000088 00  AX  0   0  8
+    [ 4] .relsyscalls:sys_enter_openat REL             0000000000000000 000178 000010 10     10   3  8
+    [ 5] maps              PROGBITS        0000000000000000 0000c8 00001c 00  WA  0   0  4
+    [ 6] .rodata.str1.1    PROGBITS        0000000000000000 0000e4 00000e 01 AMS  0   0  1
+    [ 7] license           PROGBITS        0000000000000000 0000f2 000004 00  WA  0   0  1
+    [ 8] version           PROGBITS        0000000000000000 0000f8 000004 00  WA  0   0  4
+    [ 9] .llvm_addrsig     LOOS+0xfff4c03  0000000000000000 000188 000004 00   E 10   0  1
+    [10] .symtab           SYMTAB          0000000000000000 000100 000078 18      1   1  8
+  Key to Flags:
+    W (write), A (alloc), X (execute), M (merge), S (strings), I (info),
+    L (link order), O (extra OS processing required), G (group), T (TLS),
+    C (compressed), x (unknown), o (OS specific), E (exclude),
+    p (processor specific)
+  [root@seventh perf]#
+
+No DWARF debugging info, so we need to further customize ~/.perfconfig LLVM section:
+
+  [root@seventh perf]# cat ~/.perfconfig
+  [llvm]
+	  dump-obj = true
+	  clang-opt = -g
+  [root@seventh perf]# perf trace -e tools/perf/examples/bpf/hello.c cat /etc/passwd > /dev/null
+  LLVM: dumping tools/perf/examples/bpf/hello.o
+       0.000 __bpf_stdout__:Hello, world
+       0.015 __bpf_stdout__:Hello, world
+       0.184 __bpf_stdout__:Hello, world
+  [root@seventh perf]# 
+  [root@seventh perf]# readelf -SW tools/perf/examples/bpf/hello.o
+  There are 26 section headers, starting at offset 0xe20:
+
+  Section Headers:
+    [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al
+    [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0
+    [ 1] .strtab           STRTAB          0000000000000000 000cf4 000127 00      0   0  1
+    [ 2] .text             PROGBITS        0000000000000000 000040 000000 00  AX  0   0  4
+    [ 3] syscalls:sys_enter_openat PROGBITS        0000000000000000 000040 000088 00  AX  0   0  8
+    [ 4] .relsyscalls:sys_enter_openat REL             0000000000000000 000a80 000010 10     25   3  8
+    [ 5] maps              PROGBITS        0000000000000000 0000c8 00001c 00  WA  0   0  4
+    [ 6] .rodata.str1.1    PROGBITS        0000000000000000 0000e4 00000e 01 AMS  0   0  1
+    [ 7] license           PROGBITS        0000000000000000 0000f2 000004 00  WA  0   0  1
+    [ 8] version           PROGBITS        0000000000000000 0000f8 000004 00  WA  0   0  4
+    [ 9] .debug_str        PROGBITS        0000000000000000 0000fc 0001d2 01  MS  0   0  1
+    [10] .debug_loc        PROGBITS        0000000000000000 0002ce 000023 00      0   0  1
+    [11] .debug_abbrev     PROGBITS        0000000000000000 0002f1 0000e3 00      0   0  1
+    [12] .debug_info       PROGBITS        0000000000000000 0003d4 000182 00      0   0  1
+    [13] .rel.debug_info   REL             0000000000000000 000a90 000210 10     25  12  8
+    [14] .debug_ranges     PROGBITS        0000000000000000 000556 000030 00      0   0  1
+    [15] .debug_macinfo    PROGBITS        0000000000000000 000586 000001 00      0   0  1
+    [16] .debug_pubnames   PROGBITS        0000000000000000 000587 00006e 00      0   0  1
+    [17] .rel.debug_pubnames REL             0000000000000000 000ca0 000010 10     25  16  8
+    [18] .debug_pubtypes   PROGBITS        0000000000000000 0005f5 000056 00      0   0  1
+    [19] .rel.debug_pubtypes REL             0000000000000000 000cb0 000010 10     25  18  8
+    [20] .debug_frame      PROGBITS        0000000000000000 000650 000028 00      0   0  8
+    [21] .rel.debug_frame  REL             0000000000000000 000cc0 000020 10     25  20  8
+    [22] .debug_line       PROGBITS        0000000000000000 000678 0000a7 00      0   0  1
+    [23] .rel.debug_line   REL             0000000000000000 000ce0 000010 10     25  22  8
+    [24] .llvm_addrsig     LOOS+0xfff4c03  0000000000000000 000cf0 000004 00   E 25   0  1
+    [25] .symtab           SYMTAB          0000000000000000 000720 000360 18      1  32  8
+  Key to Flags:
+    W (write), A (alloc), X (execute), M (merge), S (strings), I (info),
+    L (link order), O (extra OS processing required), G (group), T (TLS),
+    C (compressed), x (unknown), o (OS specific), E (exclude),
+    p (processor specific)
+  [root@seventh perf]#
+
+Now lets use 'pahole --btf_encode' (or 'pahole -J') to add an ELF section to that object
+file with the conversion from the DWARF sections to a new one, for BTF:
+
+  [root@seventh perf]# pahole --btf_encode tools/perf/examples/bpf/hello.o
+
+  [root@seventh perf]# readelf -SW tools/perf/examples/bpf/hello.o
+  There are 27 section headers, starting at offset 0x1080:
+
+  Section Headers:
+    [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al
+    [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0
+    [ 1] .text             PROGBITS        0000000000000000 000040 000000 00  AX  0   0  4
+    [ 2] syscalls:sys_enter_openat PROGBITS        0000000000000000 000040 000088 00  AX  0   0  8
+    [ 3] maps              PROGBITS        0000000000000000 0000c8 00001c 00  WA  0   0  4
+    [ 4] .rodata.str1.1    PROGBITS        0000000000000000 0000e4 00000e 01 AMS  0   0  1
+    [ 5] license           PROGBITS        0000000000000000 0000f2 000004 00  WA  0   0  1
+    [ 6] version           PROGBITS        0000000000000000 0000f8 000004 00  WA  0   0  4
+    [ 7] .debug_str        PROGBITS        0000000000000000 0000fc 0001d2 01  MS  0   0  1
+    [ 8] .debug_loc        PROGBITS        0000000000000000 0002ce 000023 00      0   0  1
+    [ 9] .debug_abbrev     PROGBITS        0000000000000000 0002f1 0000e3 00      0   0  1
+    [10] .debug_info       PROGBITS        0000000000000000 0003d4 000182 00      0   0  1
+    [11] .debug_ranges     PROGBITS        0000000000000000 000556 000030 00      0   0  1
+    [12] .debug_macinfo    PROGBITS        0000000000000000 000586 000001 00      0   0  1
+    [13] .debug_pubnames   PROGBITS        0000000000000000 000587 00006e 00      0   0  1
+    [14] .debug_pubtypes   PROGBITS        0000000000000000 0005f5 000056 00      0   0  1
+    [15] .debug_frame      PROGBITS        0000000000000000 000650 000028 00      0   0  8
+    [16] .debug_line       PROGBITS        0000000000000000 000678 0000a7 00      0   0  1
+    [17] .symtab           SYMTAB          0000000000000000 000720 000360 18     25  32  8
+    [18] .relsyscalls:sys_enter_openat REL             0000000000000000 000a80 000010 10     17   2  8
+    [19] .rel.debug_info   REL             0000000000000000 000a90 000210 10     17  10  8
+    [20] .rel.debug_pubnames REL             0000000000000000 000ca0 000010 10     17  13  8
+    [21] .rel.debug_pubtypes REL             0000000000000000 000cb0 000010 10     17  14  8
+    [22] .rel.debug_frame  REL             0000000000000000 000cc0 000020 10     17  15  8
+    [23] .rel.debug_line   REL             0000000000000000 000ce0 000010 10     17  16  8
+    [24] .llvm_addrsig     LOOS+0xfff4c03  0000000000000000 000cf0 000004 00   E  0   0  1
+    [25] .strtab           STRTAB          0000000000000000 000cf4 00019c 00      0   0  1
+    [26] .BTF              PROGBITS        0000000000000000 000e90 0001ea 00      0   0  1
+  Key to Flags:
+    W (write), A (alloc), X (execute), M (merge), S (strings), I (info),
+    L (link order), O (extra OS processing required), G (group), T (TLS),
+    C (compressed), x (unknown), o (OS specific), E (exclude),
+    p (processor specific)
+  readelf: tools/perf/examples/bpf/hello.o: Warning: possibly corrupt ELF header - it has a non-zero program header offset, but no program headers
+  [root@seventh perf]# 
+
+That new ".BTF" section should then be parseable by the kernel, that has a BTF
+decoder, something not available for pahole at this time, but that will come in
+a later version.
+
+When pahole tries to read the DWARF info in that BPF ELF file, hello.o, we can se
+a problem that will require us to add another option to the .perfconfig llvm section:
+
+  # pahole tools/perf/examples/bpf/hello.o
+  struct clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566eefef9c3777bd780ec4cbb9efa764633b76c) {
+	  clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566ec377 clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566eefef9c3777bd780ec4cbb9efa764633b76c); /*     0     4 */
+	  clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566ec377 clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566eefef9c3777bd780ec4cbb9efa764633b76c); /*     4     4 */
+	  clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566ec377 clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566eefef9c3777bd780ec4cbb9efa764633b76c); /*     8     4 */
+	  clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566ec377 clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566eefef9c3777bd780ec4cbb9efa764633b76c); /*    12     4 */
+	  clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566ec377 clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566eefef9c3777bd780ec4cbb9efa764633b76c); /*    16     4 */
+	  clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566ec377 clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566eefef9c3777bd780ec4cbb9efa764633b76c); /*    20     4 */
+	  clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566ec377 clang version 8.0.0 (http://llvm.org/git/clang.git 8587270a739ee30c926a76d5657e65e85b560f6e) (http://llvm.org/git/llvm.git 0566eefef9c3777bd780ec4cbb9efa764633b76c); /*    24     4 */
+
+	  /* size: 28, cachelines: 1, members: 7 */
+	  /* last cacheline: 28 bytes */
+  };
+#
+
+We need to pass some options to llvm, via the llvm.opts variable in ~/.perfconfig:
+
+  [root@seventh perf]# cat ~/.perfconfig 
+  [llvm]
+	  dump-obj = true
+	  clang-opt = -g
+	  opts = -mattr=dwarfris
+  [root@seventh perf]# perf trace -e tools/perf/examples/bpf/hello.c cat /etc/passwd > /dev/null
+  LLVM: dumping tools/perf/examples/bpf/hello.o
+       0.000 __bpf_stdout__:Hello, world
+       0.018 __bpf_stdout__:Hello, world
+       0.209 __bpf_stdout__:Hello, world
+  [root@seventh perf]# pahole tools/perf/examples/bpf/hello.o
+  struct bpf_map {
+	  unsigned int               type;                 /*     0     4 */
+	  unsigned int               key_size;             /*     4     4 */
+	  unsigned int               value_size;           /*     8     4 */
+	  unsigned int               max_entries;          /*    12     4 */
+	  unsigned int               map_flags;            /*    16     4 */
+	  unsigned int               inner_map_idx;        /*    20     4 */
+	  unsigned int               numa_node;            /*    24     4 */
+
+	  /* size: 28, cachelines: 1, members: 7 */
+	  /* last cacheline: 28 bytes */
+  };
+  [root@seventh perf]#
+
+Now we need to go test the kernel, and to load that file with a BTF section we
+can also use perf, passing the .o file instead of the .c one, skipping the
+compilation phase and using the modified .o file, we will also run in system
+wide mode, so taht we can keep that BPF object loaded and attached to the
+tracepoint, so that we can use the kernel facilities to inspect the BTF file as
+read and processed by the kernel:
+
+  # perf trace -e tools/perf/examples/bpf/hello.c 2> /dev/null
+
+Now to look if the kernel has the bpf filesystem:
+
+  [acme@jouet perf]$ grep bpf /proc/filesystems 
+  nodev	bpf
+  [acme@jouet perf]$
+  [root@jouet ~]# mount -t bpf nodev /sys/fs/bpf
+  [root@jouet ~]# mount | grep bpf
+  nodev on /sys/fs/bpf type bpf (rw,relatime)
+  [root@jouet ~]# cd /sys/fs/bpf
+  [root@jouet bpf]# ls -la
+  total 0
+  drwxrwxrwt.  2 root root 0 Aug 15 17:42 .
+  drwxr-xr-x. 10 root root 0 Aug 13 15:04 ..
+  [root@jouet bpf]#
+
+- Arnaldo
