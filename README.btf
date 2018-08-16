@@ -218,6 +218,8 @@ We need to pass some options to llvm, via the llvm.opts variable in ~/.perfconfi
   };
   [root@seventh perf]#
 
+This is not needed when using elfutils >= 0.173, pahole will just work as above.
+
 Now we need to go test the kernel, and to load that file with a BTF section we
 can also use perf, passing the .o file instead of the .c one, skipping the
 compilation phase and using the modified .o file, we will also run in system
