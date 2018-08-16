@@ -244,4 +244,354 @@ Now to look if the kernel has the bpf filesystem:
   drwxr-xr-x. 10 root root 0 Aug 13 15:04 ..
   [root@jouet bpf]#
 
+Work is planned to allow using BTF info to pretty print from the bpf fs, see:
+
+  https://www.spinics.net/lists/netdev/msg518606.html
+  Date: Sat, 11 Aug 2018
+
+<quote>
+For bpftool, BTF pretty print support is missing
+for per-cpu maps. bpffs print for per-cpu hash/array maps
+need to be added as well. Will add them later.
+
+Acked-by: Yonghong Song <yhs@xxxxxx>
+</quote>
+
+To see what libbpf and its users, like perf, does when a ".BTF" ELF section is
+found in a BPF object being loaded via sys_bpf(), we can use 'perf ftrace' to
+show the sequence of events inside the kernel to load, validade and initialize
+data structures related to the request:
+
+  # perf ftrace -G *btf* perf trace -e tools/perf/examples/bpf/hello.o cat /etc/passwd
+  3)               |  bpf_btf_load() {
+  3)               |    capable() {
+  3)               |      ns_capable_common() {
+  3)               |        security_capable() {
+  3)   0.048 us    |          cap_capable();
+  3)               |          selinux_capable() {
+  3)   0.092 us    |            cred_has_capability();
+  3)   0.444 us    |          }
+  3)   1.387 us    |        }
+  3)   1.764 us    |      }
+  3)   2.168 us    |    }
+  3)               |    btf_new_fd() {
+  3)               |      kmem_cache_alloc_trace() {
+  3)               |        _cond_resched() {
+  3)   0.041 us    |          rcu_all_qs();
+  3)   0.407 us    |        }
+  3)   0.040 us    |        should_failslab();
+  3)   0.161 us    |        prefetch_freepointer();
+  3)   0.097 us    |        memcg_kmem_put_cache();
+  3)   2.719 us    |      }
+  3)               |      kmem_cache_alloc_trace() {
+  3)               |        _cond_resched() {
+  3)   0.040 us    |          rcu_all_qs();
+  3)   0.409 us    |        }
+  3)   0.040 us    |        should_failslab();
+  3)   0.110 us    |        prefetch_freepointer();
+  3)   0.099 us    |        memcg_kmem_put_cache();
+  3)   2.296 us    |      }
+  3)   0.054 us    |      bpf_check_uarg_tail_zero();
+  3)               |      __check_object_size() {
+  3)   0.152 us    |        __virt_addr_valid();
+  3)   0.047 us    |        __check_heap_object();
+  3)   0.040 us    |        check_stack_object();
+  3)   1.465 us    |      }
+  3)   0.041 us    |      btf_sec_info_cmp();
+  3)               |      kvmalloc_node() {
+  3)               |        __kmalloc_node() {
+  3)   0.051 us    |          kmalloc_slab();
+  3)               |          _cond_resched() {
+  3)   0.042 us    |            rcu_all_qs();
+  3)   0.401 us    |          }
+  3)   0.038 us    |          should_failslab();
+  3)   0.040 us    |          memcg_kmem_put_cache();
+  3)   2.168 us    |        }
+  3)   2.591 us    |      }
+  3)               |      __check_object_size() {
+  3)   0.108 us    |        __virt_addr_valid();
+  3)   0.050 us    |        __check_heap_object();
+  3)   0.039 us    |        check_stack_object();
+  3)   1.469 us    |      }
+  3)               |      btf_struct_check_meta() {
+  3)   0.057 us    |        __btf_verifier_log_type();
+  3)   0.057 us    |        btf_verifier_log_member();
+  3)   0.043 us    |        btf_verifier_log_member();
+  3)   0.042 us    |        btf_verifier_log_member();
+  3)   0.043 us    |        btf_verifier_log_member();
+  3)   0.043 us    |        btf_verifier_log_member();
+  3)               |        btf_verifier_log_member() {
+  3)   ==========> |
+  3)               |        smp_irq_work_interrupt() {
+  3)               |          irq_enter() {
+  3)               |            rcu_irq_enter() {
+  3)   0.038 us    |              rcu_nmi_enter();
+  3)   0.412 us    |            }
+  3)   0.054 us    |            irqtime_account_irq();
+  3)   1.409 us    |          }
+  3)               |          __wake_up() {
+  3)               |            __wake_up_common_lock() {
+  3)   0.040 us    |              _raw_spin_lock_irqsave();
+  3)   0.051 us    |              __wake_up_common();
+  3)   0.044 us    |              _raw_spin_unlock_irqrestore();
+  3)   1.155 us    |            }
+  3)   1.508 us    |          }
+  3)               |          irq_exit() {
+  3)   0.062 us    |            irqtime_account_irq();
+  3)   0.038 us    |            idle_cpu();
+  3)               |            rcu_irq_exit() {
+  3)   0.038 us    |              rcu_nmi_exit();
+  3)   0.419 us    |            }
+  3)   1.601 us    |          }
+  3)   6.230 us    |        }
+  3)   <========== |
+  3)   0.088 us    |        } /* btf_verifier_log_member */
+  3)   0.041 us    |        btf_verifier_log_member();
+  3) + 10.759 us   |      }
+  3)               |      kvmalloc_node() {
+  3)               |        __kmalloc_node() {
+  3)   0.043 us    |          kmalloc_slab();
+  3)               |          _cond_resched() {
+  3)   0.037 us    |            rcu_all_qs();
+  3)   0.455 us    |          }
+  3)   0.040 us    |          should_failslab();
+  3)   0.037 us    |          memcg_kmem_put_cache();
+  3)   2.227 us    |        }
+  3)   2.624 us    |      } /* kvmalloc_node */
+  3)               |      kvfree() {
+  3)   0.048 us    |        kfree();
+  3)   0.662 us    |      }
+  3)               |      btf_int_check_meta() {
+  3)   0.043 us    |        __btf_verifier_log_type();
+  3)   0.457 us    |      }
+  3)               |      btf_array_check_meta() {
+  3)   0.041 us    |        __btf_verifier_log_type();
+  3)   0.393 us    |      }
+  3)               |      btf_int_check_meta() {
+  3)   0.094 us    |        __btf_verifier_log_type();
+  3)   0.447 us    |      }
+  3)               |      btf_int_check_meta() {
+  3)   0.043 us    |        __btf_verifier_log_type();
+  3)   0.573 us    |      }
+  3)               |      btf_int_check_meta() {
+  3)   0.085 us    |        __btf_verifier_log_type();
+  3)   0.446 us    |      }
+  3)               |      btf_ref_type_check_meta() {
+  3)   0.042 us    |        __btf_verifier_log_type();
+  3)   0.451 us    |      }
+  3)               |      btf_ref_type_check_meta() {
+  3)   0.042 us    |        __btf_verifier_log_type();
+  3)   0.427 us    |      }
+  3)               |      btf_ref_type_check_meta() {
+  3)   0.042 us    |        __btf_verifier_log_type();
+  3)   0.397 us    |      }
+  3)               |      btf_ref_type_check_meta() {
+  3)   0.041 us    |        __btf_verifier_log_type();
+  3)   0.399 us    |      }
+  3)               |      btf_int_check_meta() {
+  3)   0.043 us    |        __btf_verifier_log_type();
+  3)   0.602 us    |      }
+  3)               |      btf_ref_type_check_meta() {
+  3)   0.040 us    |        __btf_verifier_log_type();
+  3)   0.733 us    |      }
+  3)               |      btf_array_check_meta() {
+  3)   0.094 us    |        __btf_verifier_log_type();
+  3)   0.452 us    |      }
+  3)               |      kvmalloc_node() {
+  3)               |        __kmalloc_node() {
+  3)   0.039 us    |          kmalloc_slab();
+  3)               |          _cond_resched() {
+  3)   0.041 us    |            rcu_all_qs();
+  3)   0.579 us    |          }
+  3)   0.039 us    |          should_failslab();
+  3)   0.042 us    |          memcg_kmem_put_cache();
+  3)   2.538 us    |        }
+  3)   2.886 us    |      }
+  3)               |      kvmalloc_node() {
+  3)               |        __kmalloc_node() {
+  3)   0.041 us    |          kmalloc_slab();
+  3)               |          _cond_resched() {
+  3)   0.038 us    |            rcu_all_qs();
+  3)   0.708 us    |          }
+  3)   0.038 us    |          should_failslab();
+  3)   0.040 us    |          memcg_kmem_put_cache();
+  3)   2.483 us    |        }
+  3)   2.829 us    |      }
+  3)               |      kvmalloc_node() {
+  3)               |        __kmalloc_node() {
+  3)   0.057 us    |          kmalloc_slab();
+  3)               |          _cond_resched() {
+  3)   0.040 us    |            rcu_all_qs();
+  3)   0.533 us    |          }
+  3)   0.039 us    |          should_failslab();
+  3)   0.038 us    |          memcg_kmem_put_cache();
+  3)   2.680 us    |        }
+  3)   3.171 us    |      }
+  3)   0.054 us    |      env_stack_push();
+  3)               |      btf_struct_resolve() {
+  3)   0.051 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.039 us    |        btf_int_check_member();
+  3)   0.039 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.039 us    |        btf_int_check_member();
+  3)   0.040 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.040 us    |        btf_int_check_member();
+  3)   0.039 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.099 us    |        btf_int_check_member();
+  3)   0.040 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.042 us    |        btf_int_check_member();
+  3)   0.040 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.038 us    |        btf_int_check_member();
+  3)   0.038 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.039 us    |        btf_int_check_member();
+  3)   6.545 us    |      }
+  3)   0.053 us    |      env_stack_push();
+  3)               |      btf_array_resolve() {
+  3)   0.039 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.090 us    |        btf_type_id_size();
+  3)   0.060 us    |        btf_type_int_is_regular();
+  3)   0.058 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.051 us    |        btf_type_id_size();
+  3)   0.055 us    |        btf_type_int_is_regular();
+  3)   3.414 us    |      }
+  3)   0.041 us    |      btf_type_id_size();
+  3)   0.057 us    |      env_stack_push();
+  3)               |      btf_ptr_resolve() {
+  3)   0.056 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.054 us    |        env_stack_push();
+  3)   1.056 us    |      }
+  3)   0.063 us    |      btf_ptr_resolve();
+  3)               |      btf_ptr_resolve() {
+  3)   0.049 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.086 us    |        btf_type_id_size();
+  3)   1.052 us    |      }
+  3)   0.045 us    |      env_stack_push();
+  3)   0.060 us    |      btf_ptr_resolve();
+  3)   0.045 us    |      env_stack_push();
+  3)               |      btf_ptr_resolve() {
+  3)   0.039 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.062 us    |        btf_type_id_size();
+  3)   1.325 us    |      }
+  3)   0.054 us    |      env_stack_push();
+  3)               |      btf_modifier_resolve() {
+  3)   0.061 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.043 us    |        btf_type_id_size();
+  3)   0.877 us    |      }
+  3)   0.052 us    |      env_stack_push();
+  3)               |      btf_array_resolve() {
+  3)   0.060 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.051 us    |        btf_type_id_size();
+  3)   0.042 us    |        btf_type_int_is_regular();
+  3)   0.040 us    |        env_type_is_resolve_sink.isra.19();
+  3)   0.042 us    |        btf_type_id_size();
+  3)   0.041 us    |        btf_type_int_is_regular();
+  3)   2.822 us    |      }
+  3)   0.048 us    |      btf_type_id_size();
+  3)               |      kvfree() {
+  3)   0.148 us    |        kfree();
+  3)   0.685 us    |      }
+  3)   0.287 us    |      kfree();
+  3)   0.042 us    |      _raw_spin_lock_bh();
+  3)               |      kmem_cache_alloc() {
+  3)   0.040 us    |        should_failslab();
+  3)   0.111 us    |        prefetch_freepointer();
+  3)   0.094 us    |        memcg_kmem_put_cache();
+  3)   2.139 us    |      }
+  3)               |      _raw_spin_unlock_bh() {
+  3)   0.079 us    |        __local_bh_enable_ip();
+  3)   0.460 us    |      }
+  3)               |      anon_inode_getfd() {
+  3)               |        get_unused_fd_flags() {
+  3)               |          __alloc_fd() {
+  3)   0.040 us    |            _raw_spin_lock();
+  3)   0.041 us    |            expand_files();
+  3)   1.374 us    |          }
+  3)   1.759 us    |        }
+  3)               |        anon_inode_getfile() {
+  3)               |          d_alloc_pseudo() {
+  3)               |            __d_alloc() {
+  3)               |              kmem_cache_alloc() {
+  3)               |                _cond_resched() {
+  3)   0.035 us    |                  rcu_all_qs();
+  3)   0.507 us    |                }
+  3)   0.040 us    |                should_failslab();
+  3)               |                memcg_kmem_get_cache() {
+  3)   0.091 us    |                  get_mem_cgroup_from_mm();
+  3)   0.633 us    |                }
+  3)   0.111 us    |                prefetch_freepointer();
+  3)   0.082 us    |                memcg_kmem_put_cache();
+  3)   4.178 us    |              }
+  3)   0.162 us    |              d_set_d_op();
+  3)   5.545 us    |            }
+  3)   6.270 us    |          }
+  3)   0.112 us    |          mntget();
+  3)   0.125 us    |          ihold();
+  3)               |          d_instantiate() {
+  3)   0.120 us    |            security_d_instantiate();
+  3)   0.106 us    |            _raw_spin_lock();
+  3)               |            __d_instantiate() {
+  3)   0.069 us    |              d_flags_for_inode();
+  3)   0.090 us    |              _raw_spin_lock();
+  3)   1.483 us    |            }
+  3)   2.767 us    |          }
+  3)               |          alloc_file() {
+  3)               |            get_empty_filp() {
+  3)               |              kmem_cache_alloc() {
+  3)               |                _cond_resched() {
+  3)   0.039 us    |                  rcu_all_qs();
+  3)root:x:0:0:root:/root:/bin/bash
+  bin:x:1:1:bin:/bin:/sbin/nologin
+  daemon:x:2:2:daemon:/sbin:/sbin/nologin
+  adm:x:3:4:adm:/var/adm:/sbin/nologin
+  <SNIP rest of /proc/passwd contents>
+    0.382 us    |                }
+  3)   0.040 us    |                should_failslab();
+  3)               |                memcg_kmem_get_cache() {
+  3)   0.039 us    |                  get_mem_cgroup_from_mm();
+  3)   0.626 us    |                }
+  3)   0.050 us    |                prefetch_freepointer();
+  3)   0.059 us    |                memcg_kmem_put_cache();
+  3)   3.280 us    |              }
+  3)               |              security_file_alloc() {
+  3)               |                selinux_file_alloc_security() {
+  3)               |                  kmem_cache_alloc() {
+  3)               |                    _cond_resched() {
+  3)   0.038 us    |                      rcu_all_qs();
+  3)   0.422 us    |                    }
+  3)   0.040 us    |                    should_failslab();
+  3)   0.051 us    |                    prefetch_freepointer();
+  3)   0.054 us    |                    memcg_kmem_put_cache();
+  3)   2.660 us    |                  }
+  3)   3.062 us    |                }
+  3)   3.548 us    |              }
+  3)   0.039 us    |              __mutex_init();
+  3)   8.091 us    |            }
+  3)   8.617 us    |          }
+  3) + 20.810 us   |        }
+  3)               |        fd_install() {
+  3)   0.054 us    |          __fd_install();
+  3)   0.723 us    |        }
+  3) + 24.438 us   |      }
+  3) ! 109.639 us  |    }
+  3) ! 112.925 us  |  }
+  3)               |  btf_release() {
+  3)               |    btf_put() {
+  3)   0.145 us    |      _raw_spin_lock_irqsave();
+  3)               |      call_rcu_sched() {
+  3)               |        __call_rcu() {
+  3)   0.082 us    |          rcu_segcblist_enqueue();
+  3)   1.323 us    |        }
+  3)   1.782 us    |      }
+  3)   0.069 us    |      _raw_spin_unlock_irqrestore();
+  3)               |      call_rcu_sched() {
+  3)               |        __call_rcu() {
+  3)   0.069 us    |          rcu_segcblist_enqueue();
+  3)   0.541 us    |        }
+  3)   0.984 us    |      }
+  3)   5.210 us    |    }
+  3)   5.954 us    |  }
+
+This should be enough for us to validate pahole's BTF encoder, now its just a
+matter of making pahole itself load BTF and prett-print it just like it does
+with DWARF and CTF.
+
 - Arnaldo
