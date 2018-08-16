@@ -1,3 +1,21 @@
+v1.12
+
+Thu Aug 16 2018
+
+1ca2e351dfa1 README.btf: Add section on validating the .BTF section via the kernel
+9eda5e8163ce README.btf: No need to use 'llvm.opts = -mattr=dwarfris' with elfutils >= 0.173
+7818af53f64a dwarves: Add a README.btf file with steps to test the BTF encoder
+f727c22191d0 dwarf_loader: Initial support for DW_TAG_partial_unit
+e975ff247aa8 dwarves_fprintf: Print cacheline boundaries in multiple union members
+68645f7facc2 btf: Add BTF support
+81466af0d4f8 pahole: Show the file where a struct was used
+2dd87be78bb2 dwarves_fprintf: Show offsets at union members
+66cf3983e1ac README.DEBUG: Add an extra step to make the instructions cut'n'exec
+2a092d61453c dwarves: Fix cus__load_files() success return value
+02a456f5f54c pahole: Search and use running kernel vmlinux when no file is passed
+5f057919a0c0 man-pages: Add entry for --hex
+[acme@jouet pahole]$
+
 v1.11
 
 Wed Jun 2017

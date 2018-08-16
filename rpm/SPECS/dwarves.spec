@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.11
+Version: 1.12
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools
@@ -25,6 +25,9 @@ limited to these.
 
 It also extracts other information such as CPU cacheline alignment, helping
 pack those structures to achieve more cache hits.
+
+These tools can also be used to encode the BTF type information format used with
+the Linux kernel bpf syscall, using 'pahole -J'.
 
 A diff like tool, codiff can be used to compare the effects changes in source
 code generate on the resulting binaries.
@@ -68,6 +71,7 @@ rm -rf %{buildroot}
 %files
 %defattr(0644,root,root,0755)
 %doc README.ctracer
+%doc README.btf
 %doc NEWS
 %defattr(0755,root,root,0755)
 %{_bindir}/codiff
@@ -114,6 +118,13 @@ rm -rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Thu Aug 16 2018 Arnaldo Carvalho de Melo <acme@kernel.org> - 1.12-1
+- New release:
+- union member cacheline boundaries for all inner structs
+- print union member offsets
+- Document 'pahole --hex'
+- Encode BTF type format for use with eBPF
+
 * Wed Jun 28 2017 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.11-1
 - New release
 

@@ -1,4 +1,7 @@
 config.h.cmake
+btf.h
+btf_encoder.c
+btf_encoder.h
 ctf_encoder.c
 ctf_encoder.h
 ctf_loader.c
@@ -22,6 +25,8 @@ elf_symtab.h
 gobuffer.c
 gobuffer.h
 hash.h
+libbtf.c
+libbtf.h
 list.h
 MANIFEST
 man-pages/pahole.1
@@ -40,6 +45,7 @@ dutil.c
 dutil.h
 NEWS
 README
+README.btf
 README.ctracer
 rpm/SPECS/dwarves.spec
 lib/Makefile
