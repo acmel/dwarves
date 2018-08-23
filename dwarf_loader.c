@@ -933,6 +933,12 @@ static uint64_t attr_upper_bound(Dwarf_Die *die)
 		if (dwarf_formudata(&attr, &num) == 0) {
 			return (uintmax_t)num + 1;
 		}
+	} else if (dwarf_attr(die, DW_AT_count, &attr) != NULL) {
+		Dwarf_Word num;
+
+		if (dwarf_formudata(&attr, &num) == 0) {
+			return (uintmax_t)num;
+		}
 	}
 
 	return 0;
