@@ -572,6 +572,19 @@ enum vscope variable__scope(const struct variable *var)
 	return var->scope;
 }
 
+const char *variable__scope_str(const struct variable *var)
+{
+	switch (var->scope) {
+	case VSCOPE_LOCAL:	return "local";
+	case VSCOPE_GLOBAL:	return "global";
+	case VSCOPE_REGISTER:	return "register";
+	case VSCOPE_OPTIMIZED:	return "optimized";
+	default: break;
+	};
+
+	return "unknown";
+}
+
 static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
 {
 	struct variable *var = tag__alloc(cu, sizeof(*var));

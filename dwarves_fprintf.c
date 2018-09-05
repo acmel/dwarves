@@ -995,9 +995,10 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 		break;
 	case DW_TAG_variable:
 		printed = fprintf(fp, "%.*s", indent, tabs);
-		n = fprintf(fp, "%s %s;",
+		n = fprintf(fp, "%s %s; /* scope: %s */",
 			    variable__type_name(vtag, cu, bf, sizeof(bf)),
-			    variable__name(vtag, cu));
+			    variable__name(vtag, cu),
+			    variable__scope_str(vtag));
 		c += n;
 		printed += n;
 		break;
