@@ -319,7 +319,7 @@ int cu__encode_ctf(struct cu *cu, int verbose)
 	struct variable *var;
 	cu__for_each_variable(cu, id, pos) {
 		var = tag__variable(pos);
-		if (var->location != LOCATION_GLOBAL)
+		if (variable__scope(var) != VSCOPE_GLOBAL)
 			continue;
 		struct hlist_head *head = &hash_addr[hashaddr__fn(var->ip.addr)];
 		hlist_add_head(&var->tool_hnode, head);

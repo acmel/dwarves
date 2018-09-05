@@ -551,7 +551,7 @@ static struct variable *variable__new(uint16_t type, GElf_Sym *sym,
 	struct variable *var = tag__alloc(sizeof(*var));
 
 	if (var != NULL) {
-		var->location = LOCATION_GLOBAL;
+		var->scope = VSCOPE_GLOBAL;
 		var->ip.addr = elf_sym__value(sym);
 		var->name = sym->st_name;
 		var->external = elf_sym__bind(sym) == STB_GLOBAL;

@@ -571,12 +571,12 @@ static inline const char *label__name(const struct label *label,
 	return cu__string(cu, label->name);
 }
 
-enum vlocation {
-	LOCATION_UNKNOWN,
-	LOCATION_LOCAL,
-	LOCATION_GLOBAL,
-	LOCATION_REGISTER,
-	LOCATION_OPTIMIZED
+enum vscope {
+	VSCOPE_UNKNOWN,
+	VSCOPE_LOCAL,
+	VSCOPE_GLOBAL,
+	VSCOPE_REGISTER,
+	VSCOPE_OPTIMIZED
 } __attribute__((packed));
 
 struct variable {
@@ -584,7 +584,7 @@ struct variable {
 	strings_t	 name;
 	uint8_t		 external:1;
 	uint8_t		 declaration:1;
-	enum vlocation	 location;
+	enum vscope	 scope;
 	struct hlist_node tool_hnode;
 };
 
@@ -592,6 +592,8 @@ static inline struct variable *tag__variable(const struct tag *tag)
 {
 	return (struct variable *)tag;
 }
+
+enum vscope variable__scope(const struct variable *var);
 
 const char *variable__name(const struct variable *var, const struct cu *cu);
 

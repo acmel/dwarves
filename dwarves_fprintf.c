@@ -522,19 +522,19 @@ const char *tag__name(const struct tag *tag, const struct cu *cu,
 
 static const char *variable__prefix(const struct variable *var)
 {
-	switch (var->location) {
-	case LOCATION_REGISTER:
+	switch (variable__scope(var)) {
+	case VSCOPE_REGISTER:
 		return "register ";
-	case LOCATION_UNKNOWN:
+	case VSCOPE_UNKNOWN:
 		if (var->external && var->declaration)
 			return "extern ";
 		break;
-	case LOCATION_GLOBAL:
+	case VSCOPE_GLOBAL:
 		if (!var->external)
 			return "static ";
 		break;
-	case LOCATION_LOCAL:
-	case LOCATION_OPTIMIZED:
+	case VSCOPE_LOCAL:
+	case VSCOPE_OPTIMIZED:
 		break;
 	}
 	return NULL;

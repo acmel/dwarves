@@ -543,28 +543,33 @@ static struct enumerator *enumerator__new(Dwarf_Die *die, struct cu *cu)
 	return enumerator;
 }
 
-static enum vlocation dwarf__location(Dwarf_Die *die, uint64_t *addr)
+static enum vscope dwarf__location(Dwarf_Die *die, uint64_t *addr)
 {
 	Dwarf_Op *expr;
 	size_t exprlen;
-	enum vlocation location = LOCATION_UNKNOWN;
+	enum vscope scope = VSCOPE_UNKNOWN;
 
 	if (attr_location(die, &expr, &exprlen) != 0)
-		location = LOCATION_OPTIMIZED;
+		scope = VSCOPE_OPTIMIZED;
 	else if (exprlen != 0)
 		switch (expr->atom) {
 		case DW_OP_addr:
-			location = LOCATION_GLOBAL;
+			scope = VSCOPE_GLOBAL;
 			*addr = expr[0].number;
 			break;
 		case DW_OP_reg1 ... DW_OP_reg31:
 		case DW_OP_breg0 ... DW_OP_breg31:
-			location = LOCATION_REGISTER;	break;
+			scope = VSCOPE_REGISTER;	break;
 		case DW_OP_fbreg:
-			location = LOCATION_LOCAL;	break;
+			scope = VSCOPE_LOCAL;	break;
 		}
 
-	return location;
+	return scope;
+}
+
+enum vscope variable__scope(const struct variable *var)
+{
+	return var->scope;
 }
 
 static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
@@ -578,10 +583,10 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
 		var->external = dwarf_hasattr(die, DW_AT_external);
 		/* non-defining declaration of an object */
 		var->declaration = dwarf_hasattr(die, DW_AT_declaration);
-		var->location = LOCATION_UNKNOWN;
+		var->scope = VSCOPE_UNKNOWN;
 		var->ip.addr = 0;
 		if (!var->declaration && cu->has_addr_info)
-			var->location = dwarf__location(die, &var->ip.addr);
+			var->scope = dwarf__location(die, &var->ip.addr);
 	}
 
 	return var;
@@ -1501,7 +1506,7 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			continue;
 		case DW_TAG_dwarf_procedure:
 			/*
-			 * Ignore it, just location expressions, that we have no use for (so far).
+			 * Ignore it, just scope expressions, that we have no use for (so far).
 			 */
 			continue;
 #ifdef STB_GNU_UNIQUE
@@ -1631,7 +1636,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 		/* fall thru */
 	case DW_TAG_dwarf_procedure:
 		/*
-		 * Ignore it, just location expressions, that we have no use for (so far).
+		 * Ignore it, just scope expressions, that we have no use for (so far).
 		 */
 		tag = &unsupported_tag;
 		break;
