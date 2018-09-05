@@ -579,12 +579,18 @@ enum vscope {
 	VSCOPE_OPTIMIZED
 } __attribute__((packed));
 
+struct location {
+	Dwarf_Op *expr;
+	size_t	  exprlen;
+};
+
 struct variable {
 	struct ip_tag	 ip;
 	strings_t	 name;
 	uint8_t		 external:1;
 	uint8_t		 declaration:1;
 	enum vscope	 scope;
+	struct location	 location;
 	struct hlist_node tool_hnode;
 };
 

@@ -543,15 +543,14 @@ static struct enumerator *enumerator__new(Dwarf_Die *die, struct cu *cu)
 	return enumerator;
 }
 
-static enum vscope dwarf__location(Dwarf_Die *die, uint64_t *addr)
+static enum vscope dwarf__location(Dwarf_Die *die, uint64_t *addr, struct location *location)
 {
-	Dwarf_Op *expr;
-	size_t exprlen;
 	enum vscope scope = VSCOPE_UNKNOWN;
 
-	if (attr_location(die, &expr, &exprlen) != 0)
+	if (attr_location(die, &location->expr, &location->exprlen) != 0)
 		scope = VSCOPE_OPTIMIZED;
-	else if (exprlen != 0)
+	else if (location->exprlen != 0) {
+		Dwarf_Op *expr = location->expr;
 		switch (expr->atom) {
 		case DW_OP_addr:
 			scope = VSCOPE_GLOBAL;
@@ -563,6 +562,7 @@ static enum vscope dwarf__location(Dwarf_Die *die, uint64_t *addr)
 		case DW_OP_fbreg:
 			scope = VSCOPE_LOCAL;	break;
 		}
+	}
 
 	return scope;
 }
@@ -586,7 +586,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
 		var->scope = VSCOPE_UNKNOWN;
 		var->ip.addr = 0;
 		if (!var->declaration && cu->has_addr_info)
-			var->scope = dwarf__location(die, &var->ip.addr);
+			var->scope = dwarf__location(die, &var->ip.addr, &var->location);
 	}
 
 	return var;
