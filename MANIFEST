@@ -43,6 +43,7 @@ strings.c
 strings.h
 dutil.c
 dutil.h
+COPYING
 NEWS
 README
 README.btf
