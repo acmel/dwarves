@@ -75,6 +75,14 @@ struct btf *btf__new(const char *filename, Elf *elf)
 		goto errout;
 	}
 
+	switch (btf->ehdr.e_ident[EI_DATA]) {
+	case ELFDATA2LSB: btf->is_big_endian = false; break;
+	case ELFDATA2MSB: btf->is_big_endian = true;  break;
+	default:
+		fprintf(stderr, "%s: unknown elf endianness.\n", __func__);
+		goto errout;
+	}
+
 	switch (btf->ehdr.e_ident[EI_CLASS]) {
 	case ELFCLASS32: btf->wordsize = 4; break;
 	case ELFCLASS64: btf->wordsize = 8; break;

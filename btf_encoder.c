@@ -34,10 +34,35 @@ static int32_t structure_type__encode(struct btf *btf, struct tag *tag)
 	if (type_id < 0)
 		return type_id;
 
-	type__for_each_data_member(type, pos)
+	type__for_each_data_member(type, pos) {
+		uint32_t bit_offset;
+
+		/* calculate member bits_offset.
+		 *
+		 * for big endian or non-bitfield little endian,
+		 * use pos->bit_offset computed by
+		 * dwarf_loader which conforms to BTF requirement.
+		 *
+		 * for little endian bitfield member, if we have a field like
+		 *   pos->byte_size = 2,
+		 *   pos->bitfield_offset = 12,
+		 *   pos->bitfield_size = 2,
+		 * This field occupy bits 12-13 by a 2-byte value,
+		 * which corresponds to bits 2-3 from big endian
+		 * perspective.
+		 */
+		if (btf->is_big_endian || !pos->bitfield_size)
+			bit_offset = pos->bit_offset;
+		else
+			bit_offset = pos->byte_offset * 8 +
+				     pos->byte_size * 8 -
+				     pos->bitfield_offset -
+				     pos->bitfield_size;
+
 		if (btf__add_member(btf, pos->name, pos->tag.type,
-				    pos->bit_offset))
+				    bit_offset))
 			return -1;
+	}
 
 	return type_id;
 }

@@ -3,6 +3,7 @@
 
 #include "gobuffer.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 struct btf {
@@ -20,6 +21,7 @@ struct btf {
 	int		  swapped;
 	int		  in_fd;
 	uint8_t		  wordsize;
+	bool		  is_big_endian;
 	uint32_t	  type_index;
 };
 
