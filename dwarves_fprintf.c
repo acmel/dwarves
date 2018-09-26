@@ -828,6 +828,7 @@ static size_t union__fprintf(struct type *type, const struct cu *cu,
 	int indent = conf->indent;
 	struct conf_fprintf uconf;
 	uint32_t initial_union_cacheline;
+	int cacheline = 0; /* This will only be used if this is the outermost union */
 
 	if (indent >= (int)sizeof(tabs))
 		indent = sizeof(tabs) - 1;
@@ -839,6 +840,17 @@ static size_t union__fprintf(struct type *type, const struct cu *cu,
 
 	uconf = *conf;
 	uconf.indent = indent + 1;
+
+	/*
+	 * We may be called directly or from tag__fprintf, so keep sure
+	 * we keep track of the cacheline we're in.
+	 *
+	 * If we're being called from an outer structure, i.e. union within
+	 * struct, class or another union, then this will already have a
+	 * value and we'll continue to use it.
+	 */
+	if (uconf.cachelinep == NULL)
+                uconf.cachelinep = &cacheline;
 	/*
 	 * Save the cacheline we're in, then, after each union member, get
 	 * back to it. Else we'll end up showing cacheline boundaries in
