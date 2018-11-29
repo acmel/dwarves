@@ -85,6 +85,15 @@ static int32_t enumeration_type__encode(struct btf *btf, struct tag *tag)
 	struct enumerator *pos;
 	int32_t type_id;
 
+	/* if enumerator bit_size is not 32, generate an int type instead. */
+	if (etype->size != 32) {
+		struct base_type bt = {};
+
+		bt.bit_size = etype->size;
+		bt.is_signed = true;
+		return btf__add_base_type(btf, &bt);
+	}
+
 	type_id = btf__add_enum(btf, etype->namespace.name,
 				etype->size, etype->nr_members);
 	if (type_id < 0)

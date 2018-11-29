@@ -228,7 +228,7 @@ int32_t btf__add_base_type(struct btf *btf, const struct base_type *bt)
 {
 	struct btf_int_type int_type;
 	struct btf_type *t = &int_type.type;
-	uint8_t encoding;
+	uint8_t encoding = 0;
 
 	t->name_off = bt->name;
 	t->info = BTF_INFO_ENCODE(BTF_KIND_INT, 0, 0);
