@@ -99,6 +99,8 @@ struct cu *cus__find_cu_by_name(const struct cus *cus, const char *name);
 struct tag *cus__find_struct_by_name(const struct cus *cus, struct cu **cu,
 				     const char *name, const int include_decls,
 				     uint16_t *id);
+struct tag *cus__find_struct_or_union_by_name(const struct cus *cus, struct cu **cu,
+					      const char *name, const int include_decls, uint16_t *id);
 struct function *cus__find_function_at_addr(const struct cus *cus,
 					    uint64_t addr, struct cu **cu);
 void cus__for_each_cu(struct cus *cus, int (*iterator)(struct cu *cu, void *cookie),
@@ -331,6 +333,8 @@ struct tag *cu__tag(const struct cu *cu, const uint32_t id);
 struct tag *cu__type(const struct cu *cu, const uint16_t id);
 struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
 				    const int include_decls, uint16_t *id);
+struct tag *cu__find_struct_or_union_by_name(const struct cu *cu, const char *name,
+					     const int include_decls, uint16_t *id);
 bool cu__same_build_id(const struct cu *cu, const struct cu *other);
 void cu__account_inline_expansions(struct cu *cu);
 int cu__for_all_tags(struct cu *cu,

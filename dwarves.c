@@ -681,8 +681,8 @@ found:
 
 }
 
-struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
-				    const int include_decls, uint16_t *idp)
+static struct tag *__cu__find_struct_by_name(const struct cu *cu, const char *name,
+					     const int include_decls, bool unions, uint16_t *idp)
 {
 	if (cu == NULL || name == NULL)
 		return NULL;
@@ -692,7 +692,7 @@ struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
 	cu__for_each_type(cu, id, pos) {
 		struct type *type;
 
-		if (!tag__is_struct(pos))
+		if (!(tag__is_struct(pos) || (unions && tag__is_union(pos))))
 			continue;
 
 		type = tag__type(pos);
@@ -713,16 +713,26 @@ found:
 	return pos;
 }
 
-struct tag *cus__find_struct_by_name(const struct cus *cus,
-				     struct cu **cu, const char *name,
-				     const int include_decls, uint16_t *id)
+struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
+				    const int include_decls, uint16_t *idp)
+{
+	return __cu__find_struct_by_name(cu, name, include_decls, false, idp);
+}
+
+struct tag *cu__find_struct_or_union_by_name(const struct cu *cu, const char *name,
+						    const int include_decls, uint16_t *idp)
+{
+	return __cu__find_struct_by_name(cu, name, include_decls, true, idp);
+}
+
+static struct tag *__cus__find_struct_by_name(const struct cus *cus,
+					      struct cu **cu, const char *name,
+					      const int include_decls, bool unions, uint16_t *id)
 {
 	struct cu *pos;
 
 	list_for_each_entry(pos, &cus->cus, node) {
-		struct tag *tag = cu__find_struct_by_name(pos, name,
-							  include_decls,
-							  id);
+		struct tag *tag = __cu__find_struct_by_name(pos, name, include_decls, unions, id);
 		if (tag != NULL) {
 			if (cu != NULL)
 				*cu = pos;
@@ -731,6 +741,18 @@ struct tag *cus__find_struct_by_name(const struct cus *cus,
 	}
 
 	return NULL;
+}
+
+struct tag *cus__find_struct_by_name(const struct cus *cus, struct cu **cu, const char *name,
+				     const int include_decls, uint16_t *idp)
+{
+	return __cus__find_struct_by_name(cus, cu, name, include_decls, false, idp);
+}
+
+struct tag *cus__find_struct_or_union_by_name(const struct cus *cus, struct cu **cu, const char *name,
+						     const int include_decls, uint16_t *idp)
+{
+	return __cus__find_struct_by_name(cus, cu, name, include_decls, true, idp);
 }
 
 struct function *cu__find_function_at_addr(const struct cu *cu,
