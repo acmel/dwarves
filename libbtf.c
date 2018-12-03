@@ -37,6 +37,57 @@ struct btf_array_type {
 
 uint8_t btf_verbose;
 
+uint32_t btf__get32(struct btf *btf, uint32_t *p)
+{
+	uint32_t val = *p;
+
+	if (btf->swapped)
+		val = ((val >> 24) |
+		       ((val >> 8) & 0x0000ff00) |
+		       ((val << 8) & 0x00ff0000) |
+		       (val << 24));
+	return val;
+}
+
+int btf__load(struct btf *btf)
+{
+	int err = -ENOTSUP;
+	GElf_Shdr shdr;
+	Elf_Scn *sec = elf_section_by_name(btf->elf, &btf->ehdr, &shdr, ".BTF", NULL);
+
+	if (sec == NULL)
+		return -ESRCH;
+
+	Elf_Data *data = elf_getdata(sec, NULL);
+	if (data == NULL) {
+		fprintf(stderr, "%s: cannot get data of BTF section.\n", __func__);
+		return -1;
+	}
+
+	struct btf_header *hp = data->d_buf;
+	size_t orig_size = data->d_size;
+
+	if (hp->version != BTF_VERSION)
+		goto out;
+
+	err = -EINVAL;
+	if (hp->magic == BTF_MAGIC)
+		btf->swapped = 0;
+	else
+		goto out;
+
+	err = -ENOMEM;
+	btf->data = malloc(orig_size);
+	if (btf->data != NULL) {
+		memcpy(btf->data, hp, orig_size);
+		btf->size = orig_size;
+		err = 0;
+	}
+out:
+	return err;
+}
+
+
 struct btf *btf__new(const char *filename, Elf *elf)
 {
 	struct btf *btf = zalloc(sizeof(*btf));
@@ -111,6 +162,23 @@ void btf__free(struct btf *btf)
 	free(btf->filename);
 	free(btf->data);
 	free(btf);
+}
+
+char *btf__string(struct btf *btf, uint32_t ref)
+{
+	struct btf_header *hp = btf->hdr;
+	uint32_t off = ref;
+	char *name;
+
+	if (off >= btf__get32(btf, &hp->str_len))
+		return "(ref out-of-bounds)";
+
+	if ((off + btf__get32(btf, &hp->str_off)) >= btf->size)
+		return "(string table truncated)";
+
+	name = ((char *)(hp + 1) + btf__get32(btf, &hp->str_off) + off);
+
+	return name[0] == '\0' ? NULL : name;
 }
 
 static void *btf__nohdr_data(struct btf *btf)

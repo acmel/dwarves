@@ -51,4 +51,13 @@ int32_t btf__add_func_proto(struct btf *btf, struct ftype *ftype,
 void btf__set_strings(struct btf *btf, struct gobuffer *strings);
 int  btf__encode(struct btf *btf, uint8_t flags);
 
+char *btf__string(struct btf *btf, uint32_t ref);
+int btf__load(struct btf *btf);
+
+uint32_t btf__get32(struct btf *btf, uint32_t *p);
+
+void *btf__get_buffer(struct btf *btf);
+
+size_t btf__get_size(struct btf *btf);
+
 #endif /* _LIBBTF_H */
