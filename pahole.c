@@ -1153,9 +1153,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		static uint16_t class_id;
 		bool include_decls = find_pointers_in_structs != 0 ||
 				     stats_formatter == nr_methods_formatter;
-		struct tag *class = cu__find_struct_by_name(cu, pos->s,
-							    include_decls,
-							    &class_id);
+		struct tag *class = cu__find_struct_or_union_by_name(cu, pos->s, include_decls, &class_id);
 		if (class == NULL)
 			continue;
 
@@ -1170,9 +1168,10 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		strlist__remove(class_names, pos);
 
 		class__find_holes(tag__class(class));
-		if (reorganize)
-			do_reorg(class, cu);
-		else if (find_containers)
+		if (reorganize) {
+			if (tag__is_struct(class))
+				do_reorg(class, cu);
+		} else if (find_containers)
 			print_containers(cu, class_id, 0);
 		else if (find_pointers_in_structs)
 			print_structs_with_pointer_to(cu, class_id);
