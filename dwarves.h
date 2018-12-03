@@ -268,6 +268,20 @@ static inline __pure bool cu__is_c_plus_plus(const struct cu *cu)
 		else
 
 /**
+ * cu__for_each_struct_or_union - iterate thru all the struct and union tags
+ * @cu: struct cu instance to iterate
+ * @pos: struct class iterator
+ * @id: uint16_t tag id
+ */
+#define cu__for_each_struct_or_union(cu, id, pos)			\
+	for (id = 1; id < cu->types_table.nr_entries; ++id)		\
+		if (!(pos = tag__class(cu->types_table.entries[id])) || \
+		    !(tag__is_struct(class__tag(pos)) || 		\
+		      tag__is_union(class__tag(pos))))			\
+			continue;					\
+		else
+
+/**
  * cu__for_each_function - iterate thru all the function tags
  * @cu: struct cu instance to iterate
  * @pos: struct function iterator

@@ -279,7 +279,7 @@ static void print_classes(struct cu *cu)
 	uint16_t id;
 	struct class *pos;
 
-	cu__for_each_struct(cu, id, pos) {
+	cu__for_each_struct_or_union(cu, id, pos) {
 		bool existing_entry;
 		struct structure *str;
 
