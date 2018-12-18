@@ -41,6 +41,8 @@ struct strings *strings;
 
 #define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
 
+bool no_bitfield_type_recode = false;
+
 static void __tag__print_not_supported(uint32_t tag, const char *func)
 {
 #ifdef STB_GNU_UNIQUE
@@ -1717,7 +1719,7 @@ static int namespace__recode_dwarf_types(struct tag *tag, struct cu *cu)
 			 * We may need to recode the type, possibly creating a
 			 * suitably sized new base_type
 			 */
-			if (member->bitfield_size != 0) {
+			if (member->bitfield_size != 0 && !no_bitfield_type_recode) {
 				if (class_member__dwarf_recode_bitfield(member, cu))
 					return -1;
 				continue;

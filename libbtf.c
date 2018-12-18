@@ -15,8 +15,8 @@
 #include "gobuffer.h"
 #include "dwarves.h"
 
-#define BTF_INFO_ENCODE(kind, root, vlen)				\
-	((!!(root) << 31) | ((kind) << 24) | ((vlen) & BTF_MAX_VLEN))
+#define BTF_INFO_ENCODE(kind, kind_flag, vlen)				\
+	((!!(kind_flag) << 31) | ((kind) << 24) | ((vlen) & BTF_MAX_VLEN))
 #define BTF_INT_ENCODE(encoding, bits_offset, nr_bits)		\
 	((encoding) << 24 | (bits_offset) << 16 | (nr_bits))
 
@@ -196,10 +196,10 @@ static void btf__log_type(const struct btf *btf, const struct btf_type *t,
 	fprintf(out, "\n");
 }
 
-__attribute ((format (printf, 4, 5)))
+__attribute ((format (printf, 5, 6)))
 static void btf_log_member(const struct btf *btf,
 			   const struct btf_member *member,
-			   bool err, const char *fmt, ...)
+			   bool kind_flag, bool err, const char *fmt, ...)
 {
 	FILE *out;
 
@@ -208,9 +208,17 @@ static void btf_log_member(const struct btf *btf,
 
 	out = err ? stderr : stdout;
 
-	fprintf(out, "\t%s type_id=%u bits_offset=%u",
-		btf__name_in_gobuf(btf, member->name_off),
-		member->type, member->offset);
+	if (kind_flag)
+		fprintf(out, "\t%s type_id=%u bitfield_size=%u bits_offset=%u",
+			btf__name_in_gobuf(btf, member->name_off),
+			member->type,
+			BTF_MEMBER_BITFIELD_SIZE(member->offset),
+			BTF_MEMBER_BIT_OFFSET(member->offset));
+	else
+		fprintf(out, "\t%s type_id=%u bits_offset=%u",
+			btf__name_in_gobuf(btf, member->name_off),
+			member->type,
+			member->offset);
 
 	if (fmt && *fmt) {
 		va_list ap;
@@ -262,22 +270,26 @@ int32_t btf__add_base_type(struct btf *btf, const struct base_type *bt)
 }
 
 int32_t btf__add_ref_type(struct btf *btf, uint16_t kind, uint32_t type,
-			  uint32_t name)
+			  uint32_t name, bool kind_flag)
 {
 	struct btf_type t;
 
 	t.name_off = name;
-	t.info = BTF_INFO_ENCODE(kind, 0, 0);
+	t.info = BTF_INFO_ENCODE(kind, kind_flag, 0);
 	t.type = type;
 
 	++btf->type_index;
 	if (gobuffer__add(&btf->types, &t, sizeof(t)) >= 0) {
-		btf__log_type(btf, &t, false, "type_id=%u", t.type);
+		if (kind == BTF_KIND_FWD)
+			btf__log_type(btf, &t, false, "%s",
+				      kind_flag ? "union" : "struct");
+		else
+			btf__log_type(btf, &t, false, "type_id=%u", t.type);
 		return btf->type_index;
 	} else {
 		btf__log_type(btf, &t, true,
-			      "type_id=%u Error in adding gobuffer",
-			      t.type);
+			      "kind_flag=%d type_id=%u Error in adding gobuffer",
+			      kind_flag, t.type);
 		return -1;
 	}
 }
@@ -311,42 +323,42 @@ int32_t btf__add_array(struct btf *btf, uint32_t type, uint32_t index_type,
 	}
 }
 
-int btf__add_member(struct btf *btf, uint32_t name, uint32_t type,
-		    uint32_t offset)
+int btf__add_member(struct btf *btf, uint32_t name, uint32_t type, bool kind_flag,
+		    uint32_t bitfield_size, uint32_t offset)
 {
 	struct btf_member member = {
 		.name_off   = name,
 		.type   = type,
-		.offset = offset,
+		.offset = kind_flag ? (bitfield_size << 24 | offset) : offset,
 	};
 
 	if (gobuffer__add(&btf->types, &member, sizeof(member)) >= 0) {
-		btf_log_member(btf, &member, false, NULL);
+		btf_log_member(btf, &member, kind_flag, false, NULL);
 		return 0;
 	} else {
-		btf_log_member(btf, &member, true, "Error in adding gobuffer");
+		btf_log_member(btf, &member, kind_flag, true, "Error in adding gobuffer");
 		return -1;
 	}
 }
 
 int32_t btf__add_struct(struct btf *btf, uint8_t kind, uint32_t name,
-			uint32_t size, uint16_t nr_members)
+			bool kind_flag, uint32_t size, uint16_t nr_members)
 {
 	struct btf_type t;
 
 	t.name_off = name;
-	t.info = BTF_INFO_ENCODE(kind, 0, nr_members);
+	t.info = BTF_INFO_ENCODE(kind, kind_flag, nr_members);
 	t.size = size;
 
 	++btf->type_index;
 	if (gobuffer__add(&btf->types, &t, sizeof(t)) >= 0) {
-		btf__log_type(btf, &t, false, "size=%u vlen=%u", t.size,
-			      BTF_INFO_VLEN(t.info));
+		btf__log_type(btf, &t, false, "kind_flag=%d size=%u vlen=%u",
+			      kind_flag, t.size, BTF_INFO_VLEN(t.info));
 		return btf->type_index;
 	} else {
 		btf__log_type(btf, &t, true,
-			      "size=%u vlen=%u Error in adding gobuffer",
-			      t.size, BTF_INFO_VLEN(t.info));
+			      "kind_flag=%d size=%u vlen=%u Error in adding gobuffer",
+			      kind_flag, t.size, BTF_INFO_VLEN(t.info));
 		return -1;
 	}
 }

@@ -1160,4 +1160,6 @@ struct argp_state;
 
 void dwarves_print_version(FILE *fp, struct argp_state *state);
 
+extern bool no_bitfield_type_recode;
+
 #endif /* _DWARVES_H_ */

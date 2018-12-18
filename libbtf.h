@@ -35,11 +35,11 @@ void btf__free(struct btf *btf);
 
 int32_t btf__add_base_type(struct btf *btf, const struct base_type *bt);
 int32_t btf__add_ref_type(struct btf *btf, uint16_t kind, uint32_t type,
-			  uint32_t name);
-int btf__add_member(struct btf *btf, uint32_t name, uint32_t type,
-		    uint32_t bit_offset);
+			  uint32_t name, bool kind_flag);
+int btf__add_member(struct btf *btf, uint32_t name, uint32_t type, bool kind_flag,
+		    uint32_t bitfield_size, uint32_t bit_offset);
 int32_t btf__add_struct(struct btf *btf, uint8_t kind, uint32_t name,
-			uint32_t size, uint16_t nr_members);
+			bool kind_flag, uint32_t size, uint16_t nr_members);
 int32_t btf__add_array(struct btf *btf, uint32_t type, uint32_t index_type,
 		       uint32_t nelems);
 int32_t btf__add_enum(struct btf *btf, uint32_t name, uint32_t size,
