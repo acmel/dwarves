@@ -67,8 +67,10 @@ struct btf_type {
 #define BTF_KIND_VOLATILE	9	/* Volatile	*/
 #define BTF_KIND_CONST		10	/* Const	*/
 #define BTF_KIND_RESTRICT	11	/* Restrict	*/
-#define BTF_KIND_MAX		11
-#define NR_BTF_KINDS		12
+#define BTF_KIND_FUNC		12	/* Function	*/
+#define BTF_KIND_FUNC_PROTO	13	/* Function Proto	*/
+#define BTF_KIND_MAX		13
+#define NR_BTF_KINDS		14
 
 /* For some specific BTF_KIND, "struct btf_type" is immediately
  * followed by extra data.
@@ -125,5 +127,14 @@ struct btf_member {
  */
 #define BTF_MEMBER_BITFIELD_SIZE(val)	((val) >> 24)
 #define BTF_MEMBER_BIT_OFFSET(val)	((val) & 0xffffff)
+
+/* BTF_KIND_FUNC_PROTO is followed by multiple "struct btf_param".
+ * The exact number of btf_param is stored in the vlen (of the
+ * info in "struct btf_type").
+ */
+struct btf_param {
+	__u32   name_off;
+	__u32   type;
+};
 
 #endif /* _UAPI__LINUX_BTF_H__ */

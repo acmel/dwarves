@@ -170,10 +170,7 @@ static int tag__encode_btf(struct tag *tag, uint32_t core_id, struct btf *btf,
 	case DW_TAG_enumeration_type:
 		return enumeration_type__encode(btf, tag);
 	case DW_TAG_subroutine_type:
-		/* A dummy void * to avoid a shift in btf->type_index */
-		btf_verbose_log("Filling unsupported DW_TAG_%s(0x%x) with void *\n",
-				dwarf_tag_name(tag->tag), tag->tag);
-		return btf__add_ref_type(btf, BTF_KIND_PTR, 0, 0, false);
+		return btf__add_func_proto(btf, tag__ftype(tag), type_id_off);
 	default:
 		fprintf(stderr, "Unsupported DW_TAG_%s(0x%x)\n",
 			dwarf_tag_name(tag->tag), tag->tag);

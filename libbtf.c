@@ -142,6 +142,8 @@ static const char * const btf_kind_str[NR_BTF_KINDS] = {
 	[BTF_KIND_VOLATILE]	= "VOLATILE",
 	[BTF_KIND_CONST]	= "CONST",
 	[BTF_KIND_RESTRICT]	= "RESTRICT",
+	[BTF_KIND_FUNC]		= "FUNC",
+	[BTF_KIND_FUNC_PROTO]	= "FUNC_PROTO",
 };
 
 static const char *btf__name_in_gobuf(const struct btf *btf,
@@ -167,9 +169,9 @@ static const char * btf__int_encoding_str(uint8_t encoding)
 		return "UNKN";
 }
 
-__attribute ((format (printf, 4, 5)))
+__attribute ((format (printf, 5, 6)))
 static void btf__log_type(const struct btf *btf, const struct btf_type *t,
-			  bool err, const char *fmt, ...)
+			  bool err, bool output_cr, const char *fmt, ...)
 {
 	uint8_t kind;
 	FILE *out;
@@ -193,7 +195,8 @@ static void btf__log_type(const struct btf *btf, const struct btf_type *t,
 		va_end(ap);
 	}
 
-	fprintf(out, "\n");
+	if (output_cr)
+		fprintf(out, "\n");
 }
 
 __attribute ((format (printf, 5, 6)))
@@ -232,6 +235,36 @@ static void btf_log_member(const struct btf *btf,
 	fprintf(out, "\n");
 }
 
+__attribute ((format (printf, 6, 7)))
+static void btf_log_func_param(const struct btf *btf,
+			       uint32_t name_off, uint32_t type,
+			       bool err, bool is_last_param,
+			       const char *fmt, ...)
+{
+	FILE *out;
+
+	if (!btf_verbose && !err)
+		return;
+
+	out = err ? stderr : stdout;
+
+	if (is_last_param && !type)
+		fprintf(out, "vararg)\n");
+	else
+		fprintf(out, "%u %s%s", type,
+			btf__name_in_gobuf(btf, name_off),
+			is_last_param ? ")\n" : ", ");
+
+	if (fmt && *fmt) {
+		va_list ap;
+
+		fprintf(out, " ");
+		va_start(ap, fmt);
+		vfprintf(out, fmt, ap);
+		va_end(ap);
+	}
+}
+
 int32_t btf__add_base_type(struct btf *btf, const struct base_type *bt)
 {
 	struct btf_int_type int_type;
@@ -253,14 +286,14 @@ int32_t btf__add_base_type(struct btf *btf, const struct base_type *bt)
 
 	++btf->type_index;
 	if (gobuffer__add(&btf->types, &int_type, sizeof(int_type)) >= 0) {
-		btf__log_type(btf, t, false,
+		btf__log_type(btf, t, false, true,
 			      "size=%u bit_offset=%u nr_bits=%u encoding=%s",
 			      t->size, BTF_INT_OFFSET(int_type.data),
 			      BTF_INT_BITS(int_type.data),
 			      btf__int_encoding_str(BTF_INT_ENCODING(int_type.data)));
 		return btf->type_index;
 	} else {
-		btf__log_type(btf, t, true,
+		btf__log_type(btf, t, true, true,
 			      "size=%u bit_offset=%u nr_bits=%u encoding=%s Error in adding gobuffer",
 			      t->size, BTF_INT_OFFSET(int_type.data),
 			      BTF_INT_BITS(int_type.data),
@@ -281,13 +314,13 @@ int32_t btf__add_ref_type(struct btf *btf, uint16_t kind, uint32_t type,
 	++btf->type_index;
 	if (gobuffer__add(&btf->types, &t, sizeof(t)) >= 0) {
 		if (kind == BTF_KIND_FWD)
-			btf__log_type(btf, &t, false, "%s",
+			btf__log_type(btf, &t, false, true, "%s",
 				      kind_flag ? "union" : "struct");
 		else
-			btf__log_type(btf, &t, false, "type_id=%u", t.type);
+			btf__log_type(btf, &t, false, true, "type_id=%u", t.type);
 		return btf->type_index;
 	} else {
-		btf__log_type(btf, &t, true,
+		btf__log_type(btf, &t, true, true,
 			      "kind_flag=%d type_id=%u Error in adding gobuffer",
 			      kind_flag, t.type);
 		return -1;
@@ -311,12 +344,12 @@ int32_t btf__add_array(struct btf *btf, uint32_t type, uint32_t index_type,
 
 	++btf->type_index;
 	if (gobuffer__add(&btf->types, &array_type, sizeof(array_type)) >= 0) {
-		btf__log_type(btf, t, false,
+		btf__log_type(btf, t, false, true,
 			      "type_id=%u index_type_id=%u nr_elems=%u",
 			      array->type, array->index_type, array->nelems);
 		return btf->type_index;
 	} else {
-		btf__log_type(btf, t, true,
+		btf__log_type(btf, t, true, true,
 			      "type_id=%u index_type_id=%u nr_elems=%u Error in adding gobuffer",
 			      array->type, array->index_type, array->nelems);
 		return -1;
@@ -352,11 +385,11 @@ int32_t btf__add_struct(struct btf *btf, uint8_t kind, uint32_t name,
 
 	++btf->type_index;
 	if (gobuffer__add(&btf->types, &t, sizeof(t)) >= 0) {
-		btf__log_type(btf, &t, false, "kind_flag=%d size=%u vlen=%u",
+		btf__log_type(btf, &t, false, true, "kind_flag=%d size=%u vlen=%u",
 			      kind_flag, t.size, BTF_INFO_VLEN(t.info));
 		return btf->type_index;
 	} else {
-		btf__log_type(btf, &t, true,
+		btf__log_type(btf, &t, true, true,
 			      "kind_flag=%d size=%u vlen=%u Error in adding gobuffer",
 			      kind_flag, t.size, BTF_INFO_VLEN(t.info));
 		return -1;
@@ -374,11 +407,11 @@ int32_t btf__add_enum(struct btf *btf, uint32_t name, uint32_t bit_size,
 
 	++btf->type_index;
 	if (gobuffer__add(&btf->types, &t, sizeof(t)) >= 0) {
-		btf__log_type(btf, &t, false, "size=%u vlen=%u",
+		btf__log_type(btf, &t, false, true, "size=%u vlen=%u",
 			      t.size, BTF_INFO_VLEN(t.info));
 		return btf->type_index;
 	} else {
-		btf__log_type(btf, &t, true,
+		btf__log_type(btf, &t, true, true,
 			      "size=%u vlen=%u Error in adding gobuffer",
 			      t.size, BTF_INFO_VLEN(t.info));
 		return -1;
@@ -401,6 +434,70 @@ int btf__add_enum_val(struct btf *btf, uint32_t name, int32_t value)
 		       e.val);
 
 	return 0;
+}
+
+static int32_t btf__add_func_proto_param(struct btf *btf, uint32_t name,
+					 uint32_t type, bool is_last_param)
+{
+	struct btf_param param;
+
+	param.name_off = name;
+	param.type = type;
+
+	if (gobuffer__add(&btf->types, &param, sizeof(param)) >= 0) {
+		btf_log_func_param(btf, name, type, false, is_last_param, NULL);
+		return 0;
+	} else {
+		btf_log_func_param(btf, name, type, true, is_last_param,
+				   "Error in adding gobuffer");
+		return -1;
+	}
+}
+
+int32_t btf__add_func_proto(struct btf *btf, struct ftype *ftype,
+			    uint32_t type_id_off)
+{
+	uint16_t nr_params, param_idx;
+	struct parameter *param;
+	struct btf_type t;
+	int32_t type_id;
+
+	/* add btf_type for func_proto */
+	nr_params = ftype->nr_parms + (ftype->unspec_parms ? 1 : 0);
+
+	t.name_off = 0;
+	t.info = BTF_INFO_ENCODE(BTF_KIND_FUNC_PROTO, 0, nr_params);
+	t.type = type_id_off + ftype->tag.type;
+
+	++btf->type_index;
+	if (gobuffer__add(&btf->types, &t, sizeof(t)) >= 0) {
+		btf__log_type(btf, &t, false, false, "return=%u args=(%s",
+			      t.type, !nr_params ? "void)\n" : "");
+		type_id = btf->type_index;
+	} else {
+		btf__log_type(btf, &t, true, true,
+			      "return=%u vlen=%u Error in adding gobuffer",
+			      t.type, BTF_INFO_VLEN(t.info));
+		return -1;
+	}
+
+	/* add parameters */
+	param_idx = 0;
+	ftype__for_each_parameter(ftype, param) {
+		++param_idx;
+		if (btf__add_func_proto_param(btf, param->name,
+					      type_id_off + param->tag.type,
+					      param_idx == nr_params))
+			return -1;
+	}
+
+	++param_idx;
+	if (ftype->unspec_parms)
+		if (btf__add_func_proto_param(btf, 0, 0,
+					      param_idx == nr_params))
+			return -1;
+
+	return type_id;
 }
 
 static int btf__write_elf(struct btf *btf)

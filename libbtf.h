@@ -29,6 +29,7 @@ extern uint8_t btf_verbose;
 #define btf_verbose_log(fmt, ...) { if (btf_verbose) printf(fmt, __VA_ARGS__); }
 
 struct base_type;
+struct ftype;
 
 struct btf *btf__new(const char *filename, Elf *elf);
 void btf__free(struct btf *btf);
@@ -45,6 +46,8 @@ int32_t btf__add_array(struct btf *btf, uint32_t type, uint32_t index_type,
 int32_t btf__add_enum(struct btf *btf, uint32_t name, uint32_t size,
 		      uint16_t nr_entries);
 int btf__add_enum_val(struct btf *btf, uint32_t name, int32_t value);
+int32_t btf__add_func_proto(struct btf *btf, struct ftype *ftype,
+			    uint32_t type_id_off);
 void btf__set_strings(struct btf *btf, struct gobuffer *strings);
 int  btf__encode(struct btf *btf, uint8_t flags);
 
