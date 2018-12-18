@@ -1115,7 +1115,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	if (btf_encode) {
 		cu__encode_btf(cu, global_verbose);
-		goto dump_and_stop;
+		return LSK__KEEPIT;
 	}
 
 	if (ctf_encode) {
@@ -1263,6 +1263,14 @@ int main(int argc, char *argv[])
 	if (err != 0) {
 		cus__fprintf_load_files_err(cus, "pahole", argv + remaining, err, stderr);
 		goto out_cus_delete;
+	}
+
+	if (btf_encode) {
+		err = btf_encoder__encode();
+		if (err) {
+			fputs("Failed to encode BTF\n", stderr);
+			goto out_cus_delete;
+		}
 	}
 
 	if (stats_formatter != NULL)

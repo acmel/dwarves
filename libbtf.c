@@ -509,7 +509,7 @@ int btf__encode(struct btf *btf, uint8_t flags)
 	hdr = btf->hdr;
 	hdr->magic = BTF_MAGIC;
 	hdr->version = 1;
-	hdr->flags = 0;
+	hdr->flags = flags;
 	hdr->hdr_len = sizeof(*hdr);
 
 	hdr->type_off = 0;
