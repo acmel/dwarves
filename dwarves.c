@@ -189,13 +189,14 @@ size_t base_type__name_to_size(struct base_type *bt, struct cu *cu)
 {
 	int i = 0;
 	char bf[64];
-	const char *name;
+	const char *name, *orig_name;
 
 	if (bt->name_has_encoding)
 		name = s(cu, bt->name);
 	else
 		name = base_type__name(bt, cu, bf, sizeof(bf));
-
+	orig_name = name;
+try_again:
 	while (base_type_name_to_size_table[i].name != NULL) {
 		if (bt->name_has_encoding) {
 			if (base_type_name_to_size_table[i].sname == bt->name) {
@@ -210,8 +211,15 @@ found:
 			goto found;
 		++i;
 	}
+
+	if (strstarts(name, "signed ")) {
+		i = 0;
+		name += sizeof("signed");
+		goto try_again;
+	}
+
 	fprintf(stderr, "%s: %s %s\n",
-		 __func__, dwarf_tag_name(bt->tag.tag), name);
+		 __func__, dwarf_tag_name(bt->tag.tag), orig_name);
 	return 0;
 }
 
