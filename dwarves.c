@@ -249,8 +249,7 @@ const char *base_type__name(const struct base_type *bt, const struct cu *cu,
 			 base_type_fp_type_str[bt->float_type],
 			 s(cu, bt->name));
 	else
-		snprintf(bf, len, "%s%s%s%s",
-			 bt->is_signed ? "signed " : "",
+		snprintf(bf, len, "%s%s%s",
 			 bt->is_bool ? "bool " : "",
 			 bt->is_varargs ? "... " : "",
 			 s(cu, bt->name));
