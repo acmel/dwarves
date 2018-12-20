@@ -291,6 +291,16 @@ static inline bool strlist__empty(const struct strlist *slist)
 	return rb_first(&slist->entries) == NULL;
 }
 
+/**
+ * strstarts - does @str start with @prefix?
+ * @str: string to examine
+ * @prefix: prefix to look for.
+ */
+static inline bool strstarts(const char *str, const char *prefix)
+{
+	return strncmp(str, prefix, strlen(prefix)) == 0;
+}
+
 void *zalloc(const size_t size);
 
 Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
