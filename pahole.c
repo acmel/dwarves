@@ -409,6 +409,13 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	     strncmp(decl_exclude_prefix, tag__decl_file(tag, cu),
 		     decl_exclude_prefix_len) == 0))
 		return NULL;
+	/*
+	 * The following only make sense for structs, i.e. 'struct class',
+	 * and as we can get here with a union, that is represented by a 'struct type',
+	 * bail out if we get here with an union
+	 */
+	if (!tag__is_struct(class__tag(class)))
+		return class;
 
 	if (tag->top_level)
 		class__find_holes(class);
