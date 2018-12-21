@@ -1147,6 +1147,9 @@ void class__find_holes(struct class *class)
 	uint32_t bit_sum = 0;
 	uint32_t bitfield_real_offset = 0;
 
+	if (!tag__is_struct(class__tag(class)))
+		return;
+
 	if (class->holes_searched)
 		return;
 
