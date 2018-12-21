@@ -817,7 +817,7 @@ static inline int function__inlined(const struct function *func)
  * @byte_offset - offset in bytes from the start of the struct
  * @byte_size - cached byte size, integral type byte size for bitfields
  * @bitfield_offset - offset in the current bitfield
- * @bitfield_offset - size in the current bitfield
+ * @bitfield_size - size in the current bitfield
  * @bit_hole - If there is a bit hole before the next one (or the end of the struct)
  * @bitfield_end - Is this the last entry in a bitfield?
  * @accessibility - DW_ACCESS_{public,protected,private}
