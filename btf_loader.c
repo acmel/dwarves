@@ -443,7 +443,7 @@ static int btf__load_sections(struct btf *btf)
 	return btf__load_types(btf);
 }
 
-static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu)
+static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu, struct btf *btf)
 {
 	struct class_member *pos;
 	struct type *tag_type = tag__type(tag);
@@ -502,6 +502,9 @@ static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu)
 		}
 
 		pos->bitfield_offset = pos->bit_offset % integral_bit_size;
+		if (!btf->is_big_endian)
+			pos->bitfield_offset = integral_bit_size - pos->bitfield_offset - pos->bitfield_size;
+
 		pos->bit_size = type_bit_size;
 		pos->byte_offset = (((pos->bit_offset / integral_bit_size) *
 				     integral_bit_size) / 8);
@@ -510,14 +513,14 @@ static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu)
 	return 0;
 }
 
-static int cu__fixup_btf_bitfields(struct cu *cu)
+static int cu__fixup_btf_bitfields(struct cu *cu, struct btf *btf)
 {
 	int err = 0;
 	struct tag *pos;
 
 	list_for_each_entry(pos, &cu->tags, node)
 		if (tag__is_struct(pos) || tag__is_union(pos)) {
-			err = class__fixup_btf_bitfields(pos, cu);
+			err = class__fixup_btf_bitfields(pos, cu, btf);
 			if (err)
 				break;
 		}
@@ -566,7 +569,7 @@ int btf__load_file(struct cus *cus, struct conf_load *conf,
 		return err;
 	}
 
-	err = cu__fixup_btf_bitfields(cu);
+	err = cu__fixup_btf_bitfields(cu, state);
 	/*
 	 * The app stole this cu, possibly deleting it,
 	 * so forget about it
