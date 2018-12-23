@@ -419,6 +419,16 @@ static int btf__load_types(struct btf *btf)
 			vlen = 0;
 		} else if (type == BTF_KIND_FUNC_PROTO) {
 			vlen = create_new_subroutine_type(btf, ptr, vlen, type_ptr, type_index);
+		} else if (type == BTF_KIND_FUNC) {
+			/* BTF_KIND_FUNC corresponding to a defined subprogram.
+			 * This is not really a type and it won't be referred by any other types
+			 * either. Since types cannot be skipped, let us replace it with
+			 * a nullify_type_entry.
+			 *
+			 * No warning here since BTF_KIND_FUNC is a legal entry in BTF.
+			 */
+			cu__table_nullify_type_entry(btf->priv, type_index);
+			vlen = 0;
 		} else {
 			fprintf(stderr,
 				"BTF: idx: %d, off: %zd, Unknown\n",
