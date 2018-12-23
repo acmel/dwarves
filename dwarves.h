@@ -879,7 +879,6 @@ struct type {
 	uint8_t		 definition_emitted:1;
 	uint8_t		 fwd_decl_emitted:1;
 	uint8_t		 resized:1;
-	uint8_t		 flag:1;
 };
 
 static inline struct class *type__class(const struct type *type)

@@ -101,7 +101,7 @@ static struct base_type *base_type__new(strings_t name, uint32_t attrs,
 }
 
 static void type__init(struct type *type, uint16_t tag,
-		       strings_t name, size_t size, bool kflag)
+		       strings_t name, size_t size)
 {
 	INIT_LIST_HEAD(&type->node);
 	INIT_LIST_HEAD(&type->namespace.tags);
@@ -109,26 +109,24 @@ static void type__init(struct type *type, uint16_t tag,
 	type->namespace.tag.tag = tag;
 	type->namespace.name = name;
 	type->namespace.sname = 0;
-	type->flag = kflag;
 }
 
-static struct type *type__new(uint16_t tag, strings_t name, size_t size,
-			      bool kflag)
+static struct type *type__new(uint16_t tag, strings_t name, size_t size)
 {
         struct type *type = tag__alloc(sizeof(*type));
 
 	if (type != NULL)
-		type__init(type, tag, name, size, kflag);
+		type__init(type, tag, name, size);
 
 	return type;
 }
 
-static struct class *class__new(strings_t name, size_t size, bool kflag)
+static struct class *class__new(strings_t name, size_t size)
 {
 	struct class *class = tag__alloc(sizeof(*class));
 
 	if (class != NULL) {
-		type__init(&class->type, DW_TAG_structure_type, name, size, kflag);
+		type__init(&class->type, DW_TAG_structure_type, name, size);
 		INIT_LIST_HEAD(&class->vtable);
 	}
 
@@ -215,7 +213,7 @@ static int create_new_class(struct btf *btf, void *ptr, int vlen,
 			    bool kflag)
 {
 	strings_t name = btf__get32(btf, &tp->name_off);
-	struct class *class = class__new(name, size, kflag);
+	struct class *class = class__new(name, size);
 	int member_size = create_members(btf, ptr, vlen, &class->type, kflag);
 
 	if (member_size < 0)
@@ -235,7 +233,7 @@ static int create_new_union(struct btf *btf, void *ptr,
 			    bool kflag)
 {
 	strings_t name = btf__get32(btf, &tp->name_off);
-	struct type *un = type__new(DW_TAG_union_type, name, size, kflag);
+	struct type *un = type__new(DW_TAG_union_type, name, size);
 	int member_size = create_members(btf, ptr, vlen, un, kflag);
 
 	if (member_size < 0)
@@ -270,7 +268,7 @@ static int create_new_enumeration(struct btf *btf, void *ptr,
 	uint16_t i;
 	struct type *enumeration = type__new(DW_TAG_enumeration_type,
 					     btf__get32(btf, &tp->name_off),
-					     size ?: (sizeof(int) * 8), false);
+					     size ?: (sizeof(int) * 8));
 
 	if (enumeration == NULL)
 		return -ENOMEM;
@@ -311,10 +309,10 @@ static int create_new_subroutine_type(struct btf *btf, void *ptr,
 }
 
 static int create_new_forward_decl(struct btf *btf, struct btf_type *tp,
-				   uint64_t size, long id, bool kflag)
+				   uint64_t size, long id)
 {
 	strings_t name = btf__get32(btf, &tp->name_off);
-	struct class *fwd = class__new(name, size, kflag);
+	struct class *fwd = class__new(name, size);
 
 	if (fwd == NULL)
 		return -ENOMEM;
@@ -327,7 +325,7 @@ static int create_new_typedef(struct btf *btf, struct btf_type *tp, uint64_t siz
 {
 	strings_t name = btf__get32(btf, &tp->name_off);
 	unsigned int type_id = btf__get32(btf, &tp->type);
-	struct type *type = type__new(DW_TAG_typedef, name, size, false);
+	struct type *type = type__new(DW_TAG_typedef, name, size);
 
 	if (type == NULL)
 		return -ENOMEM;
@@ -404,7 +402,7 @@ static int btf__load_types(struct btf *btf)
 		} else if (type == BTF_KIND_ENUM) {
 			vlen = create_new_enumeration(btf, ptr, vlen, type_ptr, size, type_index);
 		} else if (type == BTF_KIND_FWD) {
-			vlen = create_new_forward_decl(btf, type_ptr, size, type_index, kflag);
+			vlen = create_new_forward_decl(btf, type_ptr, size, type_index);
 		} else if (type == BTF_KIND_TYPEDEF) {
 			vlen = create_new_typedef(btf, type_ptr, size, type_index);
 		} else if (type == BTF_KIND_VOLATILE ||
