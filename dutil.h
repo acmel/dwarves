@@ -151,7 +151,7 @@ int __ilog2_u64(uint64_t n)
 /*
  * deal with unrepresentable constant logarithms
  */
-extern __attribute__((const, noreturn))
+extern __attribute__((const))
 int ____ilog2_NaN(void);
 
 /**
