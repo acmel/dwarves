@@ -13,6 +13,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
 #include <elf.h>
 #include <gelf.h>
 #include <asm/bitsperlong.h>
