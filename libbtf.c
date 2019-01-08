@@ -535,7 +535,7 @@ int32_t btf__add_func_proto(struct btf *btf, struct ftype *ftype,
 
 	t.name_off = 0;
 	t.info = BTF_INFO_ENCODE(BTF_KIND_FUNC_PROTO, 0, nr_params);
-	t.type = type_id_off + ftype->tag.type;
+	t.type = ftype->tag.type == 0 ? 0 : type_id_off + ftype->tag.type;
 
 	++btf->type_index;
 	if (gobuffer__add(&btf->types, &t, sizeof(t)) >= 0) {
@@ -552,9 +552,10 @@ int32_t btf__add_func_proto(struct btf *btf, struct ftype *ftype,
 	/* add parameters */
 	param_idx = 0;
 	ftype__for_each_parameter(ftype, param) {
+		uint32_t param_type_id = param->tag.type == 0 ? 0 : type_id_off + param->tag.type;
 		++param_idx;
 		if (btf__add_func_proto_param(btf, param->name,
-					      type_id_off + param->tag.type,
+					      param_type_id,
 					      param_idx == nr_params))
 			return -1;
 	}
