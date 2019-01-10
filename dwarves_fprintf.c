@@ -540,6 +540,21 @@ static const char *variable__prefix(const struct variable *var)
 	return NULL;
 }
 
+static size_t type__fprintf_stats(struct type *type, const struct cu *cu,
+				  const struct conf_fprintf *conf, FILE *fp)
+{
+	size_t printed = fprintf(fp, "\n%.*s/* size: %d, cachelines: %zd, members: %u",
+				 conf->indent, tabs, type->size,
+				 tag__nr_cachelines(type__tag(type), cu), type->nr_members);
+
+	if (type->nr_static_members != 0)
+		printed += fprintf(fp, ", static members: %u */\n", type->nr_static_members);
+	else
+		printed += fprintf(fp, " */\n");
+
+	return printed;
+}
+
 static size_t union__fprintf(struct type *type, const struct cu *cu,
 			     const struct conf_fprintf *conf, FILE *fp);
 
@@ -1475,53 +1490,41 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	if (!cconf.emit_stats)
 		goto out;
 
-	printed += fprintf(fp, "\n%.*s/* size: %d, cachelines: %zd, members: %u",
-			   cconf.indent, tabs,
-			   class__size(class),
-			   tag__nr_cachelines(class__tag(class), cu),
-			   type->nr_members,
-			   type->nr_static_members);
-
-	if (type->nr_static_members != 0) {
-		printed += fprintf(fp, ", static members: %u */",
-				   type->nr_static_members);
-	} else {
-		printed += fprintf(fp, " */");
-	}
+	printed += type__fprintf_stats(type, cu, &cconf, fp);
 
 	if (sum_holes > 0)
-		printed += fprintf(fp, "\n%.*s/* sum members: %u, holes: %d, "
-				   "sum holes: %u */",
+		printed += fprintf(fp, "%.*s/* sum members: %u, holes: %d, "
+				   "sum holes: %u */\n",
 				   cconf.indent, tabs,
 				   sum, class->nr_holes, sum_holes);
 	if (sum_bit_holes > 0)
-		printed += fprintf(fp, "\n%.*s/* bit holes: %d, sum bit "
-				   "holes: %u bits */",
+		printed += fprintf(fp, "%.*s/* bit holes: %d, sum bit "
+				   "holes: %u bits */\n",
 				   cconf.indent, tabs,
 				   class->nr_bit_holes, sum_bit_holes);
 	if (class->padding > 0)
-		printed += fprintf(fp, "\n%.*s/* padding: %u */",
+		printed += fprintf(fp, "%.*s/* padding: %u */\n",
 				   cconf.indent,
 				   tabs, class->padding);
 	if (nr_paddings > 0)
-		printed += fprintf(fp, "\n%.*s/* paddings: %u, sum paddings: "
-				   "%u */",
+		printed += fprintf(fp, "%.*s/* paddings: %u, sum paddings: "
+				   "%u */\n",
 				   cconf.indent, tabs,
 				   nr_paddings, sum_paddings);
 	if (class->bit_padding > 0)
-		printed += fprintf(fp, "\n%.*s/* bit_padding: %u bits */",
+		printed += fprintf(fp, "%.*s/* bit_padding: %u bits */\n",
 				   cconf.indent, tabs,
 				   class->bit_padding);
 	cacheline = (cconf.base_offset + type->size) % cacheline_size;
 	if (cacheline != 0)
-		printed += fprintf(fp, "\n%.*s/* last cacheline: %u bytes */",
+		printed += fprintf(fp, "%.*s/* last cacheline: %u bytes */\n",
 				   cconf.indent, tabs,
 				   cacheline);
 	if (cconf.show_first_biggest_size_base_type_member &&
 	    type->nr_members != 0) {
 		struct class_member *m = type__find_first_biggest_size_base_type_member(type, cu);
 
-		printed += fprintf(fp, "\n%.*s/* first biggest size base type member: %s %u %zd */",
+		printed += fprintf(fp, "%.*s/* first biggest size base type member: %s %u %zd */\n",
 				   cconf.indent, tabs,
 				   class_member__name(m, cu), m->byte_offset,
 				   m->byte_size);
@@ -1529,12 +1532,11 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 
 	if (sum + sum_holes != type->size - class->padding &&
 	    type->nr_members != 0)
-		printed += fprintf(fp, "\n\n%.*s/* BRAIN FART ALERT! %d != %u "
+		printed += fprintf(fp, "\n%.*s/* BRAIN FART ALERT! %d != %u "
 				   "+ %u(holes), diff = %d */\n",
 				   cconf.indent, tabs,
 				   type->size, sum, sum_holes,
 				   type->size - (sum + sum_holes));
-	fputc('\n', fp);
 out:
 	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
 				 cconf.suffix ? " ": "", cconf.suffix ?: "");
