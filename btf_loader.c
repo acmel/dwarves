@@ -268,7 +268,7 @@ static int create_new_enumeration(struct btf *btf, void *ptr,
 	uint16_t i;
 	struct type *enumeration = type__new(DW_TAG_enumeration_type,
 					     btf__get32(btf, &tp->name_off),
-					     size ?: (sizeof(int) * 8));
+					     size ? size * 8 : (sizeof(int) * 8));
 
 	if (enumeration == NULL)
 		return -ENOMEM;
