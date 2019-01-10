@@ -169,6 +169,9 @@ static struct base_type_name_to_size {
 	{ .name = "float",		    .size = 32, },
 	{ .name = "long double",	    .size = 64, },
 	{ .name = "long double long double", .size = 64, },
+	{ .name = "__int128",		    .size = 128, },
+	{ .name = "unsigned __int128",	    .size = 128, },
+	{ .name = "__int128 unsigned",	    .size = 128, },
 	{ .name = NULL },
 };
 
