@@ -886,6 +886,11 @@ static inline struct class *type__class(const struct type *type)
 	return (struct class *)type;
 }
 
+static inline struct tag *type__tag(const struct type *type)
+{
+	return (struct tag *)type;
+}
+
 void type__delete(struct type *type, struct cu *cu);
 
 /**
