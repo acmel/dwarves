@@ -1,0 +1,21 @@
+#!/bin/bash
+# Copyright © 2019 Red Hat Inc, Arnaldo Carvalho de Melo <acme@redhat.com>
+# Use pahole to produce output from BTF and from DWARF, then do a diff
+# Use --flat_arrays with DWARF as BTF, like CTF, flattens arrays.
+
+if [ $# -eq 0 ] ; then
+	echo "Usage: btfdiff <filename_with_BTF_and_DWARF_info>"
+	exit 1
+fi
+
+file=$1
+btf_output=$(mktemp /tmp/btfdiff.XXXXXX)
+dwarf_output=$(mktemp /tmp/btfdiff.XXXXXX)
+
+pahole -F dwarf --flat_arrays $file > $dwarf_output
+pahole -F btf $file > $btf_output
+
+diff -u $dwarf_output $btf_output
+
+rm -f $btf_output $dwarf_output
+exit 0
