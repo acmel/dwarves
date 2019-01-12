@@ -831,7 +831,7 @@ struct class_member {
 	uint32_t	 bit_size;
 	uint32_t	 byte_offset;
 	size_t		 byte_size;
-	uint8_t		 bitfield_offset;
+	int8_t		 bitfield_offset;
 	uint8_t		 bitfield_size;
 	uint8_t		 bit_hole;
 	uint8_t		 bitfield_end:1;
