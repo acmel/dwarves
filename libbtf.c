@@ -1,3 +1,9 @@
+/*
+  SPDX-License-Identifier: GPL-2.0-only
+
+  Copyright (C) 2019 Arnaldo Carvalho de Melo <acme@redhat.com>
+ */
+
 #include <fcntl.h>
 #include <gelf.h>
 #include <limits.h>

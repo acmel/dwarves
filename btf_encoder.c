@@ -1,3 +1,9 @@
+/*
+  SPDX-License-Identifier: GPL-2.0-only
+
+  Copyright (C) 2019 Arnaldo Carvalho de Melo <acme@redhat.com>
+ */
+
 #include "dwarves.h"
 #include "libbtf.h"
 #include "btf.h"

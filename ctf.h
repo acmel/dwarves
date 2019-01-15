@@ -1,5 +1,10 @@
 #ifndef _CTF_H
 #define _CTF_H
+/*
+  SPDX-License-Identifier: GPL-2.0-only
+
+  Copyright (C) 2019 Arnaldo Carvalho de Melo <acme@redhat.com>
+ */
 
 #include <stdint.h>
 

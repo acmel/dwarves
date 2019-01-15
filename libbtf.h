@@ -1,3 +1,9 @@
+/*
+  SPDX-License-Identifier: GPL-2.0-only
+
+  Copyright (C) 2019 Arnaldo Carvalho de Melo <acme@redhat.com>
+ */
+
 #ifndef _LIBBTF_H
 #define _LIBBTF_H
 

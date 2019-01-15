@@ -1,5 +1,10 @@
 #ifndef _BTF_ENCODER_H_
 #define _BTF_ENCODER_H_ 1
+/*
+  SPDX-License-Identifier: GPL-2.0-only
+
+  Copyright (C) 2019 Arnaldo Carvalho de Melo <acme@redhat.com>
+ */
 
 struct cu;
 

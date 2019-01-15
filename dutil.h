@@ -1,11 +1,9 @@
 #ifndef _DUTIL_H_
 #define _DUTIL_H_ 1
 /*
+  SPDX-License-Identifier: GPL-2.0-only
+
  * Copyright (C) 2007..2009 Arnaldo Carvalho de Melo <acme@redhat.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
  *
  * Some functions came from the Linux Kernel sources, copyrighted by a
  * cast of dozens, please see the Linux Kernel git history for details.
