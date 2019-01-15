@@ -753,6 +753,9 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 			sconf.base_offset = offset;
 	}
 
+	if (member->bitfield_offset < 0)
+		offset += member->byte_size;
+
 	if (!conf->suppress_comments)
 		printed_cacheline = class__fprintf_cacheline_boundary(conf, offset, fp);
 
@@ -807,9 +810,14 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 					   offset);
 
 			if (member->bitfield_size != 0) {
+				unsigned int bitfield_offset = member->bitfield_offset;
+
+				if (member->bitfield_offset < 0)
+					bitfield_offset = member->byte_size * 8 + member->bitfield_offset;
+
 				printed += fprintf(fp, sconf.hex_fmt ?
 							":%#2x" : ":%2u",
-						   member->bitfield_offset);
+						   bitfield_offset);
 				size_spacing -= 3;
 			}
 
