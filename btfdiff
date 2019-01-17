@@ -15,7 +15,7 @@ dwarf_output=$(mktemp /tmp/btfdiff.XXXXXX)
 pahole -F dwarf --flat_arrays $file > $dwarf_output
 pahole -F btf $file > $btf_output
 
-diff -u $dwarf_output $btf_output
+diff -up $dwarf_output $btf_output
 
 rm -f $btf_output $dwarf_output
 exit 0
