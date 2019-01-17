@@ -201,6 +201,7 @@ static int create_members(struct btf *btf, void *ptr, int vlen, struct type *cla
 			member->bit_offset = offset;
 			member->bitfield_size = 0;
 		}
+		member->byte_offset = member->bit_offset / 8;
 		/* sizes and offsets will be corrected at class__fixup_btf_bitfields */
 		type__add_member(class, member);
 	}
@@ -463,7 +464,6 @@ static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu, struct btf
 			continue;
 
 		pos->bitfield_offset = 0;
-		pos->byte_offset = pos->bit_offset / 8;
 
 		uint16_t type_bit_size;
 		size_t integral_bit_size;
