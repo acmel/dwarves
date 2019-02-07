@@ -31,7 +31,52 @@ add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.12")
 find_package(DWARF REQUIRED)
 find_package(ZLIB REQUIRED)
 
+# make sure git submodule(s) are checked out
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+	# Update submodules as needed
+	option(GIT_SUBMODULE "Check submodules during build" ON)
+	if(GIT_SUBMODULE)
+		message(STATUS "Submodule update")
+		execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+				WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+				RESULT_VARIABLE GIT_SUBMOD_RESULT)
+		if(NOT GIT_SUBMOD_RESULT EQUAL "0")
+			message(FATAL_ERROR "git submodule update --init failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
+		else()
+			message(STATUS "Submodule update - done")
+		endif()
+	endif()
+endif()
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/lib/bpf/src/btf.h")
+	message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
+endif()
+
 _set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${__LIB}" "libdir")
+
+# libbpf uses reallocarray, which is not available in all versions of glibc
+# libbpf's include/tools/libc_compat.h provides implementation, but needs
+# COMPACT_NEED_REALLOCARRAY to be set
+INCLUDE(CheckCSourceCompiles)
+CHECK_C_SOURCE_COMPILES(
+"
+#define _GNU_SOURCE
+#include <stdlib.h>
+int main(void)
+{
+        return !!reallocarray(NULL, 1, 1);
+}
+" HAVE_REALLOCARRAY_SUPPORT)
+if (NOT HAVE_REALLOCARRAY_SUPPORT)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCOMPAT_NEED_REALLOCARRAY")
+endif()
+
+file(GLOB libbpf_sources "lib/bpf/src/*.c")
+add_library(bpf STATIC ${libbpf_sources})
+set_target_properties(bpf PROPERTIES OUTPUT_NAME bpf)
+target_include_directories(bpf PRIVATE
+			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include
+			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
 
 set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer strings
 		     ctf_encoder.c ctf_loader.c libctf.c btf_encoder.c btf_loader.c libbtf.c
@@ -39,7 +84,7 @@ set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer strings
 add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 set_target_properties(dwarves PROPERTIES INTERFACE_LINK_LIBRARIES "")
-target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES})
+target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES} bpf)
 
 set(dwarves_emit_LIB_SRCS dwarves_emit.c)
 add_library(dwarves_emit SHARED ${dwarves_emit_LIB_SRCS})
@@ -75,7 +120,7 @@ set(pglobal_SRCS pglobal.c)
 add_executable(pglobal ${pglobal_SRCS})
 target_link_libraries(pglobal dwarves)
 
-set(pfunct_SRCS pfunct.c )
+set(pfunct_SRCS pfunct.c)
 add_executable(pfunct ${pfunct_SRCS})
 target_link_libraries(pfunct dwarves dwarves_emit ${ELF_LIBRARY})
 
