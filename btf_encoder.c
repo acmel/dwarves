@@ -11,7 +11,7 @@
 
 #include "dwarves.h"
 #include "libbtf.h"
-#include "btf.h"
+#include "lib/bpf/include/uapi/linux/btf.h"
 #include "hash.h"
 #include "elf_symtab.h"
 #include "btf_encoder.h"

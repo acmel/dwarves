@@ -25,7 +25,7 @@
 #include <gelf.h>
 
 #include "libbtf.h"
-#include "btf.h"
+#include "lib/bpf/include/uapi/linux/btf.h"
 #include "dutil.h"
 #include "dwarves.h"
 
