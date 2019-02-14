@@ -12,7 +12,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-struct btf {
+struct btf_elf {
 	union {
 		struct btf_header *hdr;
 		void		  *data;
@@ -31,39 +31,39 @@ struct btf {
 	uint32_t	  type_index;
 };
 
-extern uint8_t btf_verbose;
-#define btf_verbose_log(fmt, ...) { if (btf_verbose) printf(fmt, __VA_ARGS__); }
+extern uint8_t btf_elf__verbose;
+#define btf_elf__verbose_log(fmt, ...) { if (btf_elf__verbose) printf(fmt, __VA_ARGS__); }
 
 struct base_type;
 struct ftype;
 
-struct btf *btf__new(const char *filename, Elf *elf);
-void btf__free(struct btf *btf);
+struct btf_elf *btf_elf__new(const char *filename, Elf *elf);
+void btf_elf__free(struct btf_elf *btf);
 
-int32_t btf__add_base_type(struct btf *btf, const struct base_type *bt);
-int32_t btf__add_ref_type(struct btf *btf, uint16_t kind, uint32_t type,
-			  uint32_t name, bool kind_flag);
-int btf__add_member(struct btf *btf, uint32_t name, uint32_t type, bool kind_flag,
-		    uint32_t bitfield_size, uint32_t bit_offset);
-int32_t btf__add_struct(struct btf *btf, uint8_t kind, uint32_t name,
-			bool kind_flag, uint32_t size, uint16_t nr_members);
-int32_t btf__add_array(struct btf *btf, uint32_t type, uint32_t index_type,
-		       uint32_t nelems);
-int32_t btf__add_enum(struct btf *btf, uint32_t name, uint32_t size,
-		      uint16_t nr_entries);
-int btf__add_enum_val(struct btf *btf, uint32_t name, int32_t value);
-int32_t btf__add_func_proto(struct btf *btf, struct ftype *ftype,
-			    uint32_t type_id_off);
-void btf__set_strings(struct btf *btf, struct gobuffer *strings);
-int  btf__encode(struct btf *btf, uint8_t flags);
+int32_t btf_elf__add_base_type(struct btf_elf *btf, const struct base_type *bt);
+int32_t btf_elf__add_ref_type(struct btf_elf *btf, uint16_t kind, uint32_t type,
+			      uint32_t name, bool kind_flag);
+int btf_elf__add_member(struct btf_elf *btf, uint32_t name, uint32_t type, bool kind_flag,
+			uint32_t bitfield_size, uint32_t bit_offset);
+int32_t btf_elf__add_struct(struct btf_elf *btf, uint8_t kind, uint32_t name,
+			    bool kind_flag, uint32_t size, uint16_t nr_members);
+int32_t btf_elf__add_array(struct btf_elf *btf, uint32_t type, uint32_t index_type,
+			   uint32_t nelems);
+int32_t btf_elf__add_enum(struct btf_elf *btf, uint32_t name, uint32_t size,
+			  uint16_t nr_entries);
+int btf_elf__add_enum_val(struct btf_elf *btf, uint32_t name, int32_t value);
+int32_t btf_elf__add_func_proto(struct btf_elf *btf, struct ftype *ftype,
+				uint32_t type_id_off);
+void btf_elf__set_strings(struct btf_elf *btf, struct gobuffer *strings);
+int  btf_elf__encode(struct btf_elf *btf, uint8_t flags);
 
-char *btf__string(struct btf *btf, uint32_t ref);
-int btf__load(struct btf *btf);
+char *btf_elf__string(struct btf_elf *btf, uint32_t ref);
+int btf_elf__load(struct btf_elf *btf);
 
-uint32_t btf__get32(struct btf *btf, uint32_t *p);
+uint32_t btf_elf__get32(struct btf_elf *btf, uint32_t *p);
 
-void *btf__get_buffer(struct btf *btf);
+void *btf_elf__get_buffer(struct btf_elf *btf);
 
-size_t btf__get_size(struct btf *btf);
+size_t btf_elf__get_size(struct btf_elf *btf);
 
 #endif /* _LIBBTF_H */
