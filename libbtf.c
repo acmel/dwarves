@@ -149,11 +149,11 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
 	return btfe;
 
 errout:
-	btf_elf__free(btfe);
+	btf_elf__delete(btfe);
 	return NULL;
 }
 
-void btf_elf__free(struct btf_elf *btfe)
+void btf_elf__delete(struct btf_elf *btfe)
 {
 	if (!btfe)
 		return;

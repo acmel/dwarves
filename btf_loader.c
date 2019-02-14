@@ -537,7 +537,7 @@ static int cu__fixup_btf_bitfields(struct cu *cu, struct btf_elf *btfe)
 
 static void btf_elf__cu_delete(struct cu *cu)
 {
-	btf_elf__free(cu->priv);
+	btf_elf__delete(cu->priv);
 	cu->priv = NULL;
 }
 

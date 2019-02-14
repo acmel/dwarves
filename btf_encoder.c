@@ -190,7 +190,7 @@ int btf_encoder__encode()
 	int err;
 
 	err = btf_elf__encode(btfe, 0);
-	btf_elf__free(btfe);
+	btf_elf__delete(btfe);
 	btfe = NULL;
 
 	return err;
@@ -255,6 +255,6 @@ int cu__encode_btf(struct cu *cu, int verbose)
 
 out:
 	if (err)
-		btf_elf__free(btfe);
+		btf_elf__delete(btfe);
 	return err;
 }
