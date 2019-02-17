@@ -72,9 +72,14 @@ if (NOT HAVE_REALLOCARRAY_SUPPORT)
 endif()
 
 file(GLOB libbpf_sources "lib/bpf/src/*.c")
-add_library(bpf STATIC ${libbpf_sources})
-set_target_properties(bpf PROPERTIES OUTPUT_NAME bpf)
-target_include_directories(bpf PRIVATE
+add_library(bpf-static STATIC ${libbpf_sources})
+set_target_properties(bpf-static PROPERTIES OUTPUT_NAME bpf)
+target_include_directories(bpf-static PRIVATE
+			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include
+			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
+add_library(bpf-shared SHARED ${libbpf_sources})
+set_target_properties(bpf-shared PROPERTIES OUTPUT_NAME bpf)
+target_include_directories(bpf-shared PRIVATE
 			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include
 			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
 
@@ -84,7 +89,7 @@ set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer strings
 add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 set_target_properties(dwarves PROPERTIES INTERFACE_LINK_LIBRARIES "")
-target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES} bpf)
+target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES} bpf-shared)
 
 set(dwarves_emit_LIB_SRCS dwarves_emit.c)
 add_library(dwarves_emit SHARED ${dwarves_emit_LIB_SRCS})
