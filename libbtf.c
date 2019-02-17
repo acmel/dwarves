@@ -17,6 +17,9 @@
 
 #include "libbtf.h"
 #include "lib/bpf/include/uapi/linux/btf.h"
+#include "lib/bpf/include/linux/err.h"
+#include "lib/bpf/src/btf.h"
+#include "lib/bpf/src/libbpf.h"
 #include "dutil.h"
 #include "gobuffer.h"
 #include "dwarves.h"
@@ -566,19 +569,21 @@ int32_t btf_elf__add_func_proto(struct btf_elf *btfe, struct ftype *ftype, uint3
 	return type_id;
 }
 
-static int btf_elf__write(struct btf_elf *btfe)
+static int btf_elf__write(const char *filename, struct btf *btf)
 {
 	GElf_Shdr shdr_mem, *shdr;
 	GElf_Ehdr ehdr_mem, *ehdr;
 	Elf_Data *btf_elf = NULL;
 	Elf_Scn *scn = NULL;
 	Elf *elf = NULL;
+	const void *btf_data;
+	uint32_t btf_size;
 	int fd, err = -1;
 	size_t strndx;
 
-	fd = open(btfe->filename, O_RDWR);
+	fd = open(filename, O_RDWR);
 	if (fd < 0) {
-		fprintf(stderr, "Cannot open %s\n", btfe->filename);
+		fprintf(stderr, "Cannot open %s\n", filename);
 		return -1;
 	}
 
@@ -617,10 +622,12 @@ static int btf_elf__write(struct btf_elf *btfe)
 		}
 	}
 
+	btf_data = btf__get_raw_data(btf, &btf_size);
+
 	if (btf_elf) {
 		/* Exisiting .BTF section found */
-		btf_elf->d_buf = btfe->data;
-		btf_elf->d_size = btfe->size;
+		btf_elf->d_buf = (void *)btf_data;
+		btf_elf->d_size = btf_size;
 		elf_flagdata(btf_elf, ELF_C_SET, ELF_F_DIRTY);
 
 		if (elf_update(elf, ELF_C_NULL) >= 0 &&
@@ -646,10 +653,9 @@ static int btf_elf__write(struct btf_elf *btfe)
 		}
 
 		snprintf(cmd, sizeof(cmd), "%s --add-section .BTF=%s %s",
-			 llvm_objcopy, tmp_fn, btfe->filename);
+			 llvm_objcopy, tmp_fn, filename);
 
-		if (write(fd, btfe->data, btfe->size) == btfe->size &&
-		    !system(cmd))
+		if (write(fd, btf_data, btf_size) == btf_size && !system(cmd))
 			err = 0;
 
 		unlink(tmp_fn);
@@ -663,9 +669,15 @@ out:
 	return err;
 }
 
+static int libbpf_log(enum libbpf_print_level level, const char *format, va_list args)
+{
+	return vfprintf(stderr, format, args);
+}
+
 int btf_elf__encode(struct btf_elf *btfe, uint8_t flags)
 {
 	struct btf_header *hdr;
+	struct btf *btf;
 
 	/* Empty file, nothing to do, so... done! */
 	if (gobuffer__size(&btfe->types) == 0)
@@ -695,5 +707,17 @@ int btf_elf__encode(struct btf_elf *btfe, uint8_t flags)
 
 	*(char *)(btf_elf__nohdr_data(btfe) + hdr->str_off) = '\0';
 
-	return btf_elf__write(btfe);
+	libbpf_set_print(libbpf_log);
+
+	btf = btf__new(btfe->data, btfe->size);
+	if (IS_ERR(btf)) {
+		fprintf(stderr, "%s: btf__new failed!\n", __func__);
+		return -1;
+	}
+	if (btf__dedup(btf, NULL, NULL)) {
+		fprintf(stderr, "%s: btf__dedup failed!", __func__);
+		return -1;
+	}
+
+	return btf_elf__write(btfe->filename, btf);
 }
