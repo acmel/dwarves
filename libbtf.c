@@ -636,7 +636,7 @@ static int btf_elf__write(struct btf_elf *btfe)
 			llvm_objcopy = "llvm-objcopy";
 
 		/* Use objcopy to add a .BTF section */
-		snprintf(tmp_fn, sizeof(tmp_fn), "%s.btfe", btfe->filename);
+		snprintf(tmp_fn, sizeof(tmp_fn), "%s.btf", filename);
 		close(fd);
 		fd = creat(tmp_fn, S_IRUSR | S_IWUSR);
 		if (fd == -1) {
