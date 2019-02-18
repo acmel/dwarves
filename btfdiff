@@ -9,8 +9,8 @@ if [ $# -eq 0 ] ; then
 fi
 
 file=$1
-btf_output=$(mktemp /tmp/btfdiff.XXXXXX)
-dwarf_output=$(mktemp /tmp/btfdiff.XXXXXX)
+btf_output=$(mktemp /tmp/btfdiff.btf.XXXXXX)
+dwarf_output=$(mktemp /tmp/btfdiff.dwarf.XXXXXX)
 
 pahole -F dwarf --flat_arrays $file > $dwarf_output
 pahole -F btf $file > $btf_output
