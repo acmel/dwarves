@@ -1,5 +1,5 @@
 project(pahole C)
-cmake_minimum_required(VERSION 2.4.8)
+cmake_minimum_required(VERSION 2.8.8)
 cmake_policy(SET CMP0005 NEW)
 
 INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR} )
