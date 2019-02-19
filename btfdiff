@@ -2,6 +2,9 @@
 # Copyright © 2019 Red Hat Inc, Arnaldo Carvalho de Melo <acme@redhat.com>
 # Use pahole to produce output from BTF and from DWARF, then do a diff
 # Use --flat_arrays with DWARF as BTF, like CTF, flattens arrays.
+# Use --show_private_classes as BTF shows all structs, while pahole knows
+# if some struct is defined only inside another struct/class or in a function,
+# this information is not available when loading from BTF.
 
 if [ $# -eq 0 ] ; then
 	echo "Usage: btfdiff <filename_with_BTF_and_DWARF_info>"
@@ -12,7 +15,7 @@ file=$1
 btf_output=$(mktemp /tmp/btfdiff.btf.XXXXXX)
 dwarf_output=$(mktemp /tmp/btfdiff.dwarf.XXXXXX)
 
-pahole -F dwarf --flat_arrays $file > $dwarf_output
+pahole -F dwarf --flat_arrays --show_private_classes $file > $dwarf_output
 pahole -F btf $file > $btf_output
 
 diff -up $dwarf_output $btf_output
