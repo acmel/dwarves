@@ -502,19 +502,26 @@ static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu, struct btf
 		 * such unlikely thing happens.
 		 */
 		pos->byte_size = integral_bit_size / 8;
+		pos->bit_size = type_bit_size;
 
 		if (integral_bit_size == 0) {
-			pos->bit_size = integral_bit_size;
+			pos->bit_size = 0;
 			continue;
 		}
 
-		pos->bitfield_offset = pos->bit_offset % integral_bit_size;
-		if (!btfe->is_big_endian)
-			pos->bitfield_offset = integral_bit_size - pos->bitfield_offset - pos->bitfield_size;
+		if (pos->bitfield_size) {
+			/* bitfields seem to be always aligned, no matter the packing */
+			pos->byte_offset = pos->bit_offset / integral_bit_size * integral_bit_size / 8;
+		} else {
+			pos->byte_offset = pos->bit_offset / 8;
+		}
 
-		pos->bit_size = type_bit_size;
-		pos->byte_offset = (((pos->bit_offset / integral_bit_size) *
-				     integral_bit_size) / 8);
+
+		if (pos->bitfield_size) {
+			pos->bitfield_offset = pos->bit_offset - pos->byte_offset * 8;
+			if (!btfe->is_big_endian)
+				pos->bitfield_offset = integral_bit_size - pos->bitfield_offset - pos->bitfield_size;
+		}
 	}
 
 	return 0;
