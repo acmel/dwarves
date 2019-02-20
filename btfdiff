@@ -14,9 +14,10 @@ fi
 file=$1
 btf_output=$(mktemp /tmp/btfdiff.btf.XXXXXX)
 dwarf_output=$(mktemp /tmp/btfdiff.dwarf.XXXXXX)
+pahole_bin=${PAHOLE-"pahole"}
 
-pahole -F dwarf --flat_arrays --show_private_classes $file > $dwarf_output
-pahole -F btf $file > $btf_output
+${pahole_bin} -F dwarf --flat_arrays --show_private_classes $file > $dwarf_output
+${pahole_bin} -F btf $file > $btf_output
 
 diff -up $dwarf_output $btf_output
 
