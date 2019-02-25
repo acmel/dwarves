@@ -607,7 +607,8 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
 
 int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t bit_size)
 {
-	uint16_t id;
+	int id;
+	uint16_t short_id;
 	struct tag *recoded;
 	/* in all the cases the name is at the same offset */
 	strings_t name = tag__namespace(tag)->name;
@@ -620,7 +621,7 @@ int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t bit_size
 		struct tag *type = dtype->tag;
 
 		id = tag__recode_dwarf_bitfield(type, cu, bit_size);
-		if (id == tag->type)
+		if (id < 0)
 			return id;
 
 		struct type *new_typedef = obstack_zalloc(&cu->obstack,
@@ -660,10 +661,9 @@ int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t bit_size
 		 * the dwarf_cu as in dwarf there are no such things
 		 * as base_types of less than 8 bits, etc.
 		 */
-		recoded = cu__find_base_type_by_sname_and_size(cu, name, bit_size, &id);
+		recoded = cu__find_base_type_by_sname_and_size(cu, name, bit_size, &short_id);
 		if (recoded != NULL)
-			return id;
-
+			return short_id;
 
 		struct base_type *new_bt = obstack_zalloc(&cu->obstack,
 							  sizeof(*new_bt));
@@ -683,10 +683,9 @@ int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t bit_size
 		 * the dwarf_cu as in dwarf there are no such things
 		 * as enumeration_types of less than 8 bits, etc.
 		 */
-		recoded = cu__find_enumeration_by_sname_and_size(cu, name,
-								 bit_size, &id);
+		recoded = cu__find_enumeration_by_sname_and_size(cu, name, bit_size, &short_id);
 		if (recoded != NULL)
-			return id;
+			return short_id;
 
 		struct type *alias = tag__type(tag);
 		struct type *new_enum = obstack_zalloc(&cu->obstack, sizeof(*new_enum));
