@@ -463,64 +463,27 @@ static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu, struct btf
 			continue;
 
 		pos->bitfield_offset = 0;
+		pos->byte_size = tag__size(type, cu);
+		pos->bit_size = pos->byte_size * 8;
 
-		uint16_t type_bit_size;
-		size_t integral_bit_size;
-
-		switch (type->tag) {
-		case DW_TAG_enumeration_type:
-			type_bit_size = tag__type(type)->size;
-			/* Best we can do to check if this is a packed enum */
-			if (is_power_of_2(type_bit_size))
-				integral_bit_size = roundup(type_bit_size, 8);
-			else
-				integral_bit_size = sizeof(int) * 8;
-			break;
-		case DW_TAG_base_type: {
-			struct base_type *bt = tag__base_type(type);
-			char name[256];
-			type_bit_size = bt->bit_size;
-			integral_bit_size = base_type__name_to_size(bt, cu);
-			if (integral_bit_size == 0) {
-				fprintf(stderr, "%s: unknown base type name \"%s\"!\n",
-					__func__, base_type__name(bt, cu, name,
-								  sizeof(name)));
-			}
-		}
-			break;
-		default:
-			pos->byte_size = tag__size(type, cu);
-			pos->bit_size = pos->byte_size * 8;
+		/* bitfield fixup is needed for enums and base types only */
+		if (type->tag != DW_TAG_base_type && type->tag != DW_TAG_enumeration_type)
 			continue;
-		}
 
-		/*
-		 * XXX: integral_bit_size can be zero if base_type__name_to_size doesn't
-		 * know about the base_type name, so one has to add there when
-		 * such base_type isn't found. pahole will put zero on the
-		 * struct output so it should be easy to spot the name when
-		 * such unlikely thing happens.
-		 */
-		pos->byte_size = integral_bit_size / 8;
-		pos->bit_size = type_bit_size;
-
-		if (integral_bit_size == 0) {
-			pos->bit_size = 0;
+		/* if BTF data is incorrect and has size == 0, skip field,
+		 * instead of crashing */
+		if (pos->byte_size == 0) {
 			continue;
 		}
 
 		if (pos->bitfield_size) {
 			/* bitfields seem to be always aligned, no matter the packing */
-			pos->byte_offset = pos->bit_offset / integral_bit_size * integral_bit_size / 8;
-		} else {
-			pos->byte_offset = pos->bit_offset / 8;
-		}
-
-
-		if (pos->bitfield_size) {
+			pos->byte_offset = pos->bit_offset / pos->bit_size * pos->bit_size / 8;
 			pos->bitfield_offset = pos->bit_offset - pos->byte_offset * 8;
 			if (!btfe->is_big_endian)
-				pos->bitfield_offset = integral_bit_size - pos->bitfield_offset - pos->bitfield_size;
+				pos->bitfield_offset = pos->bit_size - pos->bitfield_offset - pos->bitfield_size;
+		} else {
+			pos->byte_offset = pos->bit_offset / 8;
 		}
 	}
 
