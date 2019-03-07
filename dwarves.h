@@ -27,7 +27,11 @@ enum load_steal_kind {
 	LSK__STOP_LOADING,
 };
 
-typedef uint16_t type_id_t;
+/*
+ * BTF combines all the types into one big CU using btf_dedup(), so for something
+ * like a allyesconfig vmlinux kernel we can get over 65535 types.
+ */
+typedef uint32_t type_id_t;
 
 /** struct conf_load - load configuration
  * @extra_dbg_info - keep original debugging format extra info
