@@ -349,7 +349,7 @@ reevaluate:
 
 static void cu__find_class_holes(struct cu *cu)
 {
-	uint16_t id;
+	uint32_t id;
 	struct class *pos;
 
 	cu__for_each_struct(cu, id, pos)
@@ -566,7 +566,7 @@ struct tag *cu__type(const struct cu *cu, const uint16_t id)
 struct tag *cu__find_first_typedef_of_type(const struct cu *cu,
 					   const uint16_t type)
 {
-	uint16_t id;
+	uint32_t id;
 	struct tag *pos;
 
 	if (cu == NULL || type == 0)
@@ -582,7 +582,7 @@ struct tag *cu__find_first_typedef_of_type(const struct cu *cu,
 struct tag *cu__find_base_type_by_name(const struct cu *cu,
 				       const char *name, uint16_t *idp)
 {
-	uint16_t id;
+	uint32_t id;
 	struct tag *pos;
 
 	if (cu == NULL || name == NULL)
@@ -611,7 +611,7 @@ struct tag *cu__find_base_type_by_sname_and_size(const struct cu *cu,
 						 uint16_t bit_size,
 						 uint16_t *idp)
 {
-	uint16_t id;
+	uint32_t id;
 	struct tag *pos;
 
 	if (sname == 0)
@@ -638,7 +638,7 @@ struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *cu,
 						   uint16_t bit_size,
 						   uint16_t *idp)
 {
-	uint16_t id;
+	uint32_t id;
 	struct tag *pos;
 
 	if (sname == 0)
@@ -663,7 +663,7 @@ struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *cu,
 struct tag *cu__find_struct_by_sname(const struct cu *cu, strings_t sname,
 				     const int include_decls, uint16_t *idp)
 {
-	uint16_t id;
+	uint32_t id;
 	struct tag *pos;
 
 	if (sname == 0)
@@ -699,7 +699,7 @@ static struct tag *__cu__find_struct_by_name(const struct cu *cu, const char *na
 	if (cu == NULL || name == NULL)
 		return NULL;
 
-	uint16_t id;
+	uint32_t id;
 	struct tag *pos;
 	cu__for_each_type(cu, id, pos) {
 		struct type *type;

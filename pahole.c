@@ -156,7 +156,7 @@ static void nr_definitions_formatter(struct structure *st)
 }
 
 static void nr_members_formatter(struct class *class,
-				 struct cu *cu, uint16_t id __unused)
+				 struct cu *cu, uint32_t id __unused)
 {
 	printf("%s%c%u\n", class__name(class, cu), separator,
 	       class__nr_members(class));
@@ -168,26 +168,26 @@ static void nr_methods_formatter(struct structure *st)
 }
 
 static void size_formatter(struct class *class,
-			   struct cu *cu, uint16_t id __unused)
+			   struct cu *cu, uint32_t id __unused)
 {
 	printf("%s%c%d%c%u\n", class__name(class, cu), separator,
 	       class__size(class), separator, class->nr_holes);
 }
 
 static void class_name_len_formatter(struct class *class, struct cu *cu,
-				     uint16_t id __unused)
+				     uint32_t id __unused)
 {
 	const char *name = class__name(class, cu);
 	printf("%s%c%zd\n", name, separator, strlen(name));
 }
 
 static void class_name_formatter(struct class *class,
-				 struct cu *cu, uint16_t id __unused)
+				 struct cu *cu, uint32_t id __unused)
 {
 	puts(class__name(class, cu));
 }
 
-static void class_formatter(struct class *class, struct cu *cu, uint16_t id)
+static void class_formatter(struct class *class, struct cu *cu, uint32_t id)
 {
 	struct tag *typedef_alias = NULL;
 	struct tag *tag = class__tag(class);
@@ -224,7 +224,7 @@ static void class_formatter(struct class *class, struct cu *cu, uint16_t id)
 	putchar('\n');
 }
 
-static void print_packable_info(struct class *c, struct cu *cu, uint16_t id)
+static void print_packable_info(struct class *c, struct cu *cu, uint32_t id)
 {
 	const struct tag *t = class__tag(c);
 	const size_t orig_size = class__size(c);
@@ -267,14 +267,14 @@ static void print_stats(void)
 }
 
 static struct class *class__filter(struct class *class, struct cu *cu,
-				   uint16_t tag_id);
+				   uint32_t tag_id);
 
 static void (*formatter)(struct class *class,
-			 struct cu *cu, uint16_t id) = class_formatter;
+			 struct cu *cu, uint32_t id) = class_formatter;
 
 static void print_classes(struct cu *cu)
 {
-	uint16_t id;
+	uint32_t id;
 	struct class *pos;
 
 	cu__for_each_struct_or_union(cu, id, pos) {
@@ -352,7 +352,7 @@ static int class__packable(struct class *class, struct cu *cu)
 }
 
 static struct class *class__filter(struct class *class, struct cu *cu,
-				   uint16_t tag_id)
+				   uint32_t tag_id)
 {
 	struct tag *tag = class__tag(class);
 	const char *name;
@@ -608,7 +608,7 @@ static void cu_fixup_word_size_iterator(struct cu *cu)
 	original_word_size = cu->addr_size;
 	cu->addr_size = word_size;
 
-	uint16_t id;
+	uint32_t id;
 	struct tag *pos;
 	cu__for_each_type(cu, id, pos)
 		tag__fixup_word_size(pos, cu);
@@ -659,11 +659,11 @@ static void cu__account_nr_methods(struct cu *cu)
 
 static char tab[128];
 
-static void print_structs_with_pointer_to(const struct cu *cu, uint16_t type)
+static void print_structs_with_pointer_to(const struct cu *cu, uint32_t type)
 {
 	struct class *pos;
 	struct class_member *pos_member;
-	uint16_t id;
+	uint32_t id;
 
 	cu__for_each_struct(cu, id, pos) {
 		bool looked = false;
@@ -702,10 +702,10 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint16_t type)
 	}
 }
 
-static void print_containers(const struct cu *cu, uint16_t type, int ident)
+static void print_containers(const struct cu *cu, uint32_t type, int ident)
 {
 	struct class *pos;
-	uint16_t id;
+	uint32_t id;
 
 	cu__for_each_struct(cu, id, pos) {
 		if (pos->type.namespace.name == 0)

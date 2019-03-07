@@ -45,7 +45,7 @@ static void *tag__alloc(const size_t size)
 	return tag;
 }
 
-static int btf_elf__load_ftype(struct btf_elf *btfe, struct ftype *proto, uint16_t tag,
+static int btf_elf__load_ftype(struct btf_elf *btfe, struct ftype *proto, uint32_t tag,
 			       uint32_t type, uint16_t vlen, struct btf_param *args, long id)
 {
 	int i;
@@ -100,7 +100,7 @@ static struct base_type *base_type__new(strings_t name, uint32_t attrs,
 	return bt;
 }
 
-static void type__init(struct type *type, uint16_t tag,
+static void type__init(struct type *type, uint32_t tag,
 		       strings_t name, size_t size)
 {
 	INIT_LIST_HEAD(&type->node);

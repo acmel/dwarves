@@ -163,7 +163,7 @@ static const char *tag__accessibility(const struct tag *tag)
 	return NULL;
 }
 
-static size_t __tag__id_not_found_snprintf(char *bf, size_t len, uint16_t id,
+static size_t __tag__id_not_found_snprintf(char *bf, size_t len, uint32_t id,
 					   const char *fn, int line)
 {
 	return snprintf(bf, len, "<ERROR(%s:%d): %#llx not found!>", fn, line,
