@@ -605,7 +605,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
 	return var;
 }
 
-int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t bit_size)
+static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t bit_size)
 {
 	int id;
 	uint16_t short_id;
