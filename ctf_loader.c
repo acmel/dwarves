@@ -72,7 +72,13 @@ static int ctf__load_ftype(struct ctf *ctf, struct ftype *proto, uint16_t tag,
 	if (vlen & 0x2)
 		vlen += 0x2;
 
-	cu__add_tag(ctf->priv, &proto->tag, &id);
+	if (id < 0) {
+		uint32_t type_id;
+
+		cu__add_tag(ctf->priv, &proto->tag, &type_id);
+	} else {
+		cu__add_tag_with_id(ctf->priv, &proto->tag, id);
+	}
 
 	return vlen;
 out_free_parameters:
@@ -195,7 +201,7 @@ static struct class *class__new(strings_t name, size_t size)
 }
 
 static int create_new_base_type(struct ctf *ctf, void *ptr,
-				struct ctf_full_type *tp, long id)
+				struct ctf_full_type *tp, uint32_t id)
 {
 	uint32_t *enc = ptr;
 	uint32_t eval = ctf__get32(ctf, enc);
@@ -207,14 +213,14 @@ static int create_new_base_type(struct ctf *ctf, void *ptr,
 		return -ENOMEM;
 
 	base->tag.tag = DW_TAG_base_type;
-	cu__add_tag(ctf->priv, &base->tag, &id);
+	cu__add_tag_with_id(ctf->priv, &base->tag, id);
 
 	return sizeof(*enc);
 }
 
 static int create_new_base_type_float(struct ctf *ctf, void *ptr,
 				      struct ctf_full_type *tp,
-				      long id)
+				      uint32_t id)
 {
 	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
 	uint32_t *enc = ptr, eval = ctf__get32(ctf, enc);
@@ -224,12 +230,12 @@ static int create_new_base_type_float(struct ctf *ctf, void *ptr,
 		return -ENOMEM;
 
 	base->tag.tag = DW_TAG_base_type;
-	cu__add_tag(ctf->priv, &base->tag, &id);
+	cu__add_tag_with_id(ctf->priv, &base->tag, id);
 
 	return sizeof(*enc);
 }
 
-static int create_new_array(struct ctf *ctf, void *ptr, long id)
+static int create_new_array(struct ctf *ctf, void *ptr, uint32_t id)
 {
 	struct ctf_array *ap = ptr;
 	struct array_type *array = tag__alloc(sizeof(*array));
@@ -251,14 +257,14 @@ static int create_new_array(struct ctf *ctf, void *ptr, long id)
 	array->tag.tag = DW_TAG_array_type;
 	array->tag.type = ctf__get16(ctf, &ap->ctf_array_type);
 
-	cu__add_tag(ctf->priv, &array->tag, &id);
+	cu__add_tag_with_id(ctf->priv, &array->tag, id);
 
 	return sizeof(*ap);
 }
 
 static int create_new_subroutine_type(struct ctf *ctf, void *ptr,
 				      int vlen, struct ctf_full_type *tp,
-				      long id)
+				      uint32_t id)
 {
 	uint16_t *args = ptr;
 	unsigned int type = ctf__get16(ctf, &tp->base.ctf_type);
@@ -322,7 +328,7 @@ static int create_short_members(struct ctf *ctf, void *ptr,
 
 static int create_new_class(struct ctf *ctf, void *ptr,
 			    int vlen, struct ctf_full_type *tp,
-			    uint64_t size, long id)
+			    uint64_t size, uint32_t id)
 {
 	int member_size;
 	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
@@ -337,7 +343,7 @@ static int create_new_class(struct ctf *ctf, void *ptr,
 	if (member_size < 0)
 		goto out_free;
 
-	cu__add_tag(ctf->priv, &class->type.namespace.tag, &id);
+	cu__add_tag_with_id(ctf->priv, &class->type.namespace.tag, id);
 
 	return (vlen * member_size);
 out_free:
@@ -347,7 +353,7 @@ out_free:
 
 static int create_new_union(struct ctf *ctf, void *ptr,
 			    int vlen, struct ctf_full_type *tp,
-			    uint64_t size, long id)
+			    uint64_t size, uint32_t id)
 {
 	int member_size;
 	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
@@ -362,7 +368,7 @@ static int create_new_union(struct ctf *ctf, void *ptr,
 	if (member_size < 0)
 		goto out_free;
 
-	cu__add_tag(ctf->priv, &un->namespace.tag, &id);
+	cu__add_tag_with_id(ctf->priv, &un->namespace.tag, id);
 
 	return (vlen * member_size);
 out_free:
@@ -385,7 +391,7 @@ static struct enumerator *enumerator__new(strings_t name, uint32_t value)
 
 static int create_new_enumeration(struct ctf *ctf, void *ptr,
 				  int vlen, struct ctf_full_type *tp,
-				  uint16_t size, long id)
+				  uint16_t size, uint32_t id)
 {
 	struct ctf_enum *ep = ptr;
 	uint16_t i;
@@ -408,7 +414,7 @@ static int create_new_enumeration(struct ctf *ctf, void *ptr,
 		enumeration__add(enumeration, enumerator);
 	}
 
-	cu__add_tag(ctf->priv, &enumeration->namespace.tag, &id);
+	cu__add_tag_with_id(ctf->priv, &enumeration->namespace.tag, id);
 
 	return (vlen * sizeof(*ep));
 out_free:
@@ -417,7 +423,7 @@ out_free:
 }
 
 static int create_new_forward_decl(struct ctf *ctf, struct ctf_full_type *tp,
-				   uint64_t size, long id)
+				   uint64_t size, uint32_t id)
 {
 	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
 	struct class *fwd = class__new(name, size);
@@ -425,12 +431,12 @@ static int create_new_forward_decl(struct ctf *ctf, struct ctf_full_type *tp,
 	if (fwd == NULL)
 		return -ENOMEM;
 	fwd->type.declaration = 1;
-	cu__add_tag(ctf->priv, &fwd->type.namespace.tag, &id);
+	cu__add_tag_with_id(ctf->priv, &fwd->type.namespace.tag, id);
 	return 0;
 }
 
 static int create_new_typedef(struct ctf *ctf, struct ctf_full_type *tp,
-			      uint64_t size, long id)
+			      uint64_t size, uint32_t id)
 {
 	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
 	unsigned int type_id = ctf__get16(ctf, &tp->base.ctf_type);
@@ -440,13 +446,13 @@ static int create_new_typedef(struct ctf *ctf, struct ctf_full_type *tp,
 		return -ENOMEM;
 
 	type->namespace.tag.type = type_id;
-	cu__add_tag(ctf->priv, &type->namespace.tag, &id);
+	cu__add_tag_with_id(ctf->priv, &type->namespace.tag, id);
 
 	return 0;
 }
 
 static int create_new_tag(struct ctf *ctf, int type,
-			  struct ctf_full_type *tp, long id)
+			  struct ctf_full_type *tp, uint32_t id)
 {
 	unsigned int type_id = ctf__get16(ctf, &tp->base.ctf_type);
 	struct tag *tag = zalloc(sizeof(*tag));
@@ -465,7 +471,7 @@ static int create_new_tag(struct ctf *ctf, int type,
 	}
 
 	tag->type = type_id;
-	cu__add_tag(ctf->priv, tag, &id);
+	cu__add_tag_with_id(ctf->priv, tag, id);
 
 	return 0;
 }
@@ -479,7 +485,7 @@ static int ctf__load_types(struct ctf *ctf)
 	     *strings_section = (ctf_contents + ctf__get32(ctf, &hp->ctf_str_off));
 	struct ctf_full_type *type_ptr = type_section,
 			     *end = strings_section;
-	unsigned int type_index = 0x0001;
+	uint32_t type_index = 0x0001;
 
 	if (hp->ctf_parent_name || hp->ctf_parent_label)
 		type_index += 0x8000;
@@ -557,7 +563,7 @@ static struct variable *variable__new(uint16_t type, GElf_Sym *sym,
 		var->external = elf_sym__bind(sym) == STB_GLOBAL;
 		var->ip.tag.tag = DW_TAG_variable;
 		var->ip.tag.type = type;
-		long id = -1; /* FIXME: not needed for variables... */
+		uint32_t id; /* FIXME: not needed for variables... */
 		cu__add_tag(ctf->priv, &var->ip.tag, &id);
 	}
 

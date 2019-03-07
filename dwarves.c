@@ -440,7 +440,7 @@ static void cu__insert_function(struct cu *cu, struct tag *tag)
         rb_insert_color(&function->rb_node, &cu->functions);
 }
 
-int cu__table_add_tag(struct cu *cu, struct tag *tag, long *id)
+int cu__table_add_tag(struct cu *cu, struct tag *tag, uint32_t *type_id)
 {
 	struct ptr_table *pt = &cu->tags_table;
 
@@ -451,15 +451,7 @@ int cu__table_add_tag(struct cu *cu, struct tag *tag, long *id)
 		cu__insert_function(cu, tag);
 	}
 
-	if (*id < 0) {
-		uint32_t type_id;
-
-		if (ptr_table__add(pt, tag, &type_id))
-			return -ENOMEM;
-		*id = type_id;
-	} else if (ptr_table__add_with_id(pt, tag, *id) < 0)
-		return -ENOMEM;
-	return 0;
+	return ptr_table__add(pt, tag, type_id) ? -ENOMEM : 0;
 }
 
 int cu__table_nullify_type_entry(struct cu *cu, uint32_t id)
@@ -467,9 +459,33 @@ int cu__table_nullify_type_entry(struct cu *cu, uint32_t id)
 	return ptr_table__add_with_id(&cu->types_table, NULL, id);
 }
 
-int cu__add_tag(struct cu *cu, struct tag *tag, long *id)
+int cu__add_tag(struct cu *cu, struct tag *tag, uint32_t *id)
 {
 	int err = cu__table_add_tag(cu, tag, id);
+
+	if (err == 0)
+		list_add_tail(&tag->node, &cu->tags);
+
+	return err;
+}
+
+int cu__table_add_tag_with_id(struct cu *cu, struct tag *tag, uint32_t id)
+{
+	struct ptr_table *pt = &cu->tags_table;
+
+	if (tag__is_tag_type(tag)) {
+		pt = &cu->types_table;
+	} else if (tag__is_function(tag)) {
+		pt = &cu->functions_table;
+		cu__insert_function(cu, tag);
+	}
+
+	return ptr_table__add_with_id(pt, tag, id);
+}
+
+int cu__add_tag_with_id(struct cu *cu, struct tag *tag, uint32_t id)
+{
+	int err = cu__table_add_tag_with_id(cu, tag, id);
 
 	if (err == 0)
 		list_add_tail(&tag->node, &cu->tags);

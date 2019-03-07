@@ -86,9 +86,9 @@ struct dwarf_tag {
 		dwarf_off_ref containing_type;
 	};
 	struct tag	 *tag;
+	uint32_t         small_id;
 	strings_t        decl_file;
 	uint16_t         decl_line;
-	uint16_t         small_id;
 };
 
 static dwarf_off_ref dwarf_tag__spec(struct dwarf_tag *dtag)
@@ -711,7 +711,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		return -EINVAL;
 	}
 
-	long new_id = -1;
+	uint32_t new_id;
 	if (cu__add_tag(cu, recoded, &new_id) == 0)
 		return new_id;
 
@@ -1188,7 +1188,7 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 
 	die = &child;
 	do {
-		long id = -1;
+		uint32_t id;
 
 		switch (dwarf_tag(die)) {
 		case DW_TAG_formal_parameter:
@@ -1298,7 +1298,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 				return -ENOMEM;
 
 			if (cu__is_c_plus_plus(cu)) {
-				long id = -1;
+				uint32_t id;
 
 				if (cu__table_add_tag(cu, &member->tag, &id) < 0) {
 					class_member__delete(member, cu);
@@ -1319,7 +1319,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			if (tag == NULL)
 				return -ENOMEM;
 
-			long id = -1;
+			uint32_t id;
 
 			if (cu__table_add_tag(cu, tag, &id) < 0) {
 				tag__delete(tag, cu);
@@ -1354,7 +1354,7 @@ static int die__process_namespace(Dwarf_Die *die, struct namespace *namespace,
 		if (tag == NULL)
 			goto out_enomem;
 
-		long id = -1;
+		uint32_t id;
 		if (cu__table_add_tag(cu, tag, &id) < 0)
 			goto out_delete_tag;
 
@@ -1406,7 +1406,7 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct cu *cu)
 
 	die = &child;
 	do {
-		long id = -1;
+		uint32_t id;
 
 		switch (dwarf_tag(die)) {
 		case DW_TAG_GNU_call_site:
@@ -1501,7 +1501,7 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 
 	die = &child;
 	do {
-		long id = -1;
+		uint32_t id;
 
 		switch (dwarf_tag(die)) {
 		case DW_TAG_GNU_call_site:
@@ -1670,7 +1670,7 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu)
 		if (tag == &unsupported_tag)
 			continue;
 
-		long id = -1;
+		uint32_t id;
 		cu__add_tag(cu, tag, &id);
 		cu__hash(cu, tag);
 		struct dwarf_tag *dtag = tag->priv;

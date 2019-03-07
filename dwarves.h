@@ -306,8 +306,10 @@ static inline __pure bool cu__is_c_plus_plus(const struct cu *cu)
 			continue;			\
 		else
 
-int cu__add_tag(struct cu *cu, struct tag *tag, long *id);
-int cu__table_add_tag(struct cu *cu, struct tag *tag, long *id);
+int cu__add_tag(struct cu *cu, struct tag *tag, uint32_t *id);
+int cu__add_tag_with_id(struct cu *cu, struct tag *tag, uint32_t id);
+int cu__table_add_tag(struct cu *cu, struct tag *tag, uint32_t *id);
+int cu__table_add_tag_with_id(struct cu *cu, struct tag *tag, uint32_t id);
 int cu__table_nullify_type_entry(struct cu *cu, uint32_t id);
 struct tag *cu__find_base_type_by_name(const struct cu *cu, const char *name,
 				       uint16_t *id);
