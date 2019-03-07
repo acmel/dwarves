@@ -374,10 +374,10 @@ static void ptr_table__exit(struct ptr_table *pt)
 	pt->entries = NULL;
 }
 
-static long ptr_table__add(struct ptr_table *pt, void *ptr)
+static int ptr_table__add(struct ptr_table *pt, void *ptr, uint32_t *idxp)
 {
 	const uint32_t nr_entries = pt->nr_entries + 1;
-	const long rc = pt->nr_entries;
+	const uint32_t rc = pt->nr_entries;
 
 	if (nr_entries > pt->allocated_entries) {
 		uint32_t allocated_entries = pt->allocated_entries + 256;
@@ -392,7 +392,8 @@ static long ptr_table__add(struct ptr_table *pt, void *ptr)
 
 	pt->entries[rc] = ptr;
 	pt->nr_entries = nr_entries;
-	return rc;
+	*idxp = rc;
+	return 0;
 }
 
 static int ptr_table__add_with_id(struct ptr_table *pt, void *ptr,
@@ -451,9 +452,11 @@ int cu__table_add_tag(struct cu *cu, struct tag *tag, long *id)
 	}
 
 	if (*id < 0) {
-		*id = ptr_table__add(pt, tag);
-		if (*id < 0)
+		uint32_t type_id;
+
+		if (ptr_table__add(pt, tag, &type_id))
 			return -ENOMEM;
+		*id = type_id;
 	} else if (ptr_table__add_with_id(pt, tag, *id) < 0)
 		return -ENOMEM;
 	return 0;
@@ -481,6 +484,8 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 	struct cu *cu = malloc(sizeof(*cu) + build_id_len);
 
 	if (cu != NULL) {
+		uint32_t void_id;
+
 		cu->name = strdup(name);
 		cu->filename = strdup(filename);
 		if (cu->name == NULL || cu->filename == NULL)
@@ -494,7 +499,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		 * the first entry is historically associated with void,
 		 * so make sure we don't use it
 		 */
-		if (ptr_table__add(&cu->types_table, NULL) < 0)
+		if (ptr_table__add(&cu->types_table, NULL, &void_id) < 0)
 			goto out_free_name;
 
 		cu->functions = RB_ROOT;
