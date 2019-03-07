@@ -289,7 +289,7 @@ void ctf__set_strings(struct ctf *ctf, struct gobuffer *strings)
 	ctf->strings = strings;
 }
 
-int ctf__add_base_type(struct ctf *ctf, uint32_t name, uint16_t size)
+uint32_t ctf__add_base_type(struct ctf *ctf, uint32_t name, uint16_t size)
 {
 	struct ctf_full_type t;
 
@@ -302,8 +302,7 @@ int ctf__add_base_type(struct ctf *ctf, uint32_t name, uint16_t size)
 	return ++ctf->type_index;
 }
 
-int ctf__add_short_type(struct ctf *ctf, uint16_t kind, uint16_t type,
-			uint32_t name)
+uint32_t ctf__add_short_type(struct ctf *ctf, uint16_t kind, uint16_t type, uint32_t name)
 {
 	struct ctf_short_type t;
 
@@ -315,13 +314,12 @@ int ctf__add_short_type(struct ctf *ctf, uint16_t kind, uint16_t type,
 	return ++ctf->type_index;
 }
 
-int ctf__add_fwd_decl(struct ctf *ctf, uint32_t name)
+uint32_t ctf__add_fwd_decl(struct ctf *ctf, uint32_t name)
 {
 	return ctf__add_short_type(ctf, CTF_TYPE_KIND_FWD, 0, name);
 }
 
-int ctf__add_array(struct ctf *ctf, uint16_t type, uint16_t index_type,
-		   uint32_t nelems)
+uint32_t ctf__add_array(struct ctf *ctf, uint16_t type, uint16_t index_type, uint32_t nelems)
 {
 	struct {
 		struct ctf_short_type t;
@@ -366,8 +364,8 @@ void ctf__add_full_member(struct ctf *ctf, uint32_t name, uint16_t type,
 	*position += sizeof(m);
 }
 
-int ctf__add_struct(struct ctf *ctf, uint16_t kind, uint32_t name,
-		    uint64_t size, uint16_t nr_members, int64_t *position)
+uint32_t ctf__add_struct(struct ctf *ctf, uint16_t kind, uint32_t name,
+			 uint64_t size, uint16_t nr_members, int64_t *position)
 {
 	const bool is_short = size < CTF_SHORT_MEMBER_LIMIT;
 	uint32_t members_len = ((is_short ? sizeof(struct ctf_short_member) :
@@ -401,8 +399,8 @@ void ctf__add_parameter(struct ctf *ctf, uint16_t type, int64_t *position)
 	*position += sizeof(*parm);
 }
 
-int ctf__add_function_type(struct ctf *ctf, uint16_t type, uint16_t nr_parms,
-			   bool varargs, int64_t *position)
+uint32_t ctf__add_function_type(struct ctf *ctf, uint16_t type, uint16_t nr_parms,
+				bool varargs, int64_t *position)
 {
 	struct ctf_short_type t;
 	int len = sizeof(uint16_t) * (nr_parms + !!varargs);
@@ -429,8 +427,8 @@ int ctf__add_function_type(struct ctf *ctf, uint16_t type, uint16_t nr_parms,
 	return ++ctf->type_index;
 }
 
-int ctf__add_enumeration_type(struct ctf *ctf, uint32_t name, uint16_t size,
-			      uint16_t nr_entries, int64_t *position)
+uint32_t ctf__add_enumeration_type(struct ctf *ctf, uint32_t name, uint16_t size,
+				   uint16_t nr_entries, int64_t *position)
 {
 	struct ctf_short_type e;
 

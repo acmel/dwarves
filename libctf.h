@@ -30,7 +30,7 @@ struct ctf {
 	int		  swapped;
 	int		  in_fd;
 	uint8_t		  wordsize;
-	unsigned int	  type_index;
+	uint32_t	  type_index;
 };
 
 struct ctf *ctf__new(const char *filename, Elf *elf);
@@ -51,23 +51,21 @@ size_t ctf__get_size(struct ctf *ctf);
 
 int ctf__load_symtab(struct ctf *ctf);
 
-int ctf__add_base_type(struct ctf *ctf, uint32_t name, uint16_t size);
-int ctf__add_fwd_decl(struct ctf *ctf, uint32_t name);
-int ctf__add_short_type(struct ctf *ctf, uint16_t kind, uint16_t type,
-			uint32_t name);
+uint32_t ctf__add_base_type(struct ctf *ctf, uint32_t name, uint16_t size);
+uint32_t ctf__add_fwd_decl(struct ctf *ctf, uint32_t name);
+uint32_t ctf__add_short_type(struct ctf *ctf, uint16_t kind, uint16_t type, uint32_t name);
 void ctf__add_short_member(struct ctf *ctf, uint32_t name, uint16_t type,
 			   uint16_t offset, int64_t *position);
 void ctf__add_full_member(struct ctf *ctf, uint32_t name, uint16_t type,
 			  uint64_t offset, int64_t *position);
-int ctf__add_struct(struct ctf *ctf, uint16_t kind, uint32_t name,
-		    uint64_t size, uint16_t nr_members, int64_t *position);
-int ctf__add_array(struct ctf *ctf, uint16_t type, uint16_t index_type,
-		   uint32_t nelems);
+uint32_t ctf__add_struct(struct ctf *ctf, uint16_t kind, uint32_t name,
+			 uint64_t size, uint16_t nr_members, int64_t *position);
+uint32_t ctf__add_array(struct ctf *ctf, uint16_t type, uint16_t index_type, uint32_t nelems);
 void ctf__add_parameter(struct ctf *ctf, uint16_t type, int64_t *position);
-int ctf__add_function_type(struct ctf *ctf, uint16_t type,
-			   uint16_t nr_parms, bool varargs, int64_t *position);
-int ctf__add_enumeration_type(struct ctf *ctf, uint32_t name, uint16_t size,
-			      uint16_t nr_entries, int64_t *position);
+uint32_t ctf__add_function_type(struct ctf *ctf, uint16_t type,
+				uint16_t nr_parms, bool varargs, int64_t *position);
+uint32_t ctf__add_enumeration_type(struct ctf *ctf, uint32_t name, uint16_t size,
+				   uint16_t nr_entries, int64_t *position);
 void ctf__add_enumerator(struct ctf *ctf, uint32_t name, uint32_t value,
 			 int64_t *position);
 
