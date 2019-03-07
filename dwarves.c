@@ -128,7 +128,7 @@ struct tag *tag__follow_typedef(const struct tag *tag, const struct cu *cu)
 	return type;
 }
 
-size_t __tag__id_not_found_fprintf(FILE *fp, uint16_t id,
+size_t __tag__id_not_found_fprintf(FILE *fp, type_id_t id,
 				   const char *fn, int line)
 {
 	return fprintf(fp, "<ERROR(%s:%d): %d not found!>\n", fn, line, id);
@@ -579,13 +579,13 @@ struct tag *cu__tag(const struct cu *cu, const uint32_t id)
 	return cu ? ptr_table__entry(&cu->tags_table, id) : NULL;
 }
 
-struct tag *cu__type(const struct cu *cu, const uint16_t id)
+struct tag *cu__type(const struct cu *cu, const type_id_t id)
 {
 	return cu ? ptr_table__entry(&cu->types_table, id) : NULL;
 }
 
 struct tag *cu__find_first_typedef_of_type(const struct cu *cu,
-					   const uint16_t type)
+					   const type_id_t type)
 {
 	uint32_t id;
 	struct tag *pos;
@@ -601,7 +601,7 @@ struct tag *cu__find_first_typedef_of_type(const struct cu *cu,
 }
 
 struct tag *cu__find_base_type_by_name(const struct cu *cu,
-				       const char *name, uint16_t *idp)
+				       const char *name, type_id_t *idp)
 {
 	uint32_t id;
 	struct tag *pos;
@@ -630,7 +630,7 @@ struct tag *cu__find_base_type_by_name(const struct cu *cu,
 struct tag *cu__find_base_type_by_sname_and_size(const struct cu *cu,
 						 strings_t sname,
 						 uint16_t bit_size,
-						 uint16_t *idp)
+						 type_id_t *idp)
 {
 	uint32_t id;
 	struct tag *pos;
@@ -657,7 +657,7 @@ struct tag *cu__find_base_type_by_sname_and_size(const struct cu *cu,
 struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *cu,
 						   strings_t sname,
 						   uint16_t bit_size,
-						   uint16_t *idp)
+						   type_id_t *idp)
 {
 	uint32_t id;
 	struct tag *pos;
@@ -682,7 +682,7 @@ struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *cu,
 }
 
 struct tag *cu__find_struct_by_sname(const struct cu *cu, strings_t sname,
-				     const int include_decls, uint16_t *idp)
+				     const int include_decls, type_id_t *idp)
 {
 	uint32_t id;
 	struct tag *pos;
@@ -715,7 +715,7 @@ found:
 }
 
 static struct tag *__cu__find_struct_by_name(const struct cu *cu, const char *name,
-					     const int include_decls, bool unions, uint16_t *idp)
+					     const int include_decls, bool unions, type_id_t *idp)
 {
 	if (cu == NULL || name == NULL)
 		return NULL;
@@ -747,20 +747,20 @@ found:
 }
 
 struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
-				    const int include_decls, uint16_t *idp)
+				    const int include_decls, type_id_t *idp)
 {
 	return __cu__find_struct_by_name(cu, name, include_decls, false, idp);
 }
 
 struct tag *cu__find_struct_or_union_by_name(const struct cu *cu, const char *name,
-						    const int include_decls, uint16_t *idp)
+						    const int include_decls, type_id_t *idp)
 {
 	return __cu__find_struct_by_name(cu, name, include_decls, true, idp);
 }
 
 static struct tag *__cus__find_struct_by_name(const struct cus *cus,
 					      struct cu **cu, const char *name,
-					      const int include_decls, bool unions, uint16_t *id)
+					      const int include_decls, bool unions, type_id_t *id)
 {
 	struct cu *pos;
 
@@ -777,13 +777,13 @@ static struct tag *__cus__find_struct_by_name(const struct cus *cus,
 }
 
 struct tag *cus__find_struct_by_name(const struct cus *cus, struct cu **cu, const char *name,
-				     const int include_decls, uint16_t *idp)
+				     const int include_decls, type_id_t *idp)
 {
 	return __cus__find_struct_by_name(cus, cu, name, include_decls, false, idp);
 }
 
 struct tag *cus__find_struct_or_union_by_name(const struct cus *cus, struct cu **cu, const char *name,
-						     const int include_decls, uint16_t *idp)
+						     const int include_decls, type_id_t *idp)
 {
 	return __cus__find_struct_by_name(cus, cu, name, include_decls, true, idp);
 }
@@ -1101,7 +1101,7 @@ void function__delete(struct function *func, struct cu *cu)
 	ftype__delete(&func->proto, cu);
 }
 
-int ftype__has_parm_of_type(const struct ftype *ftype, const uint16_t target,
+int ftype__has_parm_of_type(const struct ftype *ftype, const type_id_t target,
 			    const struct cu *cu)
 {
 	struct parameter *pos;
@@ -1302,7 +1302,7 @@ struct class_member *type__find_member_by_name(const struct type *type,
 	return NULL;
 }
 
-uint32_t type__nr_members_of_type(const struct type *type, const uint16_t type_id)
+uint32_t type__nr_members_of_type(const struct type *type, const type_id_t type_id)
 {
 	struct class_member *pos;
 	uint32_t nr_members_of_type = 0;

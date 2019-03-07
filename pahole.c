@@ -1156,7 +1156,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		pos = rb_entry(next, struct str_node, rb_node);
 		next = rb_next(&pos->rb_node);
 
-		static uint16_t class_id;
+		static type_id_t class_id;
 		bool include_decls = find_pointers_in_structs != 0 ||
 				     stats_formatter == nr_methods_formatter;
 		struct tag *class = cu__find_struct_or_union_by_name(cu, pos->s, include_decls, &class_id);

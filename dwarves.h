@@ -27,6 +27,8 @@ enum load_steal_kind {
 	LSK__STOP_LOADING,
 };
 
+typedef uint16_t type_id_t;
+
 /** struct conf_load - load configuration
  * @extra_dbg_info - keep original debugging format extra info
  *		     (e.g. DWARF's decl_{line,file}, id, etc)
@@ -96,9 +98,9 @@ void cus__print_error_msg(const char *progname, const struct cus *cus,
 struct cu *cus__find_cu_by_name(const struct cus *cus, const char *name);
 struct tag *cus__find_struct_by_name(const struct cus *cus, struct cu **cu,
 				     const char *name, const int include_decls,
-				     uint16_t *id);
+				     type_id_t *id);
 struct tag *cus__find_struct_or_union_by_name(const struct cus *cus, struct cu **cu,
-					      const char *name, const int include_decls, uint16_t *id);
+					      const char *name, const int include_decls, type_id_t *id);
 struct function *cus__find_function_at_addr(const struct cus *cus,
 					    uint64_t addr, struct cu **cu);
 void cus__for_each_cu(struct cus *cus, int (*iterator)(struct cu *cu, void *cookie),
@@ -242,7 +244,7 @@ static inline __pure bool cu__is_c_plus_plus(const struct cu *cu)
 /**
  * cu__for_each_type - iterate thru all the type tags
  * @cu: struct cu instance to iterate
- * @id: uint16_t tag id
+ * @id: type_id_t id
  * @pos: struct tag iterator
  *
  * See cu__table_nullify_type_entry and users for the reason for
@@ -258,7 +260,7 @@ static inline __pure bool cu__is_c_plus_plus(const struct cu *cu)
  * cu__for_each_struct - iterate thru all the struct tags
  * @cu: struct cu instance to iterate
  * @pos: struct class iterator
- * @id: uint16_t tag id
+ * @id: type_id_t id
  */
 #define cu__for_each_struct(cu, id, pos)				\
 	for (id = 1; id < cu->types_table.nr_entries; ++id)		\
@@ -271,7 +273,7 @@ static inline __pure bool cu__is_c_plus_plus(const struct cu *cu)
  * cu__for_each_struct_or_union - iterate thru all the struct and union tags
  * @cu: struct cu instance to iterate
  * @pos: struct class iterator
- * @id: uint16_t tag id
+ * @id: type_id_t tag id
  */
 #define cu__for_each_struct_or_union(cu, id, pos)			\
 	for (id = 1; id < cu->types_table.nr_entries; ++id)		\
@@ -312,29 +314,29 @@ int cu__table_add_tag(struct cu *cu, struct tag *tag, uint32_t *id);
 int cu__table_add_tag_with_id(struct cu *cu, struct tag *tag, uint32_t id);
 int cu__table_nullify_type_entry(struct cu *cu, uint32_t id);
 struct tag *cu__find_base_type_by_name(const struct cu *cu, const char *name,
-				       uint16_t *id);
+				       type_id_t *id);
 struct tag *cu__find_base_type_by_sname_and_size(const struct cu *cu,
 						 strings_t name,
 						 uint16_t bit_size,
-						 uint16_t *idp);
+						 type_id_t *idp);
 struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *cu,
 						   strings_t sname,
 						   uint16_t bit_size,
-						   uint16_t *idp);
+						   type_id_t *idp);
 struct tag *cu__find_first_typedef_of_type(const struct cu *cu,
-					   const uint16_t type);
+					   const type_id_t type);
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name);
 struct tag *cu__find_struct_by_sname(const struct cu *cu, strings_t sname,
-				     const int include_decls, uint16_t *idp);
+				     const int include_decls, type_id_t *idp);
 struct function *cu__find_function_at_addr(const struct cu *cu,
 					   uint64_t addr);
 struct tag *cu__function(const struct cu *cu, const uint32_t id);
 struct tag *cu__tag(const struct cu *cu, const uint32_t id);
-struct tag *cu__type(const struct cu *cu, const uint16_t id);
+struct tag *cu__type(const struct cu *cu, const type_id_t id);
 struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
-				    const int include_decls, uint16_t *id);
+				    const int include_decls, type_id_t *id);
 struct tag *cu__find_struct_or_union_by_name(const struct cu *cu, const char *name,
-					     const int include_decls, uint16_t *id);
+					     const int include_decls, type_id_t *id);
 bool cu__same_build_id(const struct cu *cu, const struct cu *other);
 void cu__account_inline_expansions(struct cu *cu);
 int cu__for_all_tags(struct cu *cu,
@@ -348,7 +350,7 @@ int cu__for_all_tags(struct cu *cu,
  */
 struct tag {
 	struct list_head node;
-	uint16_t	 type;
+	type_id_t	 type;
 	uint16_t	 tag;
 	bool		 visited;
 	bool		 top_level;
@@ -493,7 +495,7 @@ size_t tag__size(const struct tag *tag, const struct cu *cu);
 size_t tag__nr_cachelines(const struct tag *tag, const struct cu *cu);
 struct tag *tag__follow_typedef(const struct tag *tag, const struct cu *cu);
 
-size_t __tag__id_not_found_fprintf(FILE *fp, uint16_t id,
+size_t __tag__id_not_found_fprintf(FILE *fp, type_id_t id,
 				   const char *fn, int line);
 #define tag__id_not_found_fprintf(fp, id) \
 	__tag__id_not_found_fprintf(fp, id, __func__, __LINE__)
@@ -506,7 +508,7 @@ int __tag__has_type_loop(const struct tag *tag, const struct tag *type,
 
 struct ptr_to_member_type {
 	struct tag tag;
-	uint16_t   containing_type;
+	type_id_t  containing_type;
 };
 
 static inline struct ptr_to_member_type *
@@ -722,7 +724,7 @@ size_t ftype__fprintf(const struct ftype *ftype, const struct cu *cu,
 size_t ftype__fprintf_parms(const struct ftype *ftype,
 			    const struct cu *cu, int indent,
 			    const struct conf_fprintf *conf, FILE *fp);
-int ftype__has_parm_of_type(const struct ftype *ftype, const uint16_t target,
+int ftype__has_parm_of_type(const struct ftype *ftype, const type_id_t target,
 			    const struct cu *cu);
 
 struct function {
@@ -989,7 +991,7 @@ struct class_member *
 struct class_member *type__find_member_by_name(const struct type *type,
 					       const struct cu *cu,
 					       const char *name);
-uint32_t type__nr_members_of_type(const struct type *type, const uint16_t oftype);
+uint32_t type__nr_members_of_type(const struct type *type, const type_id_t oftype);
 struct class_member *type__last_member(struct type *type);
 
 size_t typedef__fprintf(const struct tag *tag_type, const struct cu *cu,

@@ -211,8 +211,8 @@ int cu__encode_btf(struct cu *cu, int verbose)
 			return -1;
 		btf_elf__set_strings(btfe, &strings->gb);
 
-		/* cu__find_base_type_by_name() takes "uint16_t *id" */
-		uint16_t id;
+		/* cu__find_base_type_by_name() takes "type_id_t *id" */
+		type_id_t id;
 		if (!cu__find_base_type_by_name(cu, "int", &id)) {
 			add_index_type = true;
 			id = cu->types_table.nr_entries;

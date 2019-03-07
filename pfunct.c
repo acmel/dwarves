@@ -292,7 +292,7 @@ static int cu_unique_iterator(struct cu *cu, void *cookie __unused)
 
 static int cu_class_iterator(struct cu *cu, void *cookie)
 {
-	uint16_t target_id;
+	type_id_t target_id;
 	struct tag *target = cu__find_struct_by_name(cu, cookie, 0, &target_id);
 
 	if (target == NULL)

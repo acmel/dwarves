@@ -436,7 +436,7 @@ static void class__demote_bitfield_members(struct class *class,
 					   struct class_member *to,
 					   const struct base_type *old_type,
 					   const struct base_type *new_type,
-					   uint16_t new_type_id)
+					   type_id_t new_type_id)
 {
 	const uint8_t bit_diff = old_type->bit_size - new_type->bit_size;
 	struct class_member *member =
@@ -458,7 +458,7 @@ static void class__demote_bitfield_members(struct class *class,
 }
 
 static struct tag *cu__find_base_type_of_size(const struct cu *cu,
-					      const size_t size, uint16_t *id)
+					      const size_t size, type_id_t *id)
 {
 	const char *type_name, *type_name_alt = NULL;
 
@@ -535,7 +535,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		if (bytes_needed == size)
 			continue;
 
-		uint16_t new_type_id;
+		type_id_t new_type_id;
 		old_type_tag = cu__type(cu, member->tag.type);
 		new_type_tag = cu__find_base_type_of_size(cu, bytes_needed,
 							  &new_type_id);
@@ -591,7 +591,7 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 		bytes_needed = (member->bitfield_size + 7) / 8;
 		if (bytes_needed < size) {
 			old_type_tag = cu__type(cu, member->tag.type);
-			uint16_t new_type_id;
+			type_id_t new_type_id;
 			new_type_tag =
 				cu__find_base_type_of_size(cu, bytes_needed,
 							   &new_type_id);
@@ -672,7 +672,7 @@ restart:
 static void class__fixup_bitfield_types(struct class *class,
 					struct class_member *from,
 					struct class_member *to_before,
-					uint16_t type)
+					type_id_t type)
 {
 	struct class_member *member =
 		list_prepare_entry(from, class__tags(class), tag.node);
@@ -759,7 +759,7 @@ struct irq_cfg {
 			 * greater than what it really uses.
 			 */
 			if (real_size < size) {
-				uint16_t new_type_id;
+				type_id_t new_type_id;
 				struct tag *new_type_tag =
 					cu__find_base_type_of_size(cu,
 								   real_size,

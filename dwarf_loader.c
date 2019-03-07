@@ -608,7 +608,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
 static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t bit_size)
 {
 	int id;
-	uint16_t short_id;
+	type_id_t short_id;
 	struct tag *recoded;
 	/* in all the cases the name is at the same offset */
 	strings_t name = tag__namespace(tag)->name;

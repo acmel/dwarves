@@ -425,7 +425,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 		return tag__ptr_name(tag, cu, bf, len, "&");
 	case DW_TAG_ptr_to_member_type: {
 		char suffix[512];
-		uint16_t id = tag__ptr_to_member_type(tag)->containing_type;
+		type_id_t id = tag__ptr_to_member_type(tag)->containing_type;
 
 		type = cu__type(cu, id);
 		if (type != NULL)
