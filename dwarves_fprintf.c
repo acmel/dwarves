@@ -784,12 +784,26 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 		if (!sconf.suppress_offset_comment) {
 			/* Check if this is a anonymous union */
 			const int slen = cm_name ? (int)strlen(cm_name) : -1;
+			int size_spacing = 5;
+
 			printed += fprintf(fp, sconf.hex_fmt ?
-							"%*s/* %#5x %#5x */" :
-							"%*s/* %5u %5u */",
+							"%*s/* %#5x" :
+							"%*s/* %5u",
 					   (sconf.type_spacing +
 					    sconf.name_spacing - slen - 3),
-					   " ", offset, size);
+					   " ", offset);
+
+			if (member->bitfield_size != 0) {
+				unsigned int bitfield_offset = member->bitfield_offset;
+
+				if (member->bitfield_offset < 0)
+					bitfield_offset = member->byte_size * 8 + member->bitfield_offset;
+
+				printed += fprintf(fp, sconf.hex_fmt ?  ":%#2x" : ":%2u", bitfield_offset);
+				size_spacing -= 3;
+			}
+
+			printed += fprintf(fp, sconf.hex_fmt ?  " %#*x */" : " %*u */", size_spacing, size);
 		}
 	} else {
 		int spacing = sconf.type_spacing + sconf.name_spacing - printed;
