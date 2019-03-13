@@ -128,6 +128,16 @@ struct tag *tag__follow_typedef(const struct tag *tag, const struct cu *cu)
 	return type;
 }
 
+struct tag *tag__strip_typedefs_and_modifiers(const struct tag *tag, const struct cu *cu)
+{
+	struct tag *type = cu__type(cu, tag->type);
+
+	while (type != NULL && (tag__is_typedef(type) || tag__is_modifier(type)))
+		type = cu__type(cu, type->type);
+
+	return type;
+}
+
 size_t __tag__id_not_found_fprintf(FILE *fp, type_id_t id,
 				   const char *fn, int line)
 {

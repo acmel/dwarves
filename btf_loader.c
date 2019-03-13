@@ -457,7 +457,7 @@ static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu, struct btf
 	struct type *tag_type = tag__type(tag);
 
 	type__for_each_data_member(tag_type, pos) {
-		struct tag *type = tag__follow_typedef(&pos->tag, cu);
+		struct tag *type = tag__strip_typedefs_and_modifiers(&pos->tag, cu);
 
 		if (type == NULL) /* FIXME: C++ BTF... */
 			continue;

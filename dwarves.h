@@ -411,6 +411,18 @@ static inline bool tag__is_volatile(const struct tag *tag)
 	return tag->tag == DW_TAG_volatile_type;
 }
 
+static inline bool tag__is_restrict(const struct tag *tag)
+{
+	return tag->tag == DW_TAG_restrict_type;
+}
+
+static inline int tag__is_modifier(const struct tag *tag)
+{
+	return tag__is_const(tag) ||
+	       tag__is_volatile(tag) ||
+	       tag__is_restrict(tag);
+}
+
 static inline bool tag__has_namespace(const struct tag *tag)
 {
 	return tag__is_struct(tag) ||
@@ -498,6 +510,7 @@ void tag__not_found_die(const char *file, int line, const char *func);
 size_t tag__size(const struct tag *tag, const struct cu *cu);
 size_t tag__nr_cachelines(const struct tag *tag, const struct cu *cu);
 struct tag *tag__follow_typedef(const struct tag *tag, const struct cu *cu);
+struct tag *tag__strip_typedefs_and_modifiers(const struct tag *tag, const struct cu *cu);
 
 size_t __tag__id_not_found_fprintf(FILE *fp, type_id_t id,
 				   const char *fn, int line);

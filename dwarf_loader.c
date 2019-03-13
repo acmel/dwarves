@@ -2123,12 +2123,7 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 	}
 
 	if (member->bitfield_size != 0) {
-		struct tag *type = tag__follow_typedef(&member->tag, cu);
-check_volatile:
-		if (tag__is_volatile(type) || tag__is_const(type)) {
-			type = tag__follow_typedef(type, cu);
-			goto check_volatile;
-		}
+		struct tag *type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
 
 		uint16_t type_bit_size;
 		size_t integral_bit_size;
