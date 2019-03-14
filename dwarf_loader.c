@@ -39,7 +39,7 @@ struct strings *strings;
 
 #define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
 
-bool no_bitfield_type_recode = false;
+bool no_bitfield_type_recode = true;
 
 static void __tag__print_not_supported(uint32_t tag, const char *func)
 {
@@ -2130,7 +2130,7 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 
 		if (tag__is_enumeration(type)) {
 			type_bit_size = tag__type(type)->size;
-			integral_bit_size = sizeof(int) * 8; /* FIXME: always this size? */
+			integral_bit_size = (type_bit_size + 7) / 8 * 8;
 		} else {
 			struct base_type *bt = tag__base_type(type);
 			type_bit_size = bt->bit_size;
