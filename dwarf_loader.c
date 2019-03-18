@@ -2109,6 +2109,15 @@ static int die__process_and_recode(Dwarf_Die *die, struct cu *cu)
 	return cu__recode_dwarf_types(cu);
 }
 
+static void class_member__adjust_bitfield(struct class_member *member)
+{
+	if (member->bitfield_offset < 0) {
+		member->bitfield_offset += member->bit_size;
+		member->byte_offset += member->byte_size;
+		member->bit_offset = member->byte_offset * 8 + member->bitfield_offset;
+	}
+}
+
 static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 					 void *cookie)
 {
@@ -2125,17 +2134,17 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 	if (member->bitfield_size != 0) {
 		struct tag *type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
 
-		uint16_t type_bit_size;
-		size_t integral_bit_size;
-
-		if (tag__is_enumeration(type)) {
-			type_bit_size = tag__type(type)->size;
-			integral_bit_size = (type_bit_size + 7) / 8 * 8;
-		} else {
-			struct base_type *bt = tag__base_type(type);
-			type_bit_size = bt->bit_size;
-			integral_bit_size = base_type__name_to_size(bt, cu);
+		member->byte_size = tag__size(type, cu);
+		if (member->byte_size == 0) {
+			if (tag__is_enumeration(type)) {
+				member->byte_size = (tag__type(type)->size + 7) / 8 * 8;
+			} else {
+				struct base_type *bt = tag__base_type(type);
+				int bit_size = bt->bit_size ? bt->bit_size : base_type__name_to_size(bt, cu);
+				member->byte_size = (bit_size + 7) / 8 * 8;
+			}
 		}
+		member->bit_size = member->byte_size * 8;
 
 		/*
 		 * XXX: integral_bit_size can be zero if
@@ -2145,22 +2154,23 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 		 * should be easy to spot the name when such unlikely thing
 		 * happens.
 		 */
-
-		member->byte_size = integral_bit_size / 8;
-
-		if (integral_bit_size == 0)
-			return 0;
-
-		if (type_bit_size == integral_bit_size) {
-			member->bit_size = integral_bit_size;
-			if (conf_load && conf_load->fixup_silly_bitfields) {
-				member->bitfield_size = 0;
-				member->bitfield_offset = 0;
-			}
+		if (member->byte_size == 0) {
+			member->bitfield_offset = 0;
 			return 0;
 		}
 
-		member->bit_size = type_bit_size;
+		/* make sure bitfield offset is non-negative */
+		class_member__adjust_bitfield(member);
+		member->bitfield_offset -= (member->byte_offset % member->byte_size) * 8;
+		member->byte_offset = member->bit_offset / member->bit_size * member->bit_size / 8;
+		/* we might have shifted bitfield_offset, re-adjust */
+		class_member__adjust_bitfield(member);
+
+		if (conf_load && conf_load->fixup_silly_bitfields &&
+		    member->byte_size == 8 * member->bitfield_size) {
+			member->bitfield_size = 0;
+			member->bitfield_offset = 0;
+		}
 	} else {
 		member->byte_size = tag__size(tag, cu);
 		member->bit_size = member->byte_size * 8;
