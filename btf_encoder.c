@@ -67,31 +67,12 @@ static int32_t structure_type__encode(struct btf_elf *btfe, struct tag *tag, uin
 		return type_id;
 
 	type__for_each_data_member(type, pos) {
-		uint32_t bit_offset;
-
-		/* calculate member bits_offset.
-		 *
-		 * for big endian or non-bitfield little endian,
-		 * use pos->bit_offset computed by
-		 * dwarf_loader which conforms to BTF requirement.
-		 *
-		 * for little endian bitfield member, if we have a field like
-		 *   pos->byte_size = 2,
-		 *   pos->bitfield_offset = 12,
-		 *   pos->bitfield_size = 2,
-		 * This field occupy bits 12-13 by a 2-byte value,
-		 * which corresponds to bits 2-3 from big endian
-		 * perspective.
+		/*
+		 * dwarf_loader uses DWARF's recommended bit offset addressing
+		 * scheme, which conforms to BTF requirement, so no conversion
+		 * is required.
 		 */
-		if (btfe->is_big_endian || !pos->bitfield_size)
-			bit_offset = pos->bit_offset;
-		else
-			bit_offset = pos->byte_offset * 8 +
-				     pos->byte_size * 8 -
-				     pos->bitfield_offset -
-				     pos->bitfield_size;
-
-		if (btf_elf__add_member(btfe, pos->name, type_id_off + pos->tag.type, kind_flag, pos->bitfield_size, bit_offset))
+		if (btf_elf__add_member(btfe, pos->name, type_id_off + pos->tag.type, kind_flag, pos->bitfield_size, pos->bit_offset))
 			return -1;
 	}
 

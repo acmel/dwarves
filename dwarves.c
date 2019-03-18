@@ -1205,11 +1205,10 @@ void class__find_holes(struct class *class)
 		if (pos->is_static)
 			continue;
 
+		bit_start = pos->bit_offset;
 		if (pos->bitfield_size) {
-			bit_start = pos->byte_offset * 8 + pos->bit_size - pos->bitfield_offset - pos->bitfield_size;
 			bit_end = bit_start + pos->bitfield_size;
 		} else {
-			bit_start = pos->byte_offset * 8;
 			bit_end = bit_start + pos->byte_size * 8;
 		}
 
@@ -1240,9 +1239,20 @@ void class__find_holes(struct class *class)
 			in_bitfield = true;
 			/* if it's a new bitfield set or same, but with
 			 * bigger-sized type, readjust size and end bit */
-			if (pos->byte_offset * 8 >= cur_bitfield_end || pos->bit_size > cur_bitfield_size) {
+			if (bit_end > cur_bitfield_end || pos->bit_size > cur_bitfield_size) {
 				cur_bitfield_size = pos->bit_size;
 				cur_bitfield_end = pos->byte_offset * 8 + cur_bitfield_size;
+				/*
+				 * if current bitfield "borrowed" bits from
+				 * previous bitfield, it will have byte_offset
+				 * of previous bitfield's backing integral
+				 * type, but its end bit will be in a new
+				 * bitfield "area", so we need to adjust
+				 * bitfield end appropriately
+				 */
+				if (bit_end > cur_bitfield_end) {
+					cur_bitfield_end += cur_bitfield_size;
+				}
 			}
 		} else {
 			in_bitfield = false;

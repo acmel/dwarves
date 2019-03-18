@@ -749,12 +749,21 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
 		member->const_value = attr_numeric(die, DW_AT_const_value);
 		member->byte_offset = attr_offset(die, DW_AT_data_member_location);
 		/*
-		 * Will be cached later, in class_member__cache_byte_size
+		 * Bit offset calculated here is valid only for byte-aligned
+		 * fields. For bitfields on little-endian archs we need to
+		 * adjust them taking into account byte size of the field,
+		 * which might not be yet known. So we'll re-calculate bit
+		 * offset later, in class_member__cache_byte_size.
 		 */
-		member->byte_size = 0;
+		member->bit_offset = member->byte_offset * 8;
+		/*
+		 * If DW_AT_byte_size is not present, byte size will be
+		 * determined later in class_member__cache_byte_size using
+		 * base integer/enum type
+		 */
+		member->byte_size = attr_numeric(die, DW_AT_byte_size);
 		member->bitfield_offset = attr_numeric(die, DW_AT_bit_offset);
 		member->bitfield_size = attr_numeric(die, DW_AT_bit_size);
-		member->bit_offset = member->byte_offset * 8 + member->bitfield_offset;
 		member->bit_hole = 0;
 		member->bitfield_end = 0;
 		member->visited = 0;
@@ -2109,15 +2118,6 @@ static int die__process_and_recode(Dwarf_Die *die, struct cu *cu)
 	return cu__recode_dwarf_types(cu);
 }
 
-static void class_member__adjust_bitfield(struct class_member *member)
-{
-	if (member->bitfield_offset < 0) {
-		member->bitfield_offset += member->bit_size;
-		member->byte_offset += member->byte_size;
-		member->bit_offset = member->byte_offset * 8 + member->bitfield_offset;
-	}
-}
-
 static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 					 void *cookie)
 {
@@ -2131,49 +2131,80 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 		return 0;
 	}
 
-	if (member->bitfield_size != 0) {
-		struct tag *type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
-
-		member->byte_size = tag__size(type, cu);
-		if (member->byte_size == 0) {
-			if (tag__is_enumeration(type)) {
-				member->byte_size = (tag__type(type)->size + 7) / 8 * 8;
-			} else {
-				struct base_type *bt = tag__base_type(type);
-				int bit_size = bt->bit_size ? bt->bit_size : base_type__name_to_size(bt, cu);
-				member->byte_size = (bit_size + 7) / 8 * 8;
-			}
-		}
-		member->bit_size = member->byte_size * 8;
-
-		/*
-		 * XXX: integral_bit_size can be zero if
-		 * base_type__name_to_size doesn't know about the base_type
-		 * name, so one has to add there when such base_type isn't
-		 * found. pahole will put zero on the struct output so it
-		 * should be easy to spot the name when such unlikely thing
-		 * happens.
-		 */
-		if (member->byte_size == 0) {
-			member->bitfield_offset = 0;
-			return 0;
-		}
-
-		/* make sure bitfield offset is non-negative */
-		class_member__adjust_bitfield(member);
-		member->bitfield_offset -= (member->byte_offset % member->byte_size) * 8;
-		member->byte_offset = member->bit_offset / member->bit_size * member->bit_size / 8;
-		/* we might have shifted bitfield_offset, re-adjust */
-		class_member__adjust_bitfield(member);
-
-		if (conf_load && conf_load->fixup_silly_bitfields &&
-		    member->byte_size == 8 * member->bitfield_size) {
-			member->bitfield_size = 0;
-			member->bitfield_offset = 0;
-		}
-	} else {
+	if (member->bitfield_size == 0) {
 		member->byte_size = tag__size(tag, cu);
 		member->bit_size = member->byte_size * 8;
+		return 0;
+	}
+
+	/*
+	 * Try to figure out byte size, if it's not directly provided in DWARF
+	 */
+	if (member->byte_size == 0) {
+		struct tag *type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
+		member->byte_size = tag__size(type, cu);
+		if (member->byte_size == 0) {
+			int bit_size;
+			if (tag__is_enumeration(type)) {
+				bit_size = tag__type(type)->size;
+			} else {
+				struct base_type *bt = tag__base_type(type);
+				bit_size = bt->bit_size ? bt->bit_size : base_type__name_to_size(bt, cu);
+			}
+			member->byte_size = (bit_size + 7) / 8 * 8;
+		}
+	}
+	member->bit_size = member->byte_size * 8;
+
+	/*
+	 * XXX: after all the attemps to determine byte size, we might still
+	 * be unsuccessful, because base_type__name_to_size doesn't know about
+	 * the base_type name, so one has to add there when such base_type
+	 * isn't found. pahole will put zero on the struct output so it should
+	 * be easy to spot the name when such unlikely thing happens.
+	 */
+	if (member->byte_size == 0) {
+		member->bitfield_offset = 0;
+		return 0;
+	}
+
+	/*
+	 * For little-endian architectures, DWARF data emitted by gcc/clang
+	 * specifies bitfield offset as an offset from the highest-order bit
+	 * of an underlying integral type (e.g., int) to a highest-order bit
+	 * of a bitfield. E.g., for bitfield taking first 5 bits of int-backed
+	 * bitfield, bit offset will be 27 (sizeof(int) - 0 offset - 5 bit
+	 * size), which is very counter-intuitive and isn't a natural
+	 * extension of byte offset, which on little-endian points to
+	 * lowest-order byte. So here we re-adjust bitfield offset to be an
+	 * offset from lowest-order bit of underlying integral type to
+	 * a lowest-order bit of a bitfield. This makes bitfield offset
+	 * a natural extension of byte offset for bitfields and is uniform
+	 * with how big-endian bit offsets work.
+	 */
+	if (cu->little_endian) {
+		member->bitfield_offset = member->bit_size - member->bitfield_offset - member->bitfield_size;
+	}
+	member->bit_offset = member->byte_offset * 8 + member->bitfield_offset;
+
+	/* make sure bitfield offset is non-negative */
+	if (member->bitfield_offset < 0) {
+		member->bitfield_offset += member->bit_size;
+		member->byte_offset -= member->byte_size;
+		member->bit_offset = member->byte_offset * 8 + member->bitfield_offset;
+	}
+	/* align on underlying base type natural alignment boundary */
+	member->bitfield_offset += (member->byte_offset % member->byte_size) * 8;
+	member->byte_offset = member->bit_offset / member->bit_size * member->bit_size / 8;
+	if (member->bitfield_offset >= member->bit_size) {
+		member->bitfield_offset -= member->bit_size;
+		member->byte_offset += member->byte_size;
+	}
+
+	if (conf_load && conf_load->fixup_silly_bitfields &&
+	    member->byte_size == 8 * member->bitfield_size) {
+		member->bitfield_size = 0;
+		member->bitfield_offset = 0;
 	}
 
 	return 0;
