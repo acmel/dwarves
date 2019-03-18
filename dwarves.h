@@ -200,6 +200,7 @@ struct cu {
 	uint8_t		 extra_dbg_info:1;
 	uint8_t		 has_addr_info:1;
 	uint8_t		 uses_global_strings:1;
+	uint8_t		 little_endian:1;
 	uint16_t	 language;
 	unsigned long	 nr_inline_expansions;
 	size_t		 size_inline_expansions;

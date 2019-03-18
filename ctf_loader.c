@@ -734,6 +734,7 @@ int ctf__load_file(struct cus *cus, struct conf_load *conf,
 
 	cu->language = LANG_C;
 	cu->uses_global_strings = false;
+	cu->little_endian = state->ehdr.e_ident[EI_DATA] == ELFDATA2LSB;
 	cu->dfops = &ctf__ops;
 	cu->priv = state;
 	state->priv = cu;
