@@ -1233,7 +1233,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	uint32_t sum_paddings = 0;
 	uint32_t sum_bit_holes = 0;
 	uint32_t cacheline = 0;
-	uint32_t bitfield_real_offset = 0;
+	int size_diff = 0;
 	int first = 1;
 	struct class_member *pos, *last = NULL;
 	struct tag *tag_pos;
@@ -1342,8 +1342,6 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 							   " with previous fields */\n",
 							   cconf.indent, tabs);
 				}
-				if (pos->byte_offset != last->byte_offset)
-					bitfield_real_offset = last->byte_offset + last_size;
 			} else {
 				const ssize_t cc_last_size = ((ssize_t)pos->byte_offset -
 							      (ssize_t)last->byte_offset);
@@ -1359,10 +1357,32 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 								   " with next fields */\n",
 								   cconf.indent, tabs);
 					}
-					sum -= last_size;
-					sum += cc_last_size;
 				}
 			}
+		}
+
+		if (pos->bit_hole != 0 && !cconf.suppress_comments) {
+			if (!newline++) {
+				fputc('\n', fp);
+				++printed;
+			}
+			printed += fprintf(fp, "%.*s/* XXX %d bit%s hole, "
+					   "try to pack */\n", cconf.indent, tabs,
+					   pos->bit_hole,
+					   pos->bit_hole != 1 ? "s" : "");
+			sum_bit_holes += pos->bit_hole;
+		}
+
+		if (pos->hole > 0 && !cconf.suppress_comments) {
+			if (!newline++) {
+				fputc('\n', fp);
+				++printed;
+			}
+			printed += fprintf(fp, "%.*s/* XXX %d byte%s hole, "
+					   "try to pack */\n",
+					   cconf.indent, tabs, pos->hole,
+					   pos->hole != 1 ? "s" : "");
+			sum_holes += pos->hole;
 		}
 
 		if (newline) {
@@ -1408,30 +1428,6 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			}
 		}
 
-		if (pos->bit_hole != 0 && !cconf.suppress_comments) {
-			if (!newline++) {
-				fputc('\n', fp);
-				++printed;
-			}
-			printed += fprintf(fp, "\n%.*s/* XXX %d bit%s hole, "
-					   "try to pack */", cconf.indent, tabs,
-					   pos->bit_hole,
-					   pos->bit_hole != 1 ? "s" : "");
-			sum_bit_holes += pos->bit_hole;
-		}
-
-		if (pos->hole > 0 && !cconf.suppress_comments) {
-			if (!newline++) {
-				fputc('\n', fp);
-				++printed;
-			}
-			printed += fprintf(fp, "\n%.*s/* XXX %d byte%s hole, "
-					   "try to pack */",
-					   cconf.indent, tabs, pos->hole,
-					   pos->hole != 1 ? "s" : "");
-			sum_holes += pos->hole;
-		}
-
 		fputc('\n', fp);
 		++printed;
 
@@ -1447,16 +1443,8 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		if (pos->virtuality == DW_VIRTUALITY_virtual)
 			continue;
 #endif
-		/*
-		 * Check if we have to adjust size because bitfields were
-		 * combined with previous fields.
-		 */
-		if (bitfield_real_offset != 0 && last->bitfield_end) {
-			size_t real_last_size = pos->byte_offset - bitfield_real_offset;
-			sum -= last_size;
-			sum += real_last_size;
-			bitfield_real_offset = 0;
-		}
+
+		sum += pos->bitfield_size ? pos->bitfield_size : pos->bit_size;
 
 		if (last == NULL || /* First member */
 		    /*
@@ -1467,7 +1455,6 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		     * We moved to a new offset
 		     */
 		    last->byte_offset != pos->byte_offset) {
-			sum += size;
 			last_size = size;
 		} else if (last->bitfield_size == 0 && pos->bitfield_size != 0) {
 			/*
@@ -1485,23 +1472,10 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			 * 	int	b:1; / 0:23 4 /
 			 * }
 			 */
-			sum += size - last_size;
 			last_size = size;
 		}
 
 		last = pos;
-	}
-
-	/*
-	 * Check if we have to adjust size because bitfields were
-	 * combined with previous fields and were the last fields
-	 * in the struct.
-	 */
-	if (bitfield_real_offset != 0) {
-		size_t real_last_size = type->size - bitfield_real_offset;
-		sum -= last_size;
-		sum += real_last_size;
-		bitfield_real_offset = 0;
 	}
 
 	if (!cconf.show_only_data_members)
@@ -1513,7 +1487,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	printed += type__fprintf_stats(type, cu, &cconf, fp);
 
 	if (sum_holes > 0)
-		printed += fprintf(fp, "%.*s/* sum members: %u, holes: %d, "
+		printed += fprintf(fp, "%.*s/* sum members (bits): %u, holes: %d, "
 				   "sum holes: %u */\n",
 				   cconf.indent, tabs,
 				   sum, class->nr_holes, sum_holes);
@@ -1550,13 +1524,13 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 				   m->byte_size);
 	}
 
-	if (sum + sum_holes != type->size - class->padding &&
-	    type->nr_members != 0)
-		printed += fprintf(fp, "\n%.*s/* BRAIN FART ALERT! %d != %u "
-				   "+ %u(holes), diff = %d */\n",
+	size_diff = type->size * 8 - (sum + sum_holes * 8 + sum_bit_holes +
+				      class->padding * 8 + class->bit_padding);
+	if (size_diff && type->nr_members != 0)
+		printed += fprintf(fp, "\n%.*s/* BRAIN FART ALERT! %d bytes != %u (member bits) "
+				   "+ %u (byte holes) + %u (bit holes), diff = %d bits */\n",
 				   cconf.indent, tabs,
-				   type->size, sum, sum_holes,
-				   type->size - (sum + sum_holes));
+				   type->size, sum, sum_holes, sum_bit_holes, size_diff);
 out:
 	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
 				 cconf.suffix ? " ": "", cconf.suffix ?: "");
