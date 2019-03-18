@@ -33,6 +33,8 @@
 #define obstack_chunk_alloc malloc
 #define obstack_chunk_free free
 
+#define min(x, y) ((x) < (y) ? (x) : (y))
+
 const char *cu__string(const struct cu *cu, strings_t s)
 {
 	if (cu->dfops && cu->dfops->strings__ptr)
@@ -1179,9 +1181,11 @@ void class__find_holes(struct class *class)
 {
 	const struct type *ctype = &class->type;
 	struct class_member *pos, *last = NULL;
-	size_t last_size = 0;
-	uint32_t bit_sum = 0;
-	uint32_t bitfield_real_offset = 0;
+	int cur_bitfield_end = ctype->size * 8, cur_bitfield_size = 0;
+	int bit_holes = 0, byte_holes = 0;
+	int bit_start, bit_end;
+	int last_seen_bit = 0;
+	bool in_bitfield = false;
 
 	if (!tag__is_struct(class__tag(class)))
 		return;
@@ -1201,78 +1205,69 @@ void class__find_holes(struct class *class)
 		if (pos->is_static)
 			continue;
 
-		if (last != NULL) {
-			/*
-			 * We have to cast both offsets to int64_t because
-			 * the current offset can be before the last offset
-			 * when we are starting a bitfield that combines with
-			 * the previous, small size fields.
-			 */
-			const ssize_t cc_last_size = ((int64_t)pos->byte_offset -
-						      (int64_t)last->byte_offset);
-
-			/*
-			 * If the offset is the same this better be a bitfield
-			 * or an empty struct (see rwlock_t in the Linux kernel
-			 * sources when compiled for UP) or...
-			 */
-			if (cc_last_size > 0) {
-				/*
-				 * Check if the DWARF byte_size info is smaller
-				 * than the size used by the compiler, i.e.
-				 * when combining small bitfields with the next
-				 * member.
-				*/
-				if ((size_t)cc_last_size < last_size)
-					last_size = cc_last_size;
-
-				last->hole = cc_last_size - last_size;
-				if (last->hole > 0)
-					++class->nr_holes;
-
-				if (bit_sum != 0) {
-					if (bitfield_real_offset != 0) {
-						last_size = bitfield_real_offset - last->byte_offset;
-						bitfield_real_offset = 0;
-					}
-
-					last->bit_hole = (last_size * 8) -
-							 bit_sum;
-					if (last->bit_hole != 0)
-						++class->nr_bit_holes;
-
-					last->bitfield_end = 1;
-					bit_sum = 0;
-				}
-			} else if (cc_last_size < 0 && bit_sum == 0)
-				bitfield_real_offset = last->byte_offset + last_size;
+		if (pos->bitfield_size) {
+			bit_start = pos->byte_offset * 8 + pos->bit_size - pos->bitfield_offset - pos->bitfield_size;
+			bit_end = bit_start + pos->bitfield_size;
+		} else {
+			bit_start = pos->byte_offset * 8;
+			bit_end = bit_start + pos->byte_size * 8;
 		}
 
-		bit_sum += pos->bitfield_size;
+		bit_holes = 0;
+		byte_holes = 0;
+		if (in_bitfield) {
+			/* check if we have some trailing bitfield bits left */
+			int bitfield_end = min(bit_start, cur_bitfield_end);
+			bit_holes = bitfield_end - last_seen_bit;
+			last_seen_bit = bitfield_end;
+		}
+		if (pos->bitfield_size) {
+			int aligned_start = pos->byte_offset * 8;
+			/* we can have some alignment byte padding left,
+			 * but we need to be carful about bitfield spanning
+			 * multiple aligned boundaries */
+			if (last_seen_bit < aligned_start && aligned_start < bit_start) {
+				byte_holes = pos->byte_offset - last_seen_bit / 8;
+				last_seen_bit = aligned_start;
+			}
+			bit_holes += bit_start - last_seen_bit;
+		} else {
+			byte_holes = bit_start/8 - last_seen_bit/8;
+		}
+		last_seen_bit = bit_end;
 
-		/*
-		 * check for bitfields, accounting for only the biggest of the
-		 * byte_size in the fields in each bitfield set.
-		 */
+		if (pos->bitfield_size) {
+			in_bitfield = true;
+			/* if it's a new bitfield set or same, but with
+			 * bigger-sized type, readjust size and end bit */
+			if (pos->byte_offset * 8 >= cur_bitfield_end || pos->bit_size > cur_bitfield_size) {
+				cur_bitfield_size = pos->bit_size;
+				cur_bitfield_end = pos->byte_offset * 8 + cur_bitfield_size;
+			}
+		} else {
+			in_bitfield = false;
+			cur_bitfield_size = 0;
+			cur_bitfield_end = bit_end;
+		}
 
-		if (last == NULL || last->byte_offset != pos->byte_offset ||
-		    pos->bitfield_size == 0 || last->bitfield_size == 0) {
-			last_size = pos->byte_size;
-		} else if (pos->byte_size > last_size)
-			last_size = pos->byte_size;
+		if (last) {
+			last->hole = byte_holes;
+			last->bit_hole = bit_holes;
+		}
+		if (bit_holes)
+			class->nr_bit_holes++;
+		if (byte_holes)
+			class->nr_holes++;
 
 		last = pos;
 	}
 
-	if (last != NULL) {
-		if (last->byte_offset + last_size != ctype->size)
-			class->padding = ctype->size -
-					(last->byte_offset + last_size);
-		if (last->bitfield_size != 0)
-			class->bit_padding = (last_size * 8) - bit_sum;
-	} else
-		/* No members? Zero sized C++ class */
-		class->padding = 0;
+	if (in_bitfield) {
+		int bitfield_end = min(ctype->size * 8, cur_bitfield_end);
+		class->bit_padding = bitfield_end - last_seen_bit;
+		last_seen_bit = bitfield_end;
+	}
+	class->padding = ctype->size - last_seen_bit / 8;
 
 	class->holes_searched = true;
 }
