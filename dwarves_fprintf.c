@@ -1228,7 +1228,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	size_t last_size = 0, size;
 	uint8_t newline = 0;
 	uint16_t nr_paddings = 0;
-	uint32_t sum = 0;
+	uint32_t sum_bytes = 0, sum_bits = 0;
 	uint32_t sum_holes = 0;
 	uint32_t sum_paddings = 0;
 	uint32_t sum_bit_holes = 0;
@@ -1444,7 +1444,11 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			continue;
 #endif
 
-		sum += pos->bitfield_size ? pos->bitfield_size : pos->bit_size;
+		if (pos->bitfield_size) {
+			sum_bits += pos->bitfield_size;
+		} else {
+			sum_bytes += pos->byte_size;
+		}
 
 		if (last == NULL || /* First member */
 		    /*
@@ -1486,16 +1490,26 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 
 	printed += type__fprintf_stats(type, cu, &cconf, fp);
 
-	if (sum_holes > 0)
-		printed += fprintf(fp, "%.*s/* sum members (bits): %u, holes: %d, "
-				   "sum holes: %u */\n",
-				   cconf.indent, tabs,
-				   sum, class->nr_holes, sum_holes);
-	if (sum_bit_holes > 0)
-		printed += fprintf(fp, "%.*s/* bit holes: %d, sum bit "
-				   "holes: %u bits */\n",
-				   cconf.indent, tabs,
-				   class->nr_bit_holes, sum_bit_holes);
+	if (sum_holes > 0 || sum_bit_holes > 0) {
+		if (sum_bytes > 0) {
+			printed += fprintf(fp, "%.*s/* sum members: %u",
+					   cconf.indent, tabs, sum_bytes);
+			if (sum_holes > 0)
+				printed += fprintf(fp, ", holes: %d, sum holes: %u",
+						   class->nr_holes, sum_holes);
+			printed += fprintf(fp, " */\n");
+		}
+		if (sum_bits > 0) {
+			printed += fprintf(fp, "%.*s/* sum bitfield members: %u bits",
+					   cconf.indent, tabs, sum_bits);
+			if (sum_bit_holes > 0)
+				printed += fprintf(fp, ", bit holes: %d, sum bit holes: %u bits",
+						   class->nr_bit_holes, sum_bit_holes);
+			else
+				printed += fprintf(fp, " (%u bytes)", sum_bits / 8);
+			printed += fprintf(fp, " */\n");
+		}
+	}
 	if (class->padding > 0)
 		printed += fprintf(fp, "%.*s/* padding: %u */\n",
 				   cconf.indent,
@@ -1524,13 +1538,14 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 				   m->byte_size);
 	}
 
-	size_diff = type->size * 8 - (sum + sum_holes * 8 + sum_bit_holes +
+	size_diff = type->size * 8 - (sum_bytes * 8 + sum_bits + sum_holes * 8 + sum_bit_holes +
 				      class->padding * 8 + class->bit_padding);
 	if (size_diff && type->nr_members != 0)
-		printed += fprintf(fp, "\n%.*s/* BRAIN FART ALERT! %d bytes != %u (member bits) "
+		printed += fprintf(fp, "\n%.*s/* BRAIN FART ALERT! %d bytes != "
+				   "%u (member bytes) + %u (member bits) "
 				   "+ %u (byte holes) + %u (bit holes), diff = %d bits */\n",
 				   cconf.indent, tabs,
-				   type->size, sum, sum_holes, sum_bit_holes, size_diff);
+				   type->size, sum_bytes, sum_bits, sum_holes, sum_bit_holes, size_diff);
 out:
 	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
 				 cconf.suffix ? " ": "", cconf.suffix ?: "");
