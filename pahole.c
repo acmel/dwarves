@@ -413,7 +413,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	 * bail out if we get here with an union
 	 */
 	if (!tag__is_struct(class__tag(class)))
-		return class;
+		return show_packable ? NULL : class;
 
 	if (tag->top_level)
 		class__find_holes(class);
