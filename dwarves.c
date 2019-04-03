@@ -1205,6 +1205,9 @@ void class__find_holes(struct class *class)
 		if (pos->is_static)
 			continue;
 
+		pos->bit_hole = 0;
+		pos->hole = 0;
+
 		bit_start = pos->bit_offset;
 		if (pos->bitfield_size) {
 			bit_end = bit_start + pos->bitfield_size;
