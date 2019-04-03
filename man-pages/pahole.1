@@ -167,8 +167,13 @@ Show CUs where CLASS_NAME (-C) is defined.
 .TP
 .B     \-\-flat_arrays
 Flatten arrays, so that array[10][2] becomes array[20].
-Useful when generating from both CTF and DWARF encodings
+Useful when generating from both CTF/BTF and DWARF encodings
 for the same binary for testing purposes.
+
+.TP
+.B     \-\-suppress_aligned_attribute
+Suppress forced alignment markers, so that one can compare BTF or
+CTF output, that don't have that info, to output from DWARF >= 5.
 
 .TP
 .B     \-\-fixup_silly_bitfields
