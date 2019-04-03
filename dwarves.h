@@ -1026,7 +1026,9 @@ struct class {
 	uint16_t	 nr_vtable_entries;
 	uint8_t		 nr_holes;
 	uint8_t		 nr_bit_holes;
+	uint16_t	 pre_hole;
 	uint16_t	 padding;
+	uint8_t		 pre_bit_hole;
 	uint8_t		 bit_padding;
 	bool		 holes_searched;
 	void		 *priv;

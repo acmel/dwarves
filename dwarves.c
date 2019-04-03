@@ -1260,8 +1260,13 @@ void class__find_holes(struct class *class)
 			cur_bitfield_end = bit_end;
 		}
 
-		pos->hole = byte_holes;
-		pos->bit_hole = bit_holes;
+		if (last) {
+			last->hole = byte_holes;
+			last->bit_hole = bit_holes;
+		} else {
+			class->pre_hole = byte_holes;
+			class->pre_bit_hole = bit_holes;
+		}
 		if (bit_holes)
 			class->nr_bit_holes++;
 		if (byte_holes)

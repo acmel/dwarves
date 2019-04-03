@@ -1292,6 +1292,30 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 
 	printed += fprintf(fp, " {\n");
 
+	if (class->pre_bit_hole > 0 && !cconf.suppress_comments) {
+		if (!newline++) {
+			fputc('\n', fp);
+			++printed;
+		}
+		printed += fprintf(fp, "%.*s/* XXX %d bit%s hole, "
+				   "try to pack */\n", cconf.indent, tabs,
+				   class->pre_bit_hole,
+				   class->pre_bit_hole != 1 ? "s" : "");
+		sum_bit_holes += class->pre_bit_hole;
+	}
+
+	if (class->pre_hole > 0 && !cconf.suppress_comments) {
+		if (!newline++) {
+			fputc('\n', fp);
+			++printed;
+		}
+		printed += fprintf(fp, "%.*s/* XXX %d byte%s hole, "
+				   "try to pack */\n",
+				   cconf.indent, tabs, class->pre_hole,
+				   class->pre_hole != 1 ? "s" : "");
+		sum_holes += class->pre_hole;
+	}
+
 	type__for_each_tag(type, tag_pos) {
 		struct tag *type;
 		const char *accessibility = tag__accessibility(tag_pos);
@@ -1361,30 +1385,6 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			}
 		}
 
-		if (pos->bit_hole != 0 && !cconf.suppress_comments) {
-			if (!newline++) {
-				fputc('\n', fp);
-				++printed;
-			}
-			printed += fprintf(fp, "%.*s/* XXX %d bit%s hole, "
-					   "try to pack */\n", cconf.indent, tabs,
-					   pos->bit_hole,
-					   pos->bit_hole != 1 ? "s" : "");
-			sum_bit_holes += pos->bit_hole;
-		}
-
-		if (pos->hole > 0 && !cconf.suppress_comments) {
-			if (!newline++) {
-				fputc('\n', fp);
-				++printed;
-			}
-			printed += fprintf(fp, "%.*s/* XXX %d byte%s hole, "
-					   "try to pack */\n",
-					   cconf.indent, tabs, pos->hole,
-					   pos->hole != 1 ? "s" : "");
-			sum_holes += pos->hole;
-		}
-
 		if (newline) {
 			fputc('\n', fp);
 			newline = 0;
@@ -1426,6 +1426,30 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 						   tabs, padding,
 						   padding != 1 ? "s" : "");
 			}
+		}
+
+		if (pos->bit_hole != 0 && !cconf.suppress_comments) {
+			if (!newline++) {
+				fputc('\n', fp);
+				++printed;
+			}
+			printed += fprintf(fp, "\n%.*s/* XXX %d bit%s hole, "
+					   "try to pack */", cconf.indent, tabs,
+					   pos->bit_hole,
+					   pos->bit_hole != 1 ? "s" : "");
+			sum_bit_holes += pos->bit_hole;
+		}
+
+		if (pos->hole > 0 && !cconf.suppress_comments) {
+			if (!newline++) {
+				fputc('\n', fp);
+				++printed;
+			}
+			printed += fprintf(fp, "\n%.*s/* XXX %d byte%s hole, "
+					   "try to pack */",
+					   cconf.indent, tabs, pos->hole,
+					   pos->hole != 1 ? "s" : "");
+			sum_holes += pos->hole;
 		}
 
 		fputc('\n', fp);
