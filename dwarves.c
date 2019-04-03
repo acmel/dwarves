@@ -1223,9 +1223,9 @@ void class__find_holes(struct class *class)
 		if (pos->bitfield_size) {
 			int aligned_start = pos->byte_offset * 8;
 			/* we can have some alignment byte padding left,
-			 * but we need to be carful about bitfield spanning
+			 * but we need to be careful about bitfield spanning
 			 * multiple aligned boundaries */
-			if (last_seen_bit < aligned_start && aligned_start < bit_start) {
+			if (last_seen_bit < aligned_start && aligned_start <= bit_start) {
 				byte_holes = pos->byte_offset - last_seen_bit / 8;
 				last_seen_bit = aligned_start;
 			}
