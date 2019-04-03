@@ -769,13 +769,13 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 
 	if (member->is_static) {
 		if (member->const_value != 0)
-			printed += fprintf(fp, " = %" PRIu64 ";", member->const_value);
+			printed += fprintf(fp, " = %" PRIu64, member->const_value);
 	} else if (member->bitfield_size != 0) {
-		printed += fprintf(fp, ":%u;", member->bitfield_size);
-	} else {
-		fputc(';', fp);
-		++printed;
+		printed += fprintf(fp, ":%u", member->bitfield_size);
 	}
+
+	fputc(';', fp);
+	++printed;
 
 	if ((tag__is_union(type) || tag__is_struct(type) ||
 	     tag__is_enumeration(type)) &&

@@ -840,6 +840,7 @@ static inline int function__inlined(const struct function *func)
  * @bitfield_size - size in the current bitfield
  * @bit_hole - If there is a bit hole before the next one (or the end of the struct)
  * @bitfield_end - Is this the last entry in a bitfield?
+ * @alignment - DW_AT_alignement, zero if not present, gcc emits since circa 7.3.1
  * @accessibility - DW_ACCESS_{public,protected,private}
  * @virtuality - DW_VIRTUALITY_{none,virtual,pure_virtual}
  * @hole - If there is a hole before the next one (or the end of the struct)
@@ -856,6 +857,7 @@ struct class_member {
 	uint8_t		 bit_hole;
 	uint8_t		 bitfield_end:1;
 	uint64_t	 const_value;
+	uint32_t	 alignment;
 	uint8_t		 visited:1;
 	uint8_t		 is_static:1;
 	uint8_t		 accessibility:2;
