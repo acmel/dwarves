@@ -1279,6 +1279,8 @@ void class__find_holes(struct class *class)
 		int bitfield_end = min(ctype->size * 8, cur_bitfield_end);
 		class->bit_padding = bitfield_end - last_seen_bit;
 		last_seen_bit = bitfield_end;
+	} else {
+		class->bit_padding = 0;
 	}
 	class->padding = ctype->size - last_seen_bit / 8;
 
