@@ -226,12 +226,20 @@ static struct class_member *
 	return NULL;
 }
 
-static void class__move_member(struct class *class, struct class_member *dest,
-			       struct class_member *from, const struct cu *cu,
-			       int from_padding, const int verbose, FILE *fp)
+static bool class__move_member(struct class *class, struct class_member *dest,
+			      struct class_member *from, const struct cu *cu,
+			      int from_padding, const int verbose, FILE *fp)
 {
 	const size_t from_size = from->byte_size;
 	const size_t dest_size = dest->byte_size;
+
+#ifndef BITFIELD_REORG_ALGORITHMS_ENABLED
+	/*
+	 * For now refuse to move a bitfield, we need to first fixup some BRAIN FARTs
+	 */
+	if (from->bitfield_size != 0)
+		return false;
+#endif
 	const bool from_was_last = from->tag.node.next == class__tags(class);
 	struct class_member *tail_from = from;
 	struct class_member *from_prev = list_entry(from->tag.node.prev,
@@ -347,6 +355,8 @@ static void class__move_member(struct class *class, struct class_member *dest,
 		class__fprintf(class, cu, fp);
 		fputc('\n', fp);
 	}
+
+	return true;
 }
 
 static void class__move_bit_member(struct class *class, const struct cu *cu,
@@ -743,11 +753,11 @@ void class__reorganize(struct class *class, const struct cu *cu,
 	size_t alignment_size;
 
 	class__find_holes(class);
+#ifdef BITFIELD_REORG_ALGORITHMS_ENABLED
 	class__fixup_member_types(class, cu, verbose, fp);
-
 	while (class__demote_bitfields(class, cu, verbose, fp))
 		class__reorganize_bitfields(class, cu, verbose, fp);
-
+#endif
 	/* Now try to combine holes */
 restart:
 	alignment_size = 0;
@@ -807,10 +817,8 @@ restart:
 				 * kernel.
 				 */
 				if (brother_prev != member) {
-					class__move_member(class, member,
-							   brother, cu, 0,
-							   verbose, fp);
-					goto restart;
+					if (class__move_member(class, member, brother, cu, 0, verbose, fp))
+						goto restart;
 				}
 			}
 			/*
@@ -824,9 +832,8 @@ restart:
 			    member != last_member &&
 			    last_member->byte_size != 0 &&
 			    last_member->byte_size <= member->hole) {
-				class__move_member(class, member, last_member,
-						   cu, 1, verbose, fp);
-				goto restart;
+				if (class__move_member(class, member, last_member, cu, 1, verbose, fp))
+					goto restart;
 			}
 		}
 	}
@@ -852,10 +859,8 @@ restart:
 				 * kernel.
 				 */
 				if (brother_prev != member) {
-					class__move_member(class, member,
-							   brother, cu, 0,
-							   verbose, fp);
-					goto restart;
+					if (class__move_member(class, member, brother, cu, 0, verbose, fp))
+						goto restart;
 				}
 			}
 		}
