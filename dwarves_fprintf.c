@@ -1231,6 +1231,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	size_t last_size = 0, size;
 	uint8_t newline = 0;
 	uint16_t nr_paddings = 0;
+	uint16_t nr_forced_alignments = 0;
 	uint32_t sum_bytes = 0, sum_bits = 0;
 	uint32_t sum_holes = 0;
 	uint32_t sum_paddings = 0;
@@ -1340,6 +1341,9 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			continue;
 		}
 		pos = tag__class_member(tag_pos);
+
+		if (!cconf.suppress_aligned_attribute && pos->alignment != 0)
+			++nr_forced_alignments;
 		/*
 		 * These paranoid checks doesn't make much sense on
 		 * DW_TAG_inheritance, have to understand why virtual public
@@ -1550,6 +1554,10 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		printed += fprintf(fp, "%.*s/* bit_padding: %u bits */\n",
 				   cconf.indent, tabs,
 				   class->bit_padding);
+	if (!cconf.suppress_aligned_attribute && nr_forced_alignments != 0)
+		printed += fprintf(fp, "%.*s/* forced alignments: %u */\n",
+				   cconf.indent, tabs,
+				   nr_forced_alignments);
 	cacheline = (cconf.base_offset + type->size) % cacheline_size;
 	if (cacheline != 0)
 		printed += fprintf(fp, "%.*s/* last cacheline: %u bytes */\n",
