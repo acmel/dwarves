@@ -747,6 +747,7 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
 		member->name = strings__add(strings, attr_string(die, DW_AT_name));
 		member->is_static   = !in_union && !dwarf_hasattr(die, DW_AT_data_member_location);
 		member->const_value = attr_numeric(die, DW_AT_const_value);
+		member->alignment = attr_numeric(die, DW_AT_alignment);
 		member->byte_offset = attr_offset(die, DW_AT_data_member_location);
 		/*
 		 * Bit offset calculated here is valid only for byte-aligned

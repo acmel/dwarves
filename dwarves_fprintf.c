@@ -774,6 +774,9 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 		printed += fprintf(fp, ":%u", member->bitfield_size);
 	}
 
+	if (member->alignment != 0)
+		printed += fprintf(fp, " __attribute__((__aligned__(%u))", member->alignment);
+
 	fputc(';', fp);
 	++printed;
 
