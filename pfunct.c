@@ -333,7 +333,7 @@ static int function__emit_type_definitions(struct function *func,
 		if (type == NULL)
 			continue;
 
-		if (type->tag == DW_TAG_pointer_type) {
+		if (type->tag == DW_TAG_pointer_type || tag__is_modifier(type)) {
 			type = cu__type(cu, type->type);
 			goto try_again;
 		}
