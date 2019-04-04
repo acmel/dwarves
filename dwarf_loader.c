@@ -1408,7 +1408,7 @@ static struct tag *die__create_new_inline_expansion(Dwarf_Die *die,
 						    struct lexblock *lexblock,
 						    struct cu *cu);
 
-static int die__process_inline_expansion(Dwarf_Die *die, struct cu *cu)
+static int die__process_inline_expansion(Dwarf_Die *die, struct lexblock *lexblock, struct cu *cu)
 {
 	Dwarf_Die child;
 	struct tag *tag;
@@ -1434,7 +1434,7 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct cu *cu)
 			 */
 			continue;
 		case DW_TAG_lexical_block:
-			if (die__create_new_lexblock(die, cu, NULL) != 0)
+			if (die__create_new_lexblock(die, cu, lexblock) != 0)
 				goto out_enomem;
 			continue;
 		case DW_TAG_formal_parameter:
@@ -1451,7 +1451,10 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct cu *cu)
 			 */
 			continue;
 		case DW_TAG_inlined_subroutine:
-			tag = die__create_new_inline_expansion(die, NULL, cu);
+			tag = die__create_new_inline_expansion(die, lexblock, cu);
+			break;
+		case DW_TAG_label:
+			tag = die__create_new_label(die, lexblock, cu);
 			break;
 		default:
 			tag = die__process_tag(die, cu, 0);
@@ -1493,7 +1496,7 @@ static struct tag *die__create_new_inline_expansion(Dwarf_Die *die,
 	if (exp == NULL)
 		return NULL;
 
-	if (die__process_inline_expansion(die, cu) != 0) {
+	if (die__process_inline_expansion(die, lexblock, cu) != 0) {
 		obstack_free(&cu->obstack, exp);
 		return NULL;
 	}
