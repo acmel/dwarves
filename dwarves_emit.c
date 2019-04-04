@@ -294,6 +294,9 @@ int type__emit_definitions(struct tag *tag, struct cu *cu,
 		return 0;
 	}
 
+	if (tag__is_typedef(tag))
+		return typedef__emit_definitions(tag, cu, emissions, fp);
+
 	type_emissions__add_definition(emissions, ctype);
 
 	type__for_each_member(ctype, pos)
