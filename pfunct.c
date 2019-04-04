@@ -30,6 +30,7 @@ static int show_cc_uninlined;
 static char *symtab_name;
 static bool show_prototypes;
 static bool expand_types;
+static bool compilable_output;
 static struct type_emissions emissions;
 static uint64_t addr;
 
@@ -355,6 +356,8 @@ static void function__show(struct function *func, struct cu *cu)
 	if (expand_types)
 		function__emit_type_definitions(func, cu, stdout);
 	tag__fprintf(tag, cu, &conf, stdout);
+	if (compilable_output)
+		fprintf(stdout, "\n{\n}\n");
 	putchar('\n');
 	if (show_variables || show_inline_expansions)
 		function__fprintf_stats(tag, cu, &conf, stdout);
@@ -461,6 +464,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
 #define ARGP_symtab		300
 #define ARGP_no_parm_names	301
+#define ARGP_compile		302
 
 static const struct argp_option pfunct__options[] = {
 	{
@@ -575,6 +579,13 @@ static const struct argp_option pfunct__options[] = {
 		.doc   = "show symbol table NAME (Default .symtab)",
 	},
 	{
+		.name  = "compile",
+		.key   = ARGP_compile,
+		.arg   = "FUNCTION",
+		.flags = OPTION_ARG_OPTIONAL,
+		.doc   = "Generate compilable source code with types expanded (Default all functions)",
+	},
+	{
 		.name  = "no_parm_names",
 		.key   = ARGP_no_parm_names,
 		.doc   = "Don't show parameter names",
@@ -629,6 +640,14 @@ static error_t pfunct__options_parser(int key, char *arg,
 		  conf_load.get_addr_info = true;	 break;
 	case ARGP_symtab: symtab_name = arg ?: ".symtab";  break;
 	case ARGP_no_parm_names: conf.no_parm_names = 1; break;
+	case ARGP_compile:
+		  expand_types = true;
+		  type_emissions__init(&emissions);
+		  compilable_output = true;
+		  conf.no_semicolon = true;
+		  if (arg)
+			  function_name = arg;
+		  break;
 	default:  return ARGP_ERR_UNKNOWN;
 	}
 
