@@ -323,7 +323,8 @@ static int function__emit_type_definitions(struct function *func,
 	struct parameter *pos;
 	struct tag *type = cu__type(cu, func->proto.tag.type);
 
-	if (type && tag__is_type(type)) { /* type == NULL means the return is void */
+	/* type == NULL means the return is void */
+	if (type && tag__is_type(type) && !tag__type(type)->definition_emitted) {
 		type__emit_definitions(type, cu, &emissions, fp);
 		type__emit(type, cu, NULL, NULL, fp);
 	}
@@ -339,7 +340,7 @@ static int function__emit_type_definitions(struct function *func,
 			goto try_again;
 		}
 
-		if (tag__is_type(type)) {
+		if (tag__is_type(type) && !tag__type(type)->definition_emitted) {
 			type__emit_definitions(type, cu, &emissions, fp);
 			type__emit(type, cu, NULL, NULL, fp);
 			putchar('\n');
