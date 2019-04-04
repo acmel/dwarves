@@ -366,10 +366,11 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 	uint32_t id;
 
 	cu__for_each_function(cu, id, function) {
-		if (strcmp(function__name(function, cu), cookie) != 0)
+		if (cookie && strcmp(function__name(function, cu), cookie) != 0)
 			continue;
 		function__show(function, cu);
-		return 1;
+		if (!expand_types)
+			return 1;
 	}
 	return 0;
 }
@@ -688,7 +689,7 @@ int main(int argc, char *argv[])
 		print_total_inline_stats();
 	else if (class_name != NULL)
 		cus__for_each_cu(cus, cu_class_iterator, class_name, NULL);
-	else if (function_name != NULL)
+	else if (function_name != NULL || expand_types)
 		cus__for_each_cu(cus, cu_function_iterator,
 				 function_name, NULL);
 	else
