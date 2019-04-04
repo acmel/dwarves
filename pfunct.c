@@ -320,9 +320,15 @@ static int function__emit_type_definitions(struct function *func,
 					   struct cu *cu, FILE *fp)
 {
 	struct parameter *pos;
+	struct tag *type = cu__type(cu, func->proto.tag.type);
+
+	if (type && tag__is_type(type)) { /* type == NULL means the return is void */
+		type__emit_definitions(type, cu, &emissions, fp);
+		type__emit(type, cu, NULL, NULL, fp);
+	}
 
 	function__for_each_parameter(func, pos) {
-		struct tag *type = cu__type(cu, pos->tag.type);
+		type = cu__type(cu, pos->tag.type);
 	try_again:
 		if (type == NULL)
 			continue;
