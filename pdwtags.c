@@ -20,6 +20,9 @@ static void emit_tag(struct tag *tag, uint32_t tag_id, struct cu *cu)
 {
 	printf("/* %d */\n", tag_id);
 
+	if (tag__is_struct(tag))
+		class__find_holes(tag__class(tag));
+
 	if (tag->tag == DW_TAG_base_type) {
 		char bf[64];
 		const char *name = base_type__name(tag__base_type(tag), cu,
