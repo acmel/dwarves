@@ -355,6 +355,9 @@ static void function__show(struct function *func, struct cu *cu)
 {
 	struct tag *tag = function__tag(func);
 
+	if (func->abstract_origin)
+		return;
+
 	if (expand_types)
 		function__emit_type_definitions(func, cu, stdout);
 	tag__fprintf(tag, cu, &conf, stdout);
