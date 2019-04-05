@@ -408,6 +408,11 @@ static inline int tag__is_pointer(const struct tag *tag)
 	return tag->tag == DW_TAG_pointer_type;
 }
 
+static inline int tag__is_pointer_to(const struct tag *tag, type_id_t type)
+{
+	return tag__is_pointer(tag) && tag->type == type;
+}
+
 static inline bool tag__is_variable(const struct tag *tag)
 {
 	return tag->tag == DW_TAG_variable;

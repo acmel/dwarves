@@ -520,7 +520,7 @@ static struct tag *pointer_filter(struct tag *tag, struct cu *cu,
 		struct tag *ctype = cu__type(cu, pos->tag.type);
 
 		tag__assert_search_result(ctype);
-		if (tag__is_pointer(ctype) && ctype->type == target_type_id)
+		if (tag__is_pointer_to(ctype, target_type_id))
 			return tag;
 	}
 
@@ -711,7 +711,7 @@ static int function__emit_probes(struct function *func, uint32_t function_id,
 		struct tag *type = cu__type(cu, pos->tag.type);
 
 		tag__assert_search_result(type);
-		if (!tag__is_pointer(type) || type->type != target_type_id)
+		if (!tag__is_pointer_to(type, target_type_id))
 			continue;
 
 		if (member != NULL)
@@ -787,7 +787,7 @@ static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 		struct tag *ctype = cu__type(cu, pos_member->tag.type);
 
 		tag__assert_search_result(ctype);
-		if (tag__is_pointer(ctype) && ctype->type == target_type_id)
+		if (tag__is_pointer_to(ctype, target_type_id))
 			break;
 	}
 

@@ -676,7 +676,7 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint32_t type)
 			struct tag *ctype = cu__type(cu, pos_member->tag.type);
 
 			tag__assert_search_result(ctype);
-			if (!tag__is_pointer(ctype) || ctype->type != type)
+			if (!tag__is_pointer_to(ctype, type))
 				continue;
 
 			if (!looked) {
