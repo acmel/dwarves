@@ -403,6 +403,11 @@ static inline int tag__is_const(const struct tag *tag)
 	return tag->tag == DW_TAG_const_type;
 }
 
+static inline int tag__is_pointer(const struct tag *tag)
+{
+	return tag->tag == DW_TAG_pointer_type;
+}
+
 static inline bool tag__is_variable(const struct tag *tag)
 {
 	return tag->tag == DW_TAG_variable;

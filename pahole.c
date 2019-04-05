@@ -625,7 +625,7 @@ static void cu__account_nr_methods(struct cu *cu)
 		list_for_each_entry(pos, &pos_function->proto.parms, tag.node) {
 			struct tag *type = cu__type(cu, pos->tag.type);
 
-			if (type == NULL || type->tag != DW_TAG_pointer_type)
+			if (type == NULL || !tag__is_pointer(type))
 				continue;
 
 			type = cu__type(cu, type->type);
@@ -676,7 +676,7 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint32_t type)
 			struct tag *ctype = cu__type(cu, pos_member->tag.type);
 
 			tag__assert_search_result(ctype);
-			if (ctype->tag != DW_TAG_pointer_type || ctype->type != type)
+			if (!tag__is_pointer(ctype) || ctype->type != type)
 				continue;
 
 			if (!looked) {

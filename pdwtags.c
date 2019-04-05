@@ -32,7 +32,7 @@ static void emit_tag(struct tag *tag, uint32_t tag_id, struct cu *cu)
 			printf("anonymous base_type\n");
 		else
 			puts(name);
-	} else if (tag->tag == DW_TAG_pointer_type)
+	} else if (tag__is_pointer(tag))
 		printf(" /* pointer to %lld */\n", (unsigned long long)tag->type);
 	else
 		tag__fprintf(tag, cu, &conf, stdout);

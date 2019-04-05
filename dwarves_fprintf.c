@@ -575,7 +575,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	if (conf->expand_pointers) {
 		int nr_indirections = 0;
 
-		while (type->tag == DW_TAG_pointer_type && type->type != 0) {
+		while (tag__is_pointer(type) && type->type != 0) {
 			struct tag *ttype = cu__type(cu, type->type);
 			if (ttype == NULL)
 				goto out_type_not_found;
@@ -956,7 +956,7 @@ size_t ftype__fprintf_parms(const struct ftype *ftype,
 			stype = sbf;
 			goto print_it;
 		}
-		if (type->tag == DW_TAG_pointer_type) {
+		if (tag__is_pointer(type)) {
 			if (type->type != 0) {
 				int n;
 				struct tag *ptype = cu__type(cu, type->type);

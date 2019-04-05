@@ -1121,7 +1121,7 @@ int ftype__has_parm_of_type(const struct ftype *ftype, const type_id_t target,
 	ftype__for_each_parameter(ftype, pos) {
 		struct tag *type = cu__type(cu, pos->tag.type);
 
-		if (type != NULL && type->tag == DW_TAG_pointer_type) {
+		if (type != NULL && tag__is_pointer(type)) {
 			if (type->type == target)
 				return 1;
 		}
