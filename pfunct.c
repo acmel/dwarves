@@ -342,7 +342,8 @@ static int function__emit_type_definitions(struct function *func,
 
 		if (tag__is_type(type) && !tag__type(type)->definition_emitted) {
 			type__emit_definitions(type, cu, &emissions, fp);
-			type__emit(type, cu, NULL, NULL, fp);
+			if (!tag__is_typedef(type))
+				type__emit(type, cu, NULL, NULL, fp);
 			putchar('\n');
 		}
 	}
