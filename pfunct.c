@@ -355,7 +355,7 @@ static void function__show(struct function *func, struct cu *cu)
 {
 	struct tag *tag = function__tag(func);
 
-	if (func->abstract_origin)
+	if (func->abstract_origin || func->external)
 		return;
 
 	if (expand_types)
