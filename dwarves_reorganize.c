@@ -157,7 +157,7 @@ static struct class_member *
 {
 	struct class_member *member;
 
-	list_for_each_entry_reverse(member, class__tags(class), tag.node) {
+	class__for_each_member_reverse(class, member) {
 		if (member->tag.tag != DW_TAG_member)
 			continue;
 

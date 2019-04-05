@@ -4,7 +4,7 @@
   SPDX-License-Identifier: GPL-2.0-only
 
   Copyright (C) 2006 Mandriva Conectiva S.A.
-  Copyright (C) 2006..2009 Arnaldo Carvalho de Melo <acme@redhat.com>
+  Copyright (C) 2006..2019 Arnaldo Carvalho de Melo <acme@redhat.com>
 */
 
 
@@ -1131,6 +1131,12 @@ const struct class_member *class__find_bit_hole(const struct class *cls,
 	pos = list_prepare_entry(from, class__tags(cls), tag.node);	\
 	list_for_each_entry_continue(pos, class__tags(cls), tag.node)	\
 		if (!tag__is_class_member(&pos->tag))			\
+			continue;					\
+		else
+
+#define class__for_each_member_reverse(cls, member)			\
+	list_for_each_entry_reverse(member, class__tags(cls), tag.node)	\
+		if (member->tag.tag != DW_TAG_member)			\
 			continue;					\
 		else
 
