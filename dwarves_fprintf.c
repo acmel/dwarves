@@ -498,7 +498,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 const char *tag__name(const struct tag *tag, const struct cu *cu,
 		      char *bf, size_t len, const struct conf_fprintf *conf)
 {
-	bool starts_with_const = false;
+	int printed = 0;
 
 	if (tag == NULL) {
 		strncpy(bf, "void", len);
@@ -506,14 +506,12 @@ const char *tag__name(const struct tag *tag, const struct cu *cu,
 	}
 
 	if (tag->tag == DW_TAG_const_type) {
-		starts_with_const = true;
+		snprintf(bf, len, "%s ", "const");
+		printed = strlen(bf);
 		tag = cu__type(cu, tag->type);
 	}
 
-	__tag__name(tag, cu, bf, len, conf);
-
-	if (starts_with_const)
-		strncat(bf, "const", len);
+	__tag__name(tag, cu, bf + printed, len - printed, conf);
 
 	return bf;
 }
