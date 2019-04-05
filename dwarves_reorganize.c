@@ -253,19 +253,13 @@ static bool class__move_member(struct class *class, struct class_member *dest,
 		fputs("/* Moving", fp);
 
 	if (from->bitfield_size != 0) {
-		struct class_member *pos =
-				list_prepare_entry(from, class__tags(class),
-						   tag.node);
-		struct class_member *tmp;
+		struct class_member *pos, *tmp;
 		LIST_HEAD(from_list);
 
 		if (verbose)
 			fprintf(fp, " bitfield('%s' ... ",
 				class_member__name(from, cu));
-		list_for_each_entry_safe_from(pos, tmp, class__tags(class),
-					      tag.node) {
-			if (pos->tag.tag != DW_TAG_member)
-				continue;
+		class__for_each_member_safe_from(class, from, pos, tmp) {
 			/*
 			 * Have we reached the end of the bitfield?
 			 */

@@ -1127,6 +1127,13 @@ const struct class_member *class__find_bit_hole(const struct class *cls,
 			continue;					\
 		else
 
+#define class__for_each_member_safe_from(cls, from, pos, tmp)			\
+	pos = list_prepare_entry(from, class__tags(cls), tag.node);		\
+	list_for_each_entry_safe_from(pos, tmp, class__tags(cls), tag.node)	\
+		if (!tag__is_class_member(&pos->tag))				\
+			continue;						\
+		else
+
 #define class__for_each_member_continue(cls, from, pos)			\
 	pos = list_prepare_entry(from, class__tags(cls), tag.node);	\
 	list_for_each_entry_continue(pos, class__tags(cls), tag.node)	\
