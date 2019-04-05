@@ -361,8 +361,20 @@ static void function__show(struct function *func, struct cu *cu)
 	if (expand_types)
 		function__emit_type_definitions(func, cu, stdout);
 	tag__fprintf(tag, cu, &conf, stdout);
-	if (compilable_output)
-		fprintf(stdout, "\n{\n}\n");
+	if (compilable_output) {
+		struct tag *type = tag__strip_typedefs_and_modifiers(&func->proto.tag, cu);
+
+		fprintf(stdout, "\n{");
+		if (type != NULL) { /* NULL == void */
+			if (tag__is_pointer(type))
+				fprintf(stdout, "\n\treturn (void *)0;");
+			else if (tag__is_struct(type))
+				fprintf(stdout, "\n\treturn *(struct %s *)1;", class__name(tag__class(type), cu));
+			else
+				fprintf(stdout, "\n\treturn 0;");
+		}
+		fprintf(stdout, "\n}\n");
+	}
 	putchar('\n');
 	if (show_variables || show_inline_expansions)
 		function__fprintf_stats(tag, cu, &conf, stdout);
