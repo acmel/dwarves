@@ -425,12 +425,9 @@ static void class__demote_bitfield_members(struct class *class,
 					   const struct base_type *new_type,
 					   type_id_t new_type_id)
 {
-	struct class_member *member =
-		list_prepare_entry(from, class__tags(class), tag.node);
+	struct class_member *member;
 
-	list_for_each_entry_from(member, class__tags(class), tag.node) {
-		if (member->tag.tag != DW_TAG_member)
-			continue;
+	class__for_each_member_from(class, from, member) {
 		member->byte_size = new_type->bit_size / 8;
 		member->tag.type = new_type_id;
 		if (member == to)
@@ -630,12 +627,9 @@ static void class__fixup_bitfield_types(struct class *class,
 					struct class_member *to_before,
 					type_id_t type)
 {
-	struct class_member *member =
-		list_prepare_entry(from, class__tags(class), tag.node);
+	struct class_member *member;
 
-	list_for_each_entry_from(member, class__tags(class), tag.node) {
-		if (member->tag.tag != DW_TAG_member)
-			continue;
+	class__for_each_member_from(class, from, member) {
 		if (member == to_before)
 			break;
 		member->tag.type = type;

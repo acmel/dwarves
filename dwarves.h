@@ -1120,6 +1120,13 @@ const struct class_member *class__find_bit_hole(const struct class *cls,
 					   const struct class_member *trailer,
 						const uint16_t bit_hole_size);
 
+#define class__for_each_member_from(cls, from, pos)			\
+	pos = list_prepare_entry(from, class__tags(cls), tag.node);	\
+	list_for_each_entry_from(pos, class__tags(cls), tag.node)	\
+		if (!tag__is_class_member(&pos->tag))			\
+			continue;					\
+		else
+
 enum base_type_float_type {
 	BT_FP_SINGLE = 1,
 	BT_FP_DOUBLE,
