@@ -21,14 +21,12 @@ void class__subtract_offsets_from(struct class *class,
 				  struct class_member *from,
 				  const uint16_t size)
 {
-	struct class_member *member =
-		list_prepare_entry(from, class__tags(class), tag.node);
+	struct class_member *member;
 
-	list_for_each_entry_continue(member, class__tags(class), tag.node)
-		if (member->tag.tag == DW_TAG_member) {
-			member->byte_offset -= size;
-			member->bit_offset -= size * 8;
-		}
+	class__for_each_member_continue(class, from, member) {
+		member->byte_offset -= size;
+		member->bit_offset  -= size * 8;
+	}
 
 	if (class->padding != 0) {
 		struct class_member *last_member =
@@ -46,14 +44,12 @@ void class__subtract_offsets_from(struct class *class,
 void class__add_offsets_from(struct class *class, struct class_member *from,
 			     const uint16_t size)
 {
-	struct class_member *member =
-		list_prepare_entry(from, class__tags(class), tag.node);
+	struct class_member *member;
 
-	list_for_each_entry_continue(member, class__tags(class), tag.node)
-		if (member->tag.tag == DW_TAG_member) {
-			member->byte_offset += size;
-			member->bit_offset += size * 8;
-		}
+	class__for_each_member_continue(class, from, member) {
+		member->byte_offset += size;
+		member->bit_offset  += size * 8;
+	}
 }
 
 /*
@@ -137,13 +133,10 @@ static struct class_member *
 	class__find_next_hole_of_size(struct class *class,
 				      struct class_member *from, size_t size)
 {
-	struct class_member *member =
-		list_prepare_entry(from, class__tags(class), tag.node);
 	struct class_member *bitfield_head = NULL;
+	struct class_member *member;
 
-	list_for_each_entry_continue(member, class__tags(class), tag.node) {
-		if (member->tag.tag != DW_TAG_member)
-			continue;
+	class__for_each_member_continue(class, from, member) {
 		if (member->bitfield_size != 0) {
 			if (bitfield_head == NULL)
 				bitfield_head = member;
@@ -197,10 +190,9 @@ static struct class_member *
 					  struct class_member *from,
 					  size_t size)
 {
-	struct class_member *member =
-		list_prepare_entry(from, class__tags(class), tag.node);
+	struct class_member *member;
 
-	list_for_each_entry_continue(member, class__tags(class), tag.node) {
+	class__for_each_member_continue(class, from, member) {
 		if (member->tag.tag != DW_TAG_member)
 			continue;
 		if (member->bit_hole != 0 &&
