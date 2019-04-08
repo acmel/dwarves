@@ -283,9 +283,17 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 					 new_cu, diff);
 }
 
+static struct cu *cus__find_pair(struct cus *cus, const char *name)
+{
+	if (cus->nr_entries == 1)
+		return list_first_entry(&cus->cus, struct cu, node);
+
+	return cus__find_cu_by_name(cus, name);
+}
+
 static int cu_find_new_tags_iterator(struct cu *new_cu, void *old_cus)
 {
-	struct cu *old_cu = cus__find_cu_by_name(old_cus, new_cu->name);
+	struct cu *old_cu = cus__find_pair(old_cus, new_cu->name);
 
 	if (old_cu != NULL && cu__same_build_id(old_cu, new_cu))
 		return 0;
@@ -332,7 +340,7 @@ static int cu_find_new_tags_iterator(struct cu *new_cu, void *old_cus)
 
 static int cu_diff_iterator(struct cu *cu, void *new_cus)
 {
-	struct cu *new_cu = cus__find_cu_by_name(new_cus, cu->name);
+	struct cu *new_cu = cus__find_pair(new_cus, cu->name);
 
 	if (new_cu != NULL && cu__same_build_id(cu, new_cu))
 		return 0;
