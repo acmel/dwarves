@@ -370,6 +370,7 @@ static void cu__find_class_holes(struct cu *cu)
 
 void cus__add(struct cus *cus, struct cu *cu)
 {
+	cus->nr_entries++;
 	list_add_tail(&cu->node, &cus->cus);
 	cu__find_class_holes(cu);
 }
@@ -1946,8 +1947,10 @@ struct cus *cus__new(void)
 {
 	struct cus *cus = malloc(sizeof(*cus));
 
-	if (cus != NULL)
+	if (cus != NULL) {
+		cus->nr_entries = 0;
 		INIT_LIST_HEAD(&cus->cus);
+	}
 
 	return cus;
 }

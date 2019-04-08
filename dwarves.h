@@ -82,6 +82,7 @@ struct conf_fprintf {
 };
 
 struct cus {
+	uint32_t	      nr_entries;
 	struct list_head      cus;
 };
 
