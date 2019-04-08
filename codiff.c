@@ -181,21 +181,42 @@ static int check_print_change(const struct class_member *old,
 	return changes;
 }
 
+static struct class_member *class__find_pair_member(const struct class *structure, const struct cu *cu,
+						    const struct class_member *pair_member, const struct cu *pair_cu,
+						    int *nr_anonymousp)
+{
+	const char *member_name = class_member__name(pair_member, pair_cu);
+	struct class_member *member;
+
+	if (member_name)
+		return class__find_member_by_name(structure, cu, member_name);
+
+	int nr_anonymous = ++*nr_anonymousp;
+
+	/* Unnamed struct or union, lets look for the first unammed matchin tag.type */
+
+	type__for_each_member(&structure->type, member) {
+		if (member->tag.tag == pair_member->tag.tag && /* Both are class/union/struct (unnamed) */
+		    class_member__name(member, cu) == member_name && /* Both are NULL? */
+		    --nr_anonymous == 0)
+			return member;
+	}
+
+	return NULL;
+}
+
 static int check_print_members_changes(const struct class *structure,
 				       const struct cu *cu,
 				       const struct class *new_structure,
 				       const struct cu *new_cu,
 				       int print)
 {
-	int changes = 0;
+	int changes = 0, nr_anonymous = 0;
 	struct class_member *member;
 	uint16_t nr_twins_found = 0;
 
 	type__for_each_member(&structure->type, member) {
-		const char *member_name = class_member__name(member, cu);
-		struct class_member *twin =
-			class__find_member_by_name(new_structure, new_cu,
-						   member_name);
+		struct class_member *twin = class__find_pair_member(new_structure, new_cu, member, cu, &nr_anonymous);
 		if (twin != NULL) {
 			twin->tag.visited = 1;
 			++nr_twins_found;
@@ -434,21 +455,19 @@ static void show_nr_members_changes(const struct class *structure,
 				    const struct cu *new_cu)
 {
 	struct class_member *member;
+	int nr_anonymous = 0;
 
 	/* Find the removed ones */
 	type__for_each_member(&structure->type, member) {
-		struct class_member *twin =
-			class__find_member_by_name(new_structure, new_cu,
-						   class_member__name(member, cu));
+		struct class_member *twin = class__find_pair_member(new_structure, new_cu, member, cu, &nr_anonymous);
 		if (twin == NULL)
 			show_changed_member('-', member, cu);
 	}
 
+	nr_anonymous = 0;
 	/* Find the new ones */
 	type__for_each_member(&new_structure->type, member) {
-		struct class_member *twin =
-			class__find_member_by_name(structure, cu,
-						   class_member__name(member, new_cu));
+		struct class_member *twin = class__find_pair_member(structure, cu, member, new_cu, &nr_anonymous);
 		if (twin == NULL)
 			show_changed_member('+', member, new_cu);
 	}
