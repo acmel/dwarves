@@ -1608,8 +1608,13 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 				   cconf.indent, tabs,
 				   type->size, sum_bytes, sum_bits, sum_holes, sum_bit_holes, size_diff);
 out:
-	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
-				 cconf.suffix ? " ": "", cconf.suffix ?: "");
+
+	printed += fprintf(fp, "%.*s}%s%s", indent, tabs, cconf.suffix ? " ": "", cconf.suffix ?: "");
+
+	if (type->alignment != 0)
+		printed += fprintf(fp, " __attribute__((__aligned__(%u)))", type->alignment);
+
+	return printed;
 }
 
 size_t class__fprintf(struct class *class, const struct cu *cu, FILE *fp)
