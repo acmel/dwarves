@@ -21,6 +21,7 @@
 static int show_struct_diffs;
 static int show_function_diffs;
 static int verbose;
+static int quiet;
 static int show_terse_type_changes;
 
 static struct conf_load conf_load = {
@@ -616,14 +617,17 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	    cu->nr_structures_changed == 0)
 		return 0;
 
-	if (first_cu_printed)
-		putchar('\n');
-	else
+	if (first_cu_printed) {
+		if (!quiet)
+			putchar('\n');
+	} else {
 		first_cu_printed = 1;
+	}
 
 	++total_cus_changed;
 
-	printf("%s:\n", cu->name);
+	if (!quiet)
+		printf("%s:\n", cu->name);
 
 	uint32_t id;
 	struct class *class;
@@ -733,6 +737,11 @@ static const struct argp_option codiff__options[] = {
 		.doc  = "show diffs details",
 	},
 	{
+		.key  = 'q',
+		.name = "quiet",
+		.doc  = "Show only differences, no difference? No output",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -746,6 +755,7 @@ static error_t codiff__options_parser(int key, char *arg __unused,
 	case 's': show_struct_diffs = 1;	break;
 	case 't': show_terse_type_changes = 1;	break;
 	case 'V': verbose = 1;			break;
+	case 'q': quiet = 1;			break;
 	default:  return ARGP_ERR_UNKNOWN;
 	}
 	return 0;
