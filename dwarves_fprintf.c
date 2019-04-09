@@ -1361,6 +1361,19 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		 * all over the place.
 		 */
 		    last_size != 0) {
+			if (last->bit_hole != 0 && pos->bitfield_size) {
+				type = cu__type(cu, pos->tag.type);
+				if (type == NULL) {
+					printed += fprintf(fp, "%.*s", cconf.indent, tabs);
+					printed += tag__id_not_found_fprintf(fp, pos->tag.type);
+					continue;
+				}
+				printed += fprintf(fp, "\n%.*s/* Force alignment to the next boundary: */\n", cconf.indent, tabs);
+				printed += fprintf(fp, "%.*s", cconf.indent, tabs);
+				printed += type__fprintf(type, cu, "", &cconf, fp);
+				printed += fprintf(fp, ":0;\n");
+			}
+
 			if (pos->byte_offset < last->byte_offset ||
 			    (pos->byte_offset == last->byte_offset &&
 			     last->bitfield_size == 0 &&
