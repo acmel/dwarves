@@ -199,6 +199,10 @@ static size_t array_type__fprintf(const struct tag *tag,
 	if (type == NULL)
 		return tag__id_not_found_fprintf(fp, tag->type);
 
+	/* Zero sized arrays? */
+	if (at->dimensions == 1 && at->nr_entries[0] == 0 && tag__is_const(type))
+		type = cu__type(cu, type->type);
+
 	printed = type__fprintf(type, cu, name, conf, fp);
 	for (i = 0; i < at->dimensions; ++i) {
 		if (conf->flat_arrays || at->is_vector) {
@@ -213,8 +217,12 @@ static size_t array_type__fprintf(const struct tag *tag,
 				flat_dimensions = at->nr_entries[i];
 			else
 				flat_dimensions *= at->nr_entries[i];
-		} else
-			printed += fprintf(fp, "[%u]", at->nr_entries[i]);
+		} else {
+			if (at->nr_entries[i] != 0)
+				printed += fprintf(fp, "[%u]", at->nr_entries[i]);
+			else
+				printed += fprintf(fp, "[]");
+		}
 	}
 
 	if (at->is_vector) {
@@ -505,12 +513,6 @@ const char *tag__name(const struct tag *tag, const struct cu *cu,
 		return bf;
 	}
 
-	if (tag->tag == DW_TAG_const_type) {
-		snprintf(bf, len, "%s ", "const");
-		printed = strlen(bf);
-		tag = cu__type(cu, tag->type);
-	}
-
 	__tag__name(tag, cu, bf + printed, len - printed, conf);
 
 	return bf;
@@ -637,9 +639,10 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			printed += fprintf(fp, " */ ");
 	}
 
+	tconf = *conf;
+
 	if (tag__is_struct(type) || tag__is_union(type) ||
 	    tag__is_enumeration(type)) {
-		tconf = *conf;
 		tconf.type_spacing -= 8;
 		tconf.prefix	   = NULL;
 		tconf.suffix	   = name;
@@ -647,6 +650,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		tconf.suppress_offset_comment = suppress_offset_comment;
 	}
 
+next_type:
 	switch (type->tag) {
 	case DW_TAG_pointer_type:
 		if (type->type != 0) {
@@ -660,23 +664,31 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			if (ptype->tag == DW_TAG_subroutine_type) {
 				printed += ftype__fprintf(tag__ftype(ptype),
 							  cu, name, 0, 1,
-							  conf->type_spacing,
-							  conf, fp);
+							  tconf.type_spacing,
+							  &tconf, fp);
 				break;
 			}
 		}
 		/* Fall Thru */
 	default:
-		printed += fprintf(fp, "%-*s %s", conf->type_spacing,
-				   tag__name(type, cu, tbf, sizeof(tbf), conf),
+		printed += fprintf(fp, "%-*s %s", tconf.type_spacing,
+				   tag__name(type, cu, tbf, sizeof(tbf), &tconf),
 				   name);
 		break;
 	case DW_TAG_subroutine_type:
 		printed += ftype__fprintf(tag__ftype(type), cu, name, 0, 0,
-					  conf->type_spacing, conf, fp);
+					  tconf.type_spacing, &tconf, fp);
 		break;
+	case DW_TAG_const_type: {
+		size_t const_printed = fprintf(fp, "%s ", "const");
+		tconf.type_spacing -= const_printed;
+		printed		   += const_printed;
+	}
+		type = cu__type(cu, type->type);
+		goto next_type;
+
 	case DW_TAG_array_type:
-		printed += array_type__fprintf(type, cu, name, conf, fp);
+		printed += array_type__fprintf(type, cu, name, &tconf, fp);
 		break;
 	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
@@ -685,13 +697,13 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		if (type__name(ctype, cu) != NULL && !expand_types) {
 			printed += fprintf(fp, "%s %-*s %s",
 					   (type->tag == DW_TAG_class_type &&
-					    !conf->classes_as_structs) ? "class" : "struct",
-					   conf->type_spacing - 7,
+					    !tconf.classes_as_structs) ? "class" : "struct",
+					   tconf.type_spacing - 7,
 					   type__name(ctype, cu), name);
 		} else {
 			struct class *cclass = tag__class(type);
 
-			if (!conf->suppress_comments)
+			if (!tconf.suppress_comments)
 				class__find_holes(cclass);
 
 			printed += __class__fprintf(cclass, cu, &tconf, fp);
@@ -702,7 +714,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 
 		if (type__name(ctype, cu) != NULL && !expand_types)
 			printed += fprintf(fp, "union %-*s %s",
-					   conf->type_spacing - 6,
+					   tconf.type_spacing - 6,
 					   type__name(ctype, cu), name);
 		else
 			printed += union__fprintf(ctype, cu, &tconf, fp);
@@ -712,19 +724,19 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 
 		if (type__name(ctype, cu) != NULL)
 			printed += fprintf(fp, "enum %-*s %s",
-					   conf->type_spacing - 5,
+					   tconf.type_spacing - 5,
 					   type__name(ctype, cu), name);
 		else
 			printed += enumeration__fprintf(type, cu, &tconf, fp);
 		break;
 	}
 out:
-	if (conf->expand_types)
+	if (tconf.expand_types)
 		--type->recursivity_level;
 
 	return printed;
 out_type_not_found:
-	printed = fprintf(fp, "%-*s %s", conf->type_spacing, "<ERROR>", name);
+	printed = fprintf(fp, "%-*s %s", tconf.type_spacing, "<ERROR>", name);
 	goto out;
 }
 
