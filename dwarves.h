@@ -901,6 +901,7 @@ static __pure inline int tag__is_class_member(const struct tag *tag)
  * @nnr_members: number of non static DW_TAG_member entries
  * @nr_static_members: number of static DW_TAG_member entries
  * @nr_tags: number of tags
+ * @alignment: DW_AT_alignement, zero if not present, gcc emits since circa 7.3.1
  */
 struct type {
 	struct namespace namespace;
@@ -909,6 +910,7 @@ struct type {
 	int32_t		 size_diff;
 	uint16_t	 nr_static_members;
 	uint16_t	 nr_members;
+	uint32_t	 alignment;
 	uint8_t		 declaration; /* only one bit used */
 	uint8_t		 definition_emitted:1;
 	uint8_t		 fwd_decl_emitted:1;

@@ -510,6 +510,7 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu)
 	namespace__init(&type->namespace, die, cu);
 	INIT_LIST_HEAD(&type->node);
 	type->size		 = attr_numeric(die, DW_AT_byte_size);
+	type->alignment		 = attr_numeric(die, DW_AT_alignment);
 	type->declaration	 = attr_numeric(die, DW_AT_declaration);
 	dwarf_tag__set_spec(type->namespace.tag.priv,
 			    attr_type(die, DW_AT_specification));
