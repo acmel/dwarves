@@ -232,8 +232,12 @@ static size_t array_type__fprintf(const struct tag *tag,
 			flat_dimensions = 1;
 		printed += fprintf(fp, " __attribute__ ((__vector_size__ (%llu)))",
 				   flat_dimensions * tag__size(type, cu));
-	} else if (conf->flat_arrays)
-		printed += fprintf(fp, "[%llu]", flat_dimensions);
+	} else if (conf->flat_arrays) {
+		if (flat_dimensions != 0)
+			printed += fprintf(fp, "[%llu]", flat_dimensions);
+		else
+			printed += fprintf(fp, "[]");
+	}
 
 	return printed;
 }
