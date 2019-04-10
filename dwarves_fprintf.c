@@ -1544,6 +1544,24 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		last = pos;
 	}
 
+	if (class->padding != 0) {
+		tag_pos = cu__type(cu, last->tag.type);
+		size = tag__size(tag_pos, cu);
+
+		if (is_power_of_2(size) && class->padding > cu->addr_size) {
+			int added_padding;
+			int bit_size = size * 8;
+
+			printed += fprintf(fp, "\n%.*s/* Force padding: */\n", cconf.indent, tabs);
+
+			for (added_padding = 0; added_padding < class->padding; added_padding += size) {
+				printed += fprintf(fp, "%.*s", cconf.indent, tabs);
+				printed += type__fprintf(tag_pos, cu, "", &cconf, fp);
+				printed += fprintf(fp, ":%u;\n", bit_size);
+			}
+		}
+	}
+
 	if (!cconf.show_only_data_members)
 		class__vtable_fprintf(class, cu, &cconf, fp);
 
@@ -1620,7 +1638,6 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 				   cconf.indent, tabs,
 				   type->size, sum_bytes, sum_bits, sum_holes, sum_bit_holes, size_diff);
 out:
-
 	printed += fprintf(fp, "%.*s}%s%s", indent, tabs, cconf.suffix ? " ": "", cconf.suffix ?: "");
 
 	if (type->alignment != 0)
