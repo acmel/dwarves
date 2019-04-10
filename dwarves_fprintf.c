@@ -796,8 +796,13 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 	    type__name(tag__type(type), cu) == NULL) {
 		if (!sconf.suppress_offset_comment) {
 			/* Check if this is a anonymous union */
-			const int slen = cm_name ? (int)strlen(cm_name) : -1;
+			int slen = cm_name ? (int)strlen(cm_name) : -1;
 			int size_spacing = 5;
+
+			if (tag__is_struct(type) && tag__class(type)->is_packed) {
+				int packed_len = sizeof("__attribute__((__packed__))");
+				slen += packed_len;
+			}
 
 			printed += fprintf(fp, sconf.hex_fmt ?
 							"%*s/* %#5x" :
@@ -1274,6 +1279,8 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	cconf.indent = indent + 1;
 	cconf.no_semicolon = 0;
 
+	class__infer_packed_attributes(class, cu);
+
 	/* First look if we have DW_TAG_inheritance */
 	type__for_each_tag(type, tag_pos) {
 		struct tag *type;
@@ -1448,6 +1455,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			 * in this member's struct type.
 			 */
 			class__find_holes(tclass);
+			class__infer_packed_attributes(tclass, cu);
 
 			padding = tclass->padding;
 			if (padding > 0) {
@@ -1638,7 +1646,13 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 				   cconf.indent, tabs,
 				   type->size, sum_bytes, sum_bits, sum_holes, sum_bit_holes, size_diff);
 out:
-	printed += fprintf(fp, "%.*s}%s%s", indent, tabs, cconf.suffix ? " ": "", cconf.suffix ?: "");
+	printed += fprintf(fp, "%.*s}", indent, tabs);
+
+	if (class->is_packed)
+		printed += fprintf(fp, " __attribute__((__packed__))");
+
+	if (cconf.suffix)
+		printed += fprintf(fp, " %s", cconf.suffix);
 
 	if (type->alignment != 0)
 		printed += fprintf(fp, " __attribute__((__aligned__(%u)))", type->alignment);

@@ -1291,6 +1291,65 @@ void class__find_holes(struct class *class)
 	class->holes_searched = true;
 }
 
+bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
+{
+	const struct type *ctype = &cls->type;
+	struct class_member *pos, *last = NULL;
+	uint16_t max_natural_alignment = 1;
+
+	if (!tag__is_struct(class__tag(cls)))
+		return false;
+
+	if (cls->packed_attribute_inferred)
+		return cls->is_packed;
+
+	class__find_holes(cls);
+
+	if (cls->padding != 0 || cls->nr_holes != 0) {
+		cls->is_packed = false;
+		goto out;
+	}
+
+	type__for_each_member(ctype, pos) {
+		/* XXX for now just skip these */
+		if (pos->tag.tag == DW_TAG_inheritance &&
+		    pos->virtuality == DW_VIRTUALITY_virtual)
+			continue;
+
+		if (pos->is_static)
+			continue;
+
+		/* Always aligned: */
+		if (pos->byte_size == sizeof(char))
+			continue;
+
+		if (pos->byte_size >= cu->addr_size) {
+			max_natural_alignment = cu->addr_size;
+			if ((pos->byte_offset % cu->addr_size) == 0)
+				continue;
+		}
+
+		uint16_t natural_alignment = __roundup_pow_of_two(pos->byte_size);
+
+		if (max_natural_alignment < natural_alignment)
+			max_natural_alignment = natural_alignment;
+
+		if ((pos->byte_offset % natural_alignment) == 0)
+			continue;
+
+		cls->is_packed = true;
+		goto out;
+	}
+
+	if ((class__size(cls) % max_natural_alignment) != 0)
+		cls->is_packed = true;
+
+out:
+	cls->packed_attribute_inferred = true;
+
+	return cls->is_packed;
+}
+
 /** class__has_hole_ge - check if class has a hole greater or equal to @size
  * @class - class instance
  * @size - hole size to check

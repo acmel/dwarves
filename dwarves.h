@@ -1047,6 +1047,8 @@ struct class {
 	uint8_t		 pre_bit_hole;
 	uint8_t		 bit_padding;
 	bool		 holes_searched;
+	bool		 packed_attribute_inferred;
+	bool		 is_packed;
 	void		 *priv;
 };
 
@@ -1094,6 +1096,9 @@ static inline int class__is_struct(const struct class *cls)
 
 void class__find_holes(struct class *cls);
 int class__has_hole_ge(const struct class *cls, const uint16_t size);
+
+bool class__infer_packed_attributes(struct class *cls, const struct cu *cu);
+
 size_t class__fprintf(struct class *cls, const struct cu *cu, FILE *fp);
 
 void class__add_vtable_entry(struct class *cls, struct function *vtable_entry);
