@@ -1668,7 +1668,7 @@ out:
 	if (cconf.suffix)
 		printed += fprintf(fp, " %s", cconf.suffix);
 
-	if (type->alignment != 0)
+	if (!cconf.suppress_aligned_attribute && type->alignment != 0)
 		printed += fprintf(fp, " __attribute__((__aligned__(%u)))", type->alignment);
 
 	return printed;
