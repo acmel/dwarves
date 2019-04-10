@@ -1381,16 +1381,26 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		 */
 		    last_size != 0) {
 			if (last->bit_hole != 0 && pos->bitfield_size) {
+				uint8_t bitfield_size = last->bit_hole;
+
 				type = cu__type(cu, pos->tag.type);
 				if (type == NULL) {
 					printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 					printed += tag__id_not_found_fprintf(fp, pos->tag.type);
 					continue;
 				}
-				printed += fprintf(fp, "\n%.*s/* Force alignment to the next boundary: */\n", cconf.indent, tabs);
+				/*
+				 * Now check if this isn't something like 'unsigned :N' with N > 0,
+				 * i.e. _explicitely_ adding a bit hole.
+				 */
+				if (last->byte_offset != pos->byte_offset) {
+					printed += fprintf(fp, "\n%.*s/* Force alignment to the next boundary: */\n", cconf.indent, tabs);
+					bitfield_size = 0;
+				}
+
 				printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 				printed += type__fprintf(type, cu, "", &cconf, fp);
-				printed += fprintf(fp, ":0;\n");
+				printed += fprintf(fp, ":%u;\n", bitfield_size);
 			}
 
 			if (pos->byte_offset < last->byte_offset ||
