@@ -131,8 +131,8 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 		break;
 	case DW_TAG_pointer_type:
 		ptr_type = cu__type(cu, type->type);
-		tag__assert_search_result(ptr_type);
-		if (ptr_type->tag != DW_TAG_subroutine_type)
+		/* void ** can make ptr_type be NULL */
+		if (ptr_type == NULL || ptr_type->tag != DW_TAG_subroutine_type)
 			break;
 		type = ptr_type;
 		is_pointer = 1;
