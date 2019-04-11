@@ -902,6 +902,7 @@ static __pure inline int tag__is_class_member(const struct tag *tag)
  * @nr_static_members: number of static DW_TAG_member entries
  * @nr_tags: number of tags
  * @alignment: DW_AT_alignement, zero if not present, gcc emits since circa 7.3.1
+ * @natural_alignment: For inferring __packed__, normally the widest scalar in it, recursively
  */
 struct type {
 	struct namespace namespace;
@@ -911,6 +912,7 @@ struct type {
 	uint16_t	 nr_static_members;
 	uint16_t	 nr_members;
 	uint32_t	 alignment;
+	uint16_t	 natural_alignment;
 	uint8_t		 declaration; /* only one bit used */
 	uint8_t		 definition_emitted:1;
 	uint8_t		 fwd_decl_emitted:1;

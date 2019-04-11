@@ -1291,17 +1291,49 @@ void class__find_holes(struct class *class)
 	class->holes_searched = true;
 }
 
-static size_t class_member__byte_size_for_alignment(struct class_member *member, const struct cu *cu)
+static size_t type__natural_alignment(struct type *type, const struct cu *cu);
+
+static size_t tag__natural_alignment(struct tag *tag, const struct cu *cu)
 {
-	struct tag *type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
+	size_t natural_alignment = 1;
 
-	if (type->tag == DW_TAG_array_type) {
-		type = tag__strip_typedefs_and_modifiers(type, cu);
-
-		return tag__size(type, cu);
+	if (tag__is_pointer(tag)) {
+		natural_alignment = cu->addr_size;
+	} else if (tag->tag == DW_TAG_base_type) {
+		natural_alignment = base_type__size(tag);
+	} else if (tag__is_enumeration(tag)) {
+		natural_alignment = tag__type(tag)->size / 8;
+	} else if (tag__is_struct(tag) || tag__is_union(tag)) {
+		natural_alignment = type__natural_alignment(tag__type(tag), cu);
+	} else if (tag->tag == DW_TAG_array_type) {
+		tag = tag__strip_typedefs_and_modifiers(tag, cu);
+		natural_alignment = tag__natural_alignment(tag, cu);
 	}
 
-	return member->byte_size;
+	return natural_alignment;
+}
+
+static size_t type__natural_alignment(struct type *type, const struct cu *cu)
+{
+	struct class_member *member;
+
+	if (type->natural_alignment != 0)
+		return type->natural_alignment;
+
+	type__for_each_member(type, member) {
+		/* XXX for now just skip these */
+		if (member->tag.tag == DW_TAG_inheritance &&
+		    member->virtuality == DW_VIRTUALITY_virtual)
+			continue;
+
+		struct tag *member_type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
+		size_t member_natural_alignment = tag__natural_alignment(member_type, cu);
+
+		if (type->natural_alignment < member_natural_alignment)
+			type->natural_alignment = member_natural_alignment;
+	}
+
+	return type->natural_alignment;
 }
 
 bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
@@ -1332,19 +1364,12 @@ bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
 		if (pos->is_static)
 			continue;
 
-		size_t byte_size = class_member__byte_size_for_alignment(pos, cu);
+		struct tag *member_type = tag__strip_typedefs_and_modifiers(&pos->tag, cu);
+		size_t natural_alignment = tag__natural_alignment(member_type, cu);
 
 		/* Always aligned: */
-		if (byte_size == sizeof(char))
+		if (natural_alignment == sizeof(char))
 			continue;
-
-		if (byte_size >= cu->addr_size) {
-			max_natural_alignment = cu->addr_size;
-			if ((pos->byte_offset % cu->addr_size) == 0)
-				continue;
-		}
-
-		uint16_t natural_alignment = __roundup_pow_of_two(byte_size);
 
 		if (max_natural_alignment < natural_alignment)
 			max_natural_alignment = natural_alignment;
