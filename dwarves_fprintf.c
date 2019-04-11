@@ -1577,7 +1577,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		last = pos;
 	}
 
-	if (class->padding != 0) {
+	if (class->padding != 0 && type->alignment == 0) {
 		tag_pos = cu__type(cu, last->tag.type);
 		size = tag__size(tag_pos, cu);
 
