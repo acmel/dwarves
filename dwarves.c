@@ -1291,6 +1291,19 @@ void class__find_holes(struct class *class)
 	class->holes_searched = true;
 }
 
+static size_t class_member__byte_size_for_alignment(struct class_member *member, const struct cu *cu)
+{
+	struct tag *type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
+
+	if (type->tag == DW_TAG_array_type) {
+		type = tag__strip_typedefs_and_modifiers(type, cu);
+
+		return tag__size(type, cu);
+	}
+
+	return member->byte_size;
+}
+
 bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
 {
 	const struct type *ctype = &cls->type;
@@ -1319,17 +1332,19 @@ bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
 		if (pos->is_static)
 			continue;
 
+		size_t byte_size = class_member__byte_size_for_alignment(pos, cu);
+
 		/* Always aligned: */
-		if (pos->byte_size == sizeof(char))
+		if (byte_size == sizeof(char))
 			continue;
 
-		if (pos->byte_size >= cu->addr_size) {
+		if (byte_size >= cu->addr_size) {
 			max_natural_alignment = cu->addr_size;
 			if ((pos->byte_offset % cu->addr_size) == 0)
 				continue;
 		}
 
-		uint16_t natural_alignment = __roundup_pow_of_two(pos->byte_size);
+		uint16_t natural_alignment = __roundup_pow_of_two(byte_size);
 
 		if (max_natural_alignment < natural_alignment)
 			max_natural_alignment = natural_alignment;
