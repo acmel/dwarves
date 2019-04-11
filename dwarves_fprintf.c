@@ -355,8 +355,19 @@ size_t enumeration__fprintf(const struct tag *tag, const struct cu *cu,
 		printed += fprintf(fp, "%.*s\t%s = %u,\n", indent, tabs,
 				   enumerator__name(pos, cu), pos->value);
 
-	return printed + fprintf(fp, "%.*s}%s%s", indent, tabs,
-				 conf->suffix ? " " : "", conf->suffix ?: "");
+	printed += fprintf(fp, "%.*s}", indent, tabs);
+
+	/*
+	 * XXX: find out how to precisely determine the max size for an
+	 * enumeration, use sizeof(int) for now.
+	 */
+	if (type->size / 8 != sizeof(int))
+		printed += fprintf(fp, " __attribute__((__packed__))", conf->suffix);
+
+	if (conf->suffix)
+		printed += fprintf(fp, " %s", conf->suffix);
+
+	return printed;
 }
 
 static const char *tag__prefix(const struct cu *cu, const uint32_t tag,
