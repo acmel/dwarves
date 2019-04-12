@@ -1390,6 +1390,40 @@ out:
 	return cls->is_packed;
 }
 
+/*
+ * If structs embedded in unions, nameless or not, have a size which isn't
+ * isn't a multiple of the union size, then it must be packed, even if
+ * it has no holes nor padding, as an array of such unions would have the
+ * natural alignments of non-multiple structs inside it broken.
+ */
+void union__infer_packed_attributes(struct type *type, const struct cu *cu)
+{
+	const uint32_t union_size = type->size;
+	struct class_member *member;
+
+	if (type->packed_attributes_inferred)
+		return;
+
+	type__for_each_member(type, member) {
+		struct tag *member_type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
+
+		if (!tag__is_struct(member_type))
+			continue;
+
+		size_t natural_alignment = tag__natural_alignment(member_type, cu);
+
+		/* Would this break the natural alignment */
+		if ((union_size % natural_alignment) != 0) {
+			struct class *cls = tag__class(member_type);
+
+			cls->is_packed = true;
+			cls->type.packed_attributes_inferred = true;
+		}
+	}
+
+	type->packed_attributes_inferred = true;
+}
+
 /** class__has_hole_ge - check if class has a hole greater or equal to @size
  * @class - class instance
  * @size - hole size to check

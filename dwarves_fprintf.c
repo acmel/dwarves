@@ -921,6 +921,14 @@ static size_t union__fprintf(struct type *type, const struct cu *cu,
 	uconf.indent = indent + 1;
 
 	/*
+	 * If structs embedded in unions, nameless or not, have a size which isn't
+	 * isn't a multiple of the union size, then it must be packed, even if
+	 * it has no holes nor padding, as an array of such unions would have the
+	 * natural alignments of non-multiple structs inside it broken.
+	 */
+	union__infer_packed_attributes(type, cu);
+
+	/*
 	 * We may be called directly or from tag__fprintf, so keep sure
 	 * we keep track of the cacheline we're in.
 	 *
