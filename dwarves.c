@@ -1338,14 +1338,14 @@ static size_t type__natural_alignment(struct type *type, const struct cu *cu)
 
 bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
 {
-	const struct type *ctype = &cls->type;
+	struct type *ctype = &cls->type;
 	struct class_member *pos, *last = NULL;
 	uint16_t max_natural_alignment = 1;
 
 	if (!tag__is_struct(class__tag(cls)))
 		return false;
 
-	if (cls->packed_attribute_inferred)
+	if (ctype->packed_attributes_inferred)
 		return cls->is_packed;
 
 	class__find_holes(cls);
@@ -1385,7 +1385,7 @@ bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
 		cls->is_packed = true;
 
 out:
-	cls->packed_attribute_inferred = true;
+	ctype->packed_attributes_inferred = true;
 
 	return cls->is_packed;
 }

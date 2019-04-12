@@ -913,6 +913,7 @@ struct type {
 	uint16_t	 nr_members;
 	uint32_t	 alignment;
 	uint16_t	 natural_alignment;
+	bool		 packed_attributes_inferred;
 	uint8_t		 declaration; /* only one bit used */
 	uint8_t		 definition_emitted:1;
 	uint8_t		 fwd_decl_emitted:1;
@@ -1049,7 +1050,6 @@ struct class {
 	uint8_t		 pre_bit_hole;
 	uint8_t		 bit_padding;
 	bool		 holes_searched;
-	bool		 packed_attribute_inferred;
 	bool		 is_packed;
 	void		 *priv;
 };
