@@ -406,10 +406,21 @@ static const char *tag__ptr_name(const struct tag *tag, const struct cu *cu,
 			snprintf(bf + l, len - l, " %s", ptr_suffix);
 		} else if (!tag__has_type_loop(tag, type, bf, len, NULL)) {
 			char tmpbf[1024];
+			const char *const_pointer = "";
 
-			snprintf(bf, len, "%s %s",
+			if (tag__is_const(type)) {
+				struct tag *next_type = cu__type(cu, type->type);
+
+				if (next_type && tag__is_pointer(next_type)) {
+					const_pointer = "const ";
+					type = next_type;
+				}
+			}
+
+			snprintf(bf, len, "%s %s%s",
 				 __tag__name(type, cu,
 					     tmpbf, sizeof(tmpbf), NULL),
+				 const_pointer,
 				 ptr_suffix);
 		}
 	}
