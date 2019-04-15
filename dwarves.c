@@ -1310,7 +1310,17 @@ static size_t tag__natural_alignment(struct tag *tag, const struct cu *cu)
 		natural_alignment = tag__natural_alignment(tag, cu);
 	}
 
-	return natural_alignment;
+	/*
+	 * Cope with zero sized types, like:
+	 *
+	 *	struct u64_stats_sync {
+	 *	#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+	 *	seqcount_t      seq;
+	 *	#endif
+	 *	};
+	 *
+	 */
+	return natural_alignment ?: 1;
 }
 
 static size_t type__natural_alignment(struct type *type, const struct cu *cu)
