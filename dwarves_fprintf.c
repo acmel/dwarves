@@ -1698,7 +1698,13 @@ out:
 	if (cconf.suffix)
 		printed += fprintf(fp, " %s", cconf.suffix);
 
-	if (!cconf.suppress_aligned_attribute && type->alignment != 0)
+	/*
+	 * A class that was marked packed by class__infer_packed_attributes
+	 * because it has an alignment that is different than its natural
+	 * alignment, should not print the __alignment__ here, just the
+	 * __packed__ attribute.
+	 */
+	if (!cconf.suppress_aligned_attribute && type->alignment != 0 && !class->is_packed)
 		printed += fprintf(fp, " __attribute__((__aligned__(%u)))", type->alignment);
 
 	return printed;

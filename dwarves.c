@@ -1381,7 +1381,8 @@ bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
 		goto out;
 	}
 
-	if ((class__size(cls) % max_natural_alignment) != 0)
+	if ((max_natural_alignment != 1 && ctype->alignment == 1) ||
+	    (class__size(cls) % max_natural_alignment) != 0)
 		cls->is_packed = true;
 
 out:
