@@ -59,9 +59,15 @@ static struct type *type_emissions__find_fwd_decl(const struct type_emissions *e
 {
 	struct type *pos;
 
-	list_for_each_entry(pos, &emissions->fwd_decls, node)
-		if (strcmp(type__name(pos, cu), name) == 0)
+	if (name == NULL)
+		return NULL;
+
+	list_for_each_entry(pos, &emissions->fwd_decls, node) {
+		const char *curr_name = type__name(pos, cu);
+
+		if (curr_name && strcmp(curr_name, name) == 0)
 			return pos;
+	}
 
 	return NULL;
 }
