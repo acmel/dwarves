@@ -945,16 +945,16 @@ static size_t union__fprintf(struct type *type, const struct cu *cu,
 	 */
 	initial_union_cacheline = *uconf.cachelinep;
 	type__for_each_member(type, pos) {
-		struct tag *type = cu__type(cu, pos->tag.type);
+		struct tag *pos_type = cu__type(cu, pos->tag.type);
 
-		if (type == NULL) {
+		if (pos_type == NULL) {
 			printed += fprintf(fp, "%.*s", uconf.indent, tabs);
 			printed += tag__id_not_found_fprintf(fp, pos->tag.type);
 			continue;
 		}
 
 		printed += fprintf(fp, "%.*s", uconf.indent, tabs);
-		printed += union_member__fprintf(pos, type, cu, &uconf, fp);
+		printed += union_member__fprintf(pos, pos_type, cu, &uconf, fp);
 		fputc('\n', fp);
 		++printed;
 		*uconf.cachelinep = initial_union_cacheline;
@@ -1317,7 +1317,6 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 
 	/* First look if we have DW_TAG_inheritance */
 	type__for_each_tag(type, tag_pos) {
-		struct tag *type;
 		const char *accessibility;
 
 		if (tag_pos->tag != DW_TAG_inheritance)
@@ -1338,10 +1337,10 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		if (accessibility != NULL)
 			printed += fprintf(fp, " %s", accessibility);
 
-		type = cu__type(cu, tag_pos->type);
-		if (type != NULL)
+		struct tag *pos_type = cu__type(cu, tag_pos->type);
+		if (pos_type != NULL)
 			printed += fprintf(fp, " %s",
-					   type__name(tag__type(type), cu));
+					   type__name(tag__type(pos_type), cu));
 		else
 			printed += tag__id_not_found_fprintf(fp, tag_pos->type);
 	}
@@ -1373,7 +1372,6 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	}
 
 	type__for_each_tag(type, tag_pos) {
-		struct tag *type;
 		const char *accessibility = tag__accessibility(tag_pos);
 
 		if (accessibility != NULL &&
@@ -1416,9 +1414,9 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		    last_size != 0) {
 			if (last->bit_hole != 0 && pos->bitfield_size) {
 				uint8_t bitfield_size = last->bit_hole;
+				struct tag *pos_type = cu__type(cu, pos->tag.type);
 
-				type = cu__type(cu, pos->tag.type);
-				if (type == NULL) {
+				if (pos_type == NULL) {
 					printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 					printed += tag__id_not_found_fprintf(fp, pos->tag.type);
 					continue;
@@ -1433,7 +1431,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 				}
 
 				printed += fprintf(fp, "%.*s", cconf.indent, tabs);
-				printed += type__fprintf(type, cu, "", &cconf, fp);
+				printed += type__fprintf(pos_type, cu, "", &cconf, fp);
 				printed += fprintf(fp, ":%u;\n", bitfield_size);
 			}
 
@@ -1480,8 +1478,8 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			++printed;
 		}
 
-		type = cu__type(cu, pos->tag.type);
-		if (type == NULL) {
+		struct tag *pos_type = cu__type(cu, pos->tag.type);
+		if (pos_type == NULL) {
 			printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 			printed += tag__id_not_found_fprintf(fp, pos->tag.type);
 			continue;
@@ -1489,10 +1487,10 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 
 		size = pos->byte_size;
 		printed += fprintf(fp, "%.*s", cconf.indent, tabs);
-		printed += struct_member__fprintf(pos, type, cu, &cconf, fp);
+		printed += struct_member__fprintf(pos, pos_type, cu, &cconf, fp);
 
-		if (tag__is_struct(type) && !cconf.suppress_comments) {
-			struct class *tclass = tag__class(type);
+		if (tag__is_struct(pos_type) && !cconf.suppress_comments) {
+			struct class *tclass = tag__class(pos_type);
 			uint16_t padding;
 			/*
 			 * We may not yet have looked for holes and paddings
