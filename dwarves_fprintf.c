@@ -218,7 +218,7 @@ static size_t array_type__fprintf(const struct tag *tag,
 			else
 				flat_dimensions *= at->nr_entries[i];
 		} else {
-			if (at->nr_entries[i] != 0)
+			if (at->nr_entries[i] != 0 || !conf->last_member)
 				printed += fprintf(fp, "[%u]", at->nr_entries[i]);
 			else
 				printed += fprintf(fp, "[]");
@@ -233,7 +233,7 @@ static size_t array_type__fprintf(const struct tag *tag,
 		printed += fprintf(fp, " __attribute__ ((__vector_size__ (%llu)))",
 				   flat_dimensions * tag__size(type, cu));
 	} else if (conf->flat_arrays) {
-		if (flat_dimensions != 0)
+		if (flat_dimensions != 0 || !conf->last_member)
 			printed += fprintf(fp, "[%llu]", flat_dimensions);
 		else
 			printed += fprintf(fp, "[]");
@@ -1484,6 +1484,8 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			printed += tag__id_not_found_fprintf(fp, pos->tag.type);
 			continue;
 		}
+
+		cconf.last_member = list_is_last(&tag_pos->node, &type->namespace.tags);
 
 		size = pos->byte_size;
 		printed += fprintf(fp, "%.*s", cconf.indent, tabs);

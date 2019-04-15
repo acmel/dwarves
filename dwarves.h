@@ -85,6 +85,7 @@ struct conf_fprintf {
 	uint8_t	   no_semicolon:1;
 	uint8_t	   show_first_biggest_size_base_type_member:1;
 	uint8_t	   flat_arrays:1;
+	uint8_t	   last_member:1;
 	uint8_t	   no_parm_names:1;
 	uint8_t	   classes_as_structs:1;
 	uint8_t	   hex_fmt:1;
