@@ -299,6 +299,8 @@ int type__emit_definitions(struct tag *tag, struct cu *cu,
 
 	type_emissions__add_definition(emissions, ctype);
 
+	type__check_structs_at_unnatural_alignments(ctype, cu);
+
 	type__for_each_member(ctype, pos)
 		if (tag__emit_definitions(&pos->tag, cu, emissions, fp))
 			fputc('\n', fp);

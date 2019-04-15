@@ -1113,6 +1113,8 @@ bool class__infer_packed_attributes(struct class *cls, const struct cu *cu);
 
 void union__infer_packed_attributes(struct type *type, const struct cu *cu);
 
+void type__check_structs_at_unnatural_alignments(struct type *type, const struct cu *cu);
+
 size_t class__fprintf(struct class *cls, const struct cu *cu, FILE *fp);
 
 void class__add_vtable_entry(struct class *cls, struct function *vtable_entry);

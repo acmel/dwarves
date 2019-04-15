@@ -1346,6 +1346,34 @@ static size_t type__natural_alignment(struct type *type, const struct cu *cu)
 	return type->natural_alignment;
 }
 
+/*
+ * Sometimes the only indication that a struct is __packed__ is for it to
+ * appear embedded in another and at an offset that is not natural for it,
+ * so, in !__packed__ parked struct, check for that and mark the types of
+ * members at unnatural alignments.
+ */
+void type__check_structs_at_unnatural_alignments(struct type *type, const struct cu *cu)
+{
+	struct class_member *member;
+
+	type__for_each_member(type, member) {
+		struct tag *member_type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
+
+		if (!tag__is_struct(member_type))
+			continue;
+
+		size_t natural_alignment = tag__natural_alignment(member_type, cu);
+
+		/* Would this break the natural alignment */
+		if ((member->byte_offset % natural_alignment) != 0) {
+			struct class *cls = tag__class(member_type);
+
+			cls->is_packed = true;
+			cls->type.packed_attributes_inferred = true;
+		}
+       }
+}
+
 bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
 {
 	struct type *ctype = &cls->type;
@@ -1361,6 +1389,7 @@ bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
 	class__find_holes(cls);
 
 	if (cls->padding != 0 || cls->nr_holes != 0) {
+		type__check_structs_at_unnatural_alignments(ctype, cu);
 		cls->is_packed = false;
 		goto out;
 	}
