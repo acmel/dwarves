@@ -752,6 +752,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_classes_as_structs	   304
 #define ARGP_hex_fmt		   305
 #define ARGP_suppress_aligned_attribute	306
+#define ARGP_suppress_force_paddings	307
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -955,6 +956,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Suppress __attribute__((aligned(N))",
 	},
 	{
+		.name = "suppress_force_paddings",
+		.key  = ARGP_suppress_force_paddings,
+		.doc  = "Suppress int :N paddings at the end",
+	},
+	{
 		.name = "show_private_classes",
 		.key  = ARGP_show_private_classes,
 		.doc  = "Show classes that are defined inside other classes or in functions",
@@ -1056,6 +1062,8 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_flat_arrays: conf.flat_arrays = 1;	break;
 	case ARGP_suppress_aligned_attribute:
 		conf.suppress_aligned_attribute = 1;	break;
+	case ARGP_suppress_force_paddings:
+		conf.suppress_force_paddings = 1;	break;
 	case ARGP_show_private_classes:
 		show_private_classes = true;
 		conf.show_only_data_members = 1;	break;

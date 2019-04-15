@@ -58,6 +58,9 @@ struct conf_load {
  * @classes_as_structs - class f becomes struct f, CTF doesn't have a "class"
  * @cachelinep - pointer to current cacheline, so that when expanding types we keep track of it,
  * 		 needs to be "global", i.e. not set at each recursion.
+ * @suppress_force_paddings: This makes sense only if the debugging format has struct alignment information,
+ *                           So allow for it to be disabled and disable it automatically for things like BTF,
+ *                           that don't have such info.
  */
 struct conf_fprintf {
 	const char *prefix;
@@ -75,6 +78,7 @@ struct conf_fprintf {
 	uint8_t	   has_alignment_info:1;
 	uint8_t	   suppress_aligned_attribute:1;
 	uint8_t	   suppress_offset_comment:1;
+	uint8_t	   suppress_force_paddings:1;
 	uint8_t	   show_decl_info:1;
 	uint8_t	   show_only_data_members:1;
 	uint8_t	   no_semicolon:1;

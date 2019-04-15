@@ -176,6 +176,13 @@ Suppress forced alignment markers, so that one can compare BTF or
 CTF output, that don't have that info, to output from DWARF >= 5.
 
 .TP
+.B     \-\-suppress_force_paddings
+
+Suppress bitfield forced padding at the end of structs, as this requires
+something like DWARF's DW_AT_alignment, so that one can compare BTF or CTF
+output, that don't have that info.
+
+.TP
 .B     \-\-fixup_silly_bitfields
 Converts silly bitfields such as "int foo:32" to plain "int foo".
 
