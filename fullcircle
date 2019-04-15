@@ -1,0 +1,39 @@
+#!/bin/bash
+# Copyright © 2019 Red Hat Inc, Arnaldo Carvalho de Melo <acme@redhat.com>
+# Use pfunct to produce compilable output from a object, then do a codiff -s
+# To see if the type information generated from source code generated
+# from type information in a file compiled from the original source code matches.
+
+if [ $# -eq 0 ] ; then
+	echo "Usage: fullcircle <filename_with_type_info>"
+	exit 1
+fi
+
+file=$1
+
+nr_cus=$(readelf -wi ${file} | grep DW_TAG_compile_unit | wc -l)
+if [ $nr_cus -gt 1 ]; then
+	exit 0
+fi
+
+c_output=$(mktemp /tmp/fullcircle.XXXXXX.c)
+o_output=$(mktemp /tmp/fullcircle.XXXXXX.o)
+pfunct_bin=${PFUNCT-"pfunct"}
+codiff_bin=${CODIFF-"codiff"}
+
+# See how your DW_AT_producer looks like and find the
+# right regexp to get after the GCC version string, this one
+# seems good enough for Red Hat/Fedora/CentOS that look like:
+#
+#   DW_AT_producer    : (indirect string, offset: 0x3583): GNU C89 8.2.1 20181215 (Red Hat 8.2.1-6) -mno-sse -mno-mmx 
+#
+# So we need from -mno-sse onwards
+
+CFLAGS=$(readelf -wi $file | grep -w DW_AT_producer | sed -r      's/.*\)( -[[:alnum:]]+.*)+/\1/g')
+
+${pfunct_bin} --compile $file > $c_output
+gcc $CFLAGS -c -g $c_output -o $o_output
+${codiff_bin} -q -s $file $o_output
+
+rm -f $c_output $o_output
+exit 0
