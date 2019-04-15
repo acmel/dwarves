@@ -200,7 +200,7 @@ static size_t array_type__fprintf(const struct tag *tag,
 		return tag__id_not_found_fprintf(fp, tag->type);
 
 	/* Zero sized arrays? */
-	if (at->dimensions == 1 && at->nr_entries[0] == 0 && tag__is_const(type))
+	if (at->dimensions >= 1 && at->nr_entries[0] == 0 && tag__is_const(type))
 		type = cu__type(cu, type->type);
 
 	printed = type__fprintf(type, cu, name, conf, fp);
