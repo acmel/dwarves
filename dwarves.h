@@ -79,6 +79,7 @@ struct conf_fprintf {
 	uint8_t	   suppress_aligned_attribute:1;
 	uint8_t	   suppress_offset_comment:1;
 	uint8_t	   suppress_force_paddings:1;
+	uint8_t	   suppress_packed:1;
 	uint8_t	   show_decl_info:1;
 	uint8_t	   show_only_data_members:1;
 	uint8_t	   no_semicolon:1;

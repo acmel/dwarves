@@ -825,7 +825,7 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 			int slen = cm_name ? (int)strlen(cm_name) : -1;
 			int size_spacing = 5;
 
-			if (tag__is_struct(type) && tag__class(type)->is_packed) {
+			if (tag__is_struct(type) && tag__class(type)->is_packed && !conf->suppress_packed) {
 				int packed_len = sizeof("__attribute__((__packed__))");
 				slen += packed_len;
 			}
@@ -1697,7 +1697,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 out:
 	printed += fprintf(fp, "%.*s}", indent, tabs);
 
-	if (class->is_packed)
+	if (class->is_packed && !conf->suppress_packed)
 		printed += fprintf(fp, " __attribute__((__packed__))");
 
 	if (cconf.suffix)

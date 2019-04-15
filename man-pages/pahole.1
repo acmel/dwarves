@@ -183,6 +183,14 @@ something like DWARF's DW_AT_alignment, so that one can compare BTF or CTF
 output, that don't have that info.
 
 .TP
+.B     \-\-suppress_packed
+
+Suppress the output of the inference of __attribute__((__packed__)), so that
+one can compare BTF or CTF output, the inference algorithm uses things like
+DW_AT_alignment, so until it is improved to infer that as well for BTF, allow
+disabling this output.
+
+.TP
 .B     \-\-fixup_silly_bitfields
 Converts silly bitfields such as "int foo:32" to plain "int foo".
 

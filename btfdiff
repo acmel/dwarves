@@ -20,8 +20,11 @@ ${pahole_bin} -F dwarf \
 	      --flat_arrays \
 	      --suppress_aligned_attribute \
 	      --suppress_force_paddings \
+	      --suppress_packed \
 	      --show_private_classes $file > $dwarf_output
-${pahole_bin} -F btf $file > $btf_output
+${pahole_bin} -F btf \
+	      --suppress_packed \
+	      $file > $btf_output
 
 diff -up $dwarf_output $btf_output
 
