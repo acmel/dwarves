@@ -62,7 +62,9 @@ static struct conf_fprintf conf = {
 	.emit_stats = 1,
 };
 
-static struct conf_load conf_load;
+static struct conf_load conf_load = {
+	.conf_fprintf = &conf,
+};
 
 struct structure {
 	struct list_head  node;

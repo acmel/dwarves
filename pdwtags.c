@@ -81,6 +81,7 @@ static enum load_steal_kind pdwtags_stealer(struct cu *cu,
 
 static struct conf_load pdwtags_conf_load = {
 	.steal = pdwtags_stealer,
+	.conf_fprintf = &conf,
 };
 
 /* Name and version of program.  */

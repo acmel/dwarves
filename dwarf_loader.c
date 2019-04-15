@@ -2528,4 +2528,5 @@ struct debug_fmt_ops dwarf__ops = {
 	.tag__decl_file	     = dwarf_tag__decl_file,
 	.tag__decl_line	     = dwarf_tag__decl_line,
 	.tag__orig_id	     = dwarf_tag__orig_id,
+	.has_alignment_info  = true,
 };

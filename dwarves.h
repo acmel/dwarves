@@ -33,6 +33,8 @@ enum load_steal_kind {
  */
 typedef uint32_t type_id_t;
 
+struct conf_fprintf;
+
 /** struct conf_load - load configuration
  * @extra_dbg_info - keep original debugging format extra info
  *		     (e.g. DWARF's decl_{line,file}, id, etc)
@@ -47,6 +49,7 @@ struct conf_load {
 	bool			extra_dbg_info;
 	bool			fixup_silly_bitfields;
 	bool			get_addr_info;
+	struct conf_fprintf	*conf_fprintf;
 };
 
 /** struct conf_fprintf - hints to the __fprintf routines
@@ -69,6 +72,7 @@ struct conf_fprintf {
 	uint8_t    rel_offset:1;
 	uint8_t	   emit_stats:1;
 	uint8_t	   suppress_comments:1;
+	uint8_t	   has_alignment_info:1;
 	uint8_t	   suppress_aligned_attribute:1;
 	uint8_t	   suppress_offset_comment:1;
 	uint8_t	   show_decl_info:1;
@@ -180,6 +184,7 @@ struct debug_fmt_ops {
 					      const struct cu *cu);
 	const char	   *(*strings__ptr)(const struct cu *cu, strings_t s);
 	void		   (*cu__delete)(struct cu *cu);
+	bool		   has_alignment_info;
 };
 
 struct cu {

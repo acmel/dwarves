@@ -36,7 +36,9 @@ static uint64_t addr;
 
 static struct conf_fprintf conf;
 
-static struct conf_load conf_load;
+static struct conf_load conf_load = {
+	.conf_fprintf = &conf,
+};
 
 struct fn_stats {
 	struct list_head node;

@@ -1682,6 +1682,9 @@ int cus__load_file(struct cus *cus, struct conf_load *conf,
 			if (loader == -1)
 				break;
 
+			if (conf->conf_fprintf)
+				conf->conf_fprintf->has_alignment_info = debug_fmt_table[loader]->has_alignment_info;
+
 			err = 0;
 			if (debug_fmt_table[loader]->load_file(cus, conf,
 							       filename) == 0)
@@ -1698,6 +1701,8 @@ int cus__load_file(struct cus *cus, struct conf_load *conf,
 	}
 
 	while (debug_fmt_table[i] != NULL) {
+		if (conf->conf_fprintf)
+			conf->conf_fprintf->has_alignment_info = debug_fmt_table[i]->has_alignment_info;
 		if (debug_fmt_table[i]->load_file(cus, conf, filename) == 0)
 			return 0;
 		++i;
