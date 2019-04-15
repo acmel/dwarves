@@ -325,12 +325,21 @@ static int function__emit_type_definitions(struct function *func,
 	struct parameter *pos;
 	struct tag *type = cu__type(cu, func->proto.tag.type);
 
+retry_return_type:
 	/* type == NULL means the return is void */
-	if (type && tag__is_type(type) && !tag__type(type)->definition_emitted) {
+	if (type == NULL)
+		goto do_parameters;
+
+	if (tag__is_pointer(type) || tag__is_modifier(type)) {
+		type = cu__type(cu, type->type);
+		goto retry_return_type;
+	}
+
+	if (tag__is_type(type) && !tag__type(type)->definition_emitted) {
 		type__emit_definitions(type, cu, &emissions, fp);
 		type__emit(type, cu, NULL, NULL, fp);
 	}
-
+do_parameters:
 	function__for_each_parameter(func, pos) {
 		type = cu__type(cu, pos->tag.type);
 	try_again:
@@ -364,7 +373,7 @@ static void function__show(struct function *func, struct cu *cu)
 		function__emit_type_definitions(func, cu, stdout);
 	tag__fprintf(tag, cu, &conf, stdout);
 	if (compilable_output) {
-		struct tag *type = tag__strip_typedefs_and_modifiers(&func->proto.tag, cu);
+		struct tag *type = cu__type(cu, func->proto.tag.type);
 
 		fprintf(stdout, "\n{");
 		if (type != NULL) { /* NULL == void */
@@ -372,6 +381,10 @@ static void function__show(struct function *func, struct cu *cu)
 				fprintf(stdout, "\n\treturn (void *)0;");
 			else if (tag__is_struct(type))
 				fprintf(stdout, "\n\treturn *(struct %s *)1;", class__name(tag__class(type), cu));
+			else if (tag__is_union(type))
+				fprintf(stdout, "\n\treturn *(union %s *)1;", type__name(tag__type(type), cu));
+			else if (tag__is_typedef(type))
+				fprintf(stdout, "\n\treturn *(%s *)1;", type__name(tag__type(type), cu));
 			else
 				fprintf(stdout, "\n\treturn 0;");
 		}
