@@ -2,6 +2,7 @@ config.h.cmake
 btfdiff
 btf_encoder.c
 btf_encoder.h
+btf_loader.c
 ctf_encoder.c
 ctf_encoder.h
 ctf_loader.c
@@ -60,3 +61,4 @@ ctf.h
 libctf.c
 libctf.h
 regtest
+lib/bpf/
