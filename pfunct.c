@@ -679,6 +679,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 		  type_emissions__init(&emissions);
 		  compilable_output = true;
 		  conf.no_semicolon = true;
+		  conf.strip_inline = true;
 		  if (arg)
 			  function_name = arg;
 		  break;

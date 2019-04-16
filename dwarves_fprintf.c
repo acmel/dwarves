@@ -1200,14 +1200,14 @@ static size_t function__fprintf(const struct tag *tag, const struct cu *cu,
 {
 	struct function *func = tag__function(tag);
 	size_t printed = 0;
+	bool inlined = !conf->strip_inline && function__declared_inline(func);
 
 	if (func->virtuality == DW_VIRTUALITY_virtual ||
 	    func->virtuality == DW_VIRTUALITY_pure_virtual)
 		printed += fprintf(fp, "virtual ");
 
 	printed += ftype__fprintf(&func->proto, cu, function__name(func, cu),
-				  function__declared_inline(func), 0, 0,
-				  conf, fp);
+				  inlined, 0, 0, conf, fp);
 
 	if (func->virtuality == DW_VIRTUALITY_pure_virtual)
 		printed += fprintf(fp, " = 0");
