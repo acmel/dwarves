@@ -31,6 +31,9 @@ codiff_bin=${CODIFF-"codiff"}
 
 CFLAGS=$(readelf -wi $file | grep -w DW_AT_producer | sed -r      's/.*\)( -[[:alnum:]]+.*)+/\1/g')
 
+# Check if we managed to do the sed or if this is something like GNU AS
+[ "${CFLAGS/DW_AT_producer/}" != "${CFLAGS}" ] && exit
+
 ${pfunct_bin} --compile $file > $c_output
 gcc $CFLAGS -c -g $c_output -o $o_output
 ${codiff_bin} -q -s $file $o_output
