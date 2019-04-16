@@ -261,9 +261,17 @@ next_indirection:
 		break;
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
-		if (pointer)
+		if (pointer) {
+			/*
+			 * Struct defined inline, no name, need to have its
+			 * members types emitted.
+			 */
+			if (type__name(tag__type(type), cu) == NULL)
+				type__emit_definitions(type, cu, emissions, fp);
+
 			return type__emit_fwd_decl(tag__type(type), cu,
 						   emissions, fp);
+		}
 		if (type__emit_definitions(type, cu, emissions, fp))
 			type__emit(type, cu, NULL, NULL, fp);
 		return 1;
