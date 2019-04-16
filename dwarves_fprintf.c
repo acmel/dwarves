@@ -703,6 +703,7 @@ next_type:
 			if (tag__is_struct(ptype) || tag__is_union(ptype) ||
 			    tag__is_enumeration(ptype)) {
 				snprintf(namebfptr, sizeof(namebfptr), "* %s", name);
+				tconf.rel_offset = 1;
 				name = namebfptr;
 				type = ptype;
 				goto inner_struct;
