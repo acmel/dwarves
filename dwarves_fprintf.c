@@ -595,6 +595,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 {
 	char tbf[128];
 	char namebf[256];
+	char namebfptr[258];
 	struct type *ctype;
 	struct conf_fprintf tconf;
 	size_t printed = 0;
@@ -673,6 +674,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 
 	if (tag__is_struct(type) || tag__is_union(type) ||
 	    tag__is_enumeration(type)) {
+inner_struct:
 		tconf.type_spacing -= 8;
 		tconf.prefix	   = NULL;
 		tconf.suffix	   = name;
@@ -697,6 +699,13 @@ next_type:
 							  tconf.type_spacing,
 							  &tconf, fp);
 				break;
+			}
+			if (tag__is_struct(ptype) || tag__is_union(ptype) ||
+			    tag__is_enumeration(ptype)) {
+				snprintf(namebfptr, sizeof(namebfptr), "* %s", name);
+				name = namebfptr;
+				type = ptype;
+				goto inner_struct;
 			}
 		}
 		/* Fall Thru */
