@@ -206,9 +206,12 @@ int type__emit_fwd_decl(struct type *ctype, const struct cu *cu,
 	if (ctype->fwd_decl_emitted)
 		return 0;
 
+	const char *name = type__name(ctype, cu);
+	if (name == NULL)
+		return 0;
+
 	/* Ok, lets look at the previous CUs: */
-	if (type_emissions__find_fwd_decl(emissions, cu,
-					  type__name(ctype, cu)) != NULL) {
+	if (type_emissions__find_fwd_decl(emissions, cu, name) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
