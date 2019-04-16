@@ -1,5 +1,5 @@
 config.h.cmake
-btf.h
+btfdiff
 btf_encoder.c
 btf_encoder.h
 ctf_encoder.c
@@ -22,6 +22,7 @@ elfcreator.c
 elfcreator.h
 elf_symtab.c
 elf_symtab.h
+fullcircle
 gobuffer.c
 gobuffer.h
 hash.h

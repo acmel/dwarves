@@ -1,3 +1,167 @@
+v1.13
+
+Tue Apr 16 2019
+
+See changes-v1.13 for a more verbose description of the changes.
+
+0fb727166a0e pfunct: Strip inlines in the code generated for --compile
+7b967744db7b emit: Emit the types for inline structs defined in pointer members
+30526e2848db fprintf: Print relative offsets for inner pointer structs
+cfa377c238f8 emit: Do not emit a forward declararion to a nameless struct
+cf459ca16fb2 fprintf: Pretty print struct members that are pointers to nameless structs
+09ed2e78befe pfunct: Emit definitions for pointers inside pointer to function args
+e9fc2f647026 fullcircle: Check that we found the CFLAGS
+05921c47f557 emit: Handle typedefs that are a pointer to typedefs
+87af9839bf63 fullcircle: Try building from pfunct --compile and check types
+c7fd9cc1fe97 pfunct: Fixup more return types
+56c50b8dbe9b emit: Make find_fwd_decl a bit more robust
+2bcb01fc2f9d fprintf: Handle single zero sized array member structs
+0987266cd9e2 fprintf: Deal with zero sized arrays in the midle of a union
+1101337a7450 fprintf: Deal with zero sized arrays in the middle of a struct
+13aa13eb0ca4 fprintf: Don't reuse 'type' in multiple scopes in the same function
+c8fc6f5a7a46 core: Use unnatural alignment of struct embedded in another to infer __packed__
+6f0f9a881589 fprintf: Fixup multi-dimensional zero sized arrays const handling
+9a4d71930467 fprintf: Allow suppressing the inferred __attribute__((__packed__))
+ec935ee422b0 fprintf: Allow suppressing the output of force paddings at the end of structs
+8471736f3c6c core: Cope with zero sized types when looking for natural alignment
+986a3b58a869 fprintf: Only add bitfield forced paddings when alignment info available
+49c27bdd6663 core: Allow the loaders to advertise features they have
+dc6b9437a3a0 emit: Handle structs with DW_AT_alignment=1 meaning __packed__
+f78633cfb949 core: Infer __packed__ for union struct members
+75c52de9c6df core: Move packed_attribute_inferred from 'class' to 'type' class
+1bb4527220f4 fprintf: Fixup const pointers
+dc3d44196103 core: Improve the natural alignment calculation
+ac32e5e908ba codiff: Fix comparision of multi-cu against single-cu files
+f2641ce169d6 core: Take arrays into account when inferring if a struct is packed
+85c99369631a fprintf: Do not add explicit padding when struct has __aligned__ attr
+b5e8fab596d3 emit: Cover void ** as a function parameter
+28a3bc7addad fprintf: Support packed enums
+f77a442f09e3 fprintf: Do not print the __aligned__ attribute if asked
+ea583dac52f0 fprintf: Print zero sized flat arrays as [], not [0]
+f909f13dd724 fprintf: Fixup handling of unnamed bitfields
+3247a777dcfc core: Infer if a struct is packed by the offsets/natural alignments
+13e5b9fc00ee fprintf: Add unnamed bitfield padding at the end to rebuild original type
+ccd67bdb205b fprintf: Print "const" for class members more early, in type__fprintf()
+b42d77b0bbda fprintf: Print __attribute__((__aligned__(N))) for structs/classes
+1c9c1d6bbd45 dwarf_loader: Store DW_AT_alignment if available in DW_TAG_{structure,union,class}_type
+41c55858daf4 codiff: Add --quiet option
+a104eb1ea11d fprintf: Notice explicit bitfield alignment modifications
+75f32a24c7c7 codiff: Improve the comparision of anonymous struct members
+6b1e43f2c1ac codiff: When comparing against a file with just one CU don't bother finding by name
+15a754f224f7 core: Add nr_entries member to 'struct cus'
+99750f244cb8 pfunct: Generate a valid return type for the --compile bodies
+881aabd6fc22 reorganize: Introduce class__for_each_member_from_safe()
+1b2e3389f304 reorganize: Introduce class__for_each_member_reverse()
+10fef2916dce reorganize: Introduce class__for_each_member_continue()
+e7a56ee8cc69 reorganize: Introduce class__for_each_member_from()
+9a79bb6ced23 tag: Introduce tag__is_pointer_to()
+45ad54594442 tag: Introduce tag__is_pointer()
+89ce57a02e3a pdwtags: Find holes in structs
+ce6f393bc9ea fprintf: Fixup the printing of const parameters
+7aec7dd6c29c pfunct: Do not reconstruct external functions
+163b873f81c8 pfunct: Do not reconstruct inline expansions of functions
+ea83b780eca0 pfunct: Handle unnamed struct typedefs
+e7ebc05d12e1 emit: Unwind the definitions for typedefs in type__emit_definitions()
+093135b0bfd5 pfunct: Do not emit a type multiple times
+3ce2c5216612 pfunct: Ask for generating compilable output that generates DWARF for types
+e7a786540d83 pfunct: Make --expand_types/-b without -f expand types for all functions
+9b2eadf97b44 pfunct: Follow const, restrict, volatile in --expand_types
+f3f86f2f89b0 pfunct: Reconstruct function return types for --expand_types
+a7d9c58cb81a fprintf: Add missing closing parens to the align attribute
+d83d9f578fa0 dwarf_loader: Handle DW_TAG_label in inline expansions
+73e545b144b4 dwarf_loader: Handle unsupported_tag in die__process_inline_expansion
+fe590758cb3f class__find_holes: Zero out bit_hole/hole on member
+863c2af6e9d7 reorganize: Disable the bitfield coalescing/moving steps
+b95961db697a fprintf: Show statistics about holes due to forced alignments
+ec772f21f681 fprintf: Show the number of forced alignments in a class
+52d1c75ea437 btfdiff: Use --suppress_aligned_attribute with -F dwarf
+6cd6a6bd8787 dwarves_fprintf: Allow suppressing the __attribute__((__aligned__(N))
+f31ea292e3cb dwarf_loader: Store the DW_AT_alignment if available
+c002873c4479 dwarves_fprintf: Move invariant printing of ; to outside if block
+8ce85a1ad7f0 reorganize: Use class__find_holes() to recalculate holes
+5d1c4029bd45 dwarves: Fix classification of byte/bit hole for aligned bitfield
+78c110a7ea24 dwarves: Revert semantics of member bit/byte hole
+b56fed297e5f dwarves_fprintf: Count bitfield member sizes separately
+c0fdc5e685e9 dwarf_loader: Use DWARF recommended uniform bit offset scheme
+5104d1bef384 loaders: Record CU's endianness in dwarf/btf/ctf loaders
+975757bc8867 dwarves: Use bit sizes and bit/byte hole info in __class__fprintf
+1838d3d7623e dwarves: Revamp bit/byte holes detection logic
+03d9b6ebcac7 dwarf_loader: Fix bitfield fixup logic for DWARF
+4abc59553918 btf_loader: Adjust negative bitfield offsets early on
+41cf0e3cba0c dwarf_loader: Don't recode enums and use real enum size in calculations
+55c96aaed8ce loaders: Strip away volatile/const/restrict when fixing bitfields
+7005757fd573 libbpf: Sync in latest libbpf sources
+69970fc77ec5 pahole: Filter out unions when looking for packable structs
+fa963e1a8698 dwarves_fprintf: Print the bit_offset for inline enum bitfield class members
+bb8350acf52f dwarves: Switch type_id_t from uint16_t to uint32_t
+5375d06faf26 dwarves: Introduce type_id_t for use with the type IDs
+f601f6725890 libctf: The type_ids returned are uint32_t fixup where it was uint16_t
+c9b2ef034f89 dwarf: Add cu__add_tag_with_id() to stop using id == -1 to allocate id
+762e7b58f447 dwarves: Change ptr_table__add() signature to allow for uint32_t returns
+079e6890b788 dwarf_loader: Mark tag__recode_dwarf_bitfield() static
+3526ebebd3ab pahole: Use 32-bit integers for type ID iterations within CU
+3bd8da5202e4 libbpf: update reference to bring in btf_dedup fixes
+a9afcc65fc8f btf_encoder: Don't special case packed enums
+8f4f280163b7 btf_loader: Simplify fixup code by relying on BTF data more
+be5173b4df0f dwarves: Fixup sizeof(long double) in bits in base_type_name_to_size table
+5081ed507095 dwarves: Add _Float128 base_type
+d52c9f9b9455 dwarf_loader: Fixup bitfield entry with same number of bits as its base_type
+6586e423d4fa btf_loader: Fix bitfield fixup code
+7daa4300d230 pahole: Complete list of base type names
+6bcf0bd70305 btfdiff: Support specifying custom pahole location
+88028b5d0c32 btfdiff: Use --show_private_classes with DWARF
+e6c59bd11d3d libbpf: Build as PIC and statically link into libdwarves
+cf4f3e282d64 cmake: Bump miminum required version to use OBJECT feature
+5148be53dc65 btfdiff: Rename tmp files to contain the format used
+dd3a7d3ab3e8 btf_encoder: run BTF deduplication before writing out to ELF
+54106025cd14 libbtf: Fixup temp filename to .btf, not .btfe
+e6dfd10bcbf3 libbpf: Build as shared lib
+c234b6ca6e55 libbpf: Pull latest libbpf
+fe4e1f799c55 btf_elf: Rename btf_elf__free() to btf_elf__delete()
+6780c4334d55 btf: Rename 'struct btf' to 'struct btf_elf'
+ca86e9416b8b pahole: use btf.h directly from libbpf
+21507cd3e97b pahole: add libbpf as submodule under lib/bpf
+c25ada500ddc pahole: Add build dir, config.h to .gitignore
+a58c746c4c7e Fixup copyright notices for BTF files authored by Facebook engineers
+e714d2eaa150 Adopt SPDX-License-Identifier
+c86960dce55d btf_loader: We can set class_member->type_offset earlier
+278b64c3eee0 btfdiff: Use diff's -p option to show the struct/union
+1182664d6aa6 dwarves_fprintf: Handle negative bit_offsets in packed structs with bitfields
+b0cf845e02c6 dwarves: Change type of bitfield_offset from uint8_t to int8_t
+06e364bc62e7 btfdiff: Add utility to compare pahole output produced from DWARF and BTF
+b79db4cab41c dwarves: add __int128 types in base_type_name_to_size
+de3459cc0ebe btf_loader: BTF encodes the size of enums as bytes not bits
+693347f8def7 btf_encoder: Fix void handling in FUNC_PROTO.
+2d0b70664f3e dwarves_fprintf: Separate basic type stats into separate type__fprintf() method
+18f5910f96e0 dwarves: Add type to tag helper
+f2092f56586a btf: recognize BTF_KIND_FUNC in btf_loader
+11766614096c btf: Fix kind_flag usage in btf_loader
+68b93e6858ae dutil: Add missing string.h header include
+851ef335e328 dutil: Drop 'noreturn' attribute for ____ilog2_NaN()
+ab0cb33e54e8 btf_loader: Fixup class_member->bit_offset for !big_endian files
+b24718fe27d3 dwarves: Fix documentation for class_memer->bitfield_size
+3ffe5ba93b63 pahole: Do not apply 'struct class' filters to 'struct type'
+da18bb340bee dwarves: Check if the tag is a 'struct class' in class__find_holes()
+2a82d593be81 btf: Add kind_flag support for btf_loader
+472256d3c57b btf_loader: Introduce a loader for the BTF format
+93d6d0016523 dwarves: No need to print the "signed ", the name has it already
+0a9bac9a3e8e dwarves: Relookup when searching for signed base types
+a2cdc6c2a0a3 dutil: Adopt strstart() from the linux perf tools sources
+3aa3fd506e6c btf: add func_proto support
+8630ce404287 btf: fix struct/union/fwd types with kind_flag
+65bd17abc72c btf: Allow multiple cu's in dwarf->btf conversion
+d843945ba514 pahole: Search for unions as well with '-C'
+da632a36862c dwarves: Introduce {cu,cus}__find_struct_or_union_by_name() methods
+31664d60ad41 pahole: Show tagged enums as well when no class is specified
+b18354f64cc2 btf: Generate correct struct bitfield member types
+70ef8c7f07ff dwarves_fprintf: Set conf.cachelinep in union__fprintf() too
+bfdea37668c6 dwarves_fprintf: Print the scope of variables
+465110ec99d3 dwarves: Add the DWARF location to struct variable
+c65f2cf4361e dwarves: Rename variable->location to ->scope
+0d2511fd1d8e btf: Fix bitfield encoding
+92417082aad3 MANIFEST: Add missing COPYING file
+eb6bd05766f5 dwarf_loader: Process DW_AT_count in DW_TAG_subrange_type
+
 v1.12
 
 Thu Aug 16 2018
@@ -14,7 +178,6 @@ e975ff247aa8 dwarves_fprintf: Print cacheline boundaries in multiple union membe
 2a092d61453c dwarves: Fix cus__load_files() success return value
 02a456f5f54c pahole: Search and use running kernel vmlinux when no file is passed
 5f057919a0c0 man-pages: Add entry for --hex
-[acme@jouet pahole]$
 
 v1.11
 

@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.12
+Version: 1.13
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools
@@ -26,8 +26,8 @@ limited to these.
 It also extracts other information such as CPU cacheline alignment, helping
 pack those structures to achieve more cache hits.
 
-These tools can also be used to encode the BTF type information format used with
-the Linux kernel bpf syscall, using 'pahole -J'.
+These tools can also be used to encode and read the BTF type information format
+used with the Linux kernel bpf syscall, using 'pahole -J' and 'pahole -F btf'.
 
 A diff like tool, codiff can be used to compare the effects changes in source
 code generate on the resulting binaries.
@@ -74,9 +74,11 @@ rm -rf %{buildroot}
 %doc README.btf
 %doc NEWS
 %defattr(0755,root,root,0755)
+%{_bindir}/btfdiff
 %{_bindir}/codiff
 %{_bindir}/ctracer
 %{_bindir}/dtagnames
+%{_bindir}/fullcircle
 %{_bindir}/pahole
 %{_bindir}/pdwtags
 %{_bindir}/pfunct

@@ -590,8 +590,9 @@ data structures related to the request:
   3)   5.210 us    |    }
   3)   5.954 us    |  }
 
-This should be enough for us to validate pahole's BTF encoder, now its just a
-matter of making pahole itself load BTF and prett-print it just like it does
-with DWARF and CTF.
+This should be enough for us to validate pahole's BTF encoder, and now one can
+use 'pahole -F btf' to obtain mostly the same results as with the default use
+of '-F dwarf', modulo things like explicit alignments that are not present in
+BTF and need some work to be inferred from existing non-natural alignment holes.
 
 - Arnaldo
