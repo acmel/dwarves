@@ -351,7 +351,9 @@ do_parameters:
 			goto try_again;
 		}
 
-		if (tag__is_type(type) && !tag__type(type)->definition_emitted) {
+		if (type->tag == DW_TAG_subroutine_type) {
+			ftype__emit_definitions(tag__ftype(type), cu, &emissions, fp);
+		} else if (tag__is_type(type) && !tag__type(type)->definition_emitted) {
 			type__emit_definitions(type, cu, &emissions, fp);
 			if (!tag__is_typedef(type))
 				type__emit(type, cu, NULL, NULL, fp);
