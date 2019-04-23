@@ -107,11 +107,20 @@ rm -rf %{buildroot}
 %files -n %{libname}%{libver}-devel
 %defattr(0644,root,root,0755)
 %doc MANIFEST README
+%{_includedir}/dwarves/btf_encoder.h
+%{_includedir}/dwarves/config.h
+%{_includedir}/dwarves/ctf_encoder.h
+%{_includedir}/dwarves/ctf.h
+%{_includedir}/dwarves/dutil.h
 %{_includedir}/dwarves/dwarves.h
 %{_includedir}/dwarves/dwarves_emit.h
 %{_includedir}/dwarves/dwarves_reorganize.h
-%{_includedir}/dwarves/dutil.h
+%{_includedir}/dwarves/elfcreator.h
+%{_includedir}/dwarves/elf_symtab.h
 %{_includedir}/dwarves/gobuffer.h
+%{_includedir}/dwarves/hash.h
+%{_includedir}/dwarves/libbtf.h
+%{_includedir}/dwarves/libctf.h
 %{_includedir}/dwarves/list.h
 %{_includedir}/dwarves/rbtree.h
 %{_includedir}/dwarves/strings.h
