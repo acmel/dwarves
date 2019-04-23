@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright (C) 2005, 2006, 2007 Arnaldo Carvalho de Melo
 #
@@ -206,7 +206,7 @@ class class_definition:
 				break
 			if verbose:
 				nr_lines += 1
-				print "\r%d" % nr_lines,
+				print("\r%d" % nr_lines,)
 
 			self.parse_record(line)
 
@@ -245,8 +245,8 @@ class class_definition:
 				continue
 
 			if verbose:
-				print "plot_methods: plotting %s method (%d samples)" % \
-					(current_method.name, nr_samples)
+				print("plot_methods: plotting %s method (%d samples)" % \
+					(current_method.name, nr_samples))
 
 			entries = [float("%d.0" % entry) for entry in range(nr_samples)]
 			samples = current_method.times
@@ -323,11 +323,11 @@ def plot_field(name, directory, tstamps, samples, nr_samples, plot_fmt = None,
 	if current_plot_fmt == "filter_dev":
 		std = std_deviation(samples) * 2
 		if verbose:
-			print "filter_dev(%s) std=%d" % (name, std)
+			print("filter_dev(%s) std=%d" % (name, std))
 		for i in range(nr_samples):
 			if samples[i] > std:
 				if verbose:
-					print "%s: filtering out %d" % (name, samples[i])
+					print("%s: filtering out %d" % (name, samples[i]))
 				samples[i] = 0
 		field_mean = mean(samples)
 		yaxis_plot_fmt = FuncFormatter(pylab_formatter)
@@ -376,7 +376,7 @@ def plot(class_def, callgraph, verbose = False):
 			continue
 
 		if verbose:
-			print "ostra-plot: plotting %s field (%d samples)" % (current_field.name, nr_samples)
+			print("ostra-plot: plotting %s field (%d samples)" % (current_field.name, nr_samples))
 
 		tstamps = [float("%d.%06d" % (entry.tstamp.seconds, entry.tstamp.microseconds)) \
 			   for entry in current_field.changes]
@@ -392,6 +392,6 @@ if __name__ == '__main__':
 	import sys
 	c = class_definition(sys.argv[1], sys.argv[2])
 	for field in c.fields.values():
-		print "%s: %s" % (field, field.table)
+		print("%s: %s" % (field, field.table))
 	for method in c.methods.values():
-		print "%d: %s" % (method.function_id, method.name)
+		print("%d: %s" % (method.function_id, method.name))

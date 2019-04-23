@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # ostra-cg - generate callgraphs from encoded trace
 #
 # Arnaldo Carvalho de Melo <acme@redhat.com>
@@ -386,7 +386,7 @@ def method_stats(class_def, callgraph):
 
 if __name__ == '__main__':
 	if len(sys.argv) not in [ 3, 4 ]:
-		print "usage: ostra-cg <traced_class> <encoded_trace> [object]"
+		print("usage: ostra-cg <traced_class> <encoded_trace> [object]")
 		sys.exit(1)
 
 	gen_html      = True
@@ -402,9 +402,9 @@ if __name__ == '__main__':
 	class_def = ostra.class_definition(class_def_file = "%s.fields" % traced_class,
 					   class_methods_file = "%s.functions" % traced_class)
 	new_callgraph_file(traced_class)
-        class_def.parse_file(encoded_trace, verbose = verbose,
-			     process_record = process_record,
-			     my_object = my_object)
+	class_def.parse_file(encoded_trace, verbose = verbose,
+				process_record = process_record,
+				my_object = my_object)
 	if gen_html:
 		print_where_fields_changed()
 	close_callgraph_file()
