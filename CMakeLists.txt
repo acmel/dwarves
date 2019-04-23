@@ -143,6 +143,8 @@ install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 install(TARGETS dwarves dwarves_emit dwarves_reorganize LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 install(FILES dwarves.h dwarves_emit.h dwarves_reorganize.h
 	      dutil.h gobuffer.h list.h rbtree.h strings.h
+	      btf_encoder.h config.h ctf_encoder.h ctf.h
+	      elfcreator.h elf_symtab.h hash.h libbtf.h libctf.h
 	DESTINATION ${CMAKE_INSTALL_PREFIX}/include/dwarves/)
 install(FILES man-pages/pahole.1 DESTINATION ${CMAKE_INSTALL_PREFIX}/share/man/man1/)
 install(PROGRAMS ostra/ostra-cg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
