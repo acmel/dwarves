@@ -700,8 +700,8 @@ next_type:
 							  &tconf, fp);
 				break;
 			}
-			if (tag__is_struct(ptype) || tag__is_union(ptype) ||
-			    tag__is_enumeration(ptype)) {
+			if ((tag__is_struct(ptype) || tag__is_union(ptype) ||
+			    tag__is_enumeration(ptype)) && type__name(tag__type(ptype), cu) == NULL) {
 				snprintf(namebfptr, sizeof(namebfptr), "* %s", name);
 				tconf.rel_offset = 1;
 				name = namebfptr;
