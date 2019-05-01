@@ -711,6 +711,7 @@ next_type:
 		}
 		/* Fall Thru */
 	default:
+print_default:
 		printed += fprintf(fp, "%-*s %s", tconf.type_spacing,
 				   tag__name(type, cu, tbf, sizeof(tbf), &tconf),
 				   name);
@@ -725,7 +726,9 @@ next_type:
 		printed		   += const_printed;
 	}
 		type = cu__type(cu, type->type);
-		goto next_type;
+		if (type)
+			goto next_type;
+		goto print_default;
 
 	case DW_TAG_array_type:
 		printed += array_type__fprintf(type, cu, name, &tconf, fp);
