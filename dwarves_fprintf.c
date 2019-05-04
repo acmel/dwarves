@@ -1619,8 +1619,8 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	 * BTF doesn't have alignment info, for now use this infor from the loader
 	 * to avoid adding the forced bitfield paddings and have btfdiff happy.
 	 */
-	if (class->padding != 0 && type->alignment == 0 && conf->has_alignment_info &&
-	    !conf->suppress_force_paddings) {
+	if (class->padding != 0 && type->alignment == 0 && cconf.has_alignment_info &&
+	    !cconf.suppress_force_paddings) {
 		tag_pos = cu__type(cu, last->tag.type);
 		size = tag__size(tag_pos, cu);
 
@@ -1716,7 +1716,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 out:
 	printed += fprintf(fp, "%.*s}", indent, tabs);
 
-	if (class->is_packed && !conf->suppress_packed)
+	if (class->is_packed && !cconf.suppress_packed)
 		printed += fprintf(fp, " __attribute__((__packed__))");
 
 	if (cconf.suffix)
