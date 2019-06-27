@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.13
+Version: 1.15
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -117,6 +117,12 @@ make install DESTDIR=%{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Fri May 27 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.15-1
+- New release: 1.15
+- Fix --expand_types/-E segfault
+- Fixup endless printing named structs inside structs in --expand_types
+- Avoid NULL deref with num config in __class__fprintf()
+
 * Tue Apr 23 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.13-1
 - New release: 1.13
 - Infer __packed__ attributes, i.e. __attribute__((__packed__))

@@ -27,7 +27,7 @@ if (NOT CMAKE_BUILD_TYPE)
 	     FORCE)
 endif (NOT CMAKE_BUILD_TYPE)
 
-add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.13")
+add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.15")
 find_package(DWARF REQUIRED)
 find_package(ZLIB REQUIRED)
 

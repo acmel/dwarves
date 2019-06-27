@@ -1,3 +1,15 @@
+v1.15
+
+Thu Jun 27 2019
+
+3ed9a67967cf fprintf: Avoid null dereference with NULL configs
+568dae4bd498 printf: Fixup printing "const" early with "const void"
+68f261d8dfff fprintf: Fix recursively printing named structs in --expand_types
+139a3b337381 ostra: Initial python3 conversion
+01276a7e8966 spec: Sync spec with fedora's
+9f1f0628b9ad rpm: Add missing devel headers
+989dc3f1ba0d cmake: Install missing devel headers
+
 v1.13
 
 Tue Apr 16 2019
