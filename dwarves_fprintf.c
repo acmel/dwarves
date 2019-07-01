@@ -1620,7 +1620,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	 * to avoid adding the forced bitfield paddings and have btfdiff happy.
 	 */
 	if (class->padding != 0 && type->alignment == 0 && cconf.has_alignment_info &&
-	    !cconf.suppress_force_paddings) {
+	    !cconf.suppress_force_paddings && last != NULL) {
 		tag_pos = cu__type(cu, last->tag.type);
 		size = tag__size(tag_pos, cu);
 
