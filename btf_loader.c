@@ -350,7 +350,8 @@ static int create_new_tag(struct btf_elf *btfe, int type, struct btf_type *tp, u
 	case BTF_KIND_RESTRICT:	tag->tag = DW_TAG_restrict_type; break;
 	case BTF_KIND_VOLATILE:	tag->tag = DW_TAG_volatile_type; break;
 	default:
-		printf("%s: FOO %d\n\n", __func__, type);
+		free(tag);
+		printf("%s: Unknown type %d\n\n", __func__, type);
 		return 0;
 	}
 
