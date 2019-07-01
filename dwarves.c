@@ -1377,7 +1377,7 @@ void type__check_structs_at_unnatural_alignments(struct type *type, const struct
 bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
 {
 	struct type *ctype = &cls->type;
-	struct class_member *pos, *last = NULL;
+	struct class_member *pos;
 	uint16_t max_natural_alignment = 1;
 
 	if (!tag__is_struct(class__tag(cls)))
