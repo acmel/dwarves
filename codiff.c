@@ -773,7 +773,6 @@ int main(int argc, char *argv[])
 {
 	int remaining, err, rc = EXIT_FAILURE;
 	char *old_filename, *new_filename;
-	char *filenames[2];
 	struct stat st;
 
 	if (argp_parse(&codiff__argp, argc, argv, 0, &remaining, NULL) ||
@@ -811,8 +810,6 @@ failure:
 		fprintf(stderr, "codiff: %s (%s)\n", strerror(errno), old_filename);
 		goto out_cus_delete;
 	}
-
-	filenames[1] = NULL;
 
 	/* If old_file is a character device, leave its cus empty */
 	if (!S_ISCHR(st.st_mode)) {
