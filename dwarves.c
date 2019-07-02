@@ -1985,25 +1985,6 @@ static int filename__sprintf_build_id(const char *pathname, char *sbuild_id)
 	return build_id__sprintf(build_id, sizeof(build_id), sbuild_id);
 }
 
-/* asnprintf consolidates asprintf and snprintf */
-static int asnprintf(char **strp, size_t size, const char *fmt, ...)
-{
-	va_list ap;
-	int ret;
-
-	if (!strp)
-		return -EINVAL;
-
-	va_start(ap, fmt);
-	if (*strp)
-		ret = vsnprintf(*strp, size, fmt, ap);
-	else
-		ret = vasprintf(strp, fmt, ap);
-	va_end(ap);
-
-	return ret;
-}
-
 #define zfree(ptr) ({ free(*ptr); *ptr = NULL; })
 
 static int vmlinux_path__nr_entries;
