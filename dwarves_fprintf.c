@@ -930,7 +930,7 @@ static size_t union__fprintf(struct type *type, const struct cu *cu,
 	int indent = conf->indent;
 	struct conf_fprintf uconf;
 	uint32_t initial_union_cacheline;
-	int cacheline = 0; /* This will only be used if this is the outermost union */
+	uint32_t cacheline = 0; /* This will only be used if this is the outermost union */
 
 	if (indent >= (int)sizeof(tabs))
 		indent = sizeof(tabs) - 1;
