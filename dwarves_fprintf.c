@@ -366,7 +366,7 @@ size_t enumeration__fprintf(const struct tag *tag, const struct cu *cu,
 	 * enumeration, use sizeof(int) for now.
 	 */
 	if (type->size / 8 != sizeof(int))
-		printed += fprintf(fp, " __attribute__((__packed__))", conf->suffix);
+		printed += fprintf(fp, " %s", "__attribute__((__packed__))");
 
 	if (conf->suffix)
 		printed += fprintf(fp, " %s", conf->suffix);
