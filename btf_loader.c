@@ -276,7 +276,7 @@ static int create_new_enumeration(struct btf_elf *btfe, void *ptr,
 
 	for (i = 0; i < vlen; i++) {
 		strings_t name = btf_elf__get32(btfe, &ep[i].name_off);
-		uint32_t value = btf_elf__get32(btfe, &ep[i].val);
+		uint32_t value = btf_elf__get32(btfe, (uint32_t *)&ep[i].val);
 		struct enumerator *enumerator = enumerator__new(name, value);
 
 		if (enumerator == NULL)
