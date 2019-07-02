@@ -702,6 +702,8 @@ next_type:
 			}
 			if ((tag__is_struct(ptype) || tag__is_union(ptype) ||
 			    tag__is_enumeration(ptype)) && type__name(tag__type(ptype), cu) == NULL) {
+				if (name == namebfptr)
+					goto out_type_not_found;
 				snprintf(namebfptr, sizeof(namebfptr), "* %s", name);
 				tconf.rel_offset = 1;
 				name = namebfptr;
@@ -782,7 +784,8 @@ out:
 
 	return printed;
 out_type_not_found:
-	printed = fprintf(fp, "%-*s %s", tconf.type_spacing, "<ERROR>", name);
+	printed = fprintf(fp, "%-*s%s> %s", tconf.type_spacing, "<ERROR",
+			  name == namebfptr ? ": pointer to pointer to inner struct/union/enum?" : "", name);
 	goto out;
 }
 
