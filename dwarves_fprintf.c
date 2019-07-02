@@ -597,6 +597,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	char namebf[256];
 	char namebfptr[258];
 	struct type *ctype;
+	struct tag *type_expanded = NULL;
 	struct conf_fprintf tconf;
 	size_t printed = 0;
 	int expand_types = conf->expand_types;
@@ -640,6 +641,7 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 		if (type->recursivity_level != 0)
 			expand_types = 0;
 		++type->recursivity_level;
+		type_expanded = type;
 	}
 
 	if (expand_types) {
@@ -779,8 +781,8 @@ print_default:
 		break;
 	}
 out:
-	if (tconf.expand_types)
-		--type->recursivity_level;
+	if (type_expanded)
+		--type_expanded->recursivity_level;
 
 	return printed;
 out_type_not_found:
