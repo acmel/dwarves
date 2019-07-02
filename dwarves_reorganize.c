@@ -185,39 +185,6 @@ static struct class_member *
 	return NULL;
 }
 
-static struct class_member *
-	class__find_next_bit_hole_of_size(struct class *class,
-					  struct class_member *from,
-					  size_t size)
-{
-	struct class_member *member;
-
-	class__for_each_member_continue(class, from, member) {
-		if (member->tag.tag != DW_TAG_member)
-			continue;
-		if (member->bit_hole != 0 &&
-		    member->bitfield_size <= size)
-		    return member;
-	}
-#if 0
-	/*
-	 * FIXME: Handle the case where the bit padding is on the same bitfield
-	 * that we're looking, i.e. we can't combine a bitfield with itclass,
-	 * perhaps we should tag bitfields with a sequential, clearly marking
-	 * each of the bitfields in advance, so that all the algoriths that
-	 * have to deal with bitfields, moving them around, demoting, etc, can
-	 * be simplified.
-	 */
-	/*
-	 * Now look if the last member is a one member bitfield,
-	 * i.e. if we have bit_padding
-	 */
-	if (class->bit_padding != 0)
-		return type__last_member(&class->type);
-#endif
-	return NULL;
-}
-
 static bool class__move_member(struct class *class, struct class_member *dest,
 			      struct class_member *from, const struct cu *cu,
 			      int from_padding, const int verbose, FILE *fp)
@@ -343,6 +310,40 @@ static bool class__move_member(struct class *class, struct class_member *dest,
 	}
 
 	return true;
+}
+
+#ifdef BITFIELD_REORG_ALGORITHMS_ENABLED
+static struct class_member *
+	class__find_next_bit_hole_of_size(struct class *class,
+					  struct class_member *from,
+					  size_t size)
+{
+	struct class_member *member;
+
+	class__for_each_member_continue(class, from, member) {
+		if (member->tag.tag != DW_TAG_member)
+			continue;
+		if (member->bit_hole != 0 &&
+		    member->bitfield_size <= size)
+		    return member;
+	}
+#if 0
+	/*
+	 * FIXME: Handle the case where the bit padding is on the same bitfield
+	 * that we're looking, i.e. we can't combine a bitfield with itclass,
+	 * perhaps we should tag bitfields with a sequential, clearly marking
+	 * each of the bitfields in advance, so that all the algoriths that
+	 * have to deal with bitfields, moving them around, demoting, etc, can
+	 * be simplified.
+	 */
+	/*
+	 * Now look if the last member is a one member bitfield,
+	 * i.e. if we have bit_padding
+	 */
+	if (class->bit_padding != 0)
+		return type__last_member(&class->type);
+#endif
+	return NULL;
 }
 
 static void class__move_bit_member(struct class *class, const struct cu *cu,
@@ -723,6 +724,7 @@ struct irq_cfg {
 		}
 	}
 }
+#endif // BITFIELD_REORG_ALGORITHMS_ENABLED
 
 void class__reorganize(struct class *class, const struct cu *cu,
 		       const int verbose, FILE *fp)
