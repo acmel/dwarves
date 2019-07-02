@@ -89,7 +89,7 @@ static void extvar__add(const struct variable *var, const struct cu *cu)
 		nodep = tsearch(gvar, &tree, extvar__compare);
 		if (nodep == NULL)
 			oom("tsearch");
-		else if (*nodep != gvar)
+		else if (*nodep != gvar) {
 			if (gvar->var->declaration) {
 				gvar->next = (*nodep)->next;
 				(*nodep)->next = gvar;
@@ -97,6 +97,7 @@ static void extvar__add(const struct variable *var, const struct cu *cu)
 				gvar->next = *nodep;
 				*nodep = gvar;
 			}
+		}
 	}
 }
 
