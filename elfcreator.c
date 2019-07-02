@@ -54,7 +54,6 @@ static void clear(ElfCreator *ctor, int do_unlink)
 ElfCreator *elfcreator_begin(char *path, Elf *elf) {
 	ElfCreator *ctor = NULL;
 	GElf_Ehdr ehdr_mem, *ehdr;
-	GElf_Half machine;
 
 	if (!(ctor = calloc(1, sizeof(*ctor))))
 		return NULL;
@@ -65,7 +64,6 @@ ElfCreator *elfcreator_begin(char *path, Elf *elf) {
 	ctor->oldelf = elf;
 
 	ehdr = gelf_getehdr(elf, &ehdr_mem);
-	machine = ehdr->e_machine;
 
 	if ((ctor->fd = open(path, O_RDWR|O_CREAT|O_TRUNC, 0755)) < 0) {
 err:
