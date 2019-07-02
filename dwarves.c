@@ -331,7 +331,7 @@ reevaluate:
 		case DW_TAG_rvalue_reference_type:
 		case DW_TAG_volatile_type: {
 			struct tag *tag = cu__type(cu, type->type);
-			if (type == NULL) {
+			if (tag == NULL) {
 				tag__id_not_found_fprintf(stderr, type->type);
 				continue;
 			}
