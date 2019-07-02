@@ -43,24 +43,12 @@ bool no_bitfield_type_recode = true;
 
 static void __tag__print_not_supported(uint32_t tag, const char *func)
 {
-#ifdef STB_GNU_UNIQUE
-	static bool dwarf_tags_warned[DW_TAG_rvalue_reference_type];
-	static bool dwarf_gnu_tags_warned[DW_TAG_GNU_formal_parameter_pack - DW_TAG_MIPS_loop];
-#else
-	static bool dwarf_tags_warned[DW_TAG_shared_type];
-	static bool dwarf_gnu_tags_warned[DW_TAG_class_template - DW_TAG_MIPS_loop];
-#endif
+	static bool dwarf_tags_warned[DW_TAG_GNU_call_site_parameter + 64];
 
-	if (tag < DW_TAG_MIPS_loop) {
+	if (tag < sizeof(dwarf_tags_warned)) {
 		if (dwarf_tags_warned[tag])
 			return;
 		dwarf_tags_warned[tag] = true;
-	} else {
-		uint32_t t = tag - DW_TAG_MIPS_loop;
-
-		if (dwarf_gnu_tags_warned[t])
-			return;
-		dwarf_gnu_tags_warned[t] = true;
 	}
 
 	fprintf(stderr, "%s: tag not supported %#x (%s)!\n", func,
