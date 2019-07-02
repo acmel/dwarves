@@ -353,8 +353,6 @@ static void class__move_bit_member(struct class *class, const struct cu *cu,
 	struct class_member *from_prev = list_entry(from->tag.node.prev,
 						    struct class_member,
 						    tag.node);
-	const uint8_t is_last_member = (from->tag.node.next ==
-					class__tags(class));
 
 	if (verbose)
 		fprintf(fp, "/* Moving '%s:%u' from after '%s' to "
