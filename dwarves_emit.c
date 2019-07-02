@@ -108,7 +108,6 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 {
 	struct type *def = tag__type(tdef);
 	struct tag *type, *ptr_type;
-	int is_pointer = 0;
 
 	/* Have we already emitted this in this CU? */
 	if (def->definition_emitted)
@@ -146,7 +145,6 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 		} else if (ptr_type->tag != DW_TAG_subroutine_type)
 			break;
 		type = ptr_type;
-		is_pointer = 1;
 		/* Fall thru */
 	case DW_TAG_subroutine_type:
 		ftype__emit_definitions(tag__ftype(type), cu, emissions, fp);
