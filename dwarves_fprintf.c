@@ -724,10 +724,13 @@ print_default:
 		size_t const_printed = fprintf(fp, "%s ", "const");
 		tconf.type_spacing -= const_printed;
 		printed		   += const_printed;
-	}
-		type = cu__type(cu, type->type);
-		if (type)
+
+		struct tag *ttype = cu__type(cu, type->type);
+		if (ttype) {
+			type = ttype;
 			goto next_type;
+		}
+	}
 		goto print_default;
 
 	case DW_TAG_array_type:
