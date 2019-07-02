@@ -466,7 +466,8 @@ static int create_new_tag(struct ctf *ctf, int type,
 	case CTF_TYPE_KIND_RESTRICT:	tag->tag = DW_TAG_restrict_type; break;
 	case CTF_TYPE_KIND_VOLATILE:	tag->tag = DW_TAG_volatile_type; break;
 	default:
-		printf("%s: FOO %d\n\n", __func__, type);
+		free(tag);
+		printf("%s: unknown type %d\n\n", __func__, type);
 		return 0;
 	}
 
