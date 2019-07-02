@@ -636,7 +636,7 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 	} else {
 		const char *llvm_objcopy;
 		char tmp_fn[PATH_MAX];
-		char cmd[PATH_MAX];
+		char cmd[PATH_MAX * 2];
 
 		llvm_objcopy = getenv("LLVM_OBJCOPY");
 		if (!llvm_objcopy)
