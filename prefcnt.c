@@ -64,9 +64,10 @@ static void refcnt_tag(struct tag *tag, const struct cu *cu)
 
 	tag->visited = 1;
 
-	if (tag__is_struct(tag) || tag__is_union(tag))
+	if (tag__is_struct(tag) || tag__is_union(tag)) {
 		type__for_each_member(tag__type(tag), member)
 			refcnt_member(member, cu);
+	}
 }
 
 static void refcnt_lexblock(const struct lexblock *lexblock, const struct cu *cu)
