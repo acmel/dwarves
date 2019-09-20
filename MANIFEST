@@ -45,9 +45,11 @@ strings.c
 strings.h
 dutil.c
 dutil.h
+changes-v1.13
 COPYING
 NEWS
 README
+README.DEBUG
 README.btf
 README.ctracer
 rpm/SPECS/dwarves.spec
