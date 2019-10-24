@@ -422,37 +422,48 @@ static int btf_elf__load_types(struct btf_elf *btfe)
 
 		ptr += sizeof(struct btf_type);
 
-		if (type == BTF_KIND_INT) {
+		switch (type) {
+		case BTF_KIND_INT:
 			vlen = create_new_base_type(btfe, ptr, type_ptr, type_index);
-		} else if (type == BTF_KIND_ARRAY) {
+			break;
+		case BTF_KIND_ARRAY:
 			vlen = create_new_array(btfe, ptr, type_index);
-		} else if (type == BTF_KIND_STRUCT) {
+			break;
+		case BTF_KIND_STRUCT:
 			vlen = create_new_class(btfe, ptr, vlen, type_ptr, size, type_index, kflag);
-		} else if (type == BTF_KIND_UNION) {
+			break;
+		case BTF_KIND_UNION:
 			vlen = create_new_union(btfe, ptr, vlen, type_ptr, size, type_index, kflag);
-		} else if (type == BTF_KIND_ENUM) {
+			break;
+		case BTF_KIND_ENUM:
 			vlen = create_new_enumeration(btfe, ptr, vlen, type_ptr, size, type_index);
-		} else if (type == BTF_KIND_FWD) {
+			break;
+		case BTF_KIND_FWD:
 			vlen = create_new_forward_decl(btfe, type_ptr, size, type_index);
-		} else if (type == BTF_KIND_TYPEDEF) {
+			break;
+		case BTF_KIND_TYPEDEF:
 			vlen = create_new_typedef(btfe, type_ptr, size, type_index);
-		} else if (type == BTF_KIND_VAR) {
+			break;
+		case BTF_KIND_VAR:
 			vlen = create_new_variable(btfe, ptr, type_ptr, size, type_index);
-		} else if (type == BTF_KIND_VOLATILE ||
-			   type == BTF_KIND_PTR ||
-			   type == BTF_KIND_CONST ||
-			   type == BTF_KIND_RESTRICT) {
+			break;
+		case BTF_KIND_VOLATILE:
+		case BTF_KIND_PTR:
+		case BTF_KIND_CONST:
+		case BTF_KIND_RESTRICT:
 			vlen = create_new_tag(btfe, type, type_ptr, type_index);
-		} else if (type == BTF_KIND_UNKN) {
+			break;
+		case BTF_KIND_UNKN:
 			cu__table_nullify_type_entry(btfe->priv, type_index);
-			fprintf(stderr,
-				"BTF: idx: %d, off: %zd, Unknown kind %d\n",
+			fprintf(stderr, "BTF: idx: %d, off: %zd, Unknown kind %d\n",
 				type_index, ((void *)type_ptr) - type_section, type);
 			fflush(stderr);
 			vlen = 0;
-		} else if (type == BTF_KIND_FUNC_PROTO) {
+			break;
+		case BTF_KIND_FUNC_PROTO:
 			vlen = create_new_subroutine_type(btfe, ptr, vlen, type_ptr, type_index);
-		} else if (type == BTF_KIND_FUNC) {
+			break;
+		case BTF_KIND_FUNC:
 			/* BTF_KIND_FUNC corresponding to a defined subprogram.
 			 * This is not really a type and it won't be referred by any other types
 			 * either. Since types cannot be skipped, let us replace it with
@@ -462,12 +473,13 @@ static int btf_elf__load_types(struct btf_elf *btfe)
 			 */
 			cu__table_nullify_type_entry(btfe->priv, type_index);
 			vlen = 0;
-		} else {
-			fprintf(stderr,
-				"BTF: idx: %d, off: %zd, Unknown kind %d\n",
+			break;
+		default:
+			fprintf(stderr, "BTF: idx: %d, off: %zd, Unknown kind %d\n",
 				type_index, ((void *)type_ptr) - type_section, type);
 			fflush(stderr);
 			vlen = 0;
+			break;
 		}
 
 		if (vlen < 0)
