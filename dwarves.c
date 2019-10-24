@@ -425,7 +425,8 @@ static int ptr_table__add_with_id(struct ptr_table *pt, void *ptr,
 	}
 
 	pt->entries[id] = ptr;
-	++pt->nr_entries;
+	if (id >= pt->nr_entries)
+		pt->nr_entries = id + 1;
 	return 0;
 }
 
