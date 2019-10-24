@@ -133,6 +133,19 @@ static struct class *class__new(strings_t name, size_t size)
 	return class;
 }
 
+static struct variable *variable__new(strings_t name, uint32_t linkage)
+{
+	struct variable *var = tag__alloc(sizeof(*var));
+
+	if (var != NULL) {
+		var->external = linkage == BTF_VAR_GLOBAL_ALLOCATED;
+		var->name = name;
+		var->ip.tag.tag = DW_TAG_variable;
+	}
+
+	return var;
+}
+
 static int create_new_base_type(struct btf_elf *btfe, void *ptr, struct btf_type *tp, uint32_t id)
 {
 	uint32_t *enc = ptr;
@@ -336,6 +349,23 @@ static int create_new_typedef(struct btf_elf *btfe, struct btf_type *tp, uint64_
 	return 0;
 }
 
+static int create_new_variable(struct btf_elf *btfe, void *ptr, struct btf_type *tp,
+			       uint64_t size, uint32_t id)
+{
+	strings_t name = btf_elf__get32(btfe, &tp->name_off);
+	unsigned int type_id = btf_elf__get32(btfe, &tp->type);
+	struct btf_var *bvar = ptr;
+	uint32_t linkage = btf_elf__get32(btfe, &bvar->linkage);
+	struct variable *var = variable__new(name, linkage);
+
+	if (var == NULL)
+		return -ENOMEM;
+
+	var->ip.tag.type = type_id;
+	cu__add_tag_with_id(btfe->priv, &var->ip.tag, id);
+	return sizeof(*bvar);
+}
+
 static int create_new_tag(struct btf_elf *btfe, int type, struct btf_type *tp, uint32_t id)
 {
 	unsigned int type_id = btf_elf__get32(btfe, &tp->type);
@@ -406,6 +436,8 @@ static int btf_elf__load_types(struct btf_elf *btfe)
 			vlen = create_new_forward_decl(btfe, type_ptr, size, type_index);
 		} else if (type == BTF_KIND_TYPEDEF) {
 			vlen = create_new_typedef(btfe, type_ptr, size, type_index);
+		} else if (type == BTF_KIND_VAR) {
+			vlen = create_new_variable(btfe, ptr, type_ptr, size, type_index);
 		} else if (type == BTF_KIND_VOLATILE ||
 			   type == BTF_KIND_PTR ||
 			   type == BTF_KIND_CONST ||
