@@ -17,6 +17,14 @@
 
 static int verbose;
 
+static struct conf_fprintf conf = {
+	.emit_stats = 1,
+};
+
+static struct conf_load conf_load = {
+	.conf_fprintf = &conf,
+};
+
 struct extvar {
 	struct extvar		*next;
 	const char 		*name;
@@ -243,6 +251,12 @@ static const struct argp_option pglobal__options[] = {
 		.doc  = "show global functions",
 	},
 	{
+		.name = "format_path",
+		.key  = 'F',
+		.arg  = "FORMAT_LIST",
+		.doc  = "List of debugging formats to try"
+	},
+	{
 		.key  = 'V',
 		.name = "verbose",
 		.doc  = "be verbose",
@@ -265,6 +279,7 @@ static error_t pglobal__options_parser(int key, char *arg __unused,
 	case 'v': walk_var = 1;		break;
 	case 'f': walk_fun = 1;		break;
 	case 'V': verbose = 1;		break;
+	case 'F': conf_load.format_path = arg;		break;
 	default:  return ARGP_ERR_UNKNOWN;
 	}
 	return 0;
@@ -299,7 +314,7 @@ int main(int argc, char *argv[])
 		goto out_dwarves_exit;
 	}
 
-	err = cus__load_files(cus, NULL, argv + remaining);
+	err = cus__load_files(cus, &conf_load, argv + remaining);
 	if (err != 0) {
 		cus__fprintf_load_files_err(cus, "pglobal", argv + remaining, err, stderr);
 		goto out_cus_delete;
