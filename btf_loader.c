@@ -414,8 +414,8 @@ static int btf_elf__load_types(struct btf_elf *btfe)
 		} else if (type == BTF_KIND_UNKN) {
 			cu__table_nullify_type_entry(btfe->priv, type_index);
 			fprintf(stderr,
-				"BTF: idx: %d, off: %zd, Unknown\n",
-				type_index, ((void *)type_ptr) - type_section);
+				"BTF: idx: %d, off: %zd, Unknown kind %d\n",
+				type_index, ((void *)type_ptr) - type_section, type);
 			fflush(stderr);
 			vlen = 0;
 		} else if (type == BTF_KIND_FUNC_PROTO) {
@@ -432,8 +432,8 @@ static int btf_elf__load_types(struct btf_elf *btfe)
 			vlen = 0;
 		} else {
 			fprintf(stderr,
-				"BTF: idx: %d, off: %zd, Unknown\n",
-				type_index, ((void *)type_ptr) - type_section);
+				"BTF: idx: %d, off: %zd, Unknown kind %d\n",
+				type_index, ((void *)type_ptr) - type_section, type);
 			fflush(stderr);
 			vlen = 0;
 		}
