@@ -366,6 +366,21 @@ static int create_new_variable(struct btf_elf *btfe, void *ptr, struct btf_type 
 	return sizeof(*bvar);
 }
 
+static int create_new_datasec(struct btf_elf *btfe, void *ptr, int vlen,
+			      struct btf_type *tp, uint64_t size, uint32_t id,
+			      bool kflag)
+{
+	//strings_t name = btf_elf__get32(btfe, &tp->name_off);
+
+	//cu__add_tag_with_id(btfe->priv, &datasec->tag, id);
+
+	/*
+	 * FIXME: this will not be used to reconstruct some original C code,
+	 * its about runtime placement of variables so just ignore this for now
+	 */
+	return vlen * sizeof(struct btf_var_secinfo);
+}
+
 static int create_new_tag(struct btf_elf *btfe, int type, struct btf_type *tp, uint32_t id)
 {
 	unsigned int type_id = btf_elf__get32(btfe, &tp->type);
@@ -446,6 +461,9 @@ static int btf_elf__load_types(struct btf_elf *btfe)
 			break;
 		case BTF_KIND_VAR:
 			vlen = create_new_variable(btfe, ptr, type_ptr, size, type_index);
+			break;
+		case BTF_KIND_DATASEC:
+			vlen = create_new_datasec(btfe, ptr, vlen, type_ptr, size, type_index, kflag);
 			break;
 		case BTF_KIND_VOLATILE:
 		case BTF_KIND_PTR:
