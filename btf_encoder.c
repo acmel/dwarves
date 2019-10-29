@@ -173,6 +173,7 @@ int cu__encode_btf(struct cu *cu, int verbose)
 	bool add_index_type = false;
 	uint32_t type_id_off;
 	uint32_t core_id;
+	struct function *fn;
 	struct tag *pos;
 	int err = 0;
 
@@ -223,6 +224,21 @@ int cu__encode_btf(struct cu *cu, int verbose)
 		bt.name = 0;
 		bt.bit_size = 32;
 		btf_elf__add_base_type(btfe, &bt);
+	}
+
+	cu__for_each_function(cu, core_id, fn) {
+		int btf_fnproto_id, btf_fn_id;
+
+		if (fn->declaration || !fn->external)
+			continue;
+
+		btf_fnproto_id = btf_elf__add_func_proto(btfe, &fn->proto, type_id_off);
+		btf_fn_id = btf_elf__add_ref_type(btfe, BTF_KIND_FUNC, btf_fnproto_id, fn->name, false);
+		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
+			err = -1;
+			printf("error: failed to encode function '%s'\n", function__name(fn, cu));
+			goto out;
+		}
 	}
 
 out:

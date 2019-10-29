@@ -784,6 +784,7 @@ struct function {
 	uint8_t		 external:1;
 	uint8_t		 accessibility:2; /* DW_ACCESS_{public,protected,private} */
 	uint8_t		 virtuality:2; /* DW_VIRTUALITY_{none,virtual,pure_virtual} */
+	uint8_t		 declaration:1;
 	int32_t		 vtable_entry;
 	struct list_head vtable_node;
 	/* fields used by tools */

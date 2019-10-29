@@ -920,6 +920,7 @@ static struct function *function__new(Dwarf_Die *die, struct cu *cu)
 		func->name	      = strings__add(strings, attr_string(die, DW_AT_name));
 		func->linkage_name    = strings__add(strings, attr_string(die, DW_AT_MIPS_linkage_name));
 		func->inlined	      = attr_numeric(die, DW_AT_inline);
+		func->declaration     = dwarf_hasattr(die, DW_AT_declaration);
 		func->external	      = dwarf_hasattr(die, DW_AT_external);
 		func->abstract_origin = dwarf_hasattr(die, DW_AT_abstract_origin);
 		dwarf_tag__set_spec(func->proto.tag.priv,
