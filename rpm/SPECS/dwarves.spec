@@ -3,11 +3,12 @@
 
 Name: dwarves
 Version: 1.15
-Release: 1%{?dist}
+Release: 2%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools (pahole & friends)
 URL: http://acmel.wordpress.com
 Source: http://fedorapeople.org/~acme/dwarves/%{name}-%{version}.tar.xz
+Requires: %{libname}%{libver} = %{version}-%{release}
 BuildRequires: gcc
 BuildRequires: cmake
 BuildRequires: zlib-devel
@@ -117,6 +118,9 @@ make install DESTDIR=%{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Tue Nov 05 2019 Jiri Olsa <jolsa@redhat.com> - 1.15-2
+- Add libdwarves version dependency to dwarves package
+
 * Fri May 27 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.15-1
 - New release: 1.15
 - Fix --expand_types/-E segfault
