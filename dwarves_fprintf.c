@@ -1844,6 +1844,9 @@ size_t tag__fprintf(struct tag *tag, const struct cu *cu,
 	case DW_TAG_structure_type:
 		printed += __class__fprintf(tag__class(tag), cu, pconf, fp);
 		break;
+	case DW_TAG_subroutine_type:
+		printed += ftype__fprintf(tag__ftype(tag), cu, NULL, false, false, 0, pconf, fp);
+		break;
 	case DW_TAG_namespace:
 		printed += namespace__fprintf(tag, cu, pconf, fp);
 		break;
