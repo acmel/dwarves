@@ -378,7 +378,7 @@ static void function__show(struct function *func, struct cu *cu)
 		struct tag *type = cu__type(cu, func->proto.tag.type);
 
 		fprintf(stdout, "\n{");
-		if (type != NULL) { /* NULL == void */
+		if (type != NULL && type->type != 0) { /* NULL == void */
 			if (tag__is_pointer(type))
 				fprintf(stdout, "\n\treturn (void *)0;");
 			else if (tag__is_struct(type))
