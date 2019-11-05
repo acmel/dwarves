@@ -1120,6 +1120,13 @@ int ftype__has_parm_of_type(const struct ftype *ftype, const type_id_t target,
 {
 	struct parameter *pos;
 
+	if (ftype->tag.tag == DW_TAG_subprogram) {
+		struct function *func = (struct function *)ftype;
+
+		if (func->btf)
+			ftype = tag__ftype(cu__type(cu, ftype->tag.type));
+	}
+
 	ftype__for_each_parameter(ftype, pos) {
 		struct tag *type = cu__type(cu, pos->tag.type);
 

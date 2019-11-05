@@ -83,6 +83,25 @@ out_free_parameters:
 	return -ENOMEM;
 }
 
+static int create_new_function(struct btf_elf *btfe, struct btf_type *tp, uint64_t size, uint32_t id)
+{
+	strings_t name = btf_elf__get32(btfe, &tp->name_off);
+	unsigned int type_id = btf_elf__get32(btfe, &tp->type);
+	struct function *func = tag__alloc(sizeof(*func));
+
+	if (func == NULL)
+		return -ENOMEM;
+
+	// for BTF this is not really the type of the return of the function,
+	// but the prototype, the return type is the one in type_id
+	func->btf = 1;
+	func->proto.tag.tag = DW_TAG_subprogram;
+	func->proto.tag.type = type_id;
+	func->name = name;
+	cu__add_tag_with_id(btfe->priv, &func->proto.tag, id);
+
+	return 0;
+}
 
 static struct base_type *base_type__new(strings_t name, uint32_t attrs,
 					uint8_t float_type, size_t size)
@@ -482,15 +501,8 @@ static int btf_elf__load_types(struct btf_elf *btfe)
 			vlen = create_new_subroutine_type(btfe, ptr, vlen, type_ptr, type_index);
 			break;
 		case BTF_KIND_FUNC:
-			/* BTF_KIND_FUNC corresponding to a defined subprogram.
-			 * This is not really a type and it won't be referred by any other types
-			 * either. Since types cannot be skipped, let us replace it with
-			 * a nullify_type_entry.
-			 *
-			 * No warning here since BTF_KIND_FUNC is a legal entry in BTF.
-			 */
-			cu__table_nullify_type_entry(btfe->priv, type_index);
-			vlen = 0;
+			// BTF_KIND_FUNC corresponding to a defined subprogram.
+			vlen = create_new_function(btfe, type_ptr, size, type_index);
 			break;
 		default:
 			fprintf(stderr, "BTF: idx: %d, off: %zd, Unknown kind %d\n",

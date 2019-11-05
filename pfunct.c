@@ -323,7 +323,8 @@ static int function__emit_type_definitions(struct function *func,
 					   struct cu *cu, FILE *fp)
 {
 	struct parameter *pos;
-	struct tag *type = cu__type(cu, func->proto.tag.type);
+	struct ftype *proto = func->btf ? tag__ftype(cu__type(cu, func->proto.tag.type)) : &func->proto;
+	struct tag *type = cu__type(cu, proto->tag.type);
 
 retry_return_type:
 	/* type == NULL means the return is void */
@@ -340,7 +341,7 @@ retry_return_type:
 		type__emit(type, cu, NULL, NULL, fp);
 	}
 do_parameters:
-	function__for_each_parameter(func, pos) {
+	ftype__for_each_parameter(proto, pos) {
 		type = cu__type(cu, pos->tag.type);
 	try_again:
 		if (type == NULL)
