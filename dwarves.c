@@ -1343,6 +1343,7 @@ static size_t type__natural_alignment(struct type *type, const struct cu *cu)
 		if (member->tag.tag == DW_TAG_inheritance &&
 		    member->virtuality == DW_VIRTUALITY_virtual)
 			continue;
+		if (member->is_static) continue;
 
 		struct tag *member_type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
 		size_t member_natural_alignment = tag__natural_alignment(member_type, cu);
