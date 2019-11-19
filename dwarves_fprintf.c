@@ -678,7 +678,6 @@ static size_t type__fprintf(struct tag *type, const struct cu *cu,
 	if (tag__is_struct(type) || tag__is_union(type) ||
 	    tag__is_enumeration(type)) {
 inner_struct:
-		tconf.type_spacing -= 8;
 		tconf.prefix	   = NULL;
 		tconf.suffix	   = name;
 		tconf.emit_stats   = 0;
@@ -711,6 +710,7 @@ next_type:
 				tconf.rel_offset = 1;
 				name = namebfptr;
 				type = ptype;
+				tconf.type_spacing -= 8;
 				goto inner_struct;
 			}
 		}
@@ -757,18 +757,21 @@ print_default:
 			if (!tconf.suppress_comments)
 				class__find_holes(cclass);
 
+			tconf.type_spacing -= 8;
 			printed += __class__fprintf(cclass, cu, &tconf, fp);
 		}
 		break;
 	case DW_TAG_union_type:
 		ctype = tag__type(type);
 
-		if (type__name(ctype, cu) != NULL && !expand_types)
+		if (type__name(ctype, cu) != NULL && !expand_types) {
 			printed += fprintf(fp, "union %-*s %s",
 					   tconf.type_spacing - 6,
 					   type__name(ctype, cu), name);
-		else
+		} else {
+			tconf.type_spacing -= 8;
 			printed += union__fprintf(ctype, cu, &tconf, fp);
+		}
 		break;
 	case DW_TAG_enumeration_type:
 		ctype = tag__type(type);
