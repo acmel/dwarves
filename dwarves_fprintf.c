@@ -859,7 +859,7 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 				slen += packed_len;
 			}
 
-			if (tag__type(type)->alignment != 0 && sizeof!conf->suppress_aligned_attribute) {
+			if (tag__type(type)->alignment != 0 && !conf->suppress_aligned_attribute) {
 				char bftmp[64];
 				int aligned_len = snprintf(bftmp, sizeof(bftmp), " __attribute__((__aligned__(%u)))", tag__type(type)->alignment);
 				slen += aligned_len;
