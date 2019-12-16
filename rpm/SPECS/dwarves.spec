@@ -2,8 +2,8 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.15
-Release: 2%{?dist}
+Version: 1.16
+Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools (pahole & friends)
 URL: http://acmel.wordpress.com
@@ -34,6 +34,15 @@ code generate on the resulting binaries.
 
 Another tool is pfunct, that can be used to find all sorts of information about
 functions, inlines, decisions made by the compiler about inlining, etc.
+
+One example of pfunct usage is in the fullcircle tool, a shell that drivers
+pfunct to generate compileable code out of a .o file and then build it using
+gcc, with the same compiler flags, and then use codiff to make sure the
+original .o file and the new one generated from debug info produces the same
+debug info.
+
+The btfdiff utility compares the output of pahole from BTF and DWARF to make
+sure they produce the same results.
 
 %package -n %{libname}%{libver}
 Summary: Debugging information  processing library
@@ -118,6 +127,20 @@ make install DESTDIR=%{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Mon 16 Dec 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.16-1
+- New release: 1.16
+- BTF encoder: Preserve and encode exported functions as BTF_KIND_FUNC.
+- BTF loader: Add support for BTF_KIND_FUNC
+- Pretty printer: Account inline type __aligned__ member types for spacing
+- Pretty printer: Fix alignment of class members that are structs/enums/unions
+- Pretty printer: Avoid infinite loop trying to determine type with static data member of its own type.
+- RPM spec file:  Add dwarves dependency on libdwarves1.
+- pfunct: type->type == 0 is void, fix --compile for that
+- pdwtags: Print DW_TAG_subroutine_type as well
+- core: Fix ptr_table__add_with_id() handling of pt->nr_entries
+- pglobal: Allow passing the format path specifier, to use with BTF
+- Tree wide: Fixup issues pointed out by various coverity reports.
+
 * Tue Nov 05 2019 Jiri Olsa <jolsa@redhat.com> - 1.15-2
 - Add libdwarves version dependency to dwarves package
 

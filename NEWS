@@ -1,3 +1,56 @@
+v1.16:
+
+Mon Dec 16 2019
+
+69df73444c69 (HEAD -> master, acme.korg/master) dwarves: Add -O2 to CFLAGS
+6d11dd157f75 elfcreator: Address initialization warning emitted by 'gcc -O6'
+1bc63a4cffa7 fprintf: Fixup truncation possibility pointed out by gcc -O2
+5c590fc29d06 ptr_table: Zero out new id ranges
+644466dce77f fprintf: Remove extraneous sizeof operator
+a59459bb80e7 fprintf: Account inline type __aligned__ member types for spacing
+56547f133a5b fprintf: Fix alignment of class members that are structs/enums/unions
+be37b64aef38 dwarves: Ignore static members for alignment
+cca018e495a8 SPEC: Add dwarves dependency on libdwarves1
+ccf3eebfcd9c btf_loader: Add support for BTF_KIND_FUNC
+f95fd85f7b53 pfunct: type->type == 0 is void, fix --compile for that
+3e8f09e304ba (origin/master, origin/HEAD) pdwtags: Print DW_TAG_subroutine_type as well
+3c5f2a224aa1 btf_encoder: Preserve and encode exported functions as BTF_KIND_FUNC
+910e060b5c4b btf_loader: Skip BTF_KIND_DATASEC entries
+96235a74a34d btf_loader: Replace if/else series with a proper switch {}
+a4ba2234ff58 btf_loader: Support BTF_KIND_VAR
+5965ce015eab dwarves: Fix ptr_table__add_with_id() handling of pt->nr_entries
+173911ac38ea btf_loader: Show the unknown kind numbers
+0d8e11e8568e pglobal: Allow passing the format path specifier, to use with BTF
+ba27df9f2f94 CMakeLists: Use lib/bpf/include/uapi when building libdwarves
+95517e1d995e libbpf: Get latest libbpf
+ca294eebfc47 MANIFEST: Add missing files
+d5e01d10e515 fprintf: Set tconf.type_spacing earlier
+c6a9a0eb6ac7 fprintf: Fix up decrementing recursivity level in type__fprintf()
+93c3cdf89715 cmake: Add -Wall to CFLAGS
+7360f0528ff3 elfcreator: Remove unused 'machine' variable
+0f52b11f911c prefcnt: Avoid ambiguous else with for_each macro
+608813d0affa pglobal: Avoid ambiguous else
+77d06c2d305d reorganize: Enclose bitfield routines under ifdef
+2221ae30bce9 reorganize: Ditch unused variable
+c419c513eae5 libbtf: Enlarge the 'cmd' buffer to not possibly truncate the pathname
+092fffe56701 btf_loader: Enum values are s32, cast before calling btf_elf__get32()
+7bfb1aa80f9a libctf: Enlarge the 'cmd' buffer to not possibly truncate the pathname
+f67c281f9841 fprintf: Correct the type for the 'cacheline' variable, it should be uint32_t
+7b36fab5a8df fprintf: Add guard against unlikely overlapping copy
+e737976c09d9 fprintf: Do not scrub type when looking up its type
+e95dacb704bf fprintf: Remove unused printf arg when printing enumerations
+71c4f83f2828 emit: Remove unused 'is_pointer' variable
+fe87354c31bb dwarves: Ditch unused asprintf() function
+60c73a769882 dwarves: We need to consistently check if 'conf was specified
+5fdfd09a6bbe dwarves: Fix check in type__find_first_biggest_size_base_type_member()
+24ced5be8a75 dwarf_loader: Fix array overrun access
+33e2d7aa35a7 ctf_loader: Plug leak when bailing out due to unknown tag
+aefa9303818b codiff: Remove unused filenames variable
+de5e72bc15fb btf_loader: Plug leak when bailing out due to unknown tag
+511a79129494 dwarves: Remove unused variable
+b1412a88bb61 fprintf: Fixup handling classes with no members
+[acme@quaco pahole]$ 
+
 v1.15
 
 Thu Jun 27 2019
