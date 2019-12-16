@@ -706,7 +706,7 @@ next_type:
 			    tag__is_enumeration(ptype)) && type__name(tag__type(ptype), cu) == NULL) {
 				if (name == namebfptr)
 					goto out_type_not_found;
-				snprintf(namebfptr, sizeof(namebfptr), "* %s", name);
+				snprintf(namebfptr, sizeof(namebfptr), "* %.*s", (int)sizeof(namebfptr) - 3, name);
 				tconf.rel_offset = 1;
 				name = namebfptr;
 				type = ptype;
