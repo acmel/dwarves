@@ -183,7 +183,7 @@ static void generic_dyn_fixup_fn(ElfCreator *ctor, Elf64_Sxword d_tag, Elf_Scn *
 {
 	GElf_Shdr *shdr, shdr_mem;
 	GElf_Dyn *dyn, dyn_mem;
-	size_t idx;
+	size_t idx = 0;
 
 	dyn = get_dyn_by_tag(ctor, d_tag, &dyn_mem, &idx);
 	shdr = gelf_getshdr(scn, &shdr_mem);
@@ -199,7 +199,7 @@ static void rela_dyn_fixup_fn(ElfCreator *ctor, Elf64_Sxword d_tag, Elf_Scn *scn
 {
 	GElf_Shdr *shdr, shdr_mem;
 	GElf_Dyn *dyn, dyn_mem;
-	size_t idx;
+	size_t idx = 0;
 
 	dyn = get_dyn_by_tag(ctor, d_tag, &dyn_mem, &idx);
 	shdr = gelf_getshdr(scn, &shdr_mem);
@@ -220,7 +220,7 @@ static void rel_dyn_fixup_fn(ElfCreator *ctor, Elf64_Sxword d_tag, Elf_Scn *scn)
 {
 	GElf_Shdr *shdr, shdr_mem;
 	GElf_Dyn *dyn, dyn_mem;
-	size_t idx;
+	size_t idx = 0;
 
 	dyn = get_dyn_by_tag(ctor, d_tag, &dyn_mem, &idx);
 	shdr = gelf_getshdr(scn, &shdr_mem);
