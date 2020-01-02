@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <stdarg.h>
 
@@ -58,8 +60,43 @@ uint32_t btf_elf__get32(struct btf_elf *btfe, uint32_t *p)
 	return val;
 }
 
+static int btf_raw__load(struct btf_elf *btfe)
+{
+        size_t read_cnt;
+        struct stat st;
+        void *data;
+        FILE *fp;
+
+        if (stat(btfe->filename, &st))
+                return -1;
+
+        data = malloc(st.st_size);
+        if (!data)
+                return -1;
+
+        fp = fopen(btfe->filename, "rb");
+        if (!fp)
+                goto cleanup;
+
+        read_cnt = fread(data, 1, st.st_size, fp);
+        fclose(fp);
+        if (read_cnt < st.st_size)
+                goto cleanup;
+
+	btfe->swapped	= 0;
+	btfe->data	= data;
+	btfe->size	= read_cnt;
+	return 0;
+cleanup:
+        free(data);
+        return -1;
+}
+
 int btf_elf__load(struct btf_elf *btfe)
 {
+	if (btfe->raw_btf)
+		return btf_raw__load(btfe);
+
 	int err = -ENOTSUP;
 	GElf_Shdr shdr;
 	Elf_Scn *sec = elf_section_by_name(btfe->elf, &btfe->ehdr, &shdr, ".BTF", NULL);
@@ -108,6 +145,13 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
 	btfe->filename = strdup(filename);
 	if (btfe->filename == NULL)
 		goto errout;
+
+	if (strcmp(filename, "/sys/kernel/btf/vmlinux") == 0) {
+		btfe->raw_btf  = true;
+		btfe->wordsize = sizeof(long);
+		btfe->is_big_endian = BYTE_ORDER == BIG_ENDIAN;
+		return btfe;
+	}
 
 	if (elf != NULL) {
 		btfe->elf = elf;

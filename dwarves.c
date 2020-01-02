@@ -2074,6 +2074,19 @@ static int cus__load_running_kernel(struct cus *cus, struct conf_load *conf)
 	int i, err = 0;
 	char running_sbuild_id[SBUILD_ID_SIZE];
 
+	if ((!conf || conf->format_path == NULL || strncmp(conf->format_path, "btf", 3) == 0) &&
+	    access("/sys/kernel/btf/vmlinux", R_OK) == 0) {
+		int loader = debugging_formats__loader("btf");
+		if (loader == -1)
+			goto try_elf;
+
+		if (conf->conf_fprintf)
+			conf->conf_fprintf->has_alignment_info = debug_fmt_table[loader]->has_alignment_info;
+
+		if (debug_fmt_table[loader]->load_file(cus, conf, "/sys/kernel/btf/vmlinux") == 0)
+			return 0;
+	}
+try_elf:
 	elf_version(EV_CURRENT);
 	vmlinux_path__init();
 

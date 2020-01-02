@@ -28,6 +28,7 @@ struct btf_elf {
 	int		  in_fd;
 	uint8_t		  wordsize;
 	bool		  is_big_endian;
+	bool		  raw_btf; // "/sys/kernel/btf/vmlinux"
 	uint32_t	  type_index;
 };
 
