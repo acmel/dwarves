@@ -1696,8 +1696,8 @@ extern struct debug_fmt_ops dwarf__ops, ctf__ops, btf_elf__ops;
 
 static struct debug_fmt_ops *debug_fmt_table[] = {
 	&dwarf__ops,
-	&ctf__ops,
 	&btf_elf__ops,
+	&ctf__ops,
 	NULL,
 };
 
