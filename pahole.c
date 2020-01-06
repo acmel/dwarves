@@ -1267,8 +1267,7 @@ int main(int argc, char *argv[])
 {
 	int err, remaining, rc = EXIT_FAILURE;
 
-	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL) ||
-	    (remaining == argc && class_name == NULL)) {
+	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL)) {
 		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, argv[0]);
 		goto out;
 	}
