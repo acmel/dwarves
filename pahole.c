@@ -623,8 +623,10 @@ static void cu__account_nr_methods(struct cu *cu)
 	uint32_t id;
 
 	cu__for_each_function(cu, id, pos_function) {
+		struct ftype *proto = pos_function->btf ? tag__ftype(cu__type(cu, pos_function->proto.tag.type)) : &pos_function->proto;
 		struct class_member *pos;
-		list_for_each_entry(pos, &pos_function->proto.parms, tag.node) {
+
+		ftype__for_each_parameter(proto, pos) {
 			struct tag *type = cu__type(cu, pos->tag.type);
 
 			if (type == NULL || !tag__is_pointer(type))
