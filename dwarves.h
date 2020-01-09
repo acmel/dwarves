@@ -818,8 +818,8 @@ static __pure inline int tag__is_function(const struct tag *tag)
  * @func: struct function instance to iterate
  * @pos: struct parameter iterator
  */
-#define function__for_each_parameter(func, pos) \
-	ftype__for_each_parameter(&func->proto, pos)
+#define function__for_each_parameter(func, cu, pos) \
+	ftype__for_each_parameter(func->btf ? tag__ftype(cu__type(cu, func->proto.tag.type)) : &func->proto, pos)
 
 const char *function__name(struct function *func, const struct cu *cu);
 

@@ -61,7 +61,7 @@ static void emit_wrapper(struct function *f, struct cu *cu)
 	const char *name = function__name(f, cu);
 	int regparm = 0, needs_wrapper = 0;
 
-	function__for_each_parameter(f, parm) {
+	function__for_each_parameter(f, cu, parm) {
 		const type_id_t type_id = parm->tag.type;
 		struct tag *type = cu__type(cu, type_id);
 
