@@ -1280,9 +1280,6 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	if (class_name && populate_class_names())
-		goto out_dwarves_exit;
-
 	struct cus *cus = cus__new();
 	if (cus == NULL) {
 		fputs("pahole: insufficient memory\n", stderr);
@@ -1291,8 +1288,17 @@ int main(int argc, char *argv[])
 
 	conf_load.steal = pahole_stealer;
 
+try_sole_arg_as_class_names:
+	if (class_name && populate_class_names())
+		goto out_dwarves_exit;
+
 	err = cus__load_files(cus, &conf_load, argv + remaining);
 	if (err != 0) {
+		if (class_name == NULL) {
+			class_name = argv[remaining];
+			remaining = argc;
+			goto try_sole_arg_as_class_names;
+		}
 		cus__fprintf_load_files_err(cus, "pahole", argv + remaining, err, stderr);
 		goto out_cus_delete;
 	}
