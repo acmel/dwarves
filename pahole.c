@@ -673,7 +673,7 @@ static void cu__account_nr_methods(struct cu *cu)
 
 static char tab[128];
 
-static void print_structs_with_pointer_to(const struct cu *cu, uint32_t type)
+static void print_structs_with_pointer_to(struct cu *cu, uint32_t type)
 {
 	struct class *pos;
 	struct class_member *pos_member;
@@ -684,6 +684,9 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint32_t type)
 		struct structure *str;
 
 		if (pos->type.namespace.name == 0)
+			continue;
+
+		if (!class__filter(pos, cu, id))
 			continue;
 
 		type__for_each_member(&pos->type, pos_member) {
@@ -716,13 +719,16 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint32_t type)
 	}
 }
 
-static void print_containers(const struct cu *cu, uint32_t type, int ident)
+static void print_containers(struct cu *cu, uint32_t type, int ident)
 {
 	struct class *pos;
 	uint32_t id;
 
 	cu__for_each_struct_or_union(cu, id, pos) {
 		if (pos->type.namespace.name == 0)
+			continue;
+
+		if (!class__filter(pos, cu, id))
 			continue;
 
 		const uint32_t n = type__nr_members_of_type(&pos->type, type);
