@@ -412,10 +412,11 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	/*
 	 * The following only make sense for structs, i.e. 'struct class',
 	 * and as we can get here with a union, that is represented by a 'struct type',
-	 * bail out if we get here with an union
+	 * bail out if we get here with an union and we are not looking for things
+	 * that need finding holes, like --packable, --nr_holes, etc
 	 */
-	if (!tag__is_struct(class__tag(class)))
-		return show_packable ? NULL : class;
+	if (!tag__is_struct(tag))
+		return (show_packable || nr_holes || nr_bit_holes || hole_size_ge) ? NULL : class;
 
 	if (tag->top_level)
 		class__find_holes(class);
