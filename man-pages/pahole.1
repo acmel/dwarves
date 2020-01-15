@@ -218,6 +218,11 @@ Include PREFIXed classes.
 .B \-z, \-\-hole_size_ge=HOLE_SIZE
 Show only structs with at least one hole greater or equal to HOLE_SIZE.
 
+.TP
+.B \-\-unions
+Show only unions, all the other filters apply, i.e. to show just the sizes of all unions
+coimbine --union with --sizes, etc.
+
 .SH NOTES
 
 To enable the generation of debugging information in the Linux kernel build

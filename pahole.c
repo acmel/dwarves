@@ -53,6 +53,7 @@ static uint8_t find_pointers_in_structs;
 static int reorganize;
 static bool show_private_classes;
 static bool defined_in;
+static bool just_unions;
 static int show_reorg_steps;
 static char *class_name;
 static struct strlist *class_names;
@@ -359,6 +360,9 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	struct tag *tag = class__tag(class);
 	const char *name;
 
+	if (just_unions && !tag__is_union(tag))
+		return NULL;
+
 	if (!tag->top_level) {
 		class__find_holes(class);
 
@@ -409,6 +413,12 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	     strncmp(decl_exclude_prefix, tag__decl_file(tag, cu),
 		     decl_exclude_prefix_len) == 0))
 		return NULL;
+	/*
+	 * if --unions was used and we got here, its a union and we satisfy the other
+	 * filters/options, so don't filter it.
+	 */
+	if (just_unions)
+		return class;
 	/*
 	 * The following only make sense for structs, i.e. 'struct class',
 	 * and as we can get here with a union, that is represented by a 'struct type',
@@ -756,6 +766,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_suppress_aligned_attribute	306
 #define ARGP_suppress_force_paddings	307
 #define ARGP_suppress_packed	   308
+#define ARGP_just_unions	   309
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -999,6 +1010,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Encode as BTF",
 	},
 	{
+		.name = "unions",
+		.key  = ARGP_just_unions,
+		.doc  = "Show just unions",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1085,6 +1101,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf.classes_as_structs = 1;		break;
 	case ARGP_hex_fmt:
 		conf.hex_fmt = 1;			break;
+	case ARGP_just_unions:
+		just_unions = true;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
