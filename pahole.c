@@ -173,7 +173,7 @@ static void size_formatter(struct class *class,
 			   struct cu *cu, uint32_t id __unused)
 {
 	printf("%s%c%d%c%u\n", class__name(class, cu), separator,
-	       class__size(class), separator, class->nr_holes);
+	       class__size(class), separator, tag__is_union(class__tag(class)) ? 0 : class->nr_holes);
 }
 
 static void class_name_len_formatter(struct class *class, struct cu *cu,
