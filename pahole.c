@@ -679,7 +679,7 @@ static void print_structs_with_pointer_to(const struct cu *cu, uint32_t type)
 	struct class_member *pos_member;
 	uint32_t id;
 
-	cu__for_each_struct(cu, id, pos) {
+	cu__for_each_struct_or_union(cu, id, pos) {
 		bool looked = false;
 		struct structure *str;
 
