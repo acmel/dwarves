@@ -1224,8 +1224,11 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		bool include_decls = find_pointers_in_structs != 0 ||
 				     stats_formatter == nr_methods_formatter;
 		struct tag *class = cu__find_type_by_name(cu, pos->s, include_decls, &class_id);
-		if (class == NULL)
-			continue;
+		if (class == NULL) {
+			class = cu__find_base_type_by_name(cu, pos->s, &class_id);
+			if (class == NULL)
+				continue;
+		}
 
 		if (defined_in) {
 			puts(cu->name);
