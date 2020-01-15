@@ -721,7 +721,7 @@ static void print_containers(const struct cu *cu, uint32_t type, int ident)
 	struct class *pos;
 	uint32_t id;
 
-	cu__for_each_struct(cu, id, pos) {
+	cu__for_each_struct_or_union(cu, id, pos) {
 		if (pos->type.namespace.name == 0)
 			continue;
 
