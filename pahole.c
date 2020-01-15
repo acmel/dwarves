@@ -54,6 +54,7 @@ static int reorganize;
 static bool show_private_classes;
 static bool defined_in;
 static bool just_unions;
+static bool just_structs;
 static int show_reorg_steps;
 static char *class_name;
 static struct strlist *class_names;
@@ -363,6 +364,9 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	if (just_unions && !tag__is_union(tag))
 		return NULL;
 
+	if (just_structs && !tag__is_struct(tag))
+		return NULL;
+
 	if (!tag->top_level) {
 		class__find_holes(class);
 
@@ -426,7 +430,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	 * that need finding holes, like --packable, --nr_holes, etc
 	 */
 	if (!tag__is_struct(tag))
-		return (show_packable || nr_holes || nr_bit_holes || hole_size_ge) ? NULL : class;
+		return (just_structs || show_packable || nr_holes || nr_bit_holes || hole_size_ge) ? NULL : class;
 
 	if (tag->top_level)
 		class__find_holes(class);
@@ -773,6 +777,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_suppress_force_paddings	307
 #define ARGP_suppress_packed	   308
 #define ARGP_just_unions	   309
+#define ARGP_just_structs	   310
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1016,6 +1021,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Encode as BTF",
 	},
 	{
+		.name = "structs",
+		.key  = ARGP_just_structs,
+		.doc  = "Show just structs",
+	},
+	{
 		.name = "unions",
 		.key  = ARGP_just_unions,
 		.doc  = "Show just unions",
@@ -1109,6 +1119,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf.hex_fmt = 1;			break;
 	case ARGP_just_unions:
 		just_unions = true;			break;
+	case ARGP_just_structs:
+		just_structs = true;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
