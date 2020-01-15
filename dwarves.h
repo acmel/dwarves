@@ -120,6 +120,7 @@ struct tag *cus__find_struct_by_name(const struct cus *cus, struct cu **cu,
 				     type_id_t *id);
 struct tag *cus__find_struct_or_union_by_name(const struct cus *cus, struct cu **cu,
 					      const char *name, const int include_decls, type_id_t *id);
+struct tag *cu__find_type_by_name(const struct cu *cu, const char *name, const int include_decls, type_id_t *idp);
 struct function *cus__find_function_at_addr(const struct cus *cus,
 					    uint64_t addr, struct cu **cu);
 void cus__for_each_cu(struct cus *cus, int (*iterator)(struct cu *cu, void *cookie),

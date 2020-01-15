@@ -732,6 +732,37 @@ found:
 
 }
 
+struct tag *cu__find_type_by_name(const struct cu *cu, const char *name, const int include_decls, type_id_t *idp)
+{
+	if (cu == NULL || name == NULL)
+		return NULL;
+
+	uint32_t id;
+	struct tag *pos;
+	cu__for_each_type(cu, id, pos) {
+		struct type *type;
+
+		if (!tag__is_type(pos))
+			continue;
+
+		type = tag__type(pos);
+		const char *tname = type__name(type, cu);
+		if (tname && strcmp(tname, name) == 0) {
+			if (!type->declaration)
+				goto found;
+
+			if (include_decls)
+				goto found;
+		}
+	}
+
+	return NULL;
+found:
+	if (idp != NULL)
+		*idp = id;
+	return pos;
+}
+
 static struct tag *__cu__find_struct_by_name(const struct cu *cu, const char *name,
 					     const int include_decls, bool unions, type_id_t *idp)
 {
