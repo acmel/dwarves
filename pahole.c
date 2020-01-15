@@ -1226,8 +1226,11 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		struct tag *class = cu__find_type_by_name(cu, pos->s, include_decls, &class_id);
 		if (class == NULL) {
 			class = cu__find_base_type_by_name(cu, pos->s, &class_id);
-			if (class == NULL)
-				continue;
+			if (class == NULL) {
+				if (strcmp(pos->s, "void"))
+					continue;
+				class_id = 0;
+			}
 		}
 
 		if (defined_in) {
@@ -1240,15 +1243,16 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		 */
 		strlist__remove(class_names, pos);
 
-		class__find_holes(tag__class(class));
+		if (class)
+			class__find_holes(tag__class(class));
 		if (reorganize) {
-			if (tag__is_struct(class))
+			if (class && tag__is_struct(class))
 				do_reorg(class, cu);
 		} else if (find_containers)
 			print_containers(cu, class_id, 0);
 		else if (find_pointers_in_structs)
 			print_structs_with_pointer_to(cu, class_id);
-		else {
+		else if (class) {
 			/*
 			 * We don't need to print it for every compile unit
 			 * but the previous options need
