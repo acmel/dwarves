@@ -376,6 +376,54 @@ $
 .fi
 
 .P
+OK, I know the offset that causes its a 'struct thread_struct' and that the offset is 0x178,
+so must be in that 'fpu' struct... No problem, expand 'struct thread_struct' and combine with \fBgrep\fR:
+.PP
+.nf
+$ pahole --hex -E thread_struct | egrep '(0x178|struct fpu)' -B4 -A4
+        /* XXX 30 bits hole, try to pack */
+        /* XXX 36 bytes hole, try to pack */
+
+        /* --- cacheline 3 boundary (192 bytes) --- */
+        struct fpu {
+                unsigned int       last_cpu;                                             /*  0xc0   0x4 */
+
+                /* XXX 4 bytes hole, try to pack */
+
+--
+                                /* typedef u8 -> __u8 */ unsigned char alimit;           /* 0x171   0x1 */
+
+                                /* XXX 6 bytes hole, try to pack */
+
+                                struct math_emu_info * info;                             /* \fI0x178\fR   0x8 */
+                                /* --- cacheline 6 boundary (384 bytes) --- */
+                                /* typedef u32 -> __u32 */ unsigned int entry_eip;       /* 0x180   0x4 */
+                        } soft; /* 0x100  0x88 */
+                        struct xregs_state {
+$
+.fi
+
+.P
+Want to know where 'struct thread_struct' is defined in the kernel sources?
+.PP
+.nf
+$ pahole -I thread_struct | head -2
+/* Used at: /sys/kernel/btf/vmlinux */
+/* <0> (null):0 */
+$
+.fi
+
+.P
+Not present in BTF, so use DWARF, takes a little bit longer, and assuming it finds the matching vmlinux file:
+.PP
+.nf
+$ pahole -Fdwarf -I thread_struct | head -2
+/* Used at: /home/acme/git/linux/arch/x86/kernel/head64.c */
+/* <3333> /home/acme/git/linux/arch/x86/include/asm/processor.h:485 */
+$
+.fi
+
+.P
 To find the biggest data structures in the Linux kernel:
 .PP
 .nf
