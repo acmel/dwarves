@@ -1,7 +1,7 @@
 .\" Man page for pahole
 .\" Arnaldo Carvalho de Melo, 2009
 .\" Licensed under version 2 of the GNU General Public License.
-.TH pahole 1 "February 13, 2009" "dwarves" "dwarves"
+.TH pahole 1 "January 16, 2020" "dwarves" "dwarves"
 .\"
 .SH NAME
 pahole \- Shows and manipulates data structure layout.
@@ -23,8 +23,9 @@ inside the file itself, in ELF sections, or in another file.
 One way to have this information is to specify the \fB\-g\fR option to the
 compiler when building it. When this is done the information will be stored in
 an ELF section. For the DWARF debugging information format this, adds, among
-others, the \fB.debug_info\fR ELF section. For CTF it is found in just one
-ELF section, \fB.SUNW_ctf\fR.
+others, the \fB.debug_info\fR ELF section. For CTF it is found in just one ELF
+section, \fB.SUNW_ctf\fR. BTF comes in at least the \fB.BTF\fR ELF section, and
+may come also with the \fB.BTF.ext\fR ELF section.
 
 The \fBdebuginfo\fR packages available in most Linux distributions are also
 supported by \fBpahole\fR, where the debugging information is available in a
@@ -32,6 +33,29 @@ separate file.
 
 By default, \fBpahole\fR shows the layout of all named structs in the files
 specified.
+
+If no files are specified, then it will look if the /sys/kernel/btf/vmlinux
+is present, using the BTF information present in it about the running kernel,
+i.e. this works:
+.PP
+.nf
+$ pahole list_head
+struct list_head {
+	struct list_head *         next;                 /*     0     8 */
+	struct list_head *         prev;                 /*     8     8 */
+
+	/* size: 16, cachelines: 1, members: 2 */
+	/* last cacheline: 16 bytes */
+};
+$
+.fi
+
+If BTF is not present and no file is passed, then a vmlinux that matches the
+build-id for the running kernel will be looked up in the usual places,
+including where the kernel debuginfo packages put it, looking for DWARF info
+instead.
+
+See the EXAMPLES section for more usage suggestions.
 
 .SH OPTIONS
 pahole supports the following options.
@@ -232,21 +256,179 @@ coimbine --union with --sizes, etc.
 
 To enable the generation of debugging information in the Linux kernel build
 process select CONFIG_DEBUG_INFO. This can be done using make menuconfig by
-this path: "Kernel Hacking" -> "Kernel Debugging" -> "Compile the kernel with
-debug info".
+this path: "Kernel Hacking" -> "Compile-time checks and compiler options" ->
+"Compile the kernel with debug info". Consider as well enabling
+CONFIG_DEBUG_INFO_BTF by going thru the aforementioned menuconfig path and then
+selecting "Generate BTF typeinfo". Most modern distributions with eBPF support
+should come with that in all its kernels, greatly facilitating the use of
+pahole.
 
 Many distributions also come with debuginfo packages, so just enable it in your
 package manager repository configuration and install the kernel-debuginfo, or
 any other userspace program written in a language that the compiler generates
 debuginfo (C, C++, for instance).
 
+.SH EXAMPLES
+
+All the examples here use either /sys/kernel/btf/vmlinux, if present, or lookup
+a vmlinux file matching the running kernel, using the build-id info found in
+/sys/kernel/notes to make sure it matches.
+.P
+Show a type:
+.PP
+.nf
+$ pahole -C __u64
+typedef long long unsigned int __u64;
+$
+.fi
+
+.P
+Works as well if the only argument is a type name:
+.PP
+.nf
+$ pahole raw_spinlock_t
+typedef struct raw_spinlock raw_spinlock_t;
+$
+.fi
+
+.P
+Multiple types can be passed, separated by commas:
+.PP
+.nf
+$ pahole raw_spinlock_t,raw_spinlock
+struct raw_spinlock {
+	arch_spinlock_t            raw_lock;             /*     0     4 */
+
+	/* size: 4, cachelines: 1, members: 1 */
+	/* last cacheline: 4 bytes */
+};
+typedef struct raw_spinlock raw_spinlock_t;
+$
+.fi
+
+.P
+Types can be expanded:
+.PP
+.nf
+$ pahole -E raw_spinlock
+struct raw_spinlock {
+        /* typedef arch_spinlock_t */ struct qspinlock {
+                union {
+                        /* typedef atomic_t */ struct {
+                                int counter;                                                  /*     0     4 */
+                        } val;                                                                /*     0     4 */
+                        struct {
+                                /* typedef u8 -> __u8 */ unsigned char locked;                /*     0     1 */
+                                /* typedef u8 -> __u8 */ unsigned char pending;               /*     1     1 */
+                        };                                                                    /*     0     2 */
+                        struct {
+                                /* typedef u16 -> __u16 */ short unsigned int locked_pending; /*     0     2 */
+                                /* typedef u16 -> __u16 */ short unsigned int tail;           /*     2     2 */
+                        };                                                                    /*     0     4 */
+                };                                                                            /*     0     4 */
+        } raw_lock;                                                                           /*     0     4 */
+
+        /* size: 4, cachelines: 1, members: 1 */
+        /* last cacheline: 4 bytes */
+};
+$
+.fi
+
+.P
+When decoding OOPSes you may want to see the offsets and sizes in hexadecimal:
+.PP
+.nf
+$ pahole --hex thread_struct
+struct thread_struct {
+        struct desc_struct         tls_array[3];         /*     0  0x18 */
+        long unsigned int          sp;                   /*  0x18   0x8 */
+        short unsigned int         es;                   /*  0x20   0x2 */
+        short unsigned int         ds;                   /*  0x22   0x2 */
+        short unsigned int         fsindex;              /*  0x24   0x2 */
+        short unsigned int         gsindex;              /*  0x26   0x2 */
+        long unsigned int          fsbase;               /*  0x28   0x8 */
+        long unsigned int          gsbase;               /*  0x30   0x8 */
+        struct perf_event *        ptrace_bps[4];        /*  0x38  0x20 */
+        /* --- cacheline 1 boundary (64 bytes) was 24 bytes ago --- */
+        long unsigned int          debugreg6;            /*  0x58   0x8 */
+        long unsigned int          ptrace_dr7;           /*  0x60   0x8 */
+        long unsigned int          cr2;                  /*  0x68   0x8 */
+        long unsigned int          trap_nr;              /*  0x70   0x8 */
+        long unsigned int          error_code;           /*  0x78   0x8 */
+        /* --- cacheline 2 boundary (128 bytes) --- */
+        struct io_bitmap *         io_bitmap;            /*  0x80   0x8 */
+        long unsigned int          iopl_emul;            /*  0x88   0x8 */
+        mm_segment_t               addr_limit;           /*  0x90   0x8 */
+        unsigned int               sig_on_uaccess_err:1; /*  0x98: 0 0x4 */
+        unsigned int               uaccess_err:1;        /*  0x98:0x1 0x4 */
+
+        /* XXX 30 bits hole, try to pack */
+        /* XXX 36 bytes hole, try to pack */
+
+        /* --- cacheline 3 boundary (192 bytes) --- */
+        struct fpu                 fpu;                  /*  0xc0 0x1040 */
+
+        /* size: 4352, cachelines: 68, members: 20 */
+        /* sum members: 4312, holes: 1, sum holes: 36 */
+        /* sum bitfield members: 2 bits, bit holes: 1, sum bit holes: 30 bits */
+};
+$
+.fi
+
+.P
+To find the biggest data structures in the Linux kernel:
+.PP
+.nf
+$ pahole -s | sort -k2 -nr | head -5
+cmp_data               290904 1
+dec_datas              274520 1
+cpu_entry_area         217088 0
+pglist_data            172928 4
+saved_cmdlines_buffer  131104 1
+$
+.fi
+.P
+The second column is the size in bytes and the third is the number of alignment holes in
+that structure.
+.P
+Show data structures that have a raw spinlock and are related to the RCU mechanism:
+.PP
+.nf
+$ pahole --contains raw_spinlock_t --prefix rcu
+rcu_node
+rcu_data
+rcu_state
+$
+.fi
+.P
+To see that in context, combine it with \fIgrep\fR:
+.PP
+.nf
+$ pahole rcu_state | grep raw_spinlock_t -B1 -A5
+	/* --- cacheline 52 boundary (3328 bytes) --- */
+	raw_spinlock_t             ofl_lock;             /*  3328     4 */
+
+	/* size: 3392, cachelines: 53, members: 35 */
+	/* sum members: 3250, holes: 7, sum holes: 82 */
+	/* padding: 60 */
+};
+$
+.fi
+.P
+
 .SH SEE ALSO
 \fIeu-readelf\fR(1), \fIreadelf\fR(1), \fIobjdump\fR(1).
 .P
 \fIhttps://www.kernel.org/doc/ols/2007/ols2007v2-pages-35-44.pdf\fR.
 .SH AUTHOR
-\fBpahole\fR was written by Arnaldo Carvalho de Melo <acme@ghostprotocols.net>.
-
+\fBpahole\fR was written and is maintained by Arnaldo Carvalho de Melo <acme@kernel.org>.
+.P
+Thanks to Andrii Nakryiko and Martin KaFai Lau for providing the BTF encoder
+and improving the codebase while making sure the BTF encoder works as needed
+to be used in encoding the Linux kernel .BTF section from the DWARF info
+generated by gcc. For that Andrii wrote a BTF deduplicator in libbpf that is
+used by \fBpahole\fR.
+.P
 Please send bug reports to <dwarves@vger.kernel.org>.
 .P
 No\ subscription is required.
