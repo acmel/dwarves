@@ -46,6 +46,7 @@ strings.h
 dutil.c
 dutil.h
 changes-v1.13
+changes-v1.16
 COPYING
 NEWS
 README
