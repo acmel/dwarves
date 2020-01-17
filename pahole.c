@@ -685,7 +685,13 @@ static void print_structs_with_pointer_to(struct cu *cu, uint32_t type)
 
 	cu__for_each_struct_or_union(cu, id, pos) {
 		bool looked = false;
-		struct structure *str;
+		/*
+		 * Set it to NULL just to silence the compiler, as the printf
+		 * at the end of the type__for_each_member() loop is only reached
+		 * after str _is_ set, as looked starts as false, str is used with
+		 * structures_add and if it is NULL, we return.
+		 */
+		struct structure *str = NULL;
 
 		if (pos->type.namespace.name == 0)
 			continue;
