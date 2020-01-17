@@ -127,7 +127,7 @@ make install DESTDIR=%{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
-* Mon 16 Dec 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.16-1
+* Mon Dec 16 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.16-1
 - New release: 1.16
 - BTF encoder: Preserve and encode exported functions as BTF_KIND_FUNC.
 - BTF loader: Add support for BTF_KIND_FUNC
