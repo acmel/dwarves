@@ -1213,8 +1213,6 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		if (word_size != 0)
 			cu_fixup_word_size_iterator(cu);
 
-		memset(tab, ' ', sizeof(tab) - 1);
-
 		print_classes(cu);
 		goto dump_it;
 	}
@@ -1335,6 +1333,8 @@ int main(int argc, char *argv[])
 		fputs("pahole: insufficient memory\n", stderr);
 		goto out_dwarves_exit;
 	}
+
+	memset(tab, ' ', sizeof(tab) - 1);
 
 	conf_load.steal = pahole_stealer;
 
