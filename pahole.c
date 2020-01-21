@@ -729,6 +729,46 @@ static void print_structs_with_pointer_to(struct cu *cu, uint32_t type)
 	}
 }
 
+static int type__print_containers(struct type *type, struct cu *cu, uint32_t contained_type_id, int ident)
+{
+	const uint32_t n = type__nr_members_of_type(type, contained_type_id);
+	if (n == 0)
+		return 0;
+
+	if (ident == 0) {
+		bool existing_entry;
+		struct structure *str = structures__add(type__class(type), cu, &existing_entry);
+		if (str == NULL) {
+			fprintf(stderr, "pahole: insufficient memory for "
+				"processing %s, skipping it...\n",
+				cu->name);
+			return -1;
+		}
+		/*
+		 * We already printed this struct in another CU
+		 */
+		if (existing_entry)
+			return 0;
+	}
+
+	printf("%.*s%s", ident * 2, tab, type__name(type, cu));
+	if (global_verbose)
+		printf(": %u", n);
+	putchar('\n');
+	if (recursive) {
+		struct class_member *member;
+
+		type__for_each_member(type, member) {
+			struct tag *member_type = cu__type(cu, member->tag.type);
+
+			if (tag__is_struct(member_type) || tag__is_union(member_type))
+				type__print_containers(tag__type(member_type), cu, contained_type_id, ident + 1);
+		}
+	}
+
+	return 0;
+}
+
 static void print_containers(struct cu *cu, uint32_t type, int ident)
 {
 	struct class *pos;
@@ -741,32 +781,8 @@ static void print_containers(struct cu *cu, uint32_t type, int ident)
 		if (!class__filter(pos, cu, id))
 			continue;
 
-		const uint32_t n = type__nr_members_of_type(&pos->type, type);
-		if (n == 0)
-			continue;
-
-		if (ident == 0) {
-			bool existing_entry;
-			struct structure *str = structures__add(pos, cu, &existing_entry);
-			if (str == NULL) {
-				fprintf(stderr, "pahole: insufficient memory for "
-					"processing %s, skipping it...\n",
-					cu->name);
-				return;
-			}
-			/*
-			 * We already printed this struct in another CU
-			 */
-			if (existing_entry)
-				break;
-		}
-
-		printf("%.*s%s", ident * 2, tab, class__name(pos, cu));
-		if (global_verbose)
-			printf(": %u", n);
-		putchar('\n');
-		if (recursive)
-			print_containers(cu, id, ident + 1);
+		if (type__print_containers(&pos->type, cu, type, ident))
+			break;
 	}
 }
 
