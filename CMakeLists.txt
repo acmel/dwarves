@@ -74,6 +74,8 @@ if (NOT HAVE_REALLOCARRAY_SUPPORT)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCOMPAT_NEED_REALLOCARRAY")
 endif()
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64")
+
 file(GLOB libbpf_sources "lib/bpf/src/*.c")
 add_library(bpf OBJECT ${libbpf_sources})
 set_property(TARGET bpf PROPERTY POSITION_INDEPENDENT_CODE 1)
