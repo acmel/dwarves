@@ -1694,8 +1694,8 @@ int cus__load_dir(struct cus *cus, struct conf_load *conf,
 		    strcmp(entry->d_name, "..") == 0)
 		    continue;
 
-		snprintf(pathname, sizeof(pathname), "%s/%s",
-			 dirname, entry->d_name);
+		snprintf(pathname, sizeof(pathname), "%.*s/%s",
+			 (int)(sizeof(pathname) - sizeof(entry->d_name) - 1), dirname, entry->d_name);
 
 		err = lstat(pathname, &st);
 		if (err != 0)
