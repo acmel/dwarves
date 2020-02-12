@@ -1605,6 +1605,9 @@ static int list__for_all_tags(struct list_head *list, struct cu *cu,
 {
 	struct tag *pos, *n;
 
+	if (list_empty(list) || !list->next)
+		return 0;
+
 	list_for_each_entry_safe_reverse(pos, n, list, node) {
 		if (tag__has_namespace(pos)) {
 			struct namespace *space = tag__namespace(pos);
