@@ -2114,7 +2114,7 @@ static int cus__load_running_kernel(struct cus *cus, struct conf_load *conf)
 		if (loader == -1)
 			goto try_elf;
 
-		if (conf->conf_fprintf)
+		if (conf && conf->conf_fprintf)
 			conf->conf_fprintf->has_alignment_info = debug_fmt_table[loader]->has_alignment_info;
 
 		if (debug_fmt_table[loader]->load_file(cus, conf, "/sys/kernel/btf/vmlinux") == 0)
