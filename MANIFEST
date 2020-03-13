@@ -47,12 +47,14 @@ dutil.c
 dutil.h
 changes-v1.13
 changes-v1.16
+changes-v1.17
 COPYING
 NEWS
 README
 README.DEBUG
 README.btf
 README.ctracer
+README.tarball
 rpm/SPECS/dwarves.spec
 lib/Makefile
 lib/ctracer_relay.c

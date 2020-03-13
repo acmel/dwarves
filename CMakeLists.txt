@@ -30,7 +30,7 @@ endif (NOT CMAKE_BUILD_TYPE)
 set(CMAKE_C_FLAGS_DEBUG "-Wall -Werror -ggdb -O2")
 set(CMAKE_C_FLAGS_RELEASE "-Wall -O2")
 
-add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.16")
+add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.17")
 find_package(DWARF REQUIRED)
 find_package(ZLIB REQUIRED)
 

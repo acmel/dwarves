@@ -1,3 +1,41 @@
+v1.17:
+
+Fri 13 Mar 2020
+
+f14426e41046 docs: Add command line to generate tarball with a prefix
+0b2621d426ea dwarves: Avoid truncation when concatenating paths for dir entries
+d7b351079583 dwarves: Don't use conf if its NULL in cus__load_running_kernel()
+dde3eb086dd3 dwarves: Make list__for_all_tags() more robust
+081f3618a795 dwarves: Add -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 to build libbpf
+e8f43a4963bf libbpf: Get latest libbpf
+de84ae36c738 cmake: libebl was merged into libdw
+290b8fdbdab7 pahole: Improve --contains --recursive a bit
+3d5be866e55f pahole: Fill 'tab' with spaces earlier
+88674f039551 gobuffer: Do not crash on object without any public symbols
+cb17f94f46a0 Add changes-v1.16 to the MANIFEST file
+32a19e044c93 pahole: Fix changelog date in dwarves.spec
+9b09f578b7d1 pahole: Initialize var to silence -Werror=maybe-uninitialized on gcc version 4.8.5 20150623
+277c2b3d1b4a man-pages: Add section about --hex + -E to locate offsets deep into sub structs
+812c980b3f76 man-pages: Update some info, expand BTF info, add some EXAMPLES
+e0942c7b031f pahole: Add support for finding pointers to void
+6a326e93088e pahole: Make --contains and --find_pointers_to to work with base types
+3c1a9a3329d9 pahole: Make --contains look for more than just unions, structs
+ded5d36f9cf5 dwarves: Introduce cu__find_type_by_name
+88d99562e55c pahole: Add --structs to ask just for structs, counterpart of --unions
+0b444cf1118c pahole: Make --contains and --find_pointers_to honour --unions
+a8a7e605bb45 pahole: Make --find_pointers_to consider unions
+0dc327e382f8 pahole: Consider unions when looking for classes containing some class
+3661f17d0b2c pahole: Introduce --unions to consider just unions
+2dd09c617101 pahole: union have no holes, fix --sizes formatter
+6c29cca8c28f pahole: Don't consider unions for options that only make sense for structs
+dcba200367f7 pahole: When the sole argument passed isn't a file, take it as a class name
+1944de0c93e6 pahole: Use function__for_each_parameter()
+66e640508e4d dwarves: Make function__for_each_parameter receive 'cu' arg
+252b0fcc91cc pahole: Fix -m/--nr_methods - Number of functions operating on a type pointer
+202c8d5f5bd5 pahole: Do not require a class name to operate without a file name
+617f5ac2e6c9 dwarves: Move BTF loader ahead of the CTF one
+cdd5e1399b9c btf loader: Support raw BTF as available in /sys/kernel/btf/vmlinux
+
 v1.16:
 
 Mon Dec 16 2019

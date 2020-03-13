@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.16
+Version: 1.17
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -58,7 +58,7 @@ Requires: %{libname}%{libver} = %{version}-%{release}
 Debugging information processing library development files.
 
 %prep
-%setup -q -c -n %{name}-%{version}
+%setup -q
 
 %build
 %cmake .
@@ -73,6 +73,7 @@ make install DESTDIR=%{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
+%doc changes-v1.17
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -127,6 +128,20 @@ make install DESTDIR=%{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Fri Mar 16 2020 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.17-1
+- New release: 1.17
+- Support raw BTF as available in /sys/kernel/btf/vmlinux.
+- When the sole argument passed isn't a file, take it as a class name:
+- Do not require a class name to operate without a file name.
+- Make --find_pointers_to consider unions:
+- Make --contains and --find_pointers_to honour --unions
+- Add support for finding pointers to void:
+- Make --contains and --find_pointers_to to work with base types:
+- Make --contains look for more than just unions, structs:
+- Consider unions when looking for classes containing some class:
+- Introduce --unions to consider just unions:
+- Fix -m/--nr_methods - Number of functions operating on a type pointer
+
 * Mon Dec 16 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.16-1
 - New release: 1.16
 - BTF encoder: Preserve and encode exported functions as BTF_KIND_FUNC.

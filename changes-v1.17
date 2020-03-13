@@ -1,0 +1,540 @@
+v1.17 changes:
+
+tl;dr:
+
+BTF loader:
+
+  - Support raw BTF as available in /sys/kernel/btf/vmlinux.
+
+pahole:
+
+  - When the sole argument passed isn't a file, take it as a class name:
+
+     $ pahole sk_buff
+
+  - Do not require a class name to operate without a file name.
+
+      $ pahole          # is equivalent to:
+      $ pahole vmlinux
+
+  - Make --find_pointers_to consider unions:
+
+      $ pahole --find_pointers_to ehci_qh
+
+  - Make --contains and --find_pointers_to honour --unions
+
+      $ pahole --unions --contains inet_sock
+
+  - Add support for finding pointers to void:
+
+     $ pahole --find_pointers_to void
+
+  - Make --contains and --find_pointers_to to work with base types:
+
+      $ pahole --find_pointers_to 'short unsigned int'
+
+  - Make --contains look for more than just unions, structs:
+
+      $ pahole --contains raw_spinlock_t
+
+  - Consider unions when looking for classes containing some class:
+
+      $ pahole --contains tpacket_req
+
+  - Introduce --unions to consider just unions:
+
+      $ pahole --unions --sizes
+      $ pahole --unions --prefix tcp
+      $ pahole --unions --nr_members
+
+  - Fix -m/--nr_methods - Number of functions operating on a type pointer
+
+      $ pahole --nr_methods
+
+man-pages:
+
+  - Add section about --hex + -E to locate offsets deep into sub structs.
+
+  - Add more information about BTF.
+
+  - Add some examples.
+
+----------------------------------
+
+I want the details:
+
+btf loader:
+
+  - Support raw BTF as available in /sys/kernel/btf/vmlinux
+
+    Be it automatically when no -F option is passed and
+    /sys/kernel/btf/vmlinux is available, or when /sys/kernel/btf/vmlinux is
+    passed as the filename to the tool, i.e.:
+
+      $ pahole -C list_head
+      struct list_head {
+            struct list_head *         next;                 /*     0     8 */
+            struct list_head *         prev;                 /*     8     8 */
+
+            /* size: 16, cachelines: 1, members: 2 */
+            /* last cacheline: 16 bytes */
+      };
+      $ strace -e openat pahole -C list_head |& grep /sys/kernel/btf/
+      openat(AT_FDCWD, "/sys/kernel/btf/vmlinux", O_RDONLY) = 3
+      $
+      $ pahole -C list_head /sys/kernel/btf/vmlinux
+      struct list_head {
+            struct list_head *         next;                 /*     0     8 */
+            struct list_head *         prev;                 /*     8     8 */
+
+            /* size: 16, cachelines: 1, members: 2 */
+            /* last cacheline: 16 bytes */
+      };
+      $
+
+    If one wants to grab the matching vmlinux to use its DWARF info instead,
+    which is useful to compare the results with what we have from BTF, for
+    instance, its just a matter of using '-F dwarf'.
+
+    This in turn shows something that at first came as a surprise, but then
+    has a simple explanation:
+
+    For very common data structures, that will probably appear in all of the
+    DWARF CUs (Compilation Units), like 'struct list_head', using '-F dwarf'
+    is faster:
+
+      $ perf stat -e cycles pahole -F btf -C list_head > /dev/null
+
+       Performance counter stats for 'pahole -F btf -C list_head':
+
+              45,722,518      cycles:u
+
+             0.023717300 seconds time elapsed
+
+             0.016474000 seconds user
+             0.007212000 seconds sys
+
+      $ perf stat -e cycles pahole -F dwarf -C list_head > /dev/null
+
+       Performance counter stats for 'pahole -F dwarf -C list_head':
+
+              14,170,321      cycles:u
+
+             0.006668904 seconds time elapsed
+
+             0.005562000 seconds user
+             0.001109000 seconds sys
+
+      $
+
+    But for something that is more specific to a subsystem, the DWARF loader
+    will have to process way more stuff till it gets to that struct:
+
+      $ perf stat -e cycles pahole -F dwarf -C tcp_sock > /dev/null
+
+       Performance counter stats for 'pahole -F dwarf -C tcp_sock':
+
+          31,579,795,238      cycles:u
+
+             8.332272930 seconds time elapsed
+
+             8.032124000 seconds user
+             0.286537000 seconds sys
+
+      $
+
+    While using the BTF loader the time should be constant, as it loads
+    everything from /sys/kernel/btf/vmlinux:
+
+      $ perf stat -e cycles pahole -F btf -C tcp_sock > /dev/null
+
+       Performance counter stats for 'pahole -F btf -C tcp_sock':
+
+              48,823,488      cycles:u
+
+             0.024102760 seconds time elapsed
+
+             0.012035000 seconds user
+             0.012046000 seconds sys
+
+      $
+
+    Above I used '-F btf' just to show that it can be used, but its not
+    really needed, i.e. those are equivalent:
+
+      $ strace -e openat pahole -F btf -C list_head |& grep /sys/kernel/btf/vmlinux
+      openat(AT_FDCWD, "/sys/kernel/btf/vmlinux", O_RDONLY) = 3
+      $ strace -e openat pahole -C list_head |& grep /sys/kernel/btf/vmlinux
+      openat(AT_FDCWD, "/sys/kernel/btf/vmlinux", O_RDONLY) = 3
+      $
+
+    The btf_raw__load() function that ends up being grafted into the
+    preexisting btf_elf routines was based on libbpf's btf_load_raw().
+
+pahole:
+
+  - When the sole argument passed isn't a file, take it as a class name.
+
+    With that it becomes as compact as it gets for kernel data structures,
+    just state the name of the struct and it'll try to find that as a file,
+    not being a file it'll use /sys/kernel/btf/vmlinux and the argument as a
+    list of structs, i.e.:
+
+      $ pahole skb_ext,list_head
+      struct list_head {
+            struct list_head *         next;                 /*     0     8 */
+            struct list_head *         prev;                 /*     8     8 */
+
+            /* size: 16, cachelines: 1, members: 2 */
+            /* last cacheline: 16 bytes */
+      };
+      struct skb_ext {
+            refcount_t                 refcnt;               /*     0     4 */
+            u8                         offset[3];            /*     4     3 */
+            u8                         chunks;               /*     7     1 */
+            char                       data[];               /*     8     0 */
+
+            /* size: 8, cachelines: 1, members: 4 */
+            /* last cacheline: 8 bytes */
+      };
+      $ pahole hlist_node
+      struct hlist_node {
+            struct hlist_node *        next;                 /*     0     8 */
+            struct hlist_node * *      pprev;                /*     8     8 */
+
+            /* size: 16, cachelines: 1, members: 2 */
+            /* last cacheline: 16 bytes */
+      };
+      $
+
+    Of course -C continues to work:
+
+      $ pahole -C inode | tail
+            __u32                      i_fsnotify_mask;      /*   556     4 */
+            struct fsnotify_mark_connector * i_fsnotify_marks; /*   560     8 */
+            struct fscrypt_info *      i_crypt_info;         /*   568     8 */
+            /* --- cacheline 9 boundary (576 bytes) --- */
+            struct fsverity_info *     i_verity_info;        /*   576     8 */
+            void *                     i_private;            /*   584     8 */
+
+            /* size: 592, cachelines: 10, members: 53 */
+            /* last cacheline: 16 bytes */
+      };
+      $
+
+  - Add support for finding pointers to void, e.g.:
+
+      $ pahole --find_pointers_to void --prefix tcp
+      tcp_md5sig_pool: scratch
+      $ pahole tcp_md5sig_pool
+      struct tcp_md5sig_pool {
+            struct ahash_request *     md5_req;              /*     0     8 */
+            void *                     scratch;              /*     8     8 */
+
+            /* size: 16, cachelines: 1, members: 2 */
+            /* last cacheline: 16 bytes */
+      };
+      $
+
+  - Make --contains and --find_pointers_to to work with base types
+
+    I.e. with plain 'int', 'long', 'short int', etc:
+
+      $ pahole --find_pointers_to 'short unsigned int'
+      uv_hub_info_s: socket_to_node
+      uv_hub_info_s: socket_to_pnode
+      uv_hub_info_s: pnode_to_socket
+      vc_data: vc_screenbuf
+      vc_data: vc_translate
+      filter_pred: ops
+      ext4_sb_info: s_mb_offsets
+      $ pahole ext4_sb_info | 'sort unsigned int'
+      bash: sort unsigned int: command not found...
+      ^[^C
+      $
+      $ pahole ext4_sb_info | grep 'sort unsigned int'
+      $ pahole ext4_sb_info | grep 'short unsigned int'
+            short unsigned int         s_mount_state;        /*   160     2 */
+            short unsigned int         s_pad;                /*   162     2 */
+            short unsigned int *       s_mb_offsets;         /*   664     8 */
+      $ pahole --contains 'short unsigned int'
+      apm_info
+      desc_ptr
+      thread_struct
+      mpc_table
+      mpc_intsrc
+      fsnotify_mark_connector
+      <SNIP>
+      sock_fprog
+      blk_mq_hw_ctx
+      skb_shared_info
+      $
+
+  - Make --contains look for more than just unions, structs, look for
+    typedefs, enums and types that descend from 'struct type':
+
+    So now we can do more interesting queries, lets see, what are the data
+    structures that embed a raw spinlock in the linux kernel?
+
+      $ pahole --contains raw_spinlock_t
+      task_struct
+      rw_semaphore
+      hrtimer_cpu_base
+      prev_cputime
+      percpu_counter
+      ratelimit_state
+      perf_event_context
+      task_delay_info
+      <SNIP>
+      lpm_trie
+      bpf_queue_stack
+      $
+
+    Look at the csets comments to see more examples.
+
+  - Make --contains and --find_pointers_to honour --unions
+
+    I.e. when looking for unions or structs that contains/embeds or looking
+    for unions/structs that have pointers to a given type.
+
+    E.g:
+
+      $ pahole --contains inet_sock
+      sctp_sock
+      inet_connection_sock
+      raw_sock
+      udp_sock
+      raw6_sock
+      $ pahole --unions --contains inet_sock
+      $
+
+    We have structs embedding 'struct inet_sock', but no unions doing that.
+
+  - Make --find_pointers_to consider unions
+
+    I.e.:
+
+      $ pahole --find_pointers_to ehci_qh
+      ehci_hcd: qh_scan_next
+      ehci_hcd: async
+      ehci_hcd: dummy
+      $
+
+    Wasn't considering:
+
+      $ pahole -C ehci_shadow
+      union ehci_shadow {
+            struct ehci_qh *           qh;                 /*     0     8 */
+            struct ehci_itd *          itd;                /*     0     8 */
+            struct ehci_sitd *         sitd;               /*     0     8 */
+            struct ehci_fstn *         fstn;               /*     0     8 */
+            __le32 *                   hw_next;            /*     0     8 */
+            void *                     ptr;                /*     0     8 */
+      };
+      $
+
+    Fix it:
+
+      $ pahole --find_pointers_to ehci_qh
+      ehci_hcd: qh_scan_next
+      ehci_hcd: async
+      ehci_hcd: dummy
+      ehci_shadow: qh
+      $
+
+  - Consider unions when looking for classes containing some class:
+
+    I.e.:
+
+      $ pahole --contains tpacket_req
+      tpacket_req_u
+      $
+
+    Wasn't working, but should be considered with --contains/-i:
+
+      $ pahole -C tpacket_req_u
+      union tpacket_req_u {
+            struct tpacket_req         req;                /*     0    16 */
+            struct tpacket_req3        req3;               /*     0    28 */
+      };
+      $
+
+  - Introduce --unions to consider just unions
+
+    Most filters can be used together with it, for instance to see the
+    biggest unions in the kernel:
+
+      $ pahole --unions --sizes | sort -k2 -nr | head
+      thread_union            16384 0
+      swap_header              4096 0
+      fpregs_state             4096 0
+      autofs_v5_packet_union    304 0
+      autofs_packet_union       272 0
+      pptp_ctrl_union           208 0
+      acpi_parse_object         200 0
+      acpi_descriptor           200 0
+      bpf_attr                  120 0
+      phy_configure_opts        112 0
+      $
+
+    Or just some unions that have some specific prefix:
+
+      $ pahole --unions --prefix tcp
+      union tcp_md5_addr {
+            struct in_addr             a4;                 /*     0     4 */
+            struct in6_addr            a6;                 /*     0    16 */
+      };
+      union tcp_word_hdr {
+            struct tcphdr              hdr;                /*     0    20 */
+            __be32                     words[5];           /*     0    20 */
+      };
+      union tcp_cc_info {
+            struct tcpvegas_info       vegas;              /*     0    16 */
+            struct tcp_dctcp_info      dctcp;              /*     0    16 */
+            struct tcp_bbr_info        bbr;                /*     0    20 */
+      };
+      $
+
+    What are the biggest unions in terms of number of members?
+
+      $ pahole --unions --nr_members | sort -k2 -nr | head
+      security_list_options 218
+      aml_resource           36
+      acpi_resource_data     29
+      acpi_operand_object    26
+      iwreq_data             18
+      sctp_params            15
+      ib_flow_spec           14
+      ethtool_flow_union     14
+      pptp_ctrl_union        13
+      bpf_attr               12
+      $
+
+    If you want to script most of the queries can change the separator:
+
+      $ pahole --unions --nr_members -t, | sort -t, -k2 -nr | head
+      security_list_options,218
+      aml_resource,36
+      acpi_resource_data,29
+      acpi_operand_object,26
+      iwreq_data,18
+      sctp_params,15
+      ib_flow_spec,14
+      ethtool_flow_union,14
+      pptp_ctrl_union,13
+      bpf_attr,12
+      $
+
+  - Fix -m/--nr_methods - Number of functions operating on a type pointer
+
+    We had to use the same hack as in pfunct, as implemented in ccf3eebfcd9c
+    ("btf_loader: Add support for BTF_KIND_FUNC"), will hide that 'struct
+    ftype' (aka function prototype) indirection behind the parameter
+    iterator (function__for_each_parameter).
+
+    For now, here is the top 10 Linux kernel data structures in terms of
+    number of functions receiving as one of its parameters a pointer to it,
+    using /sys/kernel/btf/vmlinux to look at all the vmlinux types and
+    functions (the ones visible in kallsyms, but with the parameters and its
+    types):
+
+      $ pahole -m | sort -k2 -nr | head
+      device        955
+      sock          568
+      sk_buff       541
+      task_struct   437
+      inode         421
+      pci_dev       390
+      page          351
+      net_device    347
+      file          315
+      net           312
+      $
+      $ pahole --help |& grep -- -m
+        -m, --nr_methods           show number of methods
+      $
+
+  - Do not require a class name to operate without a file name
+
+    Since we default to operating on the running kernel data structures, we
+    should make the default to, with no options passed, to pretty print all
+    the running kernel data structures, or do what was asked in terms of
+    number of members, size of structs, etc, i.e.:
+
+      # pahole --help |& head
+      Usage: pahole [OPTION...] FILE
+
+        -a, --anon_include         include anonymous classes
+        -A, --nested_anon_include  include nested (inside other structs) anonymous
+                                   classes
+        -B, --bit_holes=NR_HOLES   Show only structs at least NR_HOLES bit holes
+        -c, --cacheline_size=SIZE  set cacheline size to SIZE
+            --classes_as_structs   Use 'struct' when printing classes
+        -C, --class_name=CLASS_NAME   Show just this class
+        -d, --recursive            recursive mode, affects several other flags
+      #
+
+    Continues working as before, but if you do:
+
+      pahole
+
+    It will work just as if you did:
+
+      pahole vmlinux
+
+    and that vmlinux file is the running kernel vmlinux.
+
+    And since the default now is to read BTF info, then it will do all its
+    operations on /sys/kernel/btf/vmlinux, when present, i.e. want to know
+    what are the fattest data structures in the running kernel:
+
+      # pahole -s | sort -k2 -nr | head
+      cmp_data      290904  1
+      dec_data      274520  1
+      cpu_entry_area        217088  0
+      pglist_data   172928  4
+      saved_cmdlines_buffer 131104  1
+      debug_store_buffers   131072  0
+      hid_parser    110848  1
+      hid_local     110608  0
+      zonelist      81936   0
+      e820_table    64004   0
+      #
+
+    How many data structures in the running kernel vmlinux area embbed
+    'struct list_head'?
+
+      # pahole -i list_head | wc -l
+      260
+      #
+
+    Lets see some of those?
+
+      # pahole -C fsnotify_event
+      struct fsnotify_event {
+            struct list_head           list;                 /*     0    16 */
+            struct inode *             inode;                /*    16     8 */
+
+            /* size: 24, cachelines: 1, members: 2 */
+            /* last cacheline: 24 bytes */
+      };
+      # pahole -C audit_chunk
+      struct audit_chunk {
+            struct list_head           hash;                 /*     0    16 */
+            long unsigned int          key;                  /*    16     8 */
+            struct fsnotify_mark *     mark;                 /*    24     8 */
+            struct list_head           trees;                /*    32    16 */
+            int                        count;                /*    48     4 */
+
+            /* XXX 4 bytes hole, try to pack */
+
+            atomic_long_t              refs;                 /*    56     8 */
+            /* --- cacheline 1 boundary (64 bytes) --- */
+            struct callback_head       head;                 /*    64    16 */
+            struct node                owners[];             /*    80     0 */
+
+            /* size: 80, cachelines: 2, members: 8 */
+            /* sum members: 76, holes: 1, sum holes: 4 */
+            /* last cacheline: 16 bytes */
+      };
+      #
