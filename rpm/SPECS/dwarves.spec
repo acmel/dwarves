@@ -128,7 +128,7 @@ make install DESTDIR=%{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
-* Fri Mar 16 2020 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.17-1
+* Fri Mar 13 2020 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.17-1
 - New release: 1.17
 - Support raw BTF as available in /sys/kernel/btf/vmlinux.
 - When the sole argument passed isn't a file, take it as a class name:
