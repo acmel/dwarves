@@ -14,6 +14,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "dwarves_reorganize.h"
 #include "dwarves.h"
@@ -1197,6 +1198,44 @@ static void do_reorg(struct tag *class, struct cu *cu)
 	*/
 }
 
+static int tag__fprintf_hexdump_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, FILE *fp)
+{
+	uint8_t *contents = instance;
+	int i, printed = 0;
+
+	for (i = 0; i < _sizeof; ++i) {
+		if (i != 0) {
+			fputc(' ', fp);
+			++printed;
+		}
+
+		printed += fprintf(fp, "0x%02x", contents[i]);
+	}
+
+	return printed;
+}
+
+static int tag__fprintf_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, FILE *fp)
+{
+	return tag__fprintf_hexdump_value(type, cu, instance, _sizeof, fp);
+}
+
+static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
+{
+	int _sizeof = tag__size(type, cu), printed = 0;
+	void *instance = malloc(_sizeof);
+
+	if (instance == NULL)
+		return -ENOMEM;
+
+	while (fread(instance, _sizeof, 1, stdin) == 1) {
+		printed += tag__fprintf_value(type, cu, instance, _sizeof, fp);
+		printed += fprintf(fp, ",\n");
+	}
+
+	return printed;
+}
+
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load __unused)
 {
@@ -1251,6 +1290,15 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 					continue;
 				class_id = 0;
 			}
+		}
+
+		if (!isatty(0)) {
+			/*
+			 * For the pretty printer only the first class is considered,
+			 * ignore the rest.
+			 */
+			tag__stdio_fprintf_value(class, cu, stdout);
+			return LSK__STOP_LOADING;
 		}
 
 		if (defined_in) {
