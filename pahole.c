@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <dwarf.h>
+#include <inttypes.h>
 #include <search.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -1215,8 +1216,47 @@ static int tag__fprintf_hexdump_value(struct tag *type, struct cu *cu, void *ins
 	return printed;
 }
 
+static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, FILE *fp)
+{
+	struct type *type = tag__type(tag);
+	struct class_member *member;
+	int printed = fprintf(fp, "{");
+
+	type__for_each_member(type, member) {
+		void *member_contents = instance + member->byte_offset;
+		struct tag *member_type = cu__type(cu, member->tag.type);
+
+		printed += fprintf(fp, "\n\t.%s = ", class_member__name(member, cu));
+
+		if (tag__is_base_type(member_type, cu)) {
+			uint64_t value = 0;
+
+			if (member->byte_size == sizeof(int))
+				value = *(int *)member_contents;
+			else if (member->byte_size == sizeof(long))
+				value = *(long *)member_contents;
+			else if (member->byte_size == sizeof(long long))
+				value = *(long long *)member_contents;
+			else if (member->byte_size == sizeof(char))
+				value = *(char *)member_contents;
+			else if (member->byte_size == sizeof(short))
+				value = *(short *)member_contents;
+
+			printed += fprintf(fp, "%#" PRIx64",", value);
+		} else {
+			printed += tag__fprintf_hexdump_value(member_type, cu, member_contents, member->byte_size, fp) + 1;
+			fputc(',', fp);
+		}
+	}
+
+	return printed + fprintf(fp, "\n}");
+}
+
 static int tag__fprintf_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, FILE *fp)
 {
+	if (tag__is_struct(type))
+		return class__fprintf_value(type, cu, instance, _sizeof, fp);
+
 	return tag__fprintf_hexdump_value(type, cu, instance, _sizeof, fp);
 }
 
