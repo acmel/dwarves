@@ -346,23 +346,6 @@ static void class__emit_class_state_collector(struct class *class,
 	fputs("}\n\n", fp_collector);
 }
 
-static int tag__is_base_type(const struct tag *tag, const struct cu *cu)
-{
-	switch (tag->tag) {
-	case DW_TAG_base_type:
-		return 1;
-
-	case DW_TAG_typedef: {
-		const struct tag *type = cu__type(cu, tag->type);
-
-		if (type == NULL)
-			return 0;
-		return tag__is_base_type(type, cu);
-	}
-	}
-	return 0;
-}
-
 static struct class *class__clone_base_types(const struct tag *tag,
 					     struct cu *cu,
 					     const char *new_class_name)

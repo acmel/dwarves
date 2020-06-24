@@ -912,6 +912,8 @@ static __pure inline int tag__is_class_member(const struct tag *tag)
 	return tag->tag == DW_TAG_member;
 }
 
+int tag__is_base_type(const struct tag *tag, const struct cu *cu);
+
 /**
  * struct type - base type for enumerations, structs and unions
  *
