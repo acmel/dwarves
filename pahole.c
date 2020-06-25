@@ -1242,11 +1242,13 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 			else if (member->byte_size == sizeof(short))
 				value = *(short *)member_contents;
 
-			printed += fprintf(fp, "%#" PRIx64",", value);
+			printed += fprintf(fp, "%#" PRIx64, value);
 		} else {
-			printed += tag__fprintf_hexdump_value(member_type, cu, member_contents, member->byte_size, fp) + 1;
-			fputc(',', fp);
+			printed += tag__fprintf_hexdump_value(member_type, cu, member_contents, member->byte_size, fp);
 		}
+
+		fputc(',', fp);
+		++printed;
 	}
 
 	return printed + fprintf(fp, "\n}");
