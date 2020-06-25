@@ -52,6 +52,24 @@ int tag__is_base_type(const struct tag *tag, const struct cu *cu)
 	return 0;
 }
 
+bool tag__is_array(const struct tag *tag, const struct cu *cu)
+{
+	switch (tag->tag) {
+	case DW_TAG_array_type:
+		return true;
+
+	case DW_TAG_const_type:
+	case DW_TAG_typedef: {
+		const struct tag *type = cu__type(cu, tag->type);
+
+		if (type == NULL)
+			return 0;
+		return tag__is_array(type, cu);
+	}
+	}
+	return 0;
+}
+
 const char *cu__string(const struct cu *cu, strings_t s)
 {
 	if (cu->dfops && cu->dfops->strings__ptr)

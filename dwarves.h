@@ -913,6 +913,7 @@ static __pure inline int tag__is_class_member(const struct tag *tag)
 }
 
 int tag__is_base_type(const struct tag *tag, const struct cu *cu);
+bool tag__is_array(const struct tag *tag, const struct cu *cu);
 
 /**
  * struct type - base type for enumerations, structs and unions
