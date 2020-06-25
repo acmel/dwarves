@@ -1216,6 +1216,24 @@ static int tag__fprintf_hexdump_value(struct tag *type, struct cu *cu, void *ins
 	return printed;
 }
 
+static int base_type__fprintf_value(void *instance, int _sizeof, FILE *fp)
+{
+	uint64_t value = 0;
+
+	if (_sizeof == sizeof(int))
+		value = *(int *)instance;
+	else if (_sizeof == sizeof(long))
+		value = *(long *)instance;
+	else if (_sizeof == sizeof(long long))
+		value = *(long long *)instance;
+	else if (_sizeof == sizeof(char))
+		value = *(char *)instance;
+	else if (_sizeof == sizeof(short))
+		value = *(short *)instance;
+
+	return fprintf(fp, "%#" PRIx64, value);
+}
+
 static int string__fprintf_value(char *instance, int _sizeof, FILE *fp)
 {
 	return fprintf(fp, "\"%-.*s\"", _sizeof, instance);
@@ -1245,20 +1263,7 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 		printed += fprintf(fp, "\n\t.%s = ", class_member__name(member, cu));
 
 		if (tag__is_base_type(member_type, cu)) {
-			uint64_t value = 0;
-
-			if (member->byte_size == sizeof(int))
-				value = *(int *)member_contents;
-			else if (member->byte_size == sizeof(long))
-				value = *(long *)member_contents;
-			else if (member->byte_size == sizeof(long long))
-				value = *(long long *)member_contents;
-			else if (member->byte_size == sizeof(char))
-				value = *(char *)member_contents;
-			else if (member->byte_size == sizeof(short))
-				value = *(short *)member_contents;
-
-			printed += fprintf(fp, "%#" PRIx64, value);
+			printed += base_type__fprintf_value(member_contents, member->byte_size, fp);
 		} else if (tag__is_array(member_type, cu)) {
 			printed += array__fprintf_value(member_type, cu, member_contents, member->byte_size, fp);
 		} else {
