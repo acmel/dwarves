@@ -1239,6 +1239,29 @@ static int string__fprintf_value(char *instance, int _sizeof, FILE *fp)
 	return fprintf(fp, "\"%-.*s\"", _sizeof, instance);
 }
 
+static int array__fprintf_base_type_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, FILE *fp)
+{
+	struct array_type *array = tag__array_type(tag);
+	struct tag *array_type = cu__type(cu, tag->type);
+	void *contents = instance;
+	int i, printed = 0, sizeof_entry = base_type__size(array_type);
+
+	if (array->dimensions != 1) {
+		// Support multi dimensional arrays later
+		return tag__fprintf_hexdump_value(tag, cu, instance, _sizeof, fp);
+	}
+
+	printed += fprintf(fp, "{ ");
+	for (i = 0; i < array->nr_entries[0]; ++i) {
+		if (i > 0)
+			printed += fprintf(fp, ", ");
+		printed += base_type__fprintf_value(contents, sizeof_entry, fp);
+		contents += sizeof_entry;
+	}
+
+	return printed + fprintf(fp, "}");
+}
+
 static int array__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, FILE *fp)
 {
 	struct tag *array_type = cu__type(cu, tag->type);
@@ -1246,6 +1269,9 @@ static int array__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 
 	if (strcmp(tag__name(array_type, cu, type_name, sizeof(type_name), NULL), "char") == 0)
 		return string__fprintf_value(instance, _sizeof, fp);
+
+	if (tag__is_base_type(array_type, cu))
+		return array__fprintf_base_type_value(tag, cu, instance, _sizeof, fp);
 
 	return tag__fprintf_hexdump_value(tag, cu, instance, _sizeof, fp);
 }
