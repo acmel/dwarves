@@ -54,8 +54,11 @@ If BTF is not present and no file is passed, then a vmlinux that matches the
 build-id for the running kernel will be looked up in the usual places,
 including where the kernel debuginfo packages put it, looking for DWARF info
 instead.
-
+ 
 See the EXAMPLES section for more usage suggestions.
+
+It also pretty prints whatever is fed to its standard input, according to the
+type specified, see the EXAMPLE session.
 
 .SH OPTIONS
 pahole supports the following options.
@@ -460,6 +463,38 @@ $ pahole rcu_state | grep raw_spinlock_t -B1 -A5
 	/* sum members: 3250, holes: 7, sum holes: 82 */
 	/* padding: 60 */
 };
+$
+.fi
+.P
+It can also pretty print raw data from stdin according to the type specified:
+.PP
+.nf
+$ pahole -C modversion_info drivers/scsi/sg.ko
+struct modversion_info {
+      long unsigned int          crc;                  /*     0     8 */
+      char                       name[56];             /*     8    56 */
+
+      /* size: 64, cachelines: 1, members: 2 */
+};
+$
+$ objcopy -O binary --only-section=__versions drivers/scsi/sg.ko versions
+$
+$ ls -la versions
+-rw-rw-r--. 1 acme acme 7616 Jun 25 11:33 versions
+$
+$ pahole -C modversion_info drivers/scsi/sg.ko < versions | head -12
+{
+      .crc = 0x8dabd84,
+      .name = "module_layout",
+},
+{
+      .crc = 0x45e4617b,
+      .name = "no_llseek",
+},
+{
+      .crc = 0xa23fae8c,
+      .name = "param_ops_int",
+},
 $
 .fi
 .P
