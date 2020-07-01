@@ -79,6 +79,10 @@ Set cacheline size to SIZE bytes.
 Pretty print the first COUNT records from input.
 
 .TP
+.B \-\-skip=COUNT
+Skip COUNT input records.
+
+.TP
 .B \-E, \-\-expand_types
 Expand class members. Useful to find in what member of inner structs where an
 offset from the beginning of a struct is.
@@ -493,6 +497,16 @@ $ pahole --count 3 -C modversion_info drivers/scsi/sg.ko < versions
       .crc = 0x8dabd84,
       .name = "module_layout",
 },
+{
+      .crc = 0x45e4617b,
+      .name = "no_llseek",
+},
+{
+      .crc = 0xa23fae8c,
+      .name = "param_ops_int",
+},
+$
+$ pahole --skip 1 --count 2 -C modversion_info drivers/scsi/sg.ko < versions
 {
       .crc = 0x45e4617b,
       .name = "no_llseek",

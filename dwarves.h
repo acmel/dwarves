@@ -55,6 +55,7 @@ struct conf_load {
 /** struct conf_fprintf - hints to the __fprintf routines
  *
  * @count - Just like 'dd', stop pretty printing input after 'count' records
+ * @skip - Just like 'dd', skip 'count' records when pretty printing input
  * @flat_arrays - a->foo[10][2] becomes a->foo[20]
  * @classes_as_structs - class f becomes struct f, CTF doesn't have a "class"
  * @cachelinep - pointer to current cacheline, so that when expanding types we keep track of it,
@@ -71,6 +72,7 @@ struct conf_fprintf {
 	uint32_t   base_offset;
 	uint32_t   count;
 	uint32_t   *cachelinep;
+	uint32_t   skip;
 	uint8_t	   indent;
 	uint8_t	   expand_types:1;
 	uint8_t	   expand_pointers:1;
