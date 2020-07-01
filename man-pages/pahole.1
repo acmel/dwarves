@@ -516,6 +516,14 @@ $ pahole --skip 1 --count 2 -C modversion_info drivers/scsi/sg.ko < versions
       .name = "param_ops_int",
 },
 $
+This is equivalent to:
+
+$ pahole --seek_bytes 64 --count 1 -C modversion_info drivers/scsi/sg.ko < versions
+{
+	.crc = 0x45e4617b,
+	.name = "no_llseek",
+},
+$
 .fi
 .P
 

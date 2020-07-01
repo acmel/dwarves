@@ -3,7 +3,7 @@
 
   Copyright (C) 2006 Mandriva Conectiva S.A.
   Copyright (C) 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
-  Copyright (C) 2007-2008 Arnaldo Carvalho de Melo <acme@redhat.com>
+  Copyright (C) 2007- Arnaldo Carvalho de Melo <acme@redhat.com>
 */
 
 #include <argp.h>
@@ -804,6 +804,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_just_structs	   310
 #define ARGP_count		   311
 #define ARGP_skip		   312
+#define ARGP_seek_bytes		   313
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -835,6 +836,12 @@ static const struct argp_option pahole__options[] = {
 		.key  = ARGP_skip,
 		.arg  = "COUNT",
 		.doc  = "Skip COUNT input records"
+	},
+	{
+		.name = "seek_bytes",
+		.key  = ARGP_seek_bytes,
+		.arg  = "BYTES",
+		.doc  = "Seek COUNT input records"
 	},
 	{
 		.name = "find_pointers_to",
@@ -1163,6 +1170,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf.count = atoi(arg);			break;
 	case ARGP_skip:
 		conf.skip = atoi(arg);			break;
+	case ARGP_seek_bytes:
+		conf.seek_bytes = strtol(arg, NULL, 0);	break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -1329,6 +1338,25 @@ static int tag__fprintf_value(struct tag *type, struct cu *cu, void *instance, i
 	return tag__fprintf_hexdump_value(type, cu, instance, _sizeof, fp);
 }
 
+static int pipe_seek(FILE *fp, off_t offset)
+{
+	char bf[4096];
+	int chunk = sizeof(bf);
+
+	if (chunk > offset)
+		chunk = offset;
+
+	while (fread(bf, chunk, 1, stdin) == 1) {
+		offset -= chunk;
+		if (offset == 0)
+			return 0;
+		if (chunk > offset)
+			chunk = offset;
+	}
+
+	return offset == 0 ? 0 : -1;
+}
+
 static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 {
 	int _sizeof = tag__size(type, cu), printed = 0;
@@ -1338,6 +1366,12 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 
 	if (instance == NULL)
 		return -ENOMEM;
+
+	if (conf.seek_bytes && pipe_seek(stdin, conf.seek_bytes) < 0) {
+		int err = --errno;
+		fprintf(stderr, "Couldn't --seek_bytes %ld\n", conf.seek_bytes);
+		return err;
+	}
 
 	while (fread(instance, _sizeof, 1, stdin) == 1) {
 		if (skip) {

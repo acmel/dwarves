@@ -13,6 +13,7 @@
 #include <obstack.h>
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
+#include <sys/types.h>
 
 #include "dutil.h"
 #include "list.h"
@@ -56,6 +57,7 @@ struct conf_load {
  *
  * @count - Just like 'dd', stop pretty printing input after 'count' records
  * @skip - Just like 'dd', skip 'count' records when pretty printing input
+ * @seek_bytes - Number of bytes to seek, if stdin only from start, when we have --pretty FILE, then from the end as well with negative numbers
  * @flat_arrays - a->foo[10][2] becomes a->foo[20]
  * @classes_as_structs - class f becomes struct f, CTF doesn't have a "class"
  * @cachelinep - pointer to current cacheline, so that when expanding types we keep track of it,
@@ -72,6 +74,7 @@ struct conf_fprintf {
 	uint32_t   base_offset;
 	uint32_t   count;
 	uint32_t   *cachelinep;
+	off_t	   seek_bytes;
 	uint32_t   skip;
 	uint8_t	   indent;
 	uint8_t	   expand_types:1;
