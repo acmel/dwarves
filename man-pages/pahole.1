@@ -60,6 +60,8 @@ See the EXAMPLES section for more usage suggestions.
 It also pretty prints whatever is fed to its standard input, according to the
 type specified, see the EXAMPLE session.
 
+Use --count to state how many records should be pretty printed.
+
 .SH OPTIONS
 pahole supports the following options.
 
@@ -71,6 +73,10 @@ or file URLs (e.g.: file://class_list.txt)
 .TP
 .B \-c, \-\-cacheline_size=SIZE
 Set cacheline size to SIZE bytes.
+
+.TP
+.B \-\-count=COUNT
+Pretty print the first COUNT records from input.
 
 .TP
 .B \-E, \-\-expand_types
@@ -482,7 +488,7 @@ $
 $ ls -la versions
 -rw-rw-r--. 1 acme acme 7616 Jun 25 11:33 versions
 $
-$ pahole -C modversion_info drivers/scsi/sg.ko < versions | head -12
+$ pahole --count 3 -C modversion_info drivers/scsi/sg.ko < versions
 {
       .crc = 0x8dabd84,
       .name = "module_layout",

@@ -802,6 +802,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_suppress_packed	   308
 #define ARGP_just_unions	   309
 #define ARGP_just_structs	   310
+#define ARGP_count		   311
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -821,6 +822,12 @@ static const struct argp_option pahole__options[] = {
 		.key  = 'C',
 		.arg  = "CLASS_NAME",
 		.doc  = "Show just this class"
+	},
+	{
+		.name = "count",
+		.key  = ARGP_count,
+		.arg  = "COUNT",
+		.doc  = "Print only COUNT input records"
 	},
 	{
 		.name = "find_pointers_to",
@@ -1145,6 +1152,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		just_unions = true;			break;
 	case ARGP_just_structs:
 		just_structs = true;			break;
+	case ARGP_count:
+		conf.count = atoi(arg);			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -1315,6 +1324,7 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 {
 	int _sizeof = tag__size(type, cu), printed = 0;
 	void *instance = malloc(_sizeof);
+	uint32_t count = 0;
 
 	if (instance == NULL)
 		return -ENOMEM;
@@ -1322,6 +1332,9 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 	while (fread(instance, _sizeof, 1, stdin) == 1) {
 		printed += tag__fprintf_value(type, cu, instance, _sizeof, fp);
 		printed += fprintf(fp, ",\n");
+
+		if (conf.count && ++count == conf.count)
+			break;
 	}
 
 	return printed;
