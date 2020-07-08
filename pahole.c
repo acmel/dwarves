@@ -61,6 +61,7 @@ static int show_reorg_steps;
 static char *class_name;
 static struct strlist *class_names;
 static char separator = '\t';
+static bool force;
 
 static struct conf_fprintf conf = {
 	.emit_stats = 1,
@@ -1066,6 +1067,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Encode as BTF",
 	},
 	{
+		.name = "force",
+		.key  = 'j',
+		.doc  = "Ignore those symbols found invalid when encoding BTF."
+	},
+	{
 		.name = "structs",
 		.key  = ARGP_just_structs,
 		.doc  = "Show just structs",
@@ -1107,7 +1113,9 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
 	case 'J': btf_encode = 1;
+		  conf_load.get_addr_info = true;
 		  no_bitfield_type_recode = true;	break;
+	case 'j': force = true;				break;
 	case 'l': conf.show_first_biggest_size_base_type_member = 1;	break;
 	case 'M': conf.show_only_data_members = 1;	break;
 	case 'm': stats_formatter = nr_methods_formatter; break;
@@ -1398,7 +1406,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto filter_it;
 
 	if (btf_encode) {
-		cu__encode_btf(cu, global_verbose);
+		cu__encode_btf(cu, global_verbose, force);
 		return LSK__KEEPIT;
 	}
 

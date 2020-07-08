@@ -20,8 +20,10 @@ struct btf_elf {
 	void		  *priv;
 	Elf		  *elf;
 	GElf_Ehdr	  ehdr;
+	struct elf_symtab *symtab;
 	struct gobuffer	  types;
 	struct gobuffer   *strings;
+	struct gobuffer   percpu_secinfo;
 	char		  *filename;
 	size_t		  size;
 	int		  swapped;
@@ -30,10 +32,14 @@ struct btf_elf {
 	bool		  is_big_endian;
 	bool		  raw_btf; // "/sys/kernel/btf/vmlinux"
 	uint32_t	  type_index;
+	uint32_t	  percpu_shndx;
+	uint64_t	  percpu_base_addr;
 };
 
 extern uint8_t btf_elf__verbose;
 #define btf_elf__verbose_log(fmt, ...) { if (btf_elf__verbose) printf(fmt, __VA_ARGS__); }
+
+#define PERCPU_SECTION ".data..percpu"
 
 struct base_type;
 struct ftype;
@@ -55,6 +61,12 @@ int32_t btf_elf__add_enum(struct btf_elf *btf, uint32_t name, uint32_t size,
 int btf_elf__add_enum_val(struct btf_elf *btf, uint32_t name, int32_t value);
 int32_t btf_elf__add_func_proto(struct btf_elf *btf, struct ftype *ftype,
 				uint32_t type_id_off);
+int32_t btf_elf__add_var_type(struct btf_elf *btfe, uint32_t type, uint32_t name_off,
+			      uint32_t linkage);
+int32_t btf_elf__add_var_secinfo(struct gobuffer *buf, uint32_t type,
+				 uint32_t offset, uint32_t size);
+int32_t btf_elf__add_datasec_type(struct btf_elf *btfe, const char *section_name,
+				  struct gobuffer *var_secinfo_buf);
 void btf_elf__set_strings(struct btf_elf *btf, struct gobuffer *strings);
 int  btf_elf__encode(struct btf_elf *btf, uint8_t flags);
 

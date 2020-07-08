@@ -25,6 +25,7 @@
 #include "dutil.h"
 #include "gobuffer.h"
 #include "dwarves.h"
+#include "elf_symtab.h"
 
 #define BTF_INFO_ENCODE(kind, kind_flag, vlen)				\
 	((!!(kind_flag) << 31) | ((kind) << 24) | ((vlen) & BTF_MAX_VLEN))
@@ -46,7 +47,20 @@ struct btf_array_type {
 	struct btf_array array;
 };
 
+struct btf_var_type {
+	struct btf_type type;
+	struct btf_var var;
+};
+
 uint8_t btf_elf__verbose;
+
+static int btf_var_secinfo_cmp(const void *a, const void *b)
+{
+	const struct btf_var_secinfo *av = a;
+	const struct btf_var_secinfo *bv = b;
+
+	return av->offset - bv->offset;
+}
 
 uint32_t btf_elf__get32(struct btf_elf *btfe, uint32_t *p)
 {
@@ -137,6 +151,8 @@ out:
 struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
 {
 	struct btf_elf *btfe = zalloc(sizeof(*btfe));
+	GElf_Shdr shdr;
+	Elf_Scn *sec;
 
 	if (!btfe)
 		return NULL;
@@ -193,6 +209,26 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
 	default:	 btfe->wordsize = 0; break;
 	}
 
+	btfe->symtab = elf_symtab__new(NULL, btfe->elf, &btfe->ehdr);
+	if (!btfe->symtab) {
+		if (btf_elf__verbose)
+			printf("%s: '%s' doesn't have symtab.\n", __func__,
+			       btfe->filename);
+		return btfe;
+	}
+
+	/* find percpu section's shndx */
+	sec = elf_section_by_name(btfe->elf, &btfe->ehdr, &shdr, PERCPU_SECTION,
+				  NULL);
+	if (!sec) {
+		if (btf_elf__verbose)
+			printf("%s: '%s' doesn't have '%s' section\n", __func__,
+			       btfe->filename, PERCPU_SECTION);
+		return btfe;
+	}
+	btfe->percpu_shndx = elf_ndxscn(sec);
+	btfe->percpu_base_addr = shdr.sh_addr;
+
 	return btfe;
 
 errout:
@@ -211,7 +247,10 @@ void btf_elf__delete(struct btf_elf *btfe)
 			elf_end(btfe->elf);
 	}
 
+	elf_symtab__delete(btfe->symtab);
+
 	__gobuffer__delete(&btfe->types);
+	__gobuffer__delete(&btfe->percpu_secinfo);
 	free(btfe->filename);
 	free(btfe->data);
 	free(btfe);
@@ -613,6 +652,90 @@ int32_t btf_elf__add_func_proto(struct btf_elf *btfe, struct ftype *ftype, uint3
 	return type_id;
 }
 
+int32_t btf_elf__add_var_type(struct btf_elf *btfe, uint32_t type, uint32_t name_off,
+			      uint32_t linkage)
+{
+	struct btf_var_type t;
+
+	t.type.name_off = name_off;
+	t.type.info = BTF_INFO_ENCODE(BTF_KIND_VAR, 0, 0);
+	t.type.type = type;
+
+	t.var.linkage = linkage;
+
+	++btfe->type_index;
+	if (gobuffer__add(&btfe->types, &t.type, sizeof(t)) < 0) {
+		btf_elf__log_type(btfe, &t.type, true, true,
+				  "type=%u name=%s Error in adding gobuffer",
+				  t.type.type, btf_elf__name_in_gobuf(btfe, t.type.name_off));
+		return -1;
+	}
+
+	btf_elf__log_type(btfe, &t.type, false, false, "type=%u name=%s",
+			  t.type.type, btf_elf__name_in_gobuf(btfe, t.type.name_off));
+
+	return btfe->type_index;
+}
+
+int32_t btf_elf__add_var_secinfo(struct gobuffer *buf, uint32_t type,
+				 uint32_t offset, uint32_t size)
+{
+	struct btf_var_secinfo si = {
+		.type = type,
+		.offset = offset,
+		.size = size,
+	};
+	return gobuffer__add(buf, &si, sizeof(si));
+}
+
+extern struct strings *strings;
+
+int32_t btf_elf__add_datasec_type(struct btf_elf *btfe, const char *section_name,
+				  struct gobuffer *var_secinfo_buf)
+{
+	struct btf_type type;
+	size_t sz = gobuffer__size(var_secinfo_buf);
+	uint16_t nr_var_secinfo = sz / sizeof(struct btf_var_secinfo);
+	uint32_t name_off;
+	struct btf_var_secinfo *last_vsi;
+
+	qsort(var_secinfo_buf->entries, nr_var_secinfo,
+	      sizeof(struct btf_var_secinfo), btf_var_secinfo_cmp);
+
+	last_vsi = (struct btf_var_secinfo *)var_secinfo_buf->entries + nr_var_secinfo - 1;
+
+	/*
+	 * dwarves doesn't store section names in its string table,
+	 * so we have to add it by ourselves.
+	 */
+	name_off = strings__add(strings, section_name);
+
+	type.name_off = name_off;
+	type.info = BTF_INFO_ENCODE(BTF_KIND_DATASEC, 0, nr_var_secinfo);
+	type.size = last_vsi->offset + last_vsi->size;
+
+	++btfe->type_index;
+	if (gobuffer__add(&btfe->types, &type, sizeof(type)) < 0) {
+		btf_elf__log_type(btfe, &type, true, true,
+				  "name=%s vlen=%u Error in adding datasec",
+				  btf_elf__name_in_gobuf(btfe, type.name_off),
+				  nr_var_secinfo);
+		return -1;
+	}
+	if (gobuffer__add(&btfe->types, var_secinfo_buf->entries, sz) < 0) {
+		btf_elf__log_type(btfe, &type, true, true,
+				  "name=%s vlen=%u Error in adding var_secinfo",
+				  btf_elf__name_in_gobuf(btfe, type.name_off),
+				  nr_var_secinfo);
+		return -1;
+	}
+
+	btf_elf__log_type(btfe, &type, false, false, "type=datasec name=%s",
+			  btf_elf__name_in_gobuf(btfe, type.name_off));
+
+	return btfe->type_index;
+}
+
 static int btf_elf__write(const char *filename, struct btf *btf)
 {
 	GElf_Shdr shdr_mem, *shdr;
@@ -726,6 +849,10 @@ int btf_elf__encode(struct btf_elf *btfe, uint8_t flags)
 	/* Empty file, nothing to do, so... done! */
 	if (gobuffer__size(&btfe->types) == 0)
 		return 0;
+
+	if (gobuffer__size(&btfe->percpu_secinfo) != 0)
+		btf_elf__add_datasec_type(btfe, PERCPU_SECTION,
+					  &btfe->percpu_secinfo);
 
 	btfe->size = sizeof(*hdr) + (gobuffer__size(&btfe->types) + gobuffer__size(btfe->strings));
 	btfe->data = zalloc(btfe->size);
