@@ -1440,19 +1440,69 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		pos = rb_entry(next, struct str_node, rb_node);
 		next = rb_next(&pos->rb_node);
 
-		const char *name = pos->s;
+		char *name = (char *)pos->s;
+		const char *args_open = strchr(name, '(');
 
+		if (args_open != NULL) {
+			name = strdup(name);
+			if (name == NULL) {
+				fprintf(stderr, "pahole: not enough memory for '%s'\n", pos->s);
+				goto dump_and_stop;
+			}
+
+			char *args_close = strchr(name, ')'); 
+			if (args_close == NULL) {
+				fprintf(stderr, "pahole: invalid, no closing bracket in '%s'\n", pos->s);
+free_and_stop:
+				free(name);
+				goto dump_and_stop;
+			}
+
+			char *args = name + (args_open - pos->s);
+			*args++ = *args_close = '\0';
+
+			while (isspace(*args))
+				++args;
+
+			if (args == args_close) {
+				// empty args, just ignore it, i.e. 'foo()'
+				goto do_lookup;
+			}
+
+			char *assign = strchr(args, '=');
+			if (assign == NULL) {
+				fprintf(stderr, "pahole: invalid, missing '=' in '%s'\n", pos->s);
+				goto free_and_stop;
+			}
+
+			char *value = assign + 1;
+
+			while (isspace(*value))
+				++value;
+
+			if (value == args_close) {
+				fprintf(stderr, "pahole: invalid, missing value in '%s'\n", pos->s);
+				goto free_and_stop;
+			}
+		}
+do_lookup:
+	{
 		static type_id_t class_id;
 		bool include_decls = find_pointers_in_structs != 0 ||
 				     stats_formatter == nr_methods_formatter;
 		struct tag *class = cu__find_type_by_name(cu, name, include_decls, &class_id);
-		if (class == NULL) {
+		if (class == NULL)
 			class = cu__find_base_type_by_name(cu, name, &class_id);
-			if (class == NULL) {
-				if (strcmp(name, "void"))
-					continue;
-				class_id = 0;
-			}
+
+		if (name != pos->s) {
+			free(name);
+			name = NULL;
+		}
+
+		if (class == NULL) {
+			if (strcmp(pos->s, "void"))
+				continue;
+			class_id = 0;
 		}
 
 		if (!isatty(0)) {
@@ -1491,6 +1541,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			tag__fprintf(class, cu, &conf, stdout);
 			putchar('\n');
 		}
+	}
 	}
 
 	/*
