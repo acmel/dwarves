@@ -125,6 +125,7 @@ static void type__init(struct type *type, uint32_t tag,
 	INIT_LIST_HEAD(&type->node);
 	INIT_LIST_HEAD(&type->namespace.tags);
 	type->size = size;
+	type->sizeof_member = NULL;
 	type->namespace.tag.tag = tag;
 	type->namespace.name = name;
 	type->namespace.sname = 0;

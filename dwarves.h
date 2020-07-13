@@ -930,6 +930,7 @@ bool tag__is_array(const struct tag *tag, const struct cu *cu);
  * @nr_tags: number of tags
  * @alignment: DW_AT_alignement, zero if not present, gcc emits since circa 7.3.1
  * @natural_alignment: For inferring __packed__, normally the widest scalar in it, recursively
+ * @sizeof_member: Use this to find the size of the record
  */
 struct type {
 	struct namespace namespace;
@@ -939,6 +940,7 @@ struct type {
 	uint16_t	 nr_static_members;
 	uint16_t	 nr_members;
 	uint32_t	 alignment;
+	struct class_member *sizeof_member;
 	uint16_t	 natural_alignment;
 	bool		 packed_attributes_inferred;
 	uint8_t		 declaration; /* only one bit used */

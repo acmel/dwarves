@@ -507,6 +507,7 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu)
 	type->resized		 = 0;
 	type->nr_members	 = 0;
 	type->nr_static_members	 = 0;
+	type->sizeof_member	 = NULL;
 }
 
 static struct type *type__new(Dwarf_Die *die, struct cu *cu)
