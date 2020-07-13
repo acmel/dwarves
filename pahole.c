@@ -1251,22 +1251,22 @@ static int tag__fprintf_hexdump_value(struct tag *type, struct cu *cu, void *ins
 	return printed;
 }
 
-static int base_type__fprintf_value(void *instance, int _sizeof, FILE *fp)
+static int base_type__fprintf_value(void *instance, int _sizeof, uint64_t *value, FILE *fp)
 {
-	uint64_t value = 0;
+	*value = 0;
 
 	if (_sizeof == sizeof(int))
-		value = *(int *)instance;
+		*value = *(int *)instance;
 	else if (_sizeof == sizeof(long))
-		value = *(long *)instance;
+		*value = *(long *)instance;
 	else if (_sizeof == sizeof(long long))
-		value = *(long long *)instance;
+		*value = *(long long *)instance;
 	else if (_sizeof == sizeof(char))
-		value = *(char *)instance;
+		*value = *(char *)instance;
 	else if (_sizeof == sizeof(short))
-		value = *(short *)instance;
+		*value = *(short *)instance;
 
-	return fprintf(fp, "%#" PRIx64, value);
+	return fprintf(fp, "%#" PRIx64, *value);
 }
 
 static int string__fprintf_value(char *instance, int _sizeof, FILE *fp)
@@ -1290,7 +1290,7 @@ static int array__fprintf_base_type_value(struct tag *tag, struct cu *cu, void *
 	for (i = 0; i < array->nr_entries[0]; ++i) {
 		if (i > 0)
 			printed += fprintf(fp, ", ");
-		printed += base_type__fprintf_value(contents, sizeof_entry, fp);
+		printed += base_type__fprintf_value(contents, sizeof_entry, NULL, fp);
 		contents += sizeof_entry;
 	}
 
@@ -1311,7 +1311,7 @@ static int array__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 	return tag__fprintf_hexdump_value(tag, cu, instance, _sizeof, fp);
 }
 
-static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, FILE *fp)
+static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, uint64_t *real_sizeof, FILE *fp)
 {
 	struct type *type = tag__type(tag);
 	struct class_member *member;
@@ -1320,16 +1320,20 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 	type__for_each_member(type, member) {
 		void *member_contents = instance + member->byte_offset;
 		struct tag *member_type = cu__type(cu, member->tag.type);
+		uint64_t value = 0;
 
 		printed += fprintf(fp, "\n\t.%s = ", class_member__name(member, cu));
 
 		if (tag__is_base_type(member_type, cu)) {
-			printed += base_type__fprintf_value(member_contents, member->byte_size, fp);
+			printed += base_type__fprintf_value(member_contents, member->byte_size, &value, fp);
 		} else if (tag__is_array(member_type, cu)) {
 			printed += array__fprintf_value(member_type, cu, member_contents, member->byte_size, fp);
 		} else {
 			printed += tag__fprintf_hexdump_value(member_type, cu, member_contents, member->byte_size, fp);
 		}
+
+		if (member == type->sizeof_member)
+			*real_sizeof = value;
 
 		fputc(',', fp);
 		++printed;
@@ -1338,10 +1342,10 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 	return printed + fprintf(fp, "\n}");
 }
 
-static int tag__fprintf_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, FILE *fp)
+static int tag__fprintf_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, uint64_t *real_sizeof, FILE *fp)
 {
 	if (tag__is_struct(type))
-		return class__fprintf_value(type, cu, instance, _sizeof, fp);
+		return class__fprintf_value(type, cu, instance, _sizeof, real_sizeof, fp);
 
 	return tag__fprintf_hexdump_value(type, cu, instance, _sizeof, fp);
 }
@@ -1382,16 +1386,69 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 	}
 
 	while (fread(instance, _sizeof, 1, stdin) == 1) {
+		uint64_t real_sizeof = _sizeof;
+
 		if (skip) {
 			--skip;
 			continue;
 		}
 
-		printed += tag__fprintf_value(type, cu, instance, _sizeof, fp);
+		printed += tag__fprintf_value(type, cu, instance, _sizeof, &real_sizeof, fp);
 		printed += fprintf(fp, ",\n");
 
 		if (conf.count && ++count == conf.count)
 			break;
+
+		/*
+		 * For now we'll just trow away what is after the struct, in
+		 * the variable part, later we'll specify a cast selector, i.e.
+		 *
+		 * pahole -C 'perf_event_header(sizeof=size,typeid=type,enum2type=perf_event_type)
+		 *
+		 * So that it gets the 'type' field as the type id, look this
+		 * up in the 'enum perf_event_type' and find the type to cast the
+		 * whole shebang, i.e.:
+		 *
+
+		 $ pahole ~/bin/perf -C perf_event_header
+		   struct perf_event_header {
+			  __u32        type;       / *  0  4 * /
+			  __u16        misc;       / *  4  2 * /
+			  __u16        size;       / *  6  2 * /
+
+			  / * size: 8, cachelines: 1, members: 3 * /
+			  / * last cacheline: 8 bytes * /
+		   };
+		 $
+
+		 enum perf_event_type {
+			PERF_RECORD_MMAP = 1,
+			PERF_RECORD_LOST = 2,
+			PERF_RECORD_COMM = 3,
+			PERF_RECORD_EXIT = 4,
+			<SNIP>
+		 }
+
+		 * So from the type field get the lookup into the enum and from the result, look
+		 * for a type with that name as-is or in lower case, which will produce, when type = 3:
+
+		 $ pahole -C perf_record_comm ~/bin/perf
+		   struct perf_record_comm {
+			   struct perf_event_header   header;   / *     0     8 * /
+			   __u32                      pid;      / *     8     4 * /
+			   __u32                      tid;      / *    12     4 * /
+			   char                       comm[16]; / *    16    16 * /
+
+			   / * size: 32, cachelines: 1, members: 4 * /
+			   / * last cacheline: 32 bytes * /
+		   };
+		   $
+
+		 */
+
+		if (real_sizeof > _sizeof)
+			if (pipe_seek(stdin, real_sizeof - _sizeof))
+				break;
 	}
 
 	return printed;
