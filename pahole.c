@@ -1267,11 +1267,11 @@ static uint64_t base_type__value(void *instance, int _sizeof)
 	return 0;
 }
 
-static int base_type__fprintf_value(void *instance, int _sizeof, uint64_t *value, FILE *fp)
+static int base_type__fprintf_value(void *instance, int _sizeof, FILE *fp)
 {
-	*value = base_type__value(instance, _sizeof);
+	uint64_t value = base_type__value(instance, _sizeof);
 
-	return fprintf(fp, "%#" PRIx64, *value);
+	return fprintf(fp, "%#" PRIx64, value);
 }
 
 static const char *enumeration__lookup_value(struct type *enumeration, struct cu *cu, uint64_t value)
@@ -1286,16 +1286,16 @@ static const char *enumeration__lookup_value(struct type *enumeration, struct cu
 	return NULL;
 }
 
-static int base_type__fprintf_enum_value(void *instance, int _sizeof, uint64_t *value, struct type *enumeration, struct cu *cu, FILE *fp)
+static int base_type__fprintf_enum_value(void *instance, int _sizeof, struct type *enumeration, struct cu *cu, FILE *fp)
 {
-	*value = base_type__value(instance, _sizeof);
+	uint64_t value = base_type__value(instance, _sizeof);
 
-	const char *entry = enumeration__lookup_value(enumeration, cu, *value);
+	const char *entry = enumeration__lookup_value(enumeration, cu, value);
 
 	if (entry)
 		return fprintf(fp, "%s", entry);
 
-	return fprintf(fp, "%#" PRIx64, *value);
+	return fprintf(fp, "%#" PRIx64, value);
 }
 
 static int string__fprintf_value(char *instance, int _sizeof, FILE *fp)
@@ -1319,7 +1319,7 @@ static int array__fprintf_base_type_value(struct tag *tag, struct cu *cu, void *
 	for (i = 0; i < array->nr_entries[0]; ++i) {
 		if (i > 0)
 			printed += fprintf(fp, ", ");
-		printed += base_type__fprintf_value(contents, sizeof_entry, NULL, fp);
+		printed += base_type__fprintf_value(contents, sizeof_entry, fp);
 		contents += sizeof_entry;
 	}
 
@@ -1340,7 +1340,7 @@ static int array__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 	return tag__fprintf_hexdump_value(tag, cu, instance, _sizeof, fp);
 }
 
-static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, uint64_t *real_sizeof, FILE *fp)
+static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, FILE *fp)
 {
 	struct type *type = tag__type(tag);
 	struct class_member *member;
@@ -1349,22 +1349,18 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 	type__for_each_member(type, member) {
 		void *member_contents = instance + member->byte_offset;
 		struct tag *member_type = cu__type(cu, member->tag.type);
-		uint64_t value = 0;
 
 		printed += fprintf(fp, "\n\t.%s = ", class_member__name(member, cu));
 
 		if (member == type->type_member && type->type_enum) {
-			printed += base_type__fprintf_enum_value(member_contents, member->byte_size, &value, type->type_enum, cu, fp);
+			printed += base_type__fprintf_enum_value(member_contents, member->byte_size, type->type_enum, cu, fp);
 		} else if (tag__is_base_type(member_type, cu)) {
-			printed += base_type__fprintf_value(member_contents, member->byte_size, &value, fp);
+			printed += base_type__fprintf_value(member_contents, member->byte_size, fp);
 		} else if (tag__is_array(member_type, cu)) {
 			printed += array__fprintf_value(member_type, cu, member_contents, member->byte_size, fp);
 		} else {
 			printed += tag__fprintf_hexdump_value(member_type, cu, member_contents, member->byte_size, fp);
 		}
-
-		if (member == type->sizeof_member)
-			*real_sizeof = value;
 
 		fputc(',', fp);
 		++printed;
@@ -1373,10 +1369,10 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 	return printed + fprintf(fp, "\n}");
 }
 
-static int tag__fprintf_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, uint64_t *real_sizeof, FILE *fp)
+static int tag__fprintf_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, FILE *fp)
 {
 	if (tag__is_struct(type))
-		return class__fprintf_value(type, cu, instance, _sizeof, real_sizeof, fp);
+		return class__fprintf_value(type, cu, instance, _sizeof, fp);
 
 	return tag__fprintf_hexdump_value(type, cu, instance, _sizeof, fp);
 }
@@ -1400,6 +1396,20 @@ static int pipe_seek(FILE *fp, off_t offset)
 	return offset == 0 ? 0 : -1;
 }
 
+static uint64_t tag__real_sizeof(struct tag *tag, struct cu *cu, int _sizeof, void *instance)
+{
+	if (tag__is_struct(tag)) {
+		struct type *type = tag__type(tag);
+
+		if (type->sizeof_member) {
+			struct class_member *member = type->sizeof_member;
+			return base_type__value(instance + member->byte_offset, member->byte_size);
+		}
+	}
+
+	return _sizeof;
+}
+
 static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 {
 	int _sizeof = tag__size(type, cu), printed = 0;
@@ -1417,14 +1427,15 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 	}
 
 	while (fread(instance, _sizeof, 1, stdin) == 1) {
-		uint64_t real_sizeof = _sizeof;
+		// Read it from each record/instance
+		int real_sizeof = tag__real_sizeof(type, cu, _sizeof, instance);
 
 		if (skip) {
 			--skip;
 			continue;
 		}
 
-		printed += tag__fprintf_value(type, cu, instance, _sizeof, &real_sizeof, fp);
+		printed += tag__fprintf_value(type, cu, instance, _sizeof, fp);
 		printed += fprintf(fp, ",\n");
 
 		if (conf.count && ++count == conf.count)
