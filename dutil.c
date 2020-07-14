@@ -76,6 +76,8 @@ int strlist__add(struct strlist *slist, const char *new_entry)
         rb_link_node(&sn->rb_node, parent, p);
         rb_insert_color(&sn->rb_node, &slist->entries);
 
+	list_add_tail(&sn->node, &slist->list_entries);
+
 	return 0;
 }
 
@@ -111,6 +113,7 @@ struct strlist *strlist__new(bool dupstr)
 
 	if (slist != NULL) {
 		slist->entries = RB_ROOT;
+		INIT_LIST_HEAD(&slist->list_entries);
 		slist->dupstr = dupstr;
 	}
 
@@ -136,6 +139,7 @@ void strlist__delete(struct strlist *slist)
 void strlist__remove(struct strlist *slist, struct str_node *sn)
 {
 	rb_erase(&sn->rb_node, &slist->entries);
+	list_del_init(&sn->node);
 	str_node__delete(sn, slist->dupstr);
 }
 
