@@ -1490,13 +1490,9 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto dump_it;
 	}
 
-	struct str_node *pos;
-	struct rb_node *next = rb_first(&class_names->entries);
+	struct str_node *pos, *n;
 
-	while (next) {
-		pos = rb_entry(next, struct str_node, rb_node);
-		next = rb_next(&pos->rb_node);
-
+	strlist__for_each_entry_safe(class_names, pos, n) {
 		const char *sizeof_member = NULL; // Overriding sizeof(class)?
 		char *name = (char *)pos->s;
 		const char *args_open = strchr(name, '(');
