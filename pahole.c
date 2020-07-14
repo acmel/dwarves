@@ -1526,7 +1526,8 @@ free_and_stop:
 				// empty args, just ignore it, i.e. 'foo()'
 				goto do_lookup;
 			}
-
+next_arg:
+		{
 			char *assign = strchr(args, '=');
 			if (assign == NULL) {
 				fprintf(stderr, "pahole: invalid, missing '=' in '%s'\n", pos->s);
@@ -1545,6 +1546,11 @@ free_and_stop:
 				goto free_and_stop;
 			}
 
+			char *comma = strchr(value, ',');
+
+			if (comma)
+				*comma = '\0';
+
 			if (strcmp(args, "sizeof") == 0) {
 				sizeof_member = value;
 				if (global_verbose)
@@ -1553,6 +1559,12 @@ free_and_stop:
 				fprintf(stderr, "pahole: invalid arg '%s' in '%s' (known args: sizeof=member)\n", args, pos->s);
 				goto free_and_stop;
 			}
+
+			if (comma) {
+				args = comma + 1;
+				goto next_arg;
+			}
+		}
 		}
 do_lookup:
 	{
