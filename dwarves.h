@@ -934,6 +934,7 @@ bool tag__is_array(const struct tag *tag, const struct cu *cu);
  * @sizeof_member: Use this to find the size of the record
  * @type_member: Use this to select a member from where to get an id on an enum to find a type
  * 		 to cast for, needs to be used with the upcoming type_enum.
+ * @type_enum: A enumeration to use together with type_member to find a type to cast
  */
 struct type {
 	struct namespace namespace;
@@ -945,6 +946,7 @@ struct type {
 	uint32_t	 alignment;
 	struct class_member *sizeof_member;
 	struct class_member *type_member;
+	struct type	 *type_enum;
 	uint16_t	 natural_alignment;
 	bool		 packed_attributes_inferred;
 	uint8_t		 declaration; /* only one bit used */

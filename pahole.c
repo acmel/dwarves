@@ -1251,20 +1251,49 @@ static int tag__fprintf_hexdump_value(struct tag *type, struct cu *cu, void *ins
 	return printed;
 }
 
+static uint64_t base_type__value(void *instance, int _sizeof)
+{
+	if (_sizeof == sizeof(int))
+		return *(int *)instance;
+	else if (_sizeof == sizeof(long))
+		return *(long *)instance;
+	else if (_sizeof == sizeof(long long))
+		return *(long long *)instance;
+	else if (_sizeof == sizeof(char))
+		return *(char *)instance;
+	else if (_sizeof == sizeof(short))
+		return *(short *)instance;
+
+	return 0;
+}
+
 static int base_type__fprintf_value(void *instance, int _sizeof, uint64_t *value, FILE *fp)
 {
-	*value = 0;
+	*value = base_type__value(instance, _sizeof);
 
-	if (_sizeof == sizeof(int))
-		*value = *(int *)instance;
-	else if (_sizeof == sizeof(long))
-		*value = *(long *)instance;
-	else if (_sizeof == sizeof(long long))
-		*value = *(long long *)instance;
-	else if (_sizeof == sizeof(char))
-		*value = *(char *)instance;
-	else if (_sizeof == sizeof(short))
-		*value = *(short *)instance;
+	return fprintf(fp, "%#" PRIx64, *value);
+}
+
+static const char *enumeration__lookup_value(struct type *enumeration, struct cu *cu, uint64_t value)
+{
+	struct enumerator *entry;
+
+	type__for_each_enumerator(enumeration, entry) {
+		if (entry->value == value)
+			return enumerator__name(entry, cu);
+	}
+
+	return NULL;
+}
+
+static int base_type__fprintf_enum_value(void *instance, int _sizeof, uint64_t *value, struct type *enumeration, struct cu *cu, FILE *fp)
+{
+	*value = base_type__value(instance, _sizeof);
+
+	const char *entry = enumeration__lookup_value(enumeration, cu, *value);
+
+	if (entry)
+		return fprintf(fp, "%s", entry);
 
 	return fprintf(fp, "%#" PRIx64, *value);
 }
@@ -1324,7 +1353,9 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 
 		printed += fprintf(fp, "\n\t.%s = ", class_member__name(member, cu));
 
-		if (tag__is_base_type(member_type, cu)) {
+		if (member == type->type_member && type->type_enum) {
+			printed += base_type__fprintf_enum_value(member_contents, member->byte_size, &value, type->type_enum, cu, fp);
+		} else if (tag__is_base_type(member_type, cu)) {
 			printed += base_type__fprintf_value(member_contents, member->byte_size, &value, fp);
 		} else if (tag__is_array(member_type, cu)) {
 			printed += array__fprintf_value(member_type, cu, member_contents, member->byte_size, fp);
@@ -1494,7 +1525,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	strlist__for_each_entry_safe(class_names, pos, n) {
 		const char *sizeof_member = NULL, // Overriding sizeof(class)?
-			   *type_member = NULL;   // Member to get a cast type via an enum
+			   *type_member = NULL,   // Member to get a cast type via an enum
+			   *type_enum = NULL;	  // Enumerator to use with the type member
 		char *name = (char *)pos->s;
 		const char *args_open = strchr(name, '(');
 
@@ -1556,8 +1588,12 @@ next_arg:
 				type_member = value;
 				if (global_verbose)
 					fprintf(stderr, "pahole: type member for '%s' is '%s'\n", name, type_member);
+			} else if (strcmp(args, "type_enum") == 0) {
+				type_enum = value;
+				if (global_verbose)
+					fprintf(stderr, "pahole: type enum for '%s' is '%s'\n", name, type_enum);
 			} else {
-				fprintf(stderr, "pahole: invalid arg '%s' in '%s' (known args: sizeof=member, type=member)\n", args, pos->s);
+				fprintf(stderr, "pahole: invalid arg '%s' in '%s' (known args: sizeof=member, type=member, type_enum=enum)\n", args, pos->s);
 				goto free_and_stop;
 			}
 
@@ -1601,6 +1637,15 @@ out_free_name:
 					if (type->type_member == NULL) {
 						fprintf(stderr, "pahole: the type member '%s' wasn't found in the '%s' type\n",
 							type_member, name);
+						goto out_free_name;
+					}
+				}
+
+				if (type_enum) {
+					type->type_enum = tag__type(cu__find_enumeration_by_name(cu, type_enum, NULL));
+					if (type->type_enum == NULL) {
+						fprintf(stderr, "pahole: the type enum '%s' wasn't found in '%s'\n",
+							type_enum, cu->name);
 						goto out_free_name;
 					}
 				}
