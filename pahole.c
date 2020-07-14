@@ -1432,7 +1432,7 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 
 		if (skip) {
 			--skip;
-			continue;
+			goto next_instance;
 		}
 
 		printed += tag__fprintf_value(type, cu, instance, _sizeof, fp);
@@ -1487,7 +1487,7 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 		   $
 
 		 */
-
+next_instance:
 		if (real_sizeof > _sizeof)
 			if (pipe_seek(stdin, real_sizeof - _sizeof))
 				break;
