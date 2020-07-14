@@ -1493,7 +1493,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 	struct str_node *pos, *n;
 
 	strlist__for_each_entry_safe(class_names, pos, n) {
-		const char *sizeof_member = NULL; // Overriding sizeof(class)?
+		const char *sizeof_member = NULL, // Overriding sizeof(class)?
+			   *type_member = NULL;   // Member to get a cast type via an enum
 		char *name = (char *)pos->s;
 		const char *args_open = strchr(name, '(');
 
@@ -1551,8 +1552,12 @@ next_arg:
 				sizeof_member = value;
 				if (global_verbose)
 					fprintf(stderr, "pahole: sizeof_operator for '%s' is '%s'\n", name, sizeof_member);
+			} else if (strcmp(args, "type") == 0) {
+				type_member = value;
+				if (global_verbose)
+					fprintf(stderr, "pahole: type member for '%s' is '%s'\n", name, type_member);
 			} else {
-				fprintf(stderr, "pahole: invalid arg '%s' in '%s' (known args: sizeof=member)\n", args, pos->s);
+				fprintf(stderr, "pahole: invalid arg '%s' in '%s' (known args: sizeof=member, type=member)\n", args, pos->s);
 				goto free_and_stop;
 			}
 
@@ -1572,9 +1577,9 @@ do_lookup:
 			class = cu__find_base_type_by_name(cu, name, &class_id);
 
 		if (class != NULL) {
-			if (sizeof_member != NULL) {
+			if (sizeof_member != NULL || type_member != NULL) {
 				if (!tag__is_struct(class)) {
-					fprintf(stderr, "pahole: 'sizeof' can't be used with '%s'\n", name);
+					fprintf(stderr, "pahole: 'sizeof' and 'type' can't be used with '%s'\n", name);
 out_free_name:
 					free(name);
 					return LSK__STOP_LOADING;
@@ -1582,11 +1587,22 @@ out_free_name:
 
 				struct type *type = tag__type(class);
 
-				type->sizeof_member = type__find_member_by_name(type, cu, sizeof_member);
-				if (type->sizeof_member == NULL) {
-					fprintf(stderr, "pahole: the sizeof member '%s' not found in the '%s' type\n",
-						sizeof_member, name);
-					goto out_free_name;
+				if (sizeof_member) {
+					type->sizeof_member = type__find_member_by_name(type, cu, sizeof_member);
+					if (type->sizeof_member == NULL) {
+						fprintf(stderr, "pahole: the sizeof member '%s' wasn't found in the '%s' type\n",
+							sizeof_member, name);
+						goto out_free_name;
+					}
+				}
+
+				if (type_member) {
+					type->type_member = type__find_member_by_name(type, cu, type_member);
+					if (type->type_member == NULL) {
+						fprintf(stderr, "pahole: the type member '%s' wasn't found in the '%s' type\n",
+							type_member, name);
+						goto out_free_name;
+					}
 				}
 			}
 		}
