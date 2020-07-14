@@ -1666,13 +1666,41 @@ static int add_class_name_entry(const char *s)
 
 static int populate_class_names(void)
 {
-	char *s = class_name, *sep;
+	char *s = strdup(class_name), *sep;
+	char *sdup = s;
 
+	if (!s) {
+		fprintf(stderr, "Not enough memory for populating class names ('%s')\n", class_name);
+		return -1;
+	}
+
+	/*
+	 * Commas inside parameters shouldn't be considered, as those don't
+	 * separate classes, but arguments to a particular class hack a simple
+	 * parser, but really this will end up needing lex/yacc...
+	 */
 	while ((sep = strchr(s, ',')) != NULL) {
+		char *parens = strchr(s, '(');
+
+		// perf_event_header(sizeof=size),a
+
+		if (parens && parens < sep) {
+			char *close_parens = strchr(parens, ')');
+			if (!close_parens) {
+				fprintf(stderr, "Unterminated '(' in '%s'\n", class_name);
+				fprintf(stderr, "                     %*.s^\n", (int)(parens - sdup), "");
+				goto out_free;
+			}
+			if (close_parens > sep)
+				sep = close_parens + 1;
+		}
+
 		*sep = '\0';
-		if (add_class_name_entry(s))
+		if (add_class_name_entry(s)) {
+out_free:
+			free(sdup);
 			return -1;
-		*sep = ',';
+		}
 		s = sep + 1;
 	}
 
