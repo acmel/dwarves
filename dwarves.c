@@ -734,6 +734,30 @@ struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *cu,
 	return NULL;
 }
 
+struct tag *cu__find_enumeration_by_name(const struct cu *cu, const char *name, type_id_t *idp)
+{
+	uint32_t id;
+	struct tag *pos;
+
+	if (name == NULL)
+		return NULL;
+
+	cu__for_each_type(cu, id, pos) {
+		if (pos->tag == DW_TAG_enumeration_type) {
+			const struct type *type = tag__type(pos);
+			const char *tname = type__name(type, cu);
+
+			if (tname && strcmp(tname, name) == 0) {
+				if (idp != NULL)
+					*idp = id;
+				return pos;
+			}
+		}
+	}
+
+	return NULL;
+}
+
 struct tag *cu__find_struct_by_sname(const struct cu *cu, strings_t sname,
 				     const int include_decls, type_id_t *idp)
 {
