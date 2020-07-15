@@ -1351,17 +1351,22 @@ static int array__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 	return tag__fprintf_hexdump_value(tag, cu, instance, _sizeof, fp);
 }
 
-static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, int indent, FILE *fp)
+static int __class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, int indent, bool brackets, FILE *fp)
 {
 	struct type *type = tag__type(tag);
 	struct class_member *member;
-	int printed = fprintf(fp, "{");
+	int printed = 0;
+
+	if (brackets)
+		printed += fprintf(fp, "{");
 
 	type__for_each_member(type, member) {
 		void *member_contents = instance + member->byte_offset;
 		struct tag *member_type = cu__type(cu, member->tag.type);
+		const char *name = class_member__name(member, cu);
 
-		printed += fprintf(fp, "\n%.*s\t.%s = ", indent, tabs, class_member__name(member, cu));
+		if (name)
+			printed += fprintf(fp, "\n%.*s\t.%s = ", indent, tabs, name);
 
 		if (member == type->type_member && type->type_enum) {
 			printed += base_type__fprintf_enum_value(member_contents, member->byte_size, type->type_enum, cu, fp);
@@ -1375,7 +1380,11 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 				sizeof_member = _sizeof - member->byte_offset;
 			printed += array__fprintf_value(member_type, cu, member_contents, sizeof_member, fp);
 		} else if (tag__is_struct(member_type)) {
-			printed += class__fprintf_value(member_type, cu, member_contents, member->byte_size, indent + 1, fp);
+			printed += __class__fprintf_value(member_type, cu, member_contents, member->byte_size, indent + 1, true, fp);
+		} else if (tag__is_union(member_type)) {
+			printed += __class__fprintf_value(member_type, cu, member_contents, member->byte_size, indent + (name ? 1 : 0), !!name, fp);
+			if (!name)
+				continue;
 		} else {
 			printed += tag__fprintf_hexdump_value(member_type, cu, member_contents, member->byte_size, fp);
 		}
@@ -1384,7 +1393,14 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 		++printed;
 	}
 
-	return printed + fprintf(fp, "\n%.*s}", indent, tabs);
+	if (brackets)
+		printed += fprintf(fp, "\n%.*s}", indent, tabs);
+	return printed;
+}
+
+static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, int indent, FILE *fp)
+{
+	return __class__fprintf_value(tag, cu, instance, _sizeof, indent, true, fp);
 }
 
 static int tag__fprintf_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, FILE *fp)
