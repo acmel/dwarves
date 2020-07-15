@@ -129,7 +129,7 @@ static const struct conf_fprintf conf_fprintf__defaults = {
 	.emit_stats   = 1,
 };
 
-static const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
+const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
 static size_t cacheline_size;
 

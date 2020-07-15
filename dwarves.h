@@ -1278,4 +1278,6 @@ void dwarves_print_version(FILE *fp, struct argp_state *state);
 
 extern bool no_bitfield_type_recode;
 
+extern const char tabs[];
+
 #endif /* _DWARVES_H_ */
