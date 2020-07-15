@@ -1351,7 +1351,7 @@ static int array__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 	return tag__fprintf_hexdump_value(tag, cu, instance, _sizeof, fp);
 }
 
-static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, FILE *fp)
+static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, int indent, FILE *fp)
 {
 	struct type *type = tag__type(tag);
 	struct class_member *member;
@@ -1361,7 +1361,7 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 		void *member_contents = instance + member->byte_offset;
 		struct tag *member_type = cu__type(cu, member->tag.type);
 
-		printed += fprintf(fp, "\n\t.%s = ", class_member__name(member, cu));
+		printed += fprintf(fp, "\n%.*s\t.%s = ", indent, tabs, class_member__name(member, cu));
 
 		if (member == type->type_member && type->type_enum) {
 			printed += base_type__fprintf_enum_value(member_contents, member->byte_size, type->type_enum, cu, fp);
@@ -1374,6 +1374,8 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 			if (sizeof_member == 0 && list_is_last(&member->tag.node, &type->namespace.tags))
 				sizeof_member = _sizeof - member->byte_offset;
 			printed += array__fprintf_value(member_type, cu, member_contents, sizeof_member, fp);
+		} else if (tag__is_struct(member_type)) {
+			printed += class__fprintf_value(member_type, cu, member_contents, member->byte_size, indent + 1, fp);
 		} else {
 			printed += tag__fprintf_hexdump_value(member_type, cu, member_contents, member->byte_size, fp);
 		}
@@ -1382,13 +1384,13 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 		++printed;
 	}
 
-	return printed + fprintf(fp, "\n}");
+	return printed + fprintf(fp, "\n%.*s}", indent, tabs);
 }
 
 static int tag__fprintf_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, FILE *fp)
 {
 	if (tag__is_struct(type))
-		return class__fprintf_value(type, cu, instance, _sizeof, fp);
+		return class__fprintf_value(type, cu, instance, _sizeof, 0, fp);
 
 	return tag__fprintf_hexdump_value(type, cu, instance, _sizeof, fp);
 }
