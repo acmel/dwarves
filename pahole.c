@@ -1594,11 +1594,14 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 	struct str_node *pos, *n;
 
 	strlist__for_each_entry_safe(class_names, pos, n) {
+		bool include_decls = find_pointers_in_structs != 0 || stats_formatter == nr_methods_formatter;
 		const char *sizeof_member = NULL, // Overriding sizeof(class)?
 			   *type_member = NULL,   // Member to get a cast type via an enum
 			   *type_enum = NULL;	  // Enumerator to use with the type member
 		char *name = (char *)pos->s;
 		const char *args_open = strchr(name, '(');
+		static type_id_t class_id;
+		struct tag *class;
 
 		if (args_open != NULL) {
 			name = strdup(name);
@@ -1618,12 +1621,16 @@ free_and_stop:
 			char *args = name + (args_open - pos->s);
 			*args++ = *args_close = '\0';
 
+			class = cu__find_type_by_name(cu, name, include_decls, &class_id);
+			if (class == NULL)
+				continue; // couldn't find that class name in this CU, continue to the next one.
+
 			while (isspace(*args))
 				++args;
 
 			if (args == args_close) {
 				// empty args, just ignore it, i.e. 'foo()'
-				goto do_lookup;
+				goto process_class;
 			}
 next_arg:
 		{
@@ -1672,15 +1679,11 @@ next_arg:
 				goto next_arg;
 			}
 		}
+		} else {
+			class = cu__find_type_by_name(cu, name, include_decls, &class_id);
+			if (class == NULL)
+				class = cu__find_base_type_by_name(cu, name, &class_id);
 		}
-do_lookup:
-	{
-		static type_id_t class_id;
-		bool include_decls = find_pointers_in_structs != 0 ||
-				     stats_formatter == nr_methods_formatter;
-		struct tag *class = cu__find_type_by_name(cu, name, include_decls, &class_id);
-		if (class == NULL)
-			class = cu__find_base_type_by_name(cu, name, &class_id);
 
 		if (class != NULL) {
 			if (sizeof_member != NULL || type_member != NULL) {
@@ -1732,7 +1735,7 @@ out_free_name:
 				continue;
 			class_id = 0;
 		}
-
+process_class:
 		if (!isatty(0)) {
 			/*
 			 * For the pretty printer only the first class is considered,
@@ -1769,7 +1772,6 @@ out_free_name:
 			tag__fprintf(class, cu, &conf, stdout);
 			putchar('\n');
 		}
-	}
 	}
 
 	/*
