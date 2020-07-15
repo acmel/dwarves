@@ -1274,6 +1274,29 @@ static int base_type__fprintf_value(void *instance, int _sizeof, FILE *fp)
 	return fprintf(fp, "%#" PRIx64, value);
 }
 
+static uint64_t class_member__bitfield_value(struct class_member *member, void *instance)
+{
+	int byte_size = member->byte_size;
+	uint64_t value = base_type__value(instance, byte_size);
+	uint64_t mask = 0;
+	int bits = member->bitfield_size;
+
+	while (bits) {
+		mask |= 1;
+		if (--bits)
+			mask <<= 1;
+	}
+
+	mask <<= member->bitfield_offset;
+
+	return (value & mask) >> member->bitfield_offset;
+}
+
+static int class_member__fprintf_bitfield_value(struct class_member *member, void *instance, FILE *fp)
+{
+	return fprintf(fp, "%#" PRIx64, class_member__bitfield_value(member, instance));
+}
+
 static const char *enumeration__lookup_value(struct type *enumeration, struct cu *cu, uint64_t value)
 {
 	struct enumerator *entry;
@@ -1370,6 +1393,8 @@ static int __class__fprintf_value(struct tag *tag, struct cu *cu, void *instance
 
 		if (member == type->type_member && type->type_enum) {
 			printed += base_type__fprintf_enum_value(member_contents, member->byte_size, type->type_enum, cu, fp);
+		} else if (member->bitfield_size) {
+			printed += class_member__fprintf_bitfield_value(member, member_contents, fp);
 		} else if (tag__is_base_type(member_type, cu)) {
 			printed += base_type__fprintf_value(member_contents, member->byte_size, fp);
 		} else if (tag__is_array(member_type, cu)) {
