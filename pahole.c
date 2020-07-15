@@ -1320,7 +1320,14 @@ static int array__fprintf_base_type_value(struct tag *tag, struct cu *cu, void *
 	int i, printed = 0, sizeof_entry = base_type__size(array_type);
 
 	printed += fprintf(fp, "{ ");
-	for (i = 0; i < array->nr_entries[0]; ++i) {
+
+	int nr_entries = array->nr_entries[0];
+
+	// Look for zero sized arrays
+	if (nr_entries == 0)
+		nr_entries = _sizeof / sizeof_entry;
+
+	for (i = 0; i < nr_entries; ++i) {
 		if (i > 0)
 			printed += fprintf(fp, ", ");
 		printed += base_type__fprintf_value(contents, sizeof_entry, fp);
