@@ -1410,9 +1410,37 @@ static uint64_t tag__real_sizeof(struct tag *tag, struct cu *cu, int _sizeof, vo
 	return _sizeof;
 }
 
+static struct tag *tag__real_type(struct tag *tag, struct cu *cu, void *instance)
+{
+	if (tag__is_struct(tag)) {
+		struct type *type = tag__type(tag);
+
+		if (type->type_enum && type->type_member) {
+			struct class_member *member = type->type_member;
+			uint64_t value = base_type__value(instance + member->byte_offset, member->byte_size);
+			const char *enumerator_name = enumeration__lookup_value(type->type_enum, cu, value);
+			char name[1024];
+
+			if (!enumerator_name)
+				return tag;
+
+			snprintf(name, sizeof(name), enumerator_name);
+			strlwr(name);
+
+			struct tag *real_type = cu__find_type_by_name(cu, name, false, NULL);
+
+			if (real_type && tag__is_struct(real_type))
+				return real_type;
+		}
+	}
+
+	return tag;
+}
+
 static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 {
 	int _sizeof = tag__size(type, cu), printed = 0;
+	int max_sizeof = _sizeof;
 	void *instance = malloc(_sizeof);
 	uint32_t count = 0;
 	uint32_t skip = conf.skip;
@@ -1430,21 +1458,30 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 		// Read it from each record/instance
 		int real_sizeof = tag__real_sizeof(type, cu, _sizeof, instance);
 
-		if (skip) {
-			--skip;
-			goto next_instance;
+		if (real_sizeof > _sizeof) {
+			if (real_sizeof > max_sizeof) {
+				void *new_instance = realloc(instance, real_sizeof);
+				if (!new_instance) {
+					fprintf(stderr, "Couldn't allocate space for a record, too big: %d bytes\n", real_sizeof);
+					printed = -1;
+					goto out;
+				}
+				instance = new_instance;
+				max_sizeof = real_sizeof;
+			}
+			if (fread(instance + _sizeof, real_sizeof - _sizeof, 1, stdin) != 1) {
+				fprintf(stderr, "Couldn't read record: %d bytes\n", real_sizeof);
+				printed = -1;
+				goto out;
+			}
 		}
 
-		printed += tag__fprintf_value(type, cu, instance, _sizeof, fp);
-		printed += fprintf(fp, ",\n");
-
-		if (conf.count && ++count == conf.count)
-			break;
+		if (skip) {
+			--skip;
+			continue;
+		}
 
 		/*
-		 * For now we'll just trow away what is after the struct, in
-		 * the variable part, later we'll specify a cast selector, i.e.
-		 *
 		 * pahole -C 'perf_event_header(sizeof=size,typeid=type,enum2type=perf_event_type)
 		 *
 		 * So that it gets the 'type' field as the type id, look this
@@ -1485,14 +1522,18 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 			   / * last cacheline: 32 bytes * /
 		   };
 		   $
-
 		 */
-next_instance:
-		if (real_sizeof > _sizeof)
-			if (pipe_seek(stdin, real_sizeof - _sizeof))
-				break;
-	}
 
+		struct tag *real_type = tag__real_type(type, cu, instance);
+
+		printed += tag__fprintf_value(real_type, cu, instance, real_sizeof, fp);
+		printed += fprintf(fp, ",\n");
+
+		if (conf.count && ++count == conf.count)
+			break;
+	}
+out:
+	free(instance);
 	return printed;
 }
 
