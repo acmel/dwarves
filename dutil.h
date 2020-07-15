@@ -330,4 +330,6 @@ static inline int elf_getshdrstrndx(Elf *elf, size_t *dst)
 }
 #endif
 
+char *strlwr(char *s);
+
 #endif /* _DUTIL_H_ */

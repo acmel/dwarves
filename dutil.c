@@ -188,3 +188,13 @@ Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
 
 	return sec;
 }
+
+char *strlwr(char *s)
+{
+	int len = strlen(s), i;
+
+	for (i = 0; i < len; ++i)
+		s[i] = tolower(s[i]);
+
+	return s;
+}
