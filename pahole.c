@@ -1368,7 +1368,12 @@ static int class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 		} else if (tag__is_base_type(member_type, cu)) {
 			printed += base_type__fprintf_value(member_contents, member->byte_size, fp);
 		} else if (tag__is_array(member_type, cu)) {
-			printed += array__fprintf_value(member_type, cu, member_contents, member->byte_size, fp);
+			int sizeof_member = member->byte_size;
+
+			// zero sized array, at the end of the struct?
+			if (sizeof_member == 0 && list_is_last(&member->tag.node, &type->namespace.tags))
+				sizeof_member = _sizeof - member->byte_offset;
+			printed += array__fprintf_value(member_type, cu, member_contents, sizeof_member, fp);
 		} else {
 			printed += tag__fprintf_hexdump_value(member_type, cu, member_contents, member->byte_size, fp);
 		}
