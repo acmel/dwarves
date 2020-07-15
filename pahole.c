@@ -1308,12 +1308,16 @@ static int array__fprintf_base_type_value(struct tag *tag, struct cu *cu, void *
 	struct array_type *array = tag__array_type(tag);
 	struct tag *array_type = cu__type(cu, tag->type);
 	void *contents = instance;
-	int i, printed = 0, sizeof_entry = base_type__size(array_type);
 
 	if (array->dimensions != 1) {
 		// Support multi dimensional arrays later
 		return tag__fprintf_hexdump_value(tag, cu, instance, _sizeof, fp);
 	}
+
+	if (tag__is_typedef(array_type))
+		array_type = tag__follow_typedef(array_type, cu);
+
+	int i, printed = 0, sizeof_entry = base_type__size(array_type);
 
 	printed += fprintf(fp, "{ ");
 	for (i = 0; i < array->nr_entries[0]; ++i) {
