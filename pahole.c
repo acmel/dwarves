@@ -1334,7 +1334,7 @@ static int array__fprintf_base_type_value(struct tag *tag, struct cu *cu, void *
 		contents += sizeof_entry;
 	}
 
-	return printed + fprintf(fp, "}");
+	return printed + fprintf(fp, " }");
 }
 
 static int array__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, FILE *fp)
