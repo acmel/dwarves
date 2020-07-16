@@ -1636,8 +1636,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	strlist__for_each_entry_safe(class_names, pos, n) {
 		bool include_decls = find_pointers_in_structs != 0 || stats_formatter == nr_methods_formatter;
-		const char *type_enum = NULL,	  // Enumerator to use with the type member
-			   *filter = NULL;	  // Filter expression
+		const char *filter = NULL;	  // Filter expression
 		char *name = (char *)pos->s;
 		const char *args_open = strchr(name, '(');
 		static type_id_t class_id;
@@ -1724,9 +1723,14 @@ next_arg:
 					goto free_and_stop;
 				}
 			} else if (strcmp(args, "type_enum") == 0) {
-				type_enum = value;
 				if (global_verbose)
-					fprintf(stderr, "pahole: type enum for '%s' is '%s'\n", name, type_enum);
+					fprintf(stderr, "pahole: type enum for '%s' is '%s'\n", name, value);
+				type->type_enum = tag__type(cu__find_enumeration_by_name(cu, value, NULL));
+				if (type->type_enum == NULL) {
+					fprintf(stderr, "pahole: the type enum '%s' wasn't found in '%s'\n", value, cu->name);
+					free(name);
+					return LSK__STOP_LOADING;
+				}
 			} else if (strcmp(args, "filter") == 0) {
 				filter = value;
 				if (global_verbose)
@@ -1745,20 +1749,6 @@ next_arg:
 			class = cu__find_type_by_name(cu, name, include_decls, &class_id);
 			if (class == NULL)
 				class = cu__find_base_type_by_name(cu, name, &class_id);
-		}
-
-		if (class != NULL) {
-			struct type *type = tag__type(class);
-
-			if (type_enum) {
-				type->type_enum = tag__type(cu__find_enumeration_by_name(cu, type_enum, NULL));
-				if (type->type_enum == NULL) {
-					fprintf(stderr, "pahole: the type enum '%s' wasn't found in '%s'\n",
-						type_enum, cu->name);
-					free(name);
-					return LSK__STOP_LOADING;
-				}
-			}
 		}
 
 		if (name != pos->s) {
