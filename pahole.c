@@ -1638,7 +1638,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		bool include_decls = find_pointers_in_structs != 0 || stats_formatter == nr_methods_formatter;
 		const char *sizeof_member = NULL, // Overriding sizeof(class)?
 			   *type_member = NULL,   // Member to get a cast type via an enum
-			   *type_enum = NULL;	  // Enumerator to use with the type member
+			   *type_enum = NULL,	  // Enumerator to use with the type member
+			   *filter = NULL;	  // Filter expression
 		char *name = (char *)pos->s;
 		const char *args_open = strchr(name, '(');
 		static type_id_t class_id;
@@ -1710,6 +1711,10 @@ next_arg:
 				type_enum = value;
 				if (global_verbose)
 					fprintf(stderr, "pahole: type enum for '%s' is '%s'\n", name, type_enum);
+			} else if (strcmp(args, "filter") == 0) {
+				filter = value;
+				if (global_verbose)
+					fprintf(stderr, "pahole: filter for '%s' is '%s'\n", name, filter);
 			} else {
 				fprintf(stderr, "pahole: invalid arg '%s' in '%s' (known args: sizeof=member, type=member, type_enum=enum)\n", args, pos->s);
 				goto free_and_stop;
