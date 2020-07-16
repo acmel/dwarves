@@ -1636,8 +1636,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	strlist__for_each_entry_safe(class_names, pos, n) {
 		bool include_decls = find_pointers_in_structs != 0 || stats_formatter == nr_methods_formatter;
-		const char *sizeof_member = NULL, // Overriding sizeof(class)?
-			   *type_member = NULL,   // Member to get a cast type via an enum
+		const char *type_member = NULL,   // Member to get a cast type via an enum
 			   *type_enum = NULL,	  // Enumerator to use with the type member
 			   *filter = NULL;	  // Filter expression
 		char *name = (char *)pos->s;
@@ -1673,6 +1672,8 @@ free_and_stop:
 				goto free_and_stop;
 			}
 
+			struct type *type = tag__type(class);
+
 			while (isspace(*args))
 				++args;
 
@@ -1706,9 +1707,14 @@ next_arg:
 				*comma = '\0';
 
 			if (strcmp(args, "sizeof") == 0) {
-				sizeof_member = value;
 				if (global_verbose)
-					fprintf(stderr, "pahole: sizeof_operator for '%s' is '%s'\n", name, sizeof_member);
+					fprintf(stderr, "pahole: sizeof_operator for '%s' is '%s'\n", name, value);
+
+				type->sizeof_member = type__find_member_by_name(type, cu, value);
+				if (type->sizeof_member == NULL) {
+					fprintf(stderr, "pahole: the sizeof member '%s' wasn't found in the '%s' type\n", value, name);
+					goto free_and_stop;
+				}
 			} else if (strcmp(args, "type") == 0) {
 				type_member = value;
 				if (global_verbose)
@@ -1738,7 +1744,7 @@ next_arg:
 		}
 
 		if (class != NULL) {
-			if (sizeof_member != NULL || type_member != NULL) {
+			if (type_member != NULL) {
 				if (!tag__is_struct(class)) {
 					fprintf(stderr, "pahole: 'sizeof' and 'type' can't be used with '%s'\n", name);
 out_free_name:
@@ -1747,15 +1753,6 @@ out_free_name:
 				}
 
 				struct type *type = tag__type(class);
-
-				if (sizeof_member) {
-					type->sizeof_member = type__find_member_by_name(type, cu, sizeof_member);
-					if (type->sizeof_member == NULL) {
-						fprintf(stderr, "pahole: the sizeof member '%s' wasn't found in the '%s' type\n",
-							sizeof_member, name);
-						goto out_free_name;
-					}
-				}
 
 				if (type_member) {
 					type->type_member = type__find_member_by_name(type, cu, type_member);
