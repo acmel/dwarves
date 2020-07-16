@@ -1667,6 +1667,12 @@ free_and_stop:
 			if (class == NULL)
 				continue; // couldn't find that class name in this CU, continue to the next one.
 
+			if (!tag__is_struct(class)) {
+				fprintf(stderr, "pahole: attributes are only supported with 'class' and 'struct' types\n");
+				free(name);
+				goto free_and_stop;
+			}
+
 			while (isspace(*args))
 				++args;
 
