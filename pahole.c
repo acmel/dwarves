@@ -1309,6 +1309,18 @@ static const char *enumeration__lookup_value(struct type *enumeration, struct cu
 	return NULL;
 }
 
+static int64_t enumeration__lookup_enumerator(struct type *enumeration, struct cu *cu, const char *enumerator)
+{
+	struct enumerator *entry;
+
+	type__for_each_enumerator(enumeration, entry) {
+		if (!strcmp(enumerator__name(entry, cu), enumerator))
+			return entry->value;
+	}
+
+	return -1;
+}
+
 static int base_type__fprintf_enum_value(void *instance, int _sizeof, struct type *enumeration, struct cu *cu, FILE *fp)
 {
 	uint64_t value = base_type__value(instance, _sizeof);
@@ -1469,6 +1481,35 @@ static uint64_t tag__real_sizeof(struct tag *tag, struct cu *cu, int _sizeof, vo
 	return _sizeof;
 }
 
+/*
+ * Classes should start close to where they are needed, then moved elsewhere, remember:
+ * "Premature optimization is the root of all evil" (Knuth till unproven).
+ *
+ * So far just the '==' operator is supported, so just a struct member + a value are
+ * needed, no, strings are not supported so far.
+ *
+ * If the class member is the 'type=' and we have a 'type_enum=' in place, then we will
+ * resolve that at parse time and convert that to an uint64_t and it'll do the trick.
+ *
+ * More to come, when needed.
+ */
+struct class_member_filter {
+	struct class_member *left;
+	uint64_t	    right;
+};
+
+static bool type__filter_value(struct tag *tag, void *instance)
+{
+	// this has to be a type, otherwise we'd not have a type->filter
+	struct type *type = tag__type(tag);
+	struct class_member_filter *filter = type->filter;
+	struct class_member *member = filter->left;
+	uint64_t value = base_type__value(instance + member->byte_offset, member->byte_size);
+
+	// Only operator supported so far is '=='
+	return value != filter->right;
+}
+
 static struct tag *tag__real_type(struct tag *tag, struct cu *cu, void *instance)
 {
 	if (tag__is_struct(tag)) {
@@ -1535,6 +1576,9 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 			}
 		}
 
+		if (tag__type(type)->filter && type__filter_value(type, instance))
+			continue;
+
 		if (skip) {
 			--skip;
 			continue;
@@ -1596,6 +1640,87 @@ out:
 	return printed;
 }
 
+static int class_member_filter__parse(struct class_member_filter *filter, struct type *type, struct cu *cu, char *sfilter)
+{
+	const char *member_name = sfilter;
+	char *sep = strstr(sfilter, "==");
+
+	if (!sep) {
+		if (global_verbose)
+			fprintf(stderr, "No supported operator ('==' so far) found in filter '%s'\n", sfilter);
+		return -1;
+	}
+
+	char *value = sep + 2, *s = sep;
+
+	while (isspace(*--s))
+		if (s == sfilter) {
+			if (global_verbose)
+				fprintf(stderr, "No left operand (struct field) found in filter '%s'\n", sfilter);
+			return -1; // nothing before ==
+		}
+
+	char before = s[1];
+	s[1] = '\0';
+
+	filter->left = type__find_member_by_name(type, cu, member_name);
+
+	if (!filter->left) {
+		if (global_verbose)
+			fprintf(stderr, "The '%s' member wasn't found in '%s'\n", member_name, type__name(type, cu));
+		s[1] = before;
+		return -1;
+	}
+
+	s[1] = before;
+
+	while (isspace(*value))
+		if (*++value == '\0') {
+			if (global_verbose)
+				fprintf(stderr, "The '%s' member was asked without a value to filter '%s'\n", member_name, type__name(type, cu));
+			return -1; // no value
+		}
+
+	char *endptr;
+	filter->right = strtoll(value, &endptr, 0);
+
+	if (endptr > value && (*endptr == '\0' || isspace(*endptr)))
+		return 0;
+
+	// If t he filter member is the 'type=' one:
+
+	if (!type->type_enum || type->type_member != filter->left) {
+		if (global_verbose)
+			fprintf(stderr, "Symbolic right operand in '%s' but no way to resolve it to a number (type= + type_enum= so far)\n", sfilter);
+		return -1;
+	}
+
+	int64_t enumerator_value = enumeration__lookup_enumerator(type->type_enum, cu, value);
+
+	if (enumerator_value < 0) {
+		if (global_verbose)
+			fprintf(stderr, "Couldn't resolve right operand ('%s') in '%s' with the specified 'type=%s' and 'type_enum=%s' \n",
+				value, sfilter, class_member__name(type->type_member, cu), type__name(type->type_enum, cu));
+		return -1;
+	}
+
+	filter->right = enumerator_value;
+
+	return 0;
+}
+
+static struct class_member_filter *class_member_filter__new(struct type *type, struct cu *cu, char *sfilter)
+{
+	struct class_member_filter *filter = malloc(sizeof(*filter));
+
+	if (filter && class_member_filter__parse(filter, type, cu, sfilter)) {
+		free(filter);
+		filter = NULL;
+	}
+
+	return filter;
+}
+
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load __unused)
 {
@@ -1636,7 +1761,6 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	strlist__for_each_entry_safe(class_names, pos, n) {
 		bool include_decls = find_pointers_in_structs != 0 || stats_formatter == nr_methods_formatter;
-		const char *filter = NULL;	  // Filter expression
 		char *name = (char *)pos->s;
 		const char *args_open = strchr(name, '(');
 		static type_id_t class_id;
@@ -1732,9 +1856,15 @@ next_arg:
 					return LSK__STOP_LOADING;
 				}
 			} else if (strcmp(args, "filter") == 0) {
-				filter = value;
 				if (global_verbose)
-					fprintf(stderr, "pahole: filter for '%s' is '%s'\n", name, filter);
+					fprintf(stderr, "pahole: filter for '%s' is '%s'\n", name, value);
+
+				type->filter = class_member_filter__new(type, cu, value);
+				if (type->filter == NULL) {
+					fprintf(stderr, "pahole: invalid filter '%s' for '%s'\n", value, name);
+					free(name);
+					return LSK__STOP_LOADING;
+				}
 			} else {
 				fprintf(stderr, "pahole: invalid arg '%s' in '%s' (known args: sizeof=member, type=member, type_enum=enum)\n", args, pos->s);
 				goto free_and_stop;

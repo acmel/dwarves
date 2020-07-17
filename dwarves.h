@@ -923,6 +923,8 @@ static __pure inline int tag__is_class_member(const struct tag *tag)
 int tag__is_base_type(const struct tag *tag, const struct cu *cu);
 bool tag__is_array(const struct tag *tag, const struct cu *cu);
 
+struct class_member_filter;
+
 /**
  * struct type - base type for enumerations, structs and unions
  *
@@ -946,6 +948,7 @@ struct type {
 	uint32_t	 alignment;
 	struct class_member *sizeof_member;
 	struct class_member *type_member;
+	struct class_member_filter *filter;
 	struct type	 *type_enum;
 	uint16_t	 natural_alignment;
 	bool		 packed_attributes_inferred;
