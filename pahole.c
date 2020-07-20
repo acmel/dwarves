@@ -806,6 +806,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_count		   311
 #define ARGP_skip		   312
 #define ARGP_seek_bytes		   313
+#define ARGP_header_type	   314
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -843,6 +844,12 @@ static const struct argp_option pahole__options[] = {
 		.key  = ARGP_seek_bytes,
 		.arg  = "BYTES",
 		.doc  = "Seek COUNT input records"
+	},
+	{
+		.name = "header_type",
+		.key  = ARGP_header_type,
+		.arg  = "TYPE",
+		.doc  = "File header type"
 	},
 	{
 		.name = "find_pointers_to",
@@ -1179,7 +1186,9 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_skip:
 		conf.skip = atoi(arg);			break;
 	case ARGP_seek_bytes:
-		conf.seek_bytes = strtol(arg, NULL, 0);	break;
+		conf.seek_bytes = arg;			break;
+	case ARGP_header_type:
+		conf.header_type = arg;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -1537,6 +1546,88 @@ static struct tag *tag__real_type(struct tag *tag, struct cu *cu, void *instance
 	return tag;
 }
 
+struct type_instance {
+	struct type *type;
+	char	    instance[0];
+};
+
+static struct type_instance *type_instance__new(struct cu *cu, const char *name)
+{
+	struct type *type = tag__type(cu__find_type_by_name(cu, name, false, NULL));
+
+	if (type == NULL)
+		return NULL;
+
+	struct type_instance *instance = malloc(sizeof(*instance) + type->size);
+
+	if (instance)
+		instance->type = type;
+
+	return instance;
+}
+
+static void type_instance__delete(struct type_instance *instance)
+{
+	instance->type = NULL;
+	free(instance);
+}
+
+static int64_t type_instance__int_value(struct type_instance *instance, struct cu *cu, const char *member_name_orig)
+{
+	struct class_member *member = type__find_member_by_name(instance->type, cu, member_name_orig);
+	int byte_offset = 0;
+
+	if (!member) {
+		char *sep = strchr(member_name_orig, '.');
+
+		if (!sep)
+			return -1;
+
+		char *member_name_alloc = strdup(member_name_orig);
+
+		if (!member_name_alloc)
+			return -1;
+
+		char *member_name = member_name_alloc;
+		struct type *type = instance->type;
+
+		sep = member_name_alloc + (sep - member_name_orig);
+		*sep = 0;
+
+		while (1) {
+			member = type__find_member_by_name(type, cu, member_name);
+			if (!member) {
+out_free_member_name:
+				free(member_name_alloc);
+				return -1;
+			}
+			byte_offset += member->byte_offset;
+			type = tag__type(cu__type(cu, member->tag.type));
+			if (type == NULL)
+				goto out_free_member_name;
+			member_name = sep + 1;
+			sep = strchr(member_name, '.');
+			if (!sep)
+				break;
+
+		}
+
+		member = type__find_member_by_name(type, cu, member_name);
+		free(member_name_alloc);
+		if (member == NULL)
+			return -1;
+	}
+
+	byte_offset += member->byte_offset;
+
+	struct tag *member_type = cu__type(cu, member->tag.type);
+
+	if (!tag__is_base_type(member_type, cu))
+		return -1;
+
+	return base_type__value(&instance->instance[byte_offset], member->byte_size);
+}
+
 static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 {
 	int _sizeof = tag__size(type, cu), printed = 0;
@@ -1548,10 +1639,62 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 	if (instance == NULL)
 		return -ENOMEM;
 
-	if (conf.seek_bytes && pipe_seek(stdin, conf.seek_bytes) < 0) {
-		int err = --errno;
-		fprintf(stderr, "Couldn't --seek_bytes %ld\n", conf.seek_bytes);
-		return err;
+	if (conf.seek_bytes) {
+		off_t seek_bytes;
+
+		if (strstarts(conf.seek_bytes, "$header.")) {
+			if (!conf.header_type) {
+				fprintf(stderr, "pahole: --seek_bytes (%s) makes reference to --header but it wasn't specified\n",
+					conf.seek_bytes);
+				return -EINVAL;
+			}
+
+			struct type_instance *header = type_instance__new(cu, conf.header_type);
+			if (!header) {
+				fprintf(stderr, "pahole: --header (%s) type not found in %s\n", conf.header_type, cu->name);
+				return -ESRCH;
+			}
+
+
+			if (fread(header->instance, header->type->size, 1, stdin) != 1) {
+				int err = --errno;
+				fprintf(stderr, "pahole: --header (%s) type not be read\n", conf.header_type);
+				return err;
+			}
+
+			const char *member_name = conf.seek_bytes + sizeof("$header.") - 1;
+			int64_t value = type_instance__int_value(header, cu, member_name);
+			if (value < 0) {
+				fprintf(stderr, "pahole: couldn't read the '%s' member of '%s' for evaluating --seek_bytes=%s\n",
+					member_name, conf.header_type, conf.seek_bytes);
+				return -ESRCH;
+			}
+
+			seek_bytes = value;
+
+			if (global_verbose)
+				fprintf(stdout, "pahole: seek bytes evaluated from --seek_bytes=%s is %#" PRIx64 " \n",
+					conf.seek_bytes, seek_bytes);
+
+			if (seek_bytes < header->type->size) {
+				fprintf(stderr, "pahole: seek bytes evaluated from --seek_bytes=%s is less than the header type size\n",
+					conf.seek_bytes);
+				return -EINVAL;
+			}
+
+			// Since we're reading stdin, we need to account for already read header:
+			seek_bytes -= header->type->size;
+
+			type_instance__delete(header);
+		} else  {
+			seek_bytes = strtol(conf.seek_bytes, NULL, 0);
+		}
+
+		if (pipe_seek(stdin, seek_bytes) < 0) {
+			int err = --errno;
+			fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 "\n", conf.seek_bytes, seek_bytes);
+			return err;
+		}
 	}
 
 	while (fread(instance, _sizeof, 1, stdin) == 1) {
@@ -1787,6 +1930,9 @@ free_and_stop:
 			class = cu__find_type_by_name(cu, name, include_decls, &class_id);
 			if (class == NULL)
 				continue; // couldn't find that class name in this CU, continue to the next one.
+
+			if (conf.header_type && !cu__find_type_by_name(cu, conf.header_type, false, NULL))
+				continue; // we need a CU with both the class and the header type
 
 			if (!tag__is_struct(class)) {
 				fprintf(stderr, "pahole: attributes are only supported with 'class' and 'struct' types\n");
