@@ -1568,6 +1568,8 @@ static struct type_instance *type_instance__new(struct cu *cu, const char *name)
 
 static void type_instance__delete(struct type_instance *instance)
 {
+	if (!instance)
+		return;
 	instance->type = NULL;
 	free(instance);
 }
@@ -1639,27 +1641,31 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 	if (instance == NULL)
 		return -ENOMEM;
 
+	struct type_instance *header = NULL;
+
+	if (conf.header_type) {
+		header = type_instance__new(cu, conf.header_type);
+		if (!header) {
+			fprintf(stderr, "pahole: --header (%s) type not found in %s\n", conf.header_type, cu->name);
+			return -ESRCH;
+		}
+		if (fread(header->instance, header->type->size, 1, stdin) != 1) {
+			int err = --errno;
+			fprintf(stderr, "pahole: --header (%s) type not be read\n", conf.header_type);
+out_delete_type_instance:
+			type_instance__delete(header);
+			return err;
+		}
+	}
+
 	if (conf.seek_bytes) {
 		off_t seek_bytes;
 
 		if (strstarts(conf.seek_bytes, "$header.")) {
-			if (!conf.header_type) {
+			if (!header) {
 				fprintf(stderr, "pahole: --seek_bytes (%s) makes reference to --header but it wasn't specified\n",
 					conf.seek_bytes);
-				return -EINVAL;
-			}
-
-			struct type_instance *header = type_instance__new(cu, conf.header_type);
-			if (!header) {
-				fprintf(stderr, "pahole: --header (%s) type not found in %s\n", conf.header_type, cu->name);
-				return -ESRCH;
-			}
-
-
-			if (fread(header->instance, header->type->size, 1, stdin) != 1) {
-				int err = --errno;
-				fprintf(stderr, "pahole: --header (%s) type not be read\n", conf.header_type);
-				return err;
+				goto out_delete_type_instance;
 			}
 
 			const char *member_name = conf.seek_bytes + sizeof("$header.") - 1;
@@ -1681,13 +1687,14 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 					conf.seek_bytes);
 				return -EINVAL;
 			}
-
-			// Since we're reading stdin, we need to account for already read header:
-			seek_bytes -= header->type->size;
-
-			type_instance__delete(header);
 		} else  {
 			seek_bytes = strtol(conf.seek_bytes, NULL, 0);
+		}
+
+
+		if (header) {
+			// Since we're reading stdin, we need to account for already read header:
+			seek_bytes -= header->type->size;
 		}
 
 		if (pipe_seek(stdin, seek_bytes) < 0) {
@@ -1696,6 +1703,8 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 			return err;
 		}
 	}
+
+	type_instance__delete(header);
 
 	while (fread(instance, _sizeof, 1, stdin) == 1) {
 		// Read it from each record/instance
