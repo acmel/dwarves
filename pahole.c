@@ -807,6 +807,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_skip		   312
 #define ARGP_seek_bytes		   313
 #define ARGP_header_type	   314
+#define ARGP_size_bytes		   315
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -844,6 +845,12 @@ static const struct argp_option pahole__options[] = {
 		.key  = ARGP_seek_bytes,
 		.arg  = "BYTES",
 		.doc  = "Seek COUNT input records"
+	},
+	{
+		.name = "size_bytes",
+		.key  = ARGP_size_bytes,
+		.arg  = "BYTES",
+		.doc  = "Read only this number of bytes from this point onwards"
 	},
 	{
 		.name = "header_type",
@@ -1187,6 +1194,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf.skip = atoi(arg);			break;
 	case ARGP_seek_bytes:
 		conf.seek_bytes = arg;			break;
+	case ARGP_size_bytes:
+		conf.size_bytes = arg;			break;
 	case ARGP_header_type:
 		conf.header_type = arg;			break;
 	default:
@@ -1635,6 +1644,7 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 	int _sizeof = tag__size(type, cu), printed = 0;
 	int max_sizeof = _sizeof;
 	void *instance = malloc(_sizeof);
+	uint64_t size_bytes = ULLONG_MAX;
 	uint32_t count = 0;
 	uint32_t skip = conf.skip;
 
@@ -1704,7 +1714,35 @@ out_delete_type_instance:
 		}
 	}
 
+	if (conf.size_bytes) {
+		if (strstarts(conf.size_bytes, "$header.")) {
+			if (!header) {
+				fprintf(stderr, "pahole: --size_bytes (%s) makes reference to --header but it wasn't specified\n",
+					conf.size_bytes);
+				goto out_delete_type_instance;
+			}
+
+			const char *member_name = conf.size_bytes + sizeof("$header.") - 1;
+			int64_t value = type_instance__int_value(header, cu, member_name);
+			if (value < 0) {
+				fprintf(stderr, "pahole: couldn't read the '%s' member of '%s' for evaluating --size_bytes=%s\n",
+					member_name, conf.header_type, conf.size_bytes);
+				return -ESRCH;
+			}
+
+			size_bytes = value;
+
+			if (global_verbose)
+				fprintf(stdout, "pahole: size bytes evaluated from --size_bytes=%s is %#" PRIx64 " \n",
+					conf.size_bytes, size_bytes);
+		} else  {
+			size_bytes = strtol(conf.size_bytes, NULL, 0);
+		}
+	}
+
 	type_instance__delete(header);
+
+	uint64_t read_bytes = 0;
 
 	while (fread(instance, _sizeof, 1, stdin) == 1) {
 		// Read it from each record/instance
@@ -1728,12 +1766,14 @@ out_delete_type_instance:
 			}
 		}
 
+		read_bytes += real_sizeof;
+
 		if (tag__type(type)->filter && type__filter_value(type, instance))
-			continue;
+			goto next_record;
 
 		if (skip) {
 			--skip;
-			continue;
+			goto next_record;
 		}
 
 		/*
@@ -1785,6 +1825,9 @@ out_delete_type_instance:
 		printed += fprintf(fp, ",\n");
 
 		if (conf.count && ++count == conf.count)
+			break;
+next_record:
+		if (read_bytes >= size_bytes)
 			break;
 	}
 out:
