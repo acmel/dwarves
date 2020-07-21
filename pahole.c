@@ -2021,6 +2021,12 @@ next_arg:
 				goto free_and_stop;
 			}
 
+			// accept foo==bar as filter=foo==bar
+			if (assign[1] == '=') {
+				value = args;
+				goto do_filter;
+			}
+
 			*assign = 0;
 
 			value = assign + 1;
@@ -2063,6 +2069,7 @@ do_type:
 					return LSK__STOP_LOADING;
 				}
 			} else if (strcmp(args, "filter") == 0) {
+do_filter:
 				if (global_verbose)
 					fprintf(stderr, "pahole: filter for '%s' is '%s'\n", name, value);
 
