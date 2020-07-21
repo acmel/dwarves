@@ -2013,6 +2013,9 @@ next_arg:
 				if (strcmp(args, "sizeof") == 0) {
 					value = "size";
 					goto do_sizeof;
+				} else if (strcmp(args, "type") == 0) {
+					value = "type";
+					goto do_type;
 				}
 				fprintf(stderr, "pahole: invalid, missing '=' in '%s'\n", args);
 				goto free_and_stop;
@@ -2041,6 +2044,7 @@ do_sizeof:
 					goto free_and_stop;
 				}
 			} else if (strcmp(args, "type") == 0) {
+do_type:
 				if (global_verbose)
 					fprintf(stderr, "pahole: type member for '%s' is '%s'\n", name, value);
 
