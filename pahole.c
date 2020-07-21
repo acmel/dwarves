@@ -2003,9 +2003,14 @@ free_and_stop:
 			}
 next_arg:
 		{
+			char *comma = strchr(args, ',');
+
+			if (comma)
+				*comma = '\0';
+
 			char *assign = strchr(args, '=');
 			if (assign == NULL) {
-				fprintf(stderr, "pahole: invalid, missing '=' in '%s'\n", pos->s);
+				fprintf(stderr, "pahole: invalid, missing '=' in '%s'\n", args);
 				goto free_and_stop;
 			}
 
@@ -2020,11 +2025,6 @@ next_arg:
 				fprintf(stderr, "pahole: invalid, missing value in '%s'\n", pos->s);
 				goto free_and_stop;
 			}
-
-			char *comma = strchr(value, ',');
-
-			if (comma)
-				*comma = '\0';
 
 			if (strcmp(args, "sizeof") == 0) {
 				if (global_verbose)
