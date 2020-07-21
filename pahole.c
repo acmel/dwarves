@@ -2003,20 +2003,24 @@ free_and_stop:
 			}
 next_arg:
 		{
-			char *comma = strchr(args, ',');
+			char *comma = strchr(args, ','), *value;
 
 			if (comma)
 				*comma = '\0';
 
 			char *assign = strchr(args, '=');
 			if (assign == NULL) {
+				if (strcmp(args, "sizeof") == 0) {
+					value = "size";
+					goto do_sizeof;
+				}
 				fprintf(stderr, "pahole: invalid, missing '=' in '%s'\n", args);
 				goto free_and_stop;
 			}
 
 			*assign = 0;
 
-			char *value = assign + 1;
+			value = assign + 1;
 
 			while (isspace(*value))
 				++value;
@@ -2027,6 +2031,7 @@ next_arg:
 			}
 
 			if (strcmp(args, "sizeof") == 0) {
+do_sizeof:
 				if (global_verbose)
 					fprintf(stderr, "pahole: sizeof_operator for '%s' is '%s'\n", name, value);
 
