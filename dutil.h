@@ -274,6 +274,7 @@ struct str_node {
 	struct rb_node rb_node;
 	struct list_head node;
 	const char       *s;
+	void		 *priv;
 };
 
 // list_entries to keep the original order as passed, say, in the command line
@@ -290,6 +291,7 @@ void strlist__delete(struct strlist *slist);
 void strlist__remove(struct strlist *slist, struct str_node *sn);
 int strlist__load(struct strlist *slist, const char *filename);
 int strlist__add(struct strlist *slist, const char *str);
+int __strlist__add(struct strlist *slist, const char *str, void *priv);
 
 bool strlist__has_entry(struct strlist *slist, const char *entry);
 

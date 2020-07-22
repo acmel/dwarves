@@ -48,7 +48,7 @@ static void str_node__delete(struct str_node *snode, bool dupstr)
 	free(snode);
 }
 
-int strlist__add(struct strlist *slist, const char *new_entry)
+int __strlist__add(struct strlist *slist, const char *new_entry, void *priv)
 {
         struct rb_node **p = &slist->entries.rb_node;
         struct rb_node *parent = NULL;
@@ -76,9 +76,16 @@ int strlist__add(struct strlist *slist, const char *new_entry)
         rb_link_node(&sn->rb_node, parent, p);
         rb_insert_color(&sn->rb_node, &slist->entries);
 
+	sn->priv = priv;
+
 	list_add_tail(&sn->node, &slist->list_entries);
 
 	return 0;
+}
+
+int strlist__add(struct strlist *slist, const char *new_entry)
+{
+	return __strlist__add(slist, new_entry, NULL);
 }
 
 int strlist__load(struct strlist *slist, const char *filename)
