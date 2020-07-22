@@ -1285,11 +1285,17 @@ static uint64_t base_type__value(void *instance, int _sizeof)
 	return 0;
 }
 
+static int fprintf__value(FILE* fp, uint64_t value)
+{
+	const char *format = conf.hex_fmt ? "%#" PRIx64 : "%" PRIi64;
+
+	return fprintf(fp, format, value);
+}
+
 static int base_type__fprintf_value(void *instance, int _sizeof, FILE *fp)
 {
 	uint64_t value = base_type__value(instance, _sizeof);
-
-	return fprintf(fp, "%#" PRIx64, value);
+	return fprintf__value(fp, value);
 }
 
 static uint64_t class_member__bitfield_value(struct class_member *member, void *instance)
@@ -1312,7 +1318,8 @@ static uint64_t class_member__bitfield_value(struct class_member *member, void *
 
 static int class_member__fprintf_bitfield_value(struct class_member *member, void *instance, FILE *fp)
 {
-	return fprintf(fp, "%#" PRIx64, class_member__bitfield_value(member, instance));
+	const char *format = conf.hex_fmt ? "%#" PRIx64 : "%" PRIi64;
+	return fprintf(fp, format, class_member__bitfield_value(member, instance));
 }
 
 static const char *enumeration__lookup_value(struct type *enumeration, struct cu *cu, uint64_t value)
@@ -1348,7 +1355,7 @@ static int base_type__fprintf_enum_value(void *instance, int _sizeof, struct typ
 	if (entry)
 		return fprintf(fp, "%s", entry);
 
-	return fprintf(fp, "%#" PRIx64, value);
+	return fprintf__value(fp, value);
 }
 
 static int string__fprintf_value(char *instance, int _sizeof, FILE *fp)
@@ -2221,6 +2228,9 @@ out_free:
 int main(int argc, char *argv[])
 {
 	int err, remaining, rc = EXIT_FAILURE;
+
+	if (!isatty(0))
+		conf.hex_fmt = 0;
 
 	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL)) {
 		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, argv[0]);
