@@ -59,7 +59,7 @@ static bool just_unions;
 static bool just_structs;
 static int show_reorg_steps;
 static char *class_name;
-static struct strlist *class_names;
+static LIST_HEAD(class_names);
 static char separator = '\t';
 static bool force;
 
@@ -1932,8 +1932,8 @@ static struct class_member_filter *class_member_filter__new(struct type *type, s
  * @size - the member with the size for variable sized records
  * @filter - filter expression using record contents and values or enum entries
  */
-
 struct prototype {
+	struct list_head node;
 	const char *type,
 		   *type_enum,
 		   *size;
@@ -2071,6 +2071,7 @@ out_free:
 	return NULL;
 }
 
+#ifdef DEBUG_CHECK_LEAKS
 static void prototype__delete(struct prototype *prototype)
 {
 	if (prototype) {
@@ -2078,6 +2079,7 @@ static void prototype__delete(struct prototype *prototype)
 		free(prototype);
 	}
 }
+#endif
 
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load __unused)
@@ -2115,33 +2117,23 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto dump_it;
 	}
 
-	struct str_node *pos, *n;
+	bool include_decls = find_pointers_in_structs != 0 || stats_formatter == nr_methods_formatter;
+	struct prototype *prototype, *n;
 
-	strlist__for_each_entry_safe(class_names, pos, n) {
-		bool include_decls = find_pointers_in_structs != 0 || stats_formatter == nr_methods_formatter;
-		struct prototype *prototype = prototype__new(pos->s);
-
-		if (!prototype)
-			goto dump_and_stop;
-
+	list_for_each_entry_safe(prototype, n, &class_names, node) {
 		static type_id_t class_id;
 		struct tag *class = cu__find_type_by_name(cu, prototype->name, include_decls, &class_id);
 
-		if (class == NULL) {
-free_and_continue:
-			prototype__delete(prototype);
+		if (class == NULL)
 			continue; // couldn't find that class name in this CU, continue to the next one.
-		}
 
 		if (prototype->nr_args != 0 && !tag__is_struct(class)) {
 			fprintf(stderr, "pahole: attributes are only supported with 'class' and 'struct' types\n");
-free_and_stop:
-			prototype__delete(prototype);
 			goto dump_and_stop;
 		}
 
 		if (conf.header_type && !cu__find_type_by_name(cu, conf.header_type, false, NULL))
-			goto free_and_continue; // we need a CU with both the class and the header type
+			continue; // we need a CU with both the class and the header type
 
 		struct type *type = tag__type(class);
 
@@ -2150,7 +2142,7 @@ free_and_stop:
 			if (type->sizeof_member == NULL) {
 				fprintf(stderr, "pahole: the sizeof member '%s' wasn't found in the '%s' type\n",
 					prototype->size, prototype->name);
-				goto free_and_stop;
+				goto dump_and_stop;
 			}
 		}
 
@@ -2159,7 +2151,7 @@ free_and_stop:
 			if (type->type_member == NULL) {
 				fprintf(stderr, "pahole: the type member '%s' wasn't found in the '%s' type\n",
 					prototype->type, prototype->name);
-				goto free_and_stop;
+				goto dump_and_stop;
 			}
 		}
 
@@ -2168,7 +2160,7 @@ free_and_stop:
 			if (type->type_enum == NULL) {
 				fprintf(stderr, "pahole: the type enum '%s' wasn't found in '%s'\n",
 					prototype->type_enum, cu->name);
-				goto free_and_stop;
+				goto dump_and_stop;
 			}
 		}
 
@@ -2177,14 +2169,12 @@ free_and_stop:
 			if (type->filter == NULL) {
 				fprintf(stderr, "pahole: invalid filter '%s' for '%s'\n",
 					prototype->filter, prototype->name);
-				goto free_and_stop;
+				goto dump_and_stop;
 			}
 		}
 
-		prototype__delete(prototype);
-
 		if (class == NULL) {
-			if (strcmp(pos->s, "void"))
+			if (strcmp(prototype->name, "void"))
 				continue;
 			class_id = 0;
 		}
@@ -2206,7 +2196,7 @@ free_and_stop:
 		 * Ok, found it, so remove from the list to avoid printing it
 		 * twice, in another CU.
 		 */
-		strlist__remove(class_names, pos);
+		list_del_init(&prototype->node);
 
 		if (class)
 			class__find_holes(tag__class(class));
@@ -2230,7 +2220,7 @@ free_and_stop:
 	/*
 	 * If we found all the entries in --class_name, stop
 	 */
-	if (strlist__empty(class_names)) {
+	if (list_empty(&class_names)) {
 dump_and_stop:
 		ret = LSK__STOP_LOADING;
 	}
@@ -2241,12 +2231,60 @@ filter_it:
 	return ret;
 }
 
+static int prototypes__add(struct list_head *prototypes, const char *entry)
+{
+	struct prototype *prototype = prototype__new(entry);
+
+	if (prototype == NULL)
+		return -ENOMEM;
+
+	list_add_tail(&prototype->node, prototypes);
+	return 0;
+}
+
+#ifdef DEBUG_CHECK_LEAKS
+static void prototypes__delete(struct list_head *prototypes)
+{
+	struct prototype *prototype, *n;
+
+	list_for_each_entry_safe(prototype, n, prototypes, node) {
+		list_del_init(&prototype->node);
+		prototype__delete(prototype);
+	}
+}
+#endif
+
+static int prototypes__load(struct list_head *prototypes, const char *filename)
+{
+	char entry[1024];
+	int err = -1;
+	FILE *fp = fopen(filename, "r");
+
+	if (fp == NULL)
+		return -1;
+
+	while (fgets(entry, sizeof(entry), fp) != NULL) {
+		const size_t len = strlen(entry);
+
+		if (len == 0)
+			continue;
+		entry[len - 1] = '\0';
+		if (prototypes__add(&class_names, entry))
+			goto out;
+	}
+
+	err = 0;
+out:
+	fclose(fp);
+	return err;
+}
+
 static int add_class_name_entry(const char *s)
 {
 	if (strncmp(s, "file://", 7) == 0) {
-		if (strlist__load(class_names, s + 7))
+		if (prototypes__load(&class_names, s + 7))
 			return -1;
-	} else switch (strlist__add(class_names, s)) {
+	} else switch (prototypes__add(&class_names, s)) {
 	case -EEXIST:
 		if (global_verbose)
 			fprintf(stderr,
@@ -2313,9 +2351,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	class_names = strlist__new(true);
-
-	if (class_names == NULL || dwarves__init(cacheline_size)) {
+	if (dwarves__init(cacheline_size)) {
 		fputs("pahole: insufficient memory\n", stderr);
 		goto out;
 	}
@@ -2367,7 +2403,7 @@ out_dwarves_exit:
 #endif
 out:
 #ifdef DEBUG_CHECK_LEAKS
-	strlist__delete(class_names);
+	prototypes__delete(&class_names);
 #endif
 	return rc;
 }
