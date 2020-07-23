@@ -1650,7 +1650,7 @@ out_free_member_name:
 	return base_type__value(&instance->instance[byte_offset], member->byte_size);
 }
 
-static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
+static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, struct type_instance *header, FILE *fp)
 {
 	int _sizeof = tag__size(type, cu), printed = 0;
 	int max_sizeof = _sizeof;
@@ -1662,19 +1662,10 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, FILE *fp)
 	if (instance == NULL)
 		return -ENOMEM;
 
-	struct type_instance *header = NULL;
-
-	if (conf.header_type) {
-		header = type_instance__new(cu, conf.header_type);
-		if (!header) {
-			fprintf(stderr, "pahole: --header (%s) type not found in %s\n", conf.header_type, cu->name);
-			return -ESRCH;
-		}
+	if (header) {
 		if (fread(header->instance, header->type->size, 1, stdin) != 1) {
 			int err = --errno;
 			fprintf(stderr, "pahole: --header (%s) type not be read\n", conf.header_type);
-out_delete_type_instance:
-			type_instance__delete(header);
 			return err;
 		}
 	}
@@ -1686,7 +1677,7 @@ out_delete_type_instance:
 			if (!header) {
 				fprintf(stderr, "pahole: --seek_bytes (%s) makes reference to --header but it wasn't specified\n",
 					conf.seek_bytes);
-				goto out_delete_type_instance;
+				return -ESRCH;
 			}
 
 			const char *member_name = conf.seek_bytes + sizeof("$header.") - 1;
@@ -1730,7 +1721,7 @@ out_delete_type_instance:
 			if (!header) {
 				fprintf(stderr, "pahole: --size_bytes (%s) makes reference to --header but it wasn't specified\n",
 					conf.size_bytes);
-				goto out_delete_type_instance;
+				return -ESRCH;
 			}
 
 			const char *member_name = conf.size_bytes + sizeof("$header.") - 1;
@@ -1750,8 +1741,6 @@ out_delete_type_instance:
 			size_bytes = strtol(conf.size_bytes, NULL, 0);
 		}
 	}
-
-	type_instance__delete(header);
 
 	uint64_t read_bytes = 0;
 
@@ -2136,8 +2125,13 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			goto dump_and_stop;
 		}
 
-		if (conf.header_type && !cu__find_type_by_name(cu, conf.header_type, false, NULL))
-			continue; // we need a CU with both the class and the header type
+		struct type_instance *header = NULL;
+
+		if (conf.header_type) {
+			header = type_instance__new(cu, conf.header_type);
+			if (!header)
+				continue; // we need a CU with both the class and the header type
+		}
 
 		struct type *type = tag__type(class);
 
@@ -2194,9 +2188,12 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			 * For the pretty printer only the first class is considered,
 			 * ignore the rest.
 			 */
-			tag__stdio_fprintf_value(class, cu, stdout);
+			tag__stdio_fprintf_value(class, cu, header, stdout);
+			type_instance__delete(header);
 			return LSK__STOP_LOADING;
 		}
+
+		type_instance__delete(header);
 
 		if (defined_in) {
 			puts(cu->name);
