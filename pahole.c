@@ -1564,6 +1564,7 @@ static struct tag *tag__real_type(struct tag *tag, struct cu *cu, void *instance
 
 struct type_instance {
 	struct type *type;
+	struct cu   *cu;
 	char	    instance[0];
 };
 
@@ -1576,8 +1577,10 @@ static struct type_instance *type_instance__new(struct cu *cu, const char *name)
 
 	struct type_instance *instance = malloc(sizeof(*instance) + type->size);
 
-	if (instance)
+	if (instance) {
 		instance->type = type;
+		instance->cu   = cu;
+	}
 
 	return instance;
 }
@@ -1590,8 +1593,9 @@ static void type_instance__delete(struct type_instance *instance)
 	free(instance);
 }
 
-static int64_t type_instance__int_value(struct type_instance *instance, struct cu *cu, const char *member_name_orig)
+static int64_t type_instance__int_value(struct type_instance *instance, const char *member_name_orig)
 {
+	struct cu *cu = instance->cu;
 	struct class_member *member = type__find_member_by_name(instance->type, cu, member_name_orig);
 	int byte_offset = 0;
 
@@ -1686,7 +1690,7 @@ out_delete_type_instance:
 			}
 
 			const char *member_name = conf.seek_bytes + sizeof("$header.") - 1;
-			int64_t value = type_instance__int_value(header, cu, member_name);
+			int64_t value = type_instance__int_value(header, member_name);
 			if (value < 0) {
 				fprintf(stderr, "pahole: couldn't read the '%s' member of '%s' for evaluating --seek_bytes=%s\n",
 					member_name, conf.header_type, conf.seek_bytes);
@@ -1730,7 +1734,7 @@ out_delete_type_instance:
 			}
 
 			const char *member_name = conf.size_bytes + sizeof("$header.") - 1;
-			int64_t value = type_instance__int_value(header, cu, member_name);
+			int64_t value = type_instance__int_value(header, member_name);
 			if (value < 0) {
 				fprintf(stderr, "pahole: couldn't read the '%s' member of '%s' for evaluating --size_bytes=%s\n",
 					member_name, conf.header_type, conf.size_bytes);
