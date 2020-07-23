@@ -1568,10 +1568,8 @@ struct type_instance {
 	char	    instance[0];
 };
 
-static struct type_instance *type_instance__new(struct cu *cu, const char *name)
+static struct type_instance *type_instance__new(struct type *type, struct cu *cu)
 {
-	struct type *type = tag__type(cu__find_type_by_name(cu, name, false, NULL));
-
 	if (type == NULL)
 		return NULL;
 
@@ -2128,7 +2126,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		struct type_instance *header = NULL;
 
 		if (conf.header_type) {
-			header = type_instance__new(cu, conf.header_type);
+			header = type_instance__new(tag__type(cu__find_type_by_name(cu, conf.header_type, false, NULL)), cu);
 			if (!header)
 				continue; // we need a CU with both the class and the header type
 		}
