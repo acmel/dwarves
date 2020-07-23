@@ -2178,6 +2178,12 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			class_id = 0;
 		}
 
+		/*
+		 * Ok, found it, so remove from the list to avoid printing it
+		 * twice, in another CU.
+		 */
+		list_del_init(&prototype->node);
+
 		if (!isatty(0)) {
 			/*
 			 * For the pretty printer only the first class is considered,
@@ -2191,11 +2197,6 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			puts(cu->name);
 			goto dump_it;
 		}
-		/*
-		 * Ok, found it, so remove from the list to avoid printing it
-		 * twice, in another CU.
-		 */
-		list_del_init(&prototype->node);
 
 		if (class)
 			class__find_holes(tag__class(class));
