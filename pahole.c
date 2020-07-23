@@ -2084,7 +2084,7 @@ static void prototype__delete(struct prototype *prototype)
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load __unused)
 {
-	int ret = LSK__DELETE;
+	int ret = !isatty(0) ? LSK__KEEPIT : LSK__DELETE;
 
 	if (!cu__filter(cu))
 		goto filter_it;
