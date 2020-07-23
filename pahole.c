@@ -2158,9 +2158,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		if (prototype->type_enum) {
 			type->type_enum = tag__type(cu__find_enumeration_by_name(cu, prototype->type_enum, NULL));
 			if (type->type_enum == NULL) {
-				fprintf(stderr, "pahole: the type enum '%s' wasn't found in '%s'\n",
-					prototype->type_enum, cu->name);
-				goto dump_and_stop;
+				// just continue, maybe we'll find a CU that has all the types, if not, at the end we'll do multi-CU searches
+				continue;
 			}
 		}
 
