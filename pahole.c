@@ -2299,7 +2299,8 @@ static int add_class_name_entry(const char *s)
 static int populate_class_names(void)
 {
 	char *s = strdup(class_name), *sep;
-	char *sdup = s;
+	char *sdup = s, *end = s + strlen(s);
+	int ret = 0;
 
 	if (!s) {
 		fprintf(stderr, "Not enough memory for populating class names ('%s')\n", class_name);
@@ -2318,6 +2319,7 @@ static int populate_class_names(void)
 
 		if (parens && parens < sep) {
 			char *close_parens = strchr(parens, ')');
+			ret = -1;
 			if (!close_parens) {
 				fprintf(stderr, "Unterminated '(' in '%s'\n", class_name);
 				fprintf(stderr, "                     %*.s^\n", (int)(parens - sdup), "");
@@ -2328,15 +2330,23 @@ static int populate_class_names(void)
 		}
 
 		*sep = '\0';
-		if (add_class_name_entry(s)) {
-out_free:
-			free(sdup);
-			return -1;
-		}
+		ret = add_class_name_entry(s);
+		if (ret)
+			goto out_free;
+
+		while (isspace(*sep))
+			++sep;
+
+		if (sep == end)
+			goto out_free;
+
 		s = sep + 1;
 	}
 
-	return *s ? add_class_name_entry(s) : 0;
+	ret = add_class_name_entry(s);
+out_free:
+	free(sdup);
+	return ret;
 }
 
 int main(int argc, char *argv[])
