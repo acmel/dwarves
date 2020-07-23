@@ -2391,6 +2391,24 @@ try_sole_arg_as_class_names:
 		goto out_cus_delete;
 	}
 
+	if (!list_empty(&class_names)) {
+		struct prototype *prototype;
+
+		list_for_each_entry(prototype, &class_names, node) {
+			if (conf.header_type || prototype->type_enum) {
+				fprintf(stderr, "These types were not found all in the same CU (compile unit/object file/debugging info unit):\n  -C %s",
+					prototype->name);
+				if (conf.header_type)
+					fprintf(stderr, " --header=%s", conf.header_type);
+				if (prototype->type_enum)
+					fprintf(stderr, " enum_type=%s", prototype->type_enum);
+				fputc('\n', stderr);
+			} else {
+				fprintf(stderr, "Not found: %s\n", prototype->name);
+			}
+		}
+	}
+
 	if (btf_encode) {
 		err = btf_encoder__encode();
 		if (err) {
