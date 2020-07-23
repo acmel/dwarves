@@ -941,6 +941,7 @@ struct class_member_filter;
  * @type_member: Use this to select a member from where to get an id on an enum to find a type
  * 		 to cast for, needs to be used with the upcoming type_enum.
  * @type_enum: A enumeration to use together with type_member to find a type to cast
+ * @type_enum_cu: The CU the type_enum tag is in, think about not having all types in the same CU (DWARF)
  */
 struct type {
 	struct namespace namespace;
@@ -954,6 +955,7 @@ struct type {
 	struct class_member *type_member;
 	struct class_member_filter *filter;
 	struct type	 *type_enum;
+	struct cu	 *type_enum_cu;
 	uint16_t	 natural_alignment;
 	bool		 packed_attributes_inferred;
 	uint8_t		 declaration; /* only one bit used */

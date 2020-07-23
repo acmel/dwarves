@@ -1429,7 +1429,7 @@ static int __class__fprintf_value(struct tag *tag, struct cu *cu, void *instance
 			printed += fprintf(fp, "\n%.*s\t.%s = ", indent, tabs, name);
 
 		if (member == type->type_member && type->type_enum) {
-			printed += base_type__fprintf_enum_value(member_contents, member->byte_size, type->type_enum, cu, fp);
+			printed += base_type__fprintf_enum_value(member_contents, member->byte_size, type->type_enum, type->type_enum_cu, fp);
 		} else if (member->bitfield_size) {
 			printed += class_member__fprintf_bitfield_value(member, member_contents, fp);
 		} else if (tag__is_base_type(member_type, cu)) {
@@ -1543,7 +1543,7 @@ static struct tag *tag__real_type(struct tag *tag, struct cu *cu, void *instance
 		if (type->type_enum && type->type_member) {
 			struct class_member *member = type->type_member;
 			uint64_t value = base_type__value(instance + member->byte_offset, member->byte_size);
-			const char *enumerator_name = enumeration__lookup_value(type->type_enum, cu, value);
+			const char *enumerator_name = enumeration__lookup_value(type->type_enum, type->type_enum_cu, value);
 			char name[1024];
 
 			if (!enumerator_name)
@@ -1897,12 +1897,12 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 		return -1;
 	}
 
-	int64_t enumerator_value = enumeration__lookup_enumerator(type->type_enum, cu, value);
+	int64_t enumerator_value = enumeration__lookup_enumerator(type->type_enum, type->type_enum_cu, value);
 
 	if (enumerator_value < 0) {
 		if (global_verbose)
 			fprintf(stderr, "Couldn't resolve right operand ('%s') in '%s' with the specified 'type=%s' and 'type_enum=%s' \n",
-				value, sfilter, class_member__name(type->type_member, cu), type__name(type->type_enum, cu));
+				value, sfilter, class_member__name(type->type_member, cu), type__name(type->type_enum, type->type_enum_cu));
 		return -1;
 	}
 
@@ -2161,6 +2161,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 				// just continue, maybe we'll find a CU that has all the types, if not, at the end we'll do multi-CU searches
 				continue;
 			}
+			type->type_enum_cu = cu;
 		}
 
 		if (prototype->filter) {
