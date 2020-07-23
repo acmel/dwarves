@@ -1923,6 +1923,162 @@ static struct class_member_filter *class_member_filter__new(struct type *type, s
 	return filter;
 }
 
+/*
+ * struct prototype - split arguments to a type
+ *
+ * @name - type name
+ * @type - name of the member containing a type id
+ * @type_enum - translate @type into a enum entry/string
+ * @size - the member with the size for variable sized records
+ * @filter - filter expression using record contents and values or enum entries
+ */
+
+struct prototype {
+	const char *type,
+		   *type_enum,
+		   *size;
+	char	   *filter;
+	uint16_t   nr_args;
+	char name[0];
+
+};
+
+static struct prototype *prototype__new(const char *expression)
+{
+	struct prototype *prototype = zalloc(sizeof(*prototype) + strlen(expression) + 1);
+
+	if (prototype == NULL)
+		goto out_enomem;
+
+	strcpy(prototype->name, expression);
+
+	const char *name = prototype->name;
+
+	prototype->nr_args = 0;
+
+	char *args_open = strchr(name, '(');
+
+	if (!args_open)
+		goto out;
+
+	char *args_close = strchr(args_open, ')');
+
+	if (args_close == NULL)
+		goto out_no_closing_parens;
+
+	char *args = args_open;
+
+	*args++ = *args_close = '\0';
+
+	while (isspace(*args))
+		++args;
+
+	if (args == args_close)
+		goto out; // empty args, just ignore the parens, i.e. 'foo()'
+next_arg:
+{
+	char *comma = strchr(args, ','), *value;
+
+	if (comma)
+		*comma = '\0';
+
+	char *assign = strchr(args, '=');
+
+	if (assign == NULL) {
+		if (strcmp(args, "sizeof") == 0) {
+			value = "size";
+			goto do_sizeof;
+		} else if (strcmp(args, "type") == 0) {
+			value = "type";
+			goto do_type;
+		}
+		goto out_missing_assign;
+	}
+
+	// accept foo==bar as filter=foo==bar
+	if (assign[1] == '=') {
+		value = args;
+		goto do_filter;
+	}
+
+	*assign = 0;
+
+	value = assign + 1;
+
+	while (isspace(*value))
+		++value;
+
+	if (value == args_close)
+		goto out_missing_value;
+
+	if (strcmp(args, "sizeof") == 0) {
+do_sizeof:
+		if (global_verbose)
+			printf("pahole: sizeof_operator for '%s' is '%s'\n", name, value);
+
+		prototype->size = value;
+	} else if (strcmp(args, "type") == 0) {
+do_type:
+		if (global_verbose)
+			printf("pahole: type member for '%s' is '%s'\n", name, value);
+
+		prototype->type = value;
+	} else if (strcmp(args, "type_enum") == 0) {
+		if (global_verbose)
+			printf("pahole: type enum for '%s' is '%s'\n", name, value);
+		prototype->type_enum = value;
+	} else if (strcmp(args, "filter") == 0) {
+do_filter:
+		if (global_verbose)
+			printf("pahole: filter for '%s' is '%s'\n", name, value);
+
+		prototype->filter = value;
+	} else
+		goto out_invalid_arg;
+
+	++prototype->nr_args;
+
+	if (comma) {
+		args = comma + 1;
+		goto next_arg;
+	}
+}
+out:
+	return prototype;
+
+out_enomem:
+	fprintf(stderr, "pahole: not enough memory for '%s'\n", expression);
+	goto out;
+
+out_invalid_arg:
+	fprintf(stderr, "pahole: invalid arg '%s' in '%s' (known args: sizeof=member, type=member, type_enum=enum)\n", args, expression);
+	goto out_free;
+
+out_missing_value:
+	fprintf(stderr, "pahole: invalid, missing value in '%s'\n", expression);
+	goto out_free;
+
+out_no_closing_parens:
+	fprintf(stderr, "pahole: invalid, no closing parens in '%s'\n", expression);
+	goto out_free;
+
+out_missing_assign:
+	fprintf(stderr, "pahole: invalid, missing '=' in '%s'\n", args);
+	goto out_free;
+
+out_free:
+	free(prototype);
+	return NULL;
+}
+
+static void prototype__delete(struct prototype *prototype)
+{
+	if (prototype) {
+		memset(prototype, 0xff, sizeof(*prototype));
+		free(prototype);
+	}
+}
+
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load __unused)
 {
@@ -1963,156 +2119,76 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	strlist__for_each_entry_safe(class_names, pos, n) {
 		bool include_decls = find_pointers_in_structs != 0 || stats_formatter == nr_methods_formatter;
-		char *name = (char *)pos->s;
-		const char *args_open = strchr(name, '(');
+		struct prototype *prototype = prototype__new(pos->s);
+
+		if (!prototype)
+			goto dump_and_stop;
+
 		static type_id_t class_id;
-		struct tag *class;
+		struct tag *class = cu__find_type_by_name(cu, prototype->name, include_decls, &class_id);
 
-		if (args_open != NULL) {
-			name = strdup(name);
-			if (name == NULL) {
-				fprintf(stderr, "pahole: not enough memory for '%s'\n", pos->s);
-				goto dump_and_stop;
-			}
+		if (class == NULL) {
+free_and_continue:
+			prototype__delete(prototype);
+			continue; // couldn't find that class name in this CU, continue to the next one.
+		}
 
-			char *args_close = strchr(name, ')'); 
-			if (args_close == NULL) {
-				fprintf(stderr, "pahole: invalid, no closing bracket in '%s'\n", pos->s);
+		if (prototype->nr_args != 0 && !tag__is_struct(class)) {
+			fprintf(stderr, "pahole: attributes are only supported with 'class' and 'struct' types\n");
 free_and_stop:
-				free(name);
-				goto dump_and_stop;
-			}
-
-			char *args = name + (args_open - pos->s);
-			*args++ = *args_close = '\0';
-
-			class = cu__find_type_by_name(cu, name, include_decls, &class_id);
-			if (class == NULL)
-				continue; // couldn't find that class name in this CU, continue to the next one.
-
-			if (conf.header_type && !cu__find_type_by_name(cu, conf.header_type, false, NULL))
-				continue; // we need a CU with both the class and the header type
-
-			if (!tag__is_struct(class)) {
-				fprintf(stderr, "pahole: attributes are only supported with 'class' and 'struct' types\n");
-				free(name);
-				goto free_and_stop;
-			}
-
-			struct type *type = tag__type(class);
-
-			while (isspace(*args))
-				++args;
-
-			if (args == args_close) {
-				// empty args, just ignore it, i.e. 'foo()'
-				goto process_class;
-			}
-next_arg:
-		{
-			char *comma = strchr(args, ','), *value;
-
-			if (comma)
-				*comma = '\0';
-
-			char *assign = strchr(args, '=');
-			if (assign == NULL) {
-				if (strcmp(args, "sizeof") == 0) {
-					value = "size";
-					goto do_sizeof;
-				} else if (strcmp(args, "type") == 0) {
-					value = "type";
-					goto do_type;
-				}
-				fprintf(stderr, "pahole: invalid, missing '=' in '%s'\n", args);
-				goto free_and_stop;
-			}
-
-			// accept foo==bar as filter=foo==bar
-			if (assign[1] == '=') {
-				value = args;
-				goto do_filter;
-			}
-
-			*assign = 0;
-
-			value = assign + 1;
-
-			while (isspace(*value))
-				++value;
-
-			if (value == args_close) {
-				fprintf(stderr, "pahole: invalid, missing value in '%s'\n", pos->s);
-				goto free_and_stop;
-			}
-
-			if (strcmp(args, "sizeof") == 0) {
-do_sizeof:
-				if (global_verbose)
-					fprintf(stderr, "pahole: sizeof_operator for '%s' is '%s'\n", name, value);
-
-				type->sizeof_member = type__find_member_by_name(type, cu, value);
-				if (type->sizeof_member == NULL) {
-					fprintf(stderr, "pahole: the sizeof member '%s' wasn't found in the '%s' type\n", value, name);
-					goto free_and_stop;
-				}
-			} else if (strcmp(args, "type") == 0) {
-do_type:
-				if (global_verbose)
-					fprintf(stderr, "pahole: type member for '%s' is '%s'\n", name, value);
-
-				type->type_member = type__find_member_by_name(type, cu, value);
-				if (type->type_member == NULL) {
-					fprintf(stderr, "pahole: the type member '%s' wasn't found in the '%s' type\n", value, name);
-					goto free_and_stop;
-				}
-			} else if (strcmp(args, "type_enum") == 0) {
-				if (global_verbose)
-					fprintf(stderr, "pahole: type enum for '%s' is '%s'\n", name, value);
-				type->type_enum = tag__type(cu__find_enumeration_by_name(cu, value, NULL));
-				if (type->type_enum == NULL) {
-					fprintf(stderr, "pahole: the type enum '%s' wasn't found in '%s'\n", value, cu->name);
-					free(name);
-					return LSK__STOP_LOADING;
-				}
-			} else if (strcmp(args, "filter") == 0) {
-do_filter:
-				if (global_verbose)
-					fprintf(stderr, "pahole: filter for '%s' is '%s'\n", name, value);
-
-				type->filter = class_member_filter__new(type, cu, value);
-				if (type->filter == NULL) {
-					fprintf(stderr, "pahole: invalid filter '%s' for '%s'\n", value, name);
-					free(name);
-					return LSK__STOP_LOADING;
-				}
-			} else {
-				fprintf(stderr, "pahole: invalid arg '%s' in '%s' (known args: sizeof=member, type=member, type_enum=enum)\n", args, pos->s);
-				goto free_and_stop;
-			}
-
-			if (comma) {
-				args = comma + 1;
-				goto next_arg;
-			}
-		}
-		} else {
-			class = cu__find_type_by_name(cu, name, include_decls, &class_id);
-			if (class == NULL)
-				class = cu__find_base_type_by_name(cu, name, &class_id);
+			prototype__delete(prototype);
+			goto dump_and_stop;
 		}
 
-		if (name != pos->s) {
-			free(name);
-			name = NULL;
+		if (conf.header_type && !cu__find_type_by_name(cu, conf.header_type, false, NULL))
+			goto free_and_continue; // we need a CU with both the class and the header type
+
+		struct type *type = tag__type(class);
+
+		if (prototype->size) {
+			type->sizeof_member = type__find_member_by_name(type, cu, prototype->size);
+			if (type->sizeof_member == NULL) {
+				fprintf(stderr, "pahole: the sizeof member '%s' wasn't found in the '%s' type\n",
+					prototype->size, prototype->name);
+				goto free_and_stop;
+			}
 		}
+
+		if (prototype->type) {
+			type->type_member = type__find_member_by_name(type, cu, prototype->type);
+			if (type->type_member == NULL) {
+				fprintf(stderr, "pahole: the type member '%s' wasn't found in the '%s' type\n",
+					prototype->type, prototype->name);
+				goto free_and_stop;
+			}
+		}
+
+		if (prototype->type_enum) {
+			type->type_enum = tag__type(cu__find_enumeration_by_name(cu, prototype->type_enum, NULL));
+			if (type->type_enum == NULL) {
+				fprintf(stderr, "pahole: the type enum '%s' wasn't found in '%s'\n",
+					prototype->type_enum, cu->name);
+				goto free_and_stop;
+			}
+		}
+
+		if (prototype->filter) {
+			type->filter = class_member_filter__new(type, cu, prototype->filter);
+			if (type->filter == NULL) {
+				fprintf(stderr, "pahole: invalid filter '%s' for '%s'\n",
+					prototype->filter, prototype->name);
+				goto free_and_stop;
+			}
+		}
+
+		prototype__delete(prototype);
 
 		if (class == NULL) {
 			if (strcmp(pos->s, "void"))
 				continue;
 			class_id = 0;
 		}
-process_class:
+
 		if (!isatty(0)) {
 			/*
 			 * For the pretty printer only the first class is considered,
