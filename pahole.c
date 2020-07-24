@@ -58,7 +58,7 @@ static bool defined_in;
 static bool just_unions;
 static bool just_structs;
 static int show_reorg_steps;
-static char *class_name;
+static const char *class_name;
 static LIST_HEAD(class_names);
 static char separator = '\t';
 static bool force;
@@ -2438,6 +2438,13 @@ int main(int argc, char *argv[])
 	memset(tab, ' ', sizeof(tab) - 1);
 
 	conf_load.steal = pahole_stealer;
+
+	// Make 'pahole --header type < file' a shorter form of 'pahole -C type --count 1 < file'
+	if (conf.header_type && !class_name && !isatty(0)) {
+		conf.count = 1;
+		class_name = conf.header_type;
+		conf.header_type = 0; // so that we don't read it and then try to read the -C type
+	}
 
 try_sole_arg_as_class_names:
 	if (class_name && populate_class_names())
