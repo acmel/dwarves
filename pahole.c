@@ -1535,6 +1535,37 @@ static bool type__filter_value(struct tag *tag, void *instance)
 	return value != filter->right;
 }
 
+static struct tag *cus__tag_real_type(struct cus *cus, struct tag *tag, struct cu **cup, void *instance)
+{
+	if (tag__is_struct(tag)) {
+		struct type *type = tag__type(tag);
+
+		if (type->type_enum && type->type_member) {
+			struct class_member *member = type->type_member;
+			uint64_t value = base_type__value(instance + member->byte_offset, member->byte_size);
+			const char *enumerator_name = enumeration__lookup_value(type->type_enum, type->type_enum_cu, value);
+			char name[1024];
+
+			if (!enumerator_name)
+				return tag;
+
+			snprintf(name, sizeof(name), enumerator_name);
+			strlwr(name);
+
+			struct cu *orig_cu = *cup;
+			struct tag *real_type = cus__find_type_by_name(cus, cup, name, false, NULL);
+
+			if (real_type && tag__is_struct(real_type))
+				return real_type;
+
+			// If the cast operation wasn't done, restore the original CU
+			*cup = orig_cu;
+		}
+	}
+
+	return tag;
+}
+
 static struct tag *tag__real_type(struct tag *tag, struct cu *cu, void *instance)
 {
 	if (tag__is_struct(tag)) {
@@ -1554,7 +1585,10 @@ static struct tag *tag__real_type(struct tag *tag, struct cu *cu, void *instance
 
 			struct tag *real_type = cu__find_type_by_name(cu, name, false, NULL);
 
-			if (real_type && tag__is_struct(real_type))
+			if (!real_type)
+				return NULL;
+
+			if (tag__is_struct(real_type))
 				return real_type;
 		}
 	}
@@ -1648,7 +1682,7 @@ out_free_member_name:
 	return base_type__value(&instance->instance[byte_offset], member->byte_size);
 }
 
-static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, struct type_instance *header, FILE *fp)
+static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, struct cus *cus, struct type_instance *header, FILE *fp)
 {
 	int _sizeof = tag__size(type, cu), printed = 0;
 	int max_sizeof = _sizeof;
@@ -1817,9 +1851,38 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, struct type
 		   $
 		 */
 
+		struct cu *real_type_cu = cu;
+		/*
+		 * First look at the same CU, then, if cus was passed,
+		 * everywhere.
+		 *
+		 * This is because we can go from, say, 'struct
+		 * perf_event_header' to 'struct perf_record_mmap2', the later
+		 * having a 'struct perf_event_header' as its first member
+		 * would not find the type->type_enum set if the CU where
+		 * perf_record_mmap2 is found is different than the one where
+		 * the 'type' instance for 'perf_event_header' was first found.
+		 *
+		 * Perhaps we should do a best effort in the fallback, i.e.
+		 * when we're looking at the list of classes that were not
+		 * processed by the stealer, i.e. in the cus__load_files()
+		 * call, when we must use cus__find to locate all the types
+		 * referenced in the 'struct prototype' members. Yeah, dealing
+		 * with DWARF and its multiple representations for types found
+		 * in each of its CUs complicates things.
+		 *
+		 * When using BTF this is all moot, as we have just one 'CU'
+		 * with all the types. The fallbacks only happen when
+		 * referenced types are _really_ not found, and in the real_type
+		 * case we just pretty print with the original type and skip
+		 * to the next record using its ->sizeof field.
+		 */
 		struct tag *real_type = tag__real_type(type, cu, instance);
 
-		printed += tag__fprintf_value(real_type, cu, instance, real_sizeof, fp);
+		if (real_type == NULL)
+			real_type = cus ? cus__tag_real_type(cus, type, &real_type_cu, instance) : type;
+
+		printed += tag__fprintf_value(real_type, real_type_cu, instance, real_sizeof, fp);
 		printed += fprintf(fp, ",\n");
 
 		if (conf.count && ++count == conf.count)
@@ -2186,7 +2249,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			 * For the pretty printer only the first class is considered,
 			 * ignore the rest.
 			 */
-			tag__stdio_fprintf_value(class, cu, header, stdout);
+			tag__stdio_fprintf_value(class, cu, NULL, header, stdout);
 			type_instance__delete(header);
 			return LSK__STOP_LOADING;
 		}
@@ -2392,19 +2455,80 @@ try_sole_arg_as_class_names:
 	}
 
 	if (!list_empty(&class_names)) {
+		struct type_instance *header = NULL;
 		struct prototype *prototype;
+		struct tag *class;
+		struct cu *cu;
+
+		if (conf.header_type) {
+			class = cus__find_type_by_name(cus, &cu, conf.header_type, false, NULL);
+			if (!class) {
+				fprintf(stderr, "pahole: --header (%s) type not found\n", conf.header_type);
+				goto out_cus_delete;
+			}
+
+			header = type_instance__new(tag__type(class), cu);
+			if (!header) {
+				fprintf(stderr, "pahole: not enough memory for --header (%s) type\n", conf.header_type);
+				goto out_cus_delete;
+			}
+		}
 
 		list_for_each_entry(prototype, &class_names, node) {
-			if (conf.header_type || prototype->type_enum) {
-				fprintf(stderr, "These types were not found all in the same CU (compile unit/object file/debugging info unit):\n  -C %s",
-					prototype->name);
-				if (conf.header_type)
-					fprintf(stderr, " --header=%s", conf.header_type);
-				if (prototype->type_enum)
-					fprintf(stderr, " enum_type=%s", prototype->type_enum);
-				fputc('\n', stderr);
-			} else {
-				fprintf(stderr, "Not found: %s\n", prototype->name);
+			if (prototype->nr_args == 0)
+				goto not_found_continue;
+
+			class = cus__find_type_by_name(cus, &cu, prototype->name, false, NULL);
+			if (!class) {
+not_found_continue:
+				fprintf(stderr, "pahole: type (%s) not found\n", prototype->name);
+				continue;
+			}
+
+			struct type *type = tag__type(class);
+
+			if (prototype->size) {
+				type->sizeof_member = type__find_member_by_name(type, cu, prototype->size);
+				if (type->sizeof_member == NULL) {
+					fprintf(stderr, "pahole: the sizeof member '%s' wasn't found in the '%s' type\n",
+						prototype->size, prototype->name);
+					continue;
+				}
+			}
+
+			if (prototype->type) {
+				type->type_member = type__find_member_by_name(type, cu, prototype->type);
+				if (type->type_member == NULL) {
+					fprintf(stderr, "pahole: the type member '%s' wasn't found in the '%s' type\n",
+						prototype->type, prototype->name);
+					continue;
+				}
+			}
+
+			if (prototype->type_enum) {
+				type->type_enum = tag__type(cus__find_type_by_name(cus, &type->type_enum_cu, prototype->type_enum, false, NULL));
+				if (!type->type_enum) {
+					fprintf(stderr, "pahole: type_enum=%s type not found for %s\n", prototype->type_enum, prototype->name);
+					continue;
+				}
+			}
+
+			if (prototype->filter) {
+				type->filter = class_member_filter__new(type, cu, prototype->filter);
+				if (type->filter == NULL) {
+					fprintf(stderr, "pahole: invalid filter '%s' for '%s'\n", prototype->filter, prototype->name);
+					continue;
+				}
+			}
+
+			if (!isatty(0)) {
+				/*
+				 * For the pretty printer only the first class is considered,
+				 * ignore the rest.
+				 */
+				tag__stdio_fprintf_value(class, cu, cus, header, stdout);
+				type_instance__delete(header);
+				break;
 			}
 		}
 	}
