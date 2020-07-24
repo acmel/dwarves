@@ -4,18 +4,44 @@
 .TH pahole 1 "January 16, 2020" "dwarves" "dwarves"
 .\"
 .SH NAME
-pahole \- Shows and manipulates data structure layout.
+pahole \- Shows, manipulates data structure layout and pretty prints raw data.
 .SH SYNOPSIS
 \fBpahole\fR [\fIoptions\fR] \fIfiles\fR
 .SH DESCRIPTION
 .B pahole
 shows data structure layouts encoded in debugging information formats,
-DWARF and CTF being supported.
+DWARF, CTF and BTF being supported.
 
 This is useful for, among other things: optimizing important data structures by
 reducing its size, figuring out what is the field sitting at an offset from the
 start of a data structure, investigating ABI changes and more generally
 understanding a new codebase you have to work with.
+
+It also uses these structure layouts to pretty print data feed to its standard
+input, e.g.:
+.PP
+.nf
+$ pahole --header elf64_hdr < /lib/modules/5.8.0-rc6+/build/vmlinux
+{
+	.e_ident = { 127, 69, 76, 70, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	.e_type = 2,
+	.e_machine = 62,
+	.e_version = 1,
+	.e_entry = 16777216,
+	.e_phoff = 64,
+	.e_shoff = 604653784,
+	.e_flags = 0,
+	.e_ehsize = 64,
+	.e_phentsize = 56,
+	.e_phnum = 5,
+	.e_shentsize = 64,
+	.e_shnum = 80,
+	.e_shstrndx = 79,
+},
+$
+.fi
+
+See the PRETTY PRINTING section for further examples and documentation.
 
 The files must have associated debugging information.  This information may be
 inside the file itself, in ELF sections, or in another file.
@@ -527,6 +553,256 @@ $
 .fi
 .P
 
+.SH PRETTY PRINTING
+.P
+pahole can also use the data structure types to pretty print raw data coming
+from its standard input.
+
+.TP
+.B \-C, \-\-class_name=CLASS_NAME
+Pretty print according to this class. Arguments may be passed to it to affect how
+the pretty printing is performed, e.g.:
+
+.PP
+.nf
+    -C 'perf_event_header(sizeof,type,type_enum=perf_event_type,filter=type==PERF_RECORD_EXIT)'
+.fi
+
+This would select the 'struct perf_event_header' as the type to use to pretty print records
+states that the 'size' field in that struct should be used to figure out the size of the record
+(variable sized records), that the 'enum perf_event_type' should be used to pretty print the
+numeric value in perf_event_header->type and furthermore that it should be used to heuristically
+look for structs with the same name (lowercase) of the enum entry that is converted from the
+type field, using it to pretty print instead of the base 'perf_event_header' type. See the
+PRETTY PRINTING EXAMPLES section below.
+.P
+
+Furthermore the 'filter=' part can be used, so far with only the '==' operator to filter based
+on the 'type' field and converting the string 'PERF_RECORD_EXIT' to a number according to
+type_enum.
+.P
+
+The 'sizeof' arg defaults to the 'size' member name, if the name is different, one can use
+ 'sizeof=sz' form, ditto for 'type=other_member_name' field, that defaults to 'type'.
+
+.SH PRETTY PRINTING EXAMPLES
+
+.P
+Looking at the ELF header for a vmlinux file, using BTF, first lets discover the ELF header type:
+.PP
+.nf
+$ pahole --sizes | grep -i elf | grep -i _h
+elf64_hdr	64	0
+elf32_hdr	52	0
+$ 
+.fi
+.P
+Now we can use this to show the first record from offset zero:
+.PP
+.nf
+$ pahole -C elf64_hdr --count 1 < /lib/modules/5.8.0-rc3+/build/vmlinux
+{
+	.e_ident = { 127, 69, 76, 70, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	.e_type = 2,
+	.e_machine = 62,
+	.e_version = 1,
+	.e_entry = 16777216,
+	.e_phoff = 64,
+	.e_shoff = 775923840,
+	.e_flags = 0,
+	.e_ehsize = 64,
+	.e_phentsize = 56,
+	.e_phnum = 5,
+	.e_shentsize = 64,
+	.e_shnum = 80,
+	.e_shstrndx = 79,
+},
+$
+.fi
+.P
+This is equivalent to:
+.PP
+.nf
+$ pahole --header elf64_hdr < /lib/modules/5.8.0-rc3+/build/vmlinux
+.fi
+.P
+The --header option also allows reference in other command line options to fields in the header.
+This is useful when one wants to show multiple records in a file and the range where those fields
+are located is specified in header fields, such as for perf.data files:
+.PP
+.nf
+$ pahole --hex ~/bin/perf --header perf_file_header < perf.data
+{
+	.magic = 0x32454c4946524550,
+	.size = 0x68,
+	.attr_size = 0x88,
+	.attrs = {
+		.offset = 0xa8,
+		.size = 0x88,
+	},
+	.data = {
+		.offset = 0x130,
+		.size = 0x588,
+	},
+	.event_types = {
+		.offset = 0,
+		.size = 0,
+	},
+	.adds_features = { 0x16717ffc, 0, 0, 0 },
+},
+$
+.fi
+.P
+So to display the cgroups records in the perf_file_header.data section we can use:
+.PP
+.nf
+$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,type_enum=perf_event_type,filter=type==PERF_RECORD_CGROUP)' < perf.data
+{
+	.header = {
+		.type = PERF_RECORD_CGROUP,
+		.misc = 0,
+		.size = 40,
+	},
+	.id = 1,
+	.path = "/",
+},
+{
+	.header = {
+		.type = PERF_RECORD_CGROUP,
+		.misc = 0,
+		.size = 48,
+	},
+	.id = 1553,
+	.path = "/system.slice",
+},
+{
+	.header = {
+		.type = PERF_RECORD_CGROUP,
+		.misc = 0,
+		.size = 48,
+	},
+	.id = 8,
+	.path = "/machine.slice",
+},
+{
+	.header = {
+		.type = PERF_RECORD_CGROUP,
+		.misc = 0,
+		.size = 128,
+	},
+	.id = 7828,
+	.path = "/machine.slice/libpod-42be8e8d4eb9d22405845005f0d04ea398548dccc934a150fbaa3c1f1f9492c2.scope",
+},
+{
+	.header = {
+		.type = PERF_RECORD_CGROUP,
+		.misc = 0,
+		.size = 88,
+	},
+	.id = 13,
+	.path = "/machine.slice/machine-qemu\x2d1\x2drhel6.sandy.scope",
+},
+$ 
+.fi
+.P
+This uses ~/bin/perf to get the type definitions, the defines 'struct perf_file_header' as the header,
+then seeks '$header.data.offset' bytes from the start of the file, and considers '$header.data.size' bytes
+worth of such records.
+.P
+If we look at:
+.PP
+.nf
+$ pahole ~/bin/perf -C perf_event_header
+struct perf_event_header {
+	__u32                      type;                 /*     0     4 */
+	__u16                      misc;                 /*     4     2 */
+	__u16                      size;                 /*     6     2 */
+
+	/* size: 8, cachelines: 1, members: 3 */
+	/* last cacheline: 8 bytes */
+};
+$ 
+.fi
+.P
+And:
+.PP
+.nf
+$ pahole ~/bin/perf -C perf_event_type
+enum perf_event_type {
+	PERF_RECORD_MMAP = 1,
+	PERF_RECORD_LOST = 2,
+	PERF_RECORD_COMM = 3,
+	PERF_RECORD_EXIT = 4,
+	PERF_RECORD_THROTTLE = 5,
+	PERF_RECORD_UNTHROTTLE = 6,
+	PERF_RECORD_FORK = 7,
+	PERF_RECORD_READ = 8,
+	PERF_RECORD_SAMPLE = 9,
+	PERF_RECORD_MMAP2 = 10,
+	PERF_RECORD_AUX = 11,
+	PERF_RECORD_ITRACE_START = 12,
+	PERF_RECORD_LOST_SAMPLES = 13,
+	PERF_RECORD_SWITCH = 14,
+	PERF_RECORD_SWITCH_CPU_WIDE = 15,
+	PERF_RECORD_NAMESPACES = 16,
+	PERF_RECORD_KSYMBOL = 17,
+	PERF_RECORD_BPF_EVENT = 18,
+	PERF_RECORD_CGROUP = 19,
+	PERF_RECORD_TEXT_POKE = 20,
+	PERF_RECORD_MAX = 21,
+};
+$
+.fi
+.P
+And furthermore:
+.PP
+.nf
+$ pahole ~/bin/perf -C perf_record_cgroup
+struct perf_record_cgroup {
+	struct perf_event_header   header;               /*     0     8 */
+	__u64                      id;                   /*     8     8 */
+	char                       path[4096];           /*    16  4096 */
+
+	/* size: 4112, cachelines: 65, members: 3 */
+	/* last cacheline: 16 bytes */
+};
+$
+.fi
+.P
+Then we can see how the perf_event_header.type could be converted from a __u32 to a string (PERF_RECORD_CGROUP).
+If we remove that type_enum=perf_event_type, we will lose the conversion of 'struct perf_event_header' to the
+more descriptive 'struct perf_record_cgroup', and also the beautification of the header.type field:
+.PP
+.nf
+$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,filter=type==19)' < perf.data
+{
+	.type = 19,
+	.misc = 0,
+	.size = 40,
+},
+{
+	.type = 19,
+	.misc = 0,
+	.size = 48,
+},
+{
+	.type = 19,
+	.misc = 0,
+	.size = 48,
+},
+{
+	.type = 19,
+	.misc = 0,
+	.size = 128,
+},
+{
+	.type = 19,
+	.misc = 0,
+	.size = 88,
+},
+$
+.fi
+
 .SH SEE ALSO
 \fIeu-readelf\fR(1), \fIreadelf\fR(1), \fIobjdump\fR(1).
 .P
@@ -540,6 +816,8 @@ to be used in encoding the Linux kernel .BTF section from the DWARF info
 generated by gcc. For that Andrii wrote a BTF deduplicator in libbpf that is
 used by \fBpahole\fR.
 .P
+Also thanks to Conectiva, Mandriva and Red Hat for allowing me to work on these tools.
+.P
 Please send bug reports to <dwarves@vger.kernel.org>.
 .P
-No\ subscription is required.
+No subscription is required.
