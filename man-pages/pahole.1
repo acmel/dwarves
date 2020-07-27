@@ -804,6 +804,92 @@ $ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset'
 },
 $
 .fi
+.P
+Some of the records are not found in 'type_enum=perf_event_type' so some of the records don't get converted to a type that fully shows its contents. For perf we know that those are in another enumeration, 'enum perf_user_event_type', so, for these cases, we can create a 'virtual enum', i.e. the sum of two enums and then get all those entries decoded and properly casted, first few records with just 'enum perf_event_type':
+.PP
+.nf
+$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,type_enum=perf_event_type)' --count 4 < perf.data
+{
+	.type = 79,
+	.misc = 0,
+	.size = 32,
+},
+{
+	.type = 73,
+	.misc = 0,
+	.size = 40,
+},
+{
+	.type = 74,
+	.misc = 0,
+	.size = 32,
+},
+{
+	.header = {
+		.type = PERF_RECORD_CGROUP,
+		.misc = 0,
+		.size = 40,
+	},
+	.id = 1,
+	.path = "/",
+},
+$
+.fi
+.P
+Now with both enumerations, i.e. with 'type_enum=perf_event_type+perf_user_event_type':
+.PP
+.nf
+$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,type_enum=perf_event_type+perf_user_event_type)' --count 5 < perf.data
+{
+	.header = {
+		.type = PERF_RECORD_TIME_CONV,
+		.misc = 0,
+		.size = 32,
+	},
+	.time_shift = 31,
+	.time_mult = 1016803377,
+	.time_zero = 435759009518382,
+},
+{
+	.header = {
+		.type = PERF_RECORD_THREAD_MAP,
+		.misc = 0,
+		.size = 40,
+	},
+	.nr = 1,
+	.entries = 0x50 0x7e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00,
+},
+{
+	.header = {
+		.type = PERF_RECORD_CPU_MAP,
+		.misc = 0,
+		.size = 32,
+	},
+	.data = {
+		.type = 1,
+		.data = "",
+	},
+},
+{
+	.header = {
+		.type = PERF_RECORD_CGROUP,
+		.misc = 0,
+		.size = 40,
+	},
+	.id = 1,
+	.path = "/",
+},
+{
+	.header = {
+		.type = PERF_RECORD_CGROUP,
+		.misc = 0,
+		.size = 48,
+	},
+	.id = 1553,
+	.path = "/system.slice",
+},
+$
+.fi
 
 .SH SEE ALSO
 \fIeu-readelf\fR(1), \fIreadelf\fR(1), \fIobjdump\fR(1).

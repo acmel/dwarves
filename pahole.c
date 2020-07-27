@@ -2199,7 +2199,44 @@ static int type__find_type_enum(struct type *type, struct cu *cu, const char *ty
 	if (te)
 		return type__add_type_enum(type, te, cu);
 
-	return -1;
+	// Now look at a 'virtual enum', i.e. the concatenation of multiple enums
+	char *sep = strchr(type_enum, '+');
+
+	if (!sep)
+		return -1;
+
+	char *type_enums = strdup(type_enum);
+
+	if (!type_enums)
+		return -1;
+
+	int ret = -1;
+
+	sep = type_enums + (sep - type_enum);
+
+	type_enum = type_enums;
+	*sep = '\0';
+
+	while (1) {
+		te = cu__find_enumeration_by_name(cu, type_enum, NULL);
+
+		if (!te)
+			goto out;
+
+		ret = type__add_type_enum(type, te, cu);
+		if (ret)
+			goto out;
+
+		if (sep == NULL)
+			break;
+		type_enum = sep + 1;
+		sep = strchr(type_enum, '+');
+	}
+
+	ret = 0;
+out:
+	free(type_enums);
+	return ret;
 }
 
 static enum load_steal_kind pahole_stealer(struct cu *cu,
@@ -2485,7 +2522,44 @@ static int cus__find_type_enum(struct cus *cus, struct type *type, const char *t
 	if (te)
 		return type__add_type_enum(type, te, cu);
 
-	return -1;
+	// Now look at a 'virtual enum', i.e. the concatenation of multiple enums
+	char *sep = strchr(type_enum, '+');
+
+	if (!sep)
+		return -1;
+
+	char *type_enums = strdup(type_enum);
+
+	if (!type_enums)
+		return -1;
+
+	int ret = -1;
+
+	sep = type_enums + (sep - type_enum);
+
+	type_enum = type_enums;
+	*sep = '\0';
+
+	while (1) {
+		te = cus__find_type_by_name(cus, &cu, type_enum, false, NULL);
+
+		if (!te)
+			goto out;
+
+		ret = type__add_type_enum(type, te, cu);
+		if (ret)
+			goto out;
+
+		if (sep == NULL)
+			break;
+		type_enum = sep + 1;
+		sep = strchr(type_enum, '+');
+	}
+
+	ret = 0;
+out:
+	free(type_enums);
+	return ret;
 }
 
 int main(int argc, char *argv[])
