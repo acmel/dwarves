@@ -944,6 +944,8 @@ struct class_member_filter;
  * 		 to cast for, needs to be used with the upcoming type_enum.
  * @type_enum: A enumeration to use together with type_member to find a type to cast
  * @type_enum_cu: The CU the type_enum tag is in, think about not having all types in the same CU (DWARF)
+ * @member_prefix: the common prefix for all members, say in an enum, this should be calculated on demand
+ * @member_prefix_len: the lenght of the common prefix for all members
  */
 struct type {
 	struct namespace namespace;
@@ -958,6 +960,8 @@ struct type {
 	struct class_member_filter *filter;
 	struct type	 *type_enum;
 	struct cu	 *type_enum_cu;
+	char 		 *member_prefix;
+	uint16_t	 member_prefix_len;
 	uint16_t	 natural_alignment;
 	bool		 packed_attributes_inferred;
 	uint8_t		 declaration; /* only one bit used */
@@ -1076,6 +1080,10 @@ struct class_member *type__find_member_by_name(const struct type *type,
 					       const char *name);
 uint32_t type__nr_members_of_type(const struct type *type, const type_id_t oftype);
 struct class_member *type__last_member(struct type *type);
+
+void enumeration__calc_prefix(struct type *type, const struct cu *cu);
+const char *enumeration__prefix(struct type *type, const struct cu *cu);
+uint16_t enumeration__prefix_len(struct type *type, const struct cu *cu);
 
 size_t typedef__fprintf(const struct tag *tag_type, const struct cu *cu,
 			const struct conf_fprintf *conf, FILE *fp);

@@ -1619,6 +1619,62 @@ struct class_member *type__find_member_by_name(const struct type *type,
 	return NULL;
 }
 
+static int strcommon(const char *a, const char *b)
+{
+	int i = 0;
+
+	while (*a != '\0' && *a == *b) {
+		++a;
+		++b;
+		++i;
+	}
+
+	return i;
+}
+
+void enumeration__calc_prefix(struct type *enumeration, const struct cu *cu)
+{
+	if (enumeration->member_prefix)
+		return;
+
+	const char *previous_name = NULL, *curr_name = "";
+	int common_part = INT32_MAX;
+	struct enumerator *entry;
+
+	type__for_each_enumerator(enumeration, entry) {
+		const char *curr_name = enumerator__name(entry, cu);
+
+		if (previous_name) {
+			int curr_common_part = strcommon(curr_name, previous_name);
+			if (common_part > curr_common_part)
+				common_part = curr_common_part;
+
+		}
+
+		previous_name = curr_name;
+	}
+
+	enumeration->member_prefix = strndup(curr_name, common_part);
+	enumeration->member_prefix_len = common_part == INT32_MAX ? 0 : common_part;
+}
+
+const char *enumeration__prefix(struct type *enumeration, const struct cu *cu)
+{
+	if (!enumeration->member_prefix)
+		enumeration__calc_prefix(enumeration, cu);
+
+	return enumeration->member_prefix;
+}
+
+uint16_t enumeration__prefix_len(struct type *enumeration, const struct cu *cu)
+{
+	if (!enumeration->member_prefix)
+		enumeration__calc_prefix(enumeration, cu);
+
+	return enumeration->member_prefix_len;
+}
+
+
 uint32_t type__nr_members_of_type(const struct type *type, const type_id_t type_id)
 {
 	struct class_member *pos;

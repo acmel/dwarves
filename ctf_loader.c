@@ -177,6 +177,8 @@ static void type__init(struct type *type, uint16_t tag,
 	type->namespace.name = name;
 	type->namespace.sname = 0;
 	type->sizeof_member = NULL;
+	type->member_prefix = NULL;
+	type->member_prefix_len = 0;
 }
 
 static struct type *type__new(uint16_t tag, strings_t name, size_t size)
