@@ -1334,6 +1334,19 @@ static const char *enumeration__lookup_value(struct type *enumeration, struct cu
 	return NULL;
 }
 
+static const char *enumerations__lookup_value(struct list_head *enumerations, uint64_t value)
+{
+	struct tag_cu *pos;
+
+	list_for_each_entry(pos, enumerations, node) {
+		const char *s = enumeration__lookup_value(tag__type(pos->tag), pos->cu, value);
+		if (s)
+			return s;
+	}
+
+	return NULL;
+}
+
 static int64_t enumeration__lookup_enumerator(struct type *enumeration, struct cu *cu, const char *enumerator)
 {
 	struct enumerator *entry;
@@ -1352,11 +1365,24 @@ static int64_t enumeration__lookup_enumerator(struct type *enumeration, struct c
 	return -1;
 }
 
-static int base_type__fprintf_enum_value(void *instance, int _sizeof, struct type *enumeration, struct cu *cu, FILE *fp)
+static int64_t enumerations__lookup_enumerator(struct list_head *enumerations, const char *enumerator)
+{
+	struct tag_cu *pos;
+
+	list_for_each_entry(pos, enumerations, node) {
+		int64_t value = enumeration__lookup_enumerator(tag__type(pos->tag), pos->cu, enumerator);
+		if (value != -1)
+			return value;
+	}
+
+	return -1;
+}
+
+static int base_type__fprintf_enum_value(void *instance, int _sizeof, struct list_head *enumerations, FILE *fp)
 {
 	uint64_t value = base_type__value(instance, _sizeof);
 
-	const char *entry = enumeration__lookup_value(enumeration, cu, value);
+	const char *entry = enumerations__lookup_value(enumerations, value);
 
 	if (entry)
 		return fprintf(fp, "%s", entry);
@@ -1434,8 +1460,8 @@ static int __class__fprintf_value(struct tag *tag, struct cu *cu, void *instance
 		if (name)
 			printed += fprintf(fp, "\n%.*s\t.%s = ", indent, tabs, name);
 
-		if (member == type->type_member && type->type_enum) {
-			printed += base_type__fprintf_enum_value(member_contents, member->byte_size, type->type_enum, type->type_enum_cu, fp);
+		if (member == type->type_member && !list_empty(&type->type_enum)) {
+			printed += base_type__fprintf_enum_value(member_contents, member->byte_size, &type->type_enum, fp);
 		} else if (member->bitfield_size) {
 			printed += class_member__fprintf_bitfield_value(member, member_contents, fp);
 		} else if (tag__is_base_type(member_type, cu)) {
@@ -1546,10 +1572,10 @@ static struct tag *cus__tag_real_type(struct cus *cus, struct tag *tag, struct c
 	if (tag__is_struct(tag)) {
 		struct type *type = tag__type(tag);
 
-		if (type->type_enum && type->type_member) {
+		if (!list_empty(&type->type_enum) && type->type_member) {
 			struct class_member *member = type->type_member;
 			uint64_t value = base_type__value(instance + member->byte_offset, member->byte_size);
-			const char *enumerator_name = enumeration__lookup_value(type->type_enum, type->type_enum_cu, value);
+			const char *enumerator_name = enumerations__lookup_value(&type->type_enum, value);
 			char name[1024];
 
 			if (!enumerator_name)
@@ -1577,10 +1603,10 @@ static struct tag *tag__real_type(struct tag *tag, struct cu *cu, void *instance
 	if (tag__is_struct(tag)) {
 		struct type *type = tag__type(tag);
 
-		if (type->type_enum && type->type_member) {
+		if (!list_empty(&type->type_enum) && type->type_member) {
 			struct class_member *member = type->type_member;
 			uint64_t value = base_type__value(instance + member->byte_offset, member->byte_size);
-			const char *enumerator_name = enumeration__lookup_value(type->type_enum, type->type_enum_cu, value);
+			const char *enumerator_name = enumerations__lookup_value(&type->type_enum, value);
 			char name[1024];
 
 			if (!enumerator_name)
@@ -1951,20 +1977,20 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 
 	// If t he filter member is the 'type=' one:
 
-	if (!type->type_enum || type->type_member != filter->left) {
+	if (list_empty(&type->type_enum) || type->type_member != filter->left) {
 		if (global_verbose)
 			fprintf(stderr, "Symbolic right operand in '%s' but no way to resolve it to a number (type= + type_enum= so far)\n", sfilter);
 		return -1;
 	}
 
-	enumeration__calc_prefix(type->type_enum, type->type_enum_cu);
+	enumerations__calc_prefix(&type->type_enum);
 
-	int64_t enumerator_value = enumeration__lookup_enumerator(type->type_enum, type->type_enum_cu, value);
+	int64_t enumerator_value = enumerations__lookup_enumerator(&type->type_enum, value);
 
 	if (enumerator_value < 0) {
 		if (global_verbose)
-			fprintf(stderr, "Couldn't resolve right operand ('%s') in '%s' with the specified 'type=%s' and 'type_enum=%s' \n",
-				value, sfilter, class_member__name(type->type_member, cu), type__name(type->type_enum, type->type_enum_cu));
+			fprintf(stderr, "Couldn't resolve right operand ('%s') in '%s' with the specified 'type=%s' and type_enum' \n",
+				value, sfilter, class_member__name(type->type_member, cu));
 		return -1;
 	}
 
@@ -2143,13 +2169,35 @@ static void prototype__delete(struct prototype *prototype)
 }
 #endif
 
+static struct tag_cu *tag_cu__new(struct tag *tag, struct cu *cu)
+{
+	struct tag_cu *tc = malloc(sizeof(*tc));
+
+	if (tc) {
+		tc->tag = tag;
+		tc->cu	= cu;
+	}
+
+	return tc;
+}
+
+static int type__add_type_enum(struct type *type, struct tag *type_enum, struct cu *cu)
+{
+	struct tag_cu *tc = tag_cu__new(type_enum, cu);
+
+	if (!tc)
+		return -1;
+
+	list_add_tail(&tc->node, &type->type_enum);
+	return 0;
+}
+
 static int type__find_type_enum(struct type *type, struct cu *cu, const char *type_enum)
 {
-	type->type_enum = tag__type(cu__find_enumeration_by_name(cu, type_enum, NULL));
-	if (type->type_enum) {
-		type->type_enum_cu = cu;
-		return 0;
-	}
+	struct tag *te = cu__find_enumeration_by_name(cu, type_enum, NULL);
+
+	if (te)
+		return type__add_type_enum(type, te, cu);
 
 	return -1;
 }
@@ -2431,8 +2479,13 @@ out_free:
 
 static int cus__find_type_enum(struct cus *cus, struct type *type, const char *type_enum)
 {
-	type->type_enum = tag__type(cus__find_type_by_name(cus, &type->type_enum_cu, type_enum, false, NULL));
-	return type->type_enum ? 0 : -1;
+	struct cu *cu;
+	struct tag *te = cus__find_type_by_name(cus, &cu, type_enum, false, NULL);
+
+	if (te)
+		return type__add_type_enum(type, te, cu);
+
+	return -1;
 }
 
 int main(int argc, char *argv[])

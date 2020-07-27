@@ -327,6 +327,7 @@ void namespace__delete(struct namespace *space, struct cu *cu)
 void __type__init(struct type *type)
 {
 	INIT_LIST_HEAD(&type->node);
+	INIT_LIST_HEAD(&type->type_enum);
 	type->sizeof_member = NULL;
 	type->member_prefix = NULL;
 	type->member_prefix_len = 0;
@@ -1664,6 +1665,14 @@ void enumeration__calc_prefix(struct type *enumeration, const struct cu *cu)
 
 	enumeration->member_prefix = strndup(curr_name, common_part);
 	enumeration->member_prefix_len = common_part == INT32_MAX ? 0 : common_part;
+}
+
+void enumerations__calc_prefix(struct list_head *enumerations)
+{
+	struct tag_cu *pos;
+
+	list_for_each_entry(pos, enumerations, node)
+		enumeration__calc_prefix(tag__type(pos->tag), pos->cu);
 }
 
 const char *enumeration__prefix(struct type *enumeration, const struct cu *cu)

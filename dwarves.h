@@ -931,6 +931,13 @@ bool tag__is_array(const struct tag *tag, const struct cu *cu);
 
 struct class_member_filter;
 
+// To use with things like type->type_enum == perf_event_type+perf_user_event_type
+struct tag_cu {
+	struct list_head node;
+	struct tag	 *tag;
+	struct cu	 *cu;
+};
+
 /**
  * struct type - base type for enumerations, structs and unions
  *
@@ -942,8 +949,7 @@ struct class_member_filter;
  * @sizeof_member: Use this to find the size of the record
  * @type_member: Use this to select a member from where to get an id on an enum to find a type
  * 		 to cast for, needs to be used with the upcoming type_enum.
- * @type_enum: A enumeration to use together with type_member to find a type to cast
- * @type_enum_cu: The CU the type_enum tag is in, think about not having all types in the same CU (DWARF)
+ * @type_enum: enumeration(s) to use together with type_member to find a type to cast
  * @member_prefix: the common prefix for all members, say in an enum, this should be calculated on demand
  * @member_prefix_len: the lenght of the common prefix for all members
  */
@@ -958,8 +964,7 @@ struct type {
 	struct class_member *sizeof_member;
 	struct class_member *type_member;
 	struct class_member_filter *filter;
-	struct type	 *type_enum;
-	struct cu	 *type_enum_cu;
+	struct list_head type_enum;
 	char 		 *member_prefix;
 	uint16_t	 member_prefix_len;
 	uint16_t	 natural_alignment;
@@ -1086,6 +1091,8 @@ struct class_member *type__last_member(struct type *type);
 void enumeration__calc_prefix(struct type *type, const struct cu *cu);
 const char *enumeration__prefix(struct type *type, const struct cu *cu);
 uint16_t enumeration__prefix_len(struct type *type, const struct cu *cu);
+
+void enumerations__calc_prefix(struct list_head *enumerations);
 
 size_t typedef__fprintf(const struct tag *tag_type, const struct cu *cu,
 			const struct conf_fprintf *conf, FILE *fp);
