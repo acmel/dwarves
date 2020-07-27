@@ -2143,6 +2143,17 @@ static void prototype__delete(struct prototype *prototype)
 }
 #endif
 
+static int type__find_type_enum(struct type *type, struct cu *cu, const char *type_enum)
+{
+	type->type_enum = tag__type(cu__find_enumeration_by_name(cu, type_enum, NULL));
+	if (type->type_enum) {
+		type->type_enum_cu = cu;
+		return 0;
+	}
+
+	return -1;
+}
+
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load __unused)
 {
@@ -2223,12 +2234,10 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		}
 
 		if (prototype->type_enum) {
-			type->type_enum = tag__type(cu__find_enumeration_by_name(cu, prototype->type_enum, NULL));
-			if (type->type_enum == NULL) {
+			if (type__find_type_enum(type, cu, prototype->type_enum)) {
 				// just continue, maybe we'll find a CU that has all the types, if not, at the end we'll do multi-CU searches
 				continue;
 			}
-			type->type_enum_cu = cu;
 		}
 
 		if (prototype->filter) {
@@ -2420,6 +2429,12 @@ out_free:
 	return ret;
 }
 
+static int cus__find_type_enum(struct cus *cus, struct type *type, const char *type_enum)
+{
+	type->type_enum = tag__type(cus__find_type_by_name(cus, &type->type_enum_cu, type_enum, false, NULL));
+	return type->type_enum ? 0 : -1;
+}
+
 int main(int argc, char *argv[])
 {
 	int err, remaining, rc = EXIT_FAILURE;
@@ -2521,8 +2536,7 @@ not_found_continue:
 			}
 
 			if (prototype->type_enum) {
-				type->type_enum = tag__type(cus__find_type_by_name(cus, &type->type_enum_cu, prototype->type_enum, false, NULL));
-				if (!type->type_enum) {
+				if (cus__find_type_enum(cus, type, prototype->type_enum)) {
 					fprintf(stderr, "pahole: type_enum=%s type not found for %s\n", prototype->type_enum, prototype->name);
 					continue;
 				}
