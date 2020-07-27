@@ -170,15 +170,12 @@ static struct base_type *base_type__new(strings_t name, uint32_t attrs,
 static void type__init(struct type *type, uint16_t tag,
 		       strings_t name, size_t size)
 {
-	INIT_LIST_HEAD(&type->node);
+	__type__init(type);
 	INIT_LIST_HEAD(&type->namespace.tags);
 	type->size = size;
 	type->namespace.tag.tag = tag;
 	type->namespace.name = name;
 	type->namespace.sname = 0;
-	type->sizeof_member = NULL;
-	type->member_prefix = NULL;
-	type->member_prefix_len = 0;
 }
 
 static struct type *type__new(uint16_t tag, strings_t name, size_t size)

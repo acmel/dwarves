@@ -496,7 +496,7 @@ static struct namespace *namespace__new(Dwarf_Die *die, struct cu *cu)
 static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu)
 {
 	namespace__init(&type->namespace, die, cu);
-	INIT_LIST_HEAD(&type->node);
+	__type__init(type);
 	type->size		 = attr_numeric(die, DW_AT_byte_size);
 	type->alignment		 = attr_numeric(die, DW_AT_alignment);
 	type->declaration	 = attr_numeric(die, DW_AT_declaration);
@@ -507,9 +507,6 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu)
 	type->resized		 = 0;
 	type->nr_members	 = 0;
 	type->nr_static_members	 = 0;
-	type->sizeof_member	 = NULL;
-	type->member_prefix	 = NULL;
-	type->member_prefix_len	 = 0;
 }
 
 static struct type *type__new(Dwarf_Die *die, struct cu *cu)

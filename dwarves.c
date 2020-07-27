@@ -324,6 +324,14 @@ void namespace__delete(struct namespace *space, struct cu *cu)
 	tag__delete(&space->tag, cu);
 }
 
+void __type__init(struct type *type)
+{
+	INIT_LIST_HEAD(&type->node);
+	type->sizeof_member = NULL;
+	type->member_prefix = NULL;
+	type->member_prefix_len = 0;
+}
+
 struct class_member *
 	type__find_first_biggest_size_base_type_member(struct type *type,
 						       const struct cu *cu)

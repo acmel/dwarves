@@ -970,6 +970,8 @@ struct type {
 	uint8_t		 resized:1;
 };
 
+void __type__init(struct type *type);
+
 static inline struct class *type__class(const struct type *type)
 {
 	return (struct class *)type;
