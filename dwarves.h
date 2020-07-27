@@ -60,6 +60,7 @@ struct conf_load {
  * @seek_bytes - Number of bytes to seek, if stdin only from start, when we have --pretty FILE, then from the end as well with negative numbers,
  * 		 may be of the form $header.MEMBER_NAME when using with --header.
  * @size_bytes - Number of bytes to read, similar to seek_bytes, and when both are in place, first seek seek_bytes then read size_bytes
+ * @range - data structure field in --header to determine --seek_bytes and --size_bytes, must have 'offset' and 'size' fields
  * @flat_arrays - a->foo[10][2] becomes a->foo[20]
  * @classes_as_structs - class f becomes struct f, CTF doesn't have a "class"
  * @cachelinep - pointer to current cacheline, so that when expanding types we keep track of it,
@@ -79,6 +80,7 @@ struct conf_fprintf {
 	const char *seek_bytes;
 	const char *size_bytes;
 	const char *header_type;
+	const char *range;
 	uint32_t   skip;
 	uint8_t	   indent;
 	uint8_t	   expand_types:1;

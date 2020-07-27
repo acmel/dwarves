@@ -808,6 +808,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_seek_bytes		   313
 #define ARGP_header_type	   314
 #define ARGP_size_bytes		   315
+#define ARGP_range		   316
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -851,6 +852,12 @@ static const struct argp_option pahole__options[] = {
 		.key  = ARGP_size_bytes,
 		.arg  = "BYTES",
 		.doc  = "Read only this number of bytes from this point onwards"
+	},
+	{
+		.name = "range",
+		.key  = ARGP_range,
+		.arg  = "STRUCT",
+		.doc  = "Data struct with 'offset' and 'size' fields to determine --seek_bytes and --size_bytes"
 	},
 	{
 		.name = "header_type",
@@ -1196,6 +1203,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf.seek_bytes = arg;			break;
 	case ARGP_size_bytes:
 		conf.size_bytes = arg;			break;
+	case ARGP_range:
+		conf.range = arg;			break;
 	case ARGP_header_type:
 		conf.header_type = arg;			break;
 	default:
@@ -1734,6 +1743,64 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, struct cus 
 		}
 	}
 
+	if (conf.range) {
+		off_t seek_bytes;
+
+		if (!header) {
+			fprintf(stderr, "pahole: --range (%s) requires --header\n", conf.range);
+			return -ESRCH;
+		}
+
+		char *member_name = NULL;
+
+		if (asprintf(&member_name, "%s.%s", conf.range, "offset") == -1) {
+			fprintf(stderr, "pahole: not enough memory for --range (%s)\n", conf.range);
+			return -ENOMEM;
+		}
+
+		int64_t value = type_instance__int_value(header, member_name);
+
+		if (value < 0) {
+			fprintf(stderr, "pahole: couldn't read the '%s' member of '%s' for evaluating --range=%s\n",
+				member_name, conf.header_type, conf.range);
+			free(member_name);
+			return -ESRCH;
+		}
+
+		seek_bytes = value;
+
+		free(member_name);
+
+		// Since we're reading stdin, we need to account for already read header:
+		seek_bytes -= header->type->size;
+
+		if (asprintf(&member_name, "%s.%s", conf.range, "size") == -1) {
+			fprintf(stderr, "pahole: not enough memory for --range (%s)\n", conf.range);
+			return -ENOMEM;
+		}
+
+		value = type_instance__int_value(header, member_name);
+
+		if (value < 0) {
+			fprintf(stderr, "pahole: couldn't read the '%s' member of '%s' for evaluating --range=%s\n",
+				member_name, conf.header_type, conf.range);
+			free(member_name);
+			return -ESRCH;
+		}
+
+		size_bytes = value;
+
+		free(member_name);
+
+		if (pipe_seek(stdin, seek_bytes) < 0) {
+			int err = --errno;
+			fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 "\n", conf.seek_bytes, seek_bytes);
+			return err;
+		}
+
+		goto do_read;
+	}
+
 	if (conf.seek_bytes) {
 		off_t seek_bytes;
 
@@ -1805,7 +1872,8 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, struct cus 
 			size_bytes = strtol(conf.size_bytes, NULL, 0);
 		}
 	}
-
+do_read:
+{
 	uint64_t read_bytes = 0;
 
 	while (fread(instance, _sizeof, 1, stdin) == 1) {
@@ -1923,6 +1991,7 @@ next_record:
 		if (read_bytes >= size_bytes)
 			break;
 	}
+}
 out:
 	free(instance);
 	return printed;

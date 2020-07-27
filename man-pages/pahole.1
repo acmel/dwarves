@@ -705,6 +705,12 @@ $ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset'
 $ 
 .fi
 .P
+For the common case of the header having a member that has the 'offset' and 'size' members, it is possible to use this more compact form:
+.PP
+.nf
+$ pahole ~/bin/perf --header=perf_file_header --range=data -C 'perf_event_header(sizeof,type,type_enum=perf_event_type,filter=type==PERF_RECORD_CGROUP)' < perf.data
+.fi
+.P
 This uses ~/bin/perf to get the type definitions, the defines 'struct perf_file_header' as the header,
 then seeks '$header.data.offset' bytes from the start of the file, and considers '$header.data.size' bytes
 worth of such records. The filter expression may omit a common prefix, in this case it could additonally be
