@@ -1288,6 +1288,7 @@ struct enumerator {
 	struct tag	 tag;
 	strings_t	 name;
 	uint32_t	 value;
+	struct tag_cu	 type_enum; // To cache the type_enum searches
 };
 
 static inline const char *enumerator__name(const struct enumerator *enumerator,

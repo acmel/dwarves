@@ -1356,6 +1356,33 @@ static const char *enumerations__lookup_value(struct list_head *enumerations, ui
 	return NULL;
 }
 
+static struct enumerator *enumeration__lookup_entry_from_value(struct type *enumeration, struct cu *cu, uint64_t value)
+{
+	struct enumerator *entry;
+
+	type__for_each_enumerator(enumeration, entry) {
+		if (entry->value == value)
+			return entry;
+	}
+
+	return NULL;
+}
+
+static struct enumerator *enumerations__lookup_entry_from_value(struct list_head *enumerations, struct cu **cup, uint64_t value)
+{
+	struct tag_cu_node *pos;
+
+	list_for_each_entry(pos, enumerations, node) {
+		struct enumerator *enumerator = enumeration__lookup_entry_from_value(tag__type(pos->tc.tag), pos->tc.cu, value);
+		if (enumerator) {
+			*cup = pos->tc.cu;
+			return enumerator;
+		}
+	}
+
+	return NULL;
+}
+
 static int64_t enumeration__lookup_enumerator(struct type *enumeration, struct cu *cu, const char *enumerator)
 {
 	struct enumerator *entry;
@@ -1584,20 +1611,29 @@ static struct tag *cus__tag_real_type(struct cus *cus, struct tag *tag, struct c
 		if (!list_empty(&type->type_enum) && type->type_member) {
 			struct class_member *member = type->type_member;
 			uint64_t value = base_type__value(instance + member->byte_offset, member->byte_size);
-			const char *enumerator_name = enumerations__lookup_value(&type->type_enum, value);
+			struct cu *cu_enumerator;
+			struct enumerator *enumerator = enumerations__lookup_entry_from_value(&type->type_enum, &cu_enumerator, value);
 			char name[1024];
 
-			if (!enumerator_name)
+			if (!enumerator)
 				return tag;
 
-			snprintf(name, sizeof(name), enumerator_name);
+			if (enumerator->type_enum.tag) {
+				*cup = enumerator->type_enum.cu;
+				return enumerator->type_enum.tag;
+			}
+
+			snprintf(name, sizeof(name), enumerator__name(enumerator, cu_enumerator));
 			strlwr(name);
 
 			struct cu *orig_cu = *cup;
 			struct tag *real_type = cus__find_type_by_name(cus, cup, name, false, NULL);
 
-			if (real_type && tag__is_struct(real_type))
+			if (real_type && tag__is_struct(real_type)) {
+				enumerator->type_enum.tag = real_type;
+				enumerator->type_enum.cu  = *cup;
 				return real_type;
+			}
 
 			// If the cast operation wasn't done, restore the original CU
 			*cup = orig_cu;
@@ -1607,7 +1643,7 @@ static struct tag *cus__tag_real_type(struct cus *cus, struct tag *tag, struct c
 	return tag;
 }
 
-static struct tag *tag__real_type(struct tag *tag, struct cu *cu, void *instance)
+static struct tag *tag__real_type(struct tag *tag, struct cu **cup, void *instance)
 {
 	if (tag__is_struct(tag)) {
 		struct type *type = tag__type(tag);
@@ -1615,22 +1651,31 @@ static struct tag *tag__real_type(struct tag *tag, struct cu *cu, void *instance
 		if (!list_empty(&type->type_enum) && type->type_member) {
 			struct class_member *member = type->type_member;
 			uint64_t value = base_type__value(instance + member->byte_offset, member->byte_size);
-			const char *enumerator_name = enumerations__lookup_value(&type->type_enum, value);
+			struct cu *cu_enumerator;
+			struct enumerator *enumerator = enumerations__lookup_entry_from_value(&type->type_enum, &cu_enumerator, value);
 			char name[1024];
 
-			if (!enumerator_name)
+			if (!enumerator)
 				return tag;
 
-			snprintf(name, sizeof(name), enumerator_name);
+			if (enumerator->type_enum.tag) {
+				*cup = enumerator->type_enum.cu;
+				return enumerator->type_enum.tag;
+			}
+
+			snprintf(name, sizeof(name), enumerator__name(enumerator, cu_enumerator));
 			strlwr(name);
 
-			struct tag *real_type = cu__find_type_by_name(cu, name, false, NULL);
+			struct tag *real_type = cu__find_type_by_name(*cup, name, false, NULL);
 
 			if (!real_type)
 				return NULL;
 
-			if (tag__is_struct(real_type))
+			if (tag__is_struct(real_type)) {
+				enumerator->type_enum.tag = real_type;
+				enumerator->type_enum.cu  = *cup;
 				return real_type;
+			}
 		}
 	}
 
@@ -1977,7 +2022,7 @@ do_read:
 		 * case we just pretty print with the original type and skip
 		 * to the next record using its ->sizeof field.
 		 */
-		struct tag *real_type = tag__real_type(type, cu, instance);
+		struct tag *real_type = tag__real_type(type, &real_type_cu, instance);
 
 		if (real_type == NULL)
 			real_type = cus ? cus__tag_real_type(cus, type, &real_type_cu, instance) : type;
