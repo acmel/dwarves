@@ -1345,10 +1345,10 @@ static const char *enumeration__lookup_value(struct type *enumeration, struct cu
 
 static const char *enumerations__lookup_value(struct list_head *enumerations, uint64_t value)
 {
-	struct tag_cu *pos;
+	struct tag_cu_node *pos;
 
 	list_for_each_entry(pos, enumerations, node) {
-		const char *s = enumeration__lookup_value(tag__type(pos->tag), pos->cu, value);
+		const char *s = enumeration__lookup_value(tag__type(pos->tc.tag), pos->tc.cu, value);
 		if (s)
 			return s;
 	}
@@ -1376,10 +1376,10 @@ static int64_t enumeration__lookup_enumerator(struct type *enumeration, struct c
 
 static int64_t enumerations__lookup_enumerator(struct list_head *enumerations, const char *enumerator)
 {
-	struct tag_cu *pos;
+	struct tag_cu_node *pos;
 
 	list_for_each_entry(pos, enumerations, node) {
-		int64_t value = enumeration__lookup_enumerator(tag__type(pos->tag), pos->cu, enumerator);
+		int64_t value = enumeration__lookup_enumerator(tag__type(pos->tc.tag), pos->tc.cu, enumerator);
 		if (value != -1)
 			return value;
 	}
@@ -2238,13 +2238,13 @@ static void prototype__delete(struct prototype *prototype)
 }
 #endif
 
-static struct tag_cu *tag_cu__new(struct tag *tag, struct cu *cu)
+static struct tag_cu_node *tag_cu_node__new(struct tag *tag, struct cu *cu)
 {
-	struct tag_cu *tc = malloc(sizeof(*tc));
+	struct tag_cu_node *tc = malloc(sizeof(*tc));
 
 	if (tc) {
-		tc->tag = tag;
-		tc->cu	= cu;
+		tc->tc.tag = tag;
+		tc->tc.cu  = cu;
 	}
 
 	return tc;
@@ -2252,7 +2252,7 @@ static struct tag_cu *tag_cu__new(struct tag *tag, struct cu *cu)
 
 static int type__add_type_enum(struct type *type, struct tag *type_enum, struct cu *cu)
 {
-	struct tag_cu *tc = tag_cu__new(type_enum, cu);
+	struct tag_cu_node *tc = tag_cu_node__new(type_enum, cu);
 
 	if (!tc)
 		return -1;

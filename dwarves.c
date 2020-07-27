@@ -1669,10 +1669,10 @@ void enumeration__calc_prefix(struct type *enumeration, const struct cu *cu)
 
 void enumerations__calc_prefix(struct list_head *enumerations)
 {
-	struct tag_cu *pos;
+	struct tag_cu_node *pos;
 
 	list_for_each_entry(pos, enumerations, node)
-		enumeration__calc_prefix(tag__type(pos->tag), pos->cu);
+		enumeration__calc_prefix(tag__type(pos->tc.tag), pos->tc.cu);
 }
 
 const char *enumeration__prefix(struct type *enumeration, const struct cu *cu)

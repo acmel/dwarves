@@ -396,6 +396,12 @@ struct tag {
 	void		 *priv;
 };
 
+// To use with things like type->type_enum == perf_event_type+perf_user_event_type
+struct tag_cu {
+	struct tag	 *tag;
+	struct cu	 *cu;
+};
+
 void tag__delete(struct tag *tag, struct cu *cu);
 
 static inline int tag__is_enumeration(const struct tag *tag)
@@ -933,11 +939,9 @@ bool tag__is_array(const struct tag *tag, const struct cu *cu);
 
 struct class_member_filter;
 
-// To use with things like type->type_enum == perf_event_type+perf_user_event_type
-struct tag_cu {
+struct tag_cu_node {
 	struct list_head node;
-	struct tag	 *tag;
-	struct cu	 *cu;
+	struct tag_cu	 tc;
 };
 
 /**
