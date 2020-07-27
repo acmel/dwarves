@@ -1339,7 +1339,13 @@ static int64_t enumeration__lookup_enumerator(struct type *enumeration, struct c
 	struct enumerator *entry;
 
 	type__for_each_enumerator(enumeration, entry) {
-		if (!strcmp(enumerator__name(entry, cu), enumerator))
+		const char *entry_name = enumerator__name(entry, cu);
+
+		if (!strcmp(entry_name, enumerator))
+			return entry->value;
+
+		if (enumeration->member_prefix_len &&
+		    !strcmp(entry_name + enumeration->member_prefix_len, enumerator))
 			return entry->value;
 	}
 
@@ -1950,6 +1956,8 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 			fprintf(stderr, "Symbolic right operand in '%s' but no way to resolve it to a number (type= + type_enum= so far)\n", sfilter);
 		return -1;
 	}
+
+	enumeration__calc_prefix(type->type_enum, type->type_enum_cu);
 
 	int64_t enumerator_value = enumeration__lookup_enumerator(type->type_enum, type->type_enum_cu, value);
 

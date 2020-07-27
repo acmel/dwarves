@@ -707,7 +707,9 @@ $
 .P
 This uses ~/bin/perf to get the type definitions, the defines 'struct perf_file_header' as the header,
 then seeks '$header.data.offset' bytes from the start of the file, and considers '$header.data.size' bytes
-worth of such records.
+worth of such records. The filter expression may omit a common prefix, in this case it could additonally be
+equivalently written as both 'filter=type==CGROUP' or the 'filter=' can also be omitted, getting as compact
+as 'type==CGROUP':
 .P
 If we look at:
 .PP
