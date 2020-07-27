@@ -2308,6 +2308,8 @@ out:
 	return ret;
 }
 
+static struct type_instance *header;
+
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load __unused)
 {
@@ -2344,6 +2346,12 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto dump_it;
 	}
 
+	if (header == NULL && conf.header_type) {
+		header = type_instance__new(tag__type(cu__find_type_by_name(cu, conf.header_type, false, NULL)), cu);
+		if (!header) // Lets try another CU where we can find the header type
+			return LSK__KEEPIT;
+	}
+
 	bool include_decls = find_pointers_in_structs != 0 || stats_formatter == nr_methods_formatter;
 	struct prototype *prototype, *n;
 
@@ -2357,14 +2365,6 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		if (prototype->nr_args != 0 && !tag__is_struct(class)) {
 			fprintf(stderr, "pahole: attributes are only supported with 'class' and 'struct' types\n");
 			goto dump_and_stop;
-		}
-
-		struct type_instance *header = NULL;
-
-		if (conf.header_type) {
-			header = type_instance__new(tag__type(cu__find_type_by_name(cu, conf.header_type, false, NULL)), cu);
-			if (!header)
-				continue; // we need a CU with both the class and the header type
 		}
 
 		struct type *type = tag__type(class);
@@ -2421,11 +2421,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			 * ignore the rest.
 			 */
 			tag__stdio_fprintf_value(class, cu, NULL, header, stdout);
-			type_instance__delete(header);
 			return LSK__STOP_LOADING;
 		}
-
-		type_instance__delete(header);
 
 		if (defined_in) {
 			puts(cu->name);
@@ -2681,7 +2678,6 @@ try_sole_arg_as_class_names:
 	}
 
 	if (!list_empty(&class_names)) {
-		struct type_instance *header = NULL;
 		struct prototype *prototype;
 		struct tag *class;
 		struct cu *cu;
@@ -2693,10 +2689,12 @@ try_sole_arg_as_class_names:
 				goto out_cus_delete;
 			}
 
-			header = type_instance__new(tag__type(class), cu);
 			if (!header) {
-				fprintf(stderr, "pahole: not enough memory for --header (%s) type\n", conf.header_type);
-				goto out_cus_delete;
+				header = type_instance__new(tag__type(class), cu);
+				if (!header) {
+					fprintf(stderr, "pahole: not enough memory for --header (%s) type\n", conf.header_type);
+					goto out_cus_delete;
+				}
 			}
 		}
 
@@ -2752,11 +2750,13 @@ not_found_continue:
 				 * ignore the rest.
 				 */
 				tag__stdio_fprintf_value(class, cu, cus, header, stdout);
-				type_instance__delete(header);
 				break;
 			}
 		}
 	}
+
+	type_instance__delete(header);
+	header = NULL;
 
 	if (btf_encode) {
 		err = btf_encoder__encode();
