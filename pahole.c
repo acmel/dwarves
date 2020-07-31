@@ -1768,7 +1768,30 @@ out_free_member_name:
 	return base_type__value(&instance->instance[byte_offset], member->byte_size);
 }
 
-static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, struct cus *cus, struct type_instance *header, FILE *fp)
+/*
+ * struct prototype - split arguments to a type
+ *
+ * @name - type name
+ * @type - name of the member containing a type id
+ * @type_enum - translate @type into a enum entry/string
+ * @size - the member with the size for variable sized records
+ * @filter - filter expression using record contents and values or enum entries
+ * @range - from where to get seek_bytes and size_bytes where to pretty print this specific class
+ */
+struct prototype {
+	struct list_head node;
+	const char *type,
+		   *type_enum,
+		   *size,
+		   *range;
+	char	   *filter;
+	uint16_t   nr_args;
+	char name[0];
+
+};
+
+static int tag__stdio_fprintf_value(struct tag *type, struct prototype *prototype,
+				    struct cu *cu, struct cus *cus, struct type_instance *header, FILE *fp)
 {
 	int _sizeof = tag__size(type, cu), printed = 0;
 	int max_sizeof = _sizeof;
@@ -1788,26 +1811,27 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, struct cus 
 		}
 	}
 
-	if (conf.range) {
+	if (conf.range || prototype->range) {
 		off_t seek_bytes;
+		const char *range = conf.range ?: prototype->range;
 
 		if (!header) {
-			fprintf(stderr, "pahole: --range (%s) requires --header\n", conf.range);
+			fprintf(stderr, "pahole: range (%s) requires --header\n", range);
 			return -ESRCH;
 		}
 
 		char *member_name = NULL;
 
-		if (asprintf(&member_name, "%s.%s", conf.range, "offset") == -1) {
-			fprintf(stderr, "pahole: not enough memory for --range (%s)\n", conf.range);
+		if (asprintf(&member_name, "%s.%s", range, "offset") == -1) {
+			fprintf(stderr, "pahole: not enough memory for range=%s\n", range);
 			return -ENOMEM;
 		}
 
 		int64_t value = type_instance__int_value(header, member_name);
 
 		if (value < 0) {
-			fprintf(stderr, "pahole: couldn't read the '%s' member of '%s' for evaluating --range=%s\n",
-				member_name, conf.header_type, conf.range);
+			fprintf(stderr, "pahole: couldn't read the '%s' member of '%s' for evaluating range=%s\n",
+				member_name, conf.header_type, range);
 			free(member_name);
 			return -ESRCH;
 		}
@@ -1819,16 +1843,16 @@ static int tag__stdio_fprintf_value(struct tag *type, struct cu *cu, struct cus 
 		// Since we're reading stdin, we need to account for already read header:
 		seek_bytes -= header->type->size;
 
-		if (asprintf(&member_name, "%s.%s", conf.range, "size") == -1) {
-			fprintf(stderr, "pahole: not enough memory for --range (%s)\n", conf.range);
+		if (asprintf(&member_name, "%s.%s", range, "size") == -1) {
+			fprintf(stderr, "pahole: not enough memory for range=%s\n", range);
 			return -ENOMEM;
 		}
 
 		value = type_instance__int_value(header, member_name);
 
 		if (value < 0) {
-			fprintf(stderr, "pahole: couldn't read the '%s' member of '%s' for evaluating --range=%s\n",
-				member_name, conf.header_type, conf.range);
+			fprintf(stderr, "pahole: couldn't read the '%s' member of '%s' for evaluating range=%s\n",
+				member_name, conf.header_type, range);
 			free(member_name);
 			return -ESRCH;
 		}
@@ -2125,26 +2149,6 @@ static struct class_member_filter *class_member_filter__new(struct type *type, s
 	return filter;
 }
 
-/*
- * struct prototype - split arguments to a type
- *
- * @name - type name
- * @type - name of the member containing a type id
- * @type_enum - translate @type into a enum entry/string
- * @size - the member with the size for variable sized records
- * @filter - filter expression using record contents and values or enum entries
- */
-struct prototype {
-	struct list_head node;
-	const char *type,
-		   *type_enum,
-		   *size;
-	char	   *filter;
-	uint16_t   nr_args;
-	char name[0];
-
-};
-
 static struct prototype *prototype__new(const char *expression)
 {
 	struct prototype *prototype = zalloc(sizeof(*prototype) + strlen(expression) + 1);
@@ -2235,6 +2239,10 @@ do_filter:
 			printf("pahole: filter for '%s' is '%s'\n", name, value);
 
 		prototype->filter = value;
+	} else if (strcmp(args, "range") == 0) {
+		if (global_verbose)
+			printf("pahole: range for '%s' is '%s'\n", name, value);
+		prototype->range = value;
 	} else
 		goto out_invalid_arg;
 
@@ -2465,7 +2473,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			 * For the pretty printer only the first class is considered,
 			 * ignore the rest.
 			 */
-			tag__stdio_fprintf_value(class, cu, NULL, header, stdout);
+			tag__stdio_fprintf_value(class, prototype, cu, NULL, header, stdout);
 			return LSK__STOP_LOADING;
 		}
 
@@ -2794,7 +2802,7 @@ not_found_continue:
 				 * For the pretty printer only the first class is considered,
 				 * ignore the rest.
 				 */
-				tag__stdio_fprintf_value(class, cu, cus, header, stdout);
+				tag__stdio_fprintf_value(class, prototype, cu, cus, header, stdout);
 				break;
 			}
 		}
