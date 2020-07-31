@@ -1770,14 +1770,14 @@ out_free_member_name:
 	return base_type__value(&instance->instance[byte_offset], member->byte_size);
 }
 
-static int type__instance_read_once(struct type_instance *instance, FILE *fp)
+static int64_t type__instance_read_once(struct type_instance *instance, FILE *fp)
 {
  	if (!instance || instance->read_already)
 		return 0;
 
  	instance->read_already = true;
 
-	return fread(instance->instance, instance->type->size, 1, stdin) != 1 ? -1 : 0;
+	return fread(instance->instance, instance->type->size, 1, stdin) != 1 ? -1 : instance->type->size;
 }
 
 /*
@@ -1811,15 +1811,19 @@ static int tag__stdio_fprintf_value(struct tag *type, struct prototype *prototyp
 	uint64_t size_bytes = ULLONG_MAX;
 	uint32_t count = 0;
 	uint32_t skip = conf.skip;
+	static uint64_t total_read_bytes = 0;
 
 	if (instance == NULL)
 		return -ENOMEM;
 
-	if (type__instance_read_once(header, stdin)) {
+	off_t header_size = type__instance_read_once(header, stdin);
+	if (header_size < 0) {
 		int err = --errno;
 		fprintf(stderr, "pahole: --header (%s) type not be read\n", conf.header_type);
 		return err;
 	}
+
+	total_read_bytes += header_size;
 
 	if (conf.range || prototype->range) {
 		off_t seek_bytes;
@@ -1850,8 +1854,14 @@ static int tag__stdio_fprintf_value(struct tag *type, struct prototype *prototyp
 
 		free(member_name);
 
-		// Since we're reading stdin, we need to account for already read header:
-		seek_bytes -= header->type->size;
+		// Since we're reading stdin, we need to account for what we already read
+		if (seek_bytes < total_read_bytes) {
+			fprintf(stderr, "pahole: can't go back in stdin, already read %" PRIu64 " bytes, can't go to position %ld\n",
+					total_read_bytes, seek_bytes);
+			return -ENOMEM;
+		}
+
+		seek_bytes -= total_read_bytes;
 
 		if (asprintf(&member_name, "%s.%s", range, "size") == -1) {
 			fprintf(stderr, "pahole: not enough memory for range=%s\n", range);
@@ -1978,6 +1988,7 @@ do_read:
 		}
 
 		read_bytes += real_sizeof;
+		total_read_bytes += real_sizeof;
 
 		if (tag__type(type)->filter && type__filter_value(type, instance))
 			goto next_record;
