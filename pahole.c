@@ -1685,6 +1685,7 @@ static struct tag *tag__real_type(struct tag *tag, struct cu **cup, void *instan
 struct type_instance {
 	struct type *type;
 	struct cu   *cu;
+	bool	    read_already;
 	char	    instance[0];
 };
 
@@ -1698,6 +1699,7 @@ static struct type_instance *type_instance__new(struct type *type, struct cu *cu
 	if (instance) {
 		instance->type = type;
 		instance->cu   = cu;
+		instance->read_already = false;
 	}
 
 	return instance;
@@ -1768,6 +1770,16 @@ out_free_member_name:
 	return base_type__value(&instance->instance[byte_offset], member->byte_size);
 }
 
+static int type__instance_read_once(struct type_instance *instance, FILE *fp)
+{
+ 	if (!instance || instance->read_already)
+		return 0;
+
+ 	instance->read_already = true;
+
+	return fread(instance->instance, instance->type->size, 1, stdin) != 1 ? -1 : 0;
+}
+
 /*
  * struct prototype - split arguments to a type
  *
@@ -1803,12 +1815,10 @@ static int tag__stdio_fprintf_value(struct tag *type, struct prototype *prototyp
 	if (instance == NULL)
 		return -ENOMEM;
 
-	if (header) {
-		if (fread(header->instance, header->type->size, 1, stdin) != 1) {
-			int err = --errno;
-			fprintf(stderr, "pahole: --header (%s) type not be read\n", conf.header_type);
-			return err;
-		}
+	if (type__instance_read_once(header, stdin)) {
+		int err = --errno;
+		fprintf(stderr, "pahole: --header (%s) type not be read\n", conf.header_type);
+		return err;
 	}
 
 	if (conf.range || prototype->range) {
