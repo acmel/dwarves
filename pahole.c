@@ -1861,6 +1861,11 @@ static int tag__stdio_fprintf_value(struct tag *type, struct prototype *prototyp
 			return -ENOMEM;
 		}
 
+		if (global_verbose) {
+			fprintf(fp, "pahole: range.seek_bytes evaluated from range=%s is %#" PRIx64 " \n",
+				range, seek_bytes);
+		}
+
 		seek_bytes -= total_read_bytes;
 
 		if (asprintf(&member_name, "%s.%s", range, "size") == -1) {
@@ -1878,6 +1883,10 @@ static int tag__stdio_fprintf_value(struct tag *type, struct prototype *prototyp
 		}
 
 		size_bytes = value;
+		if (global_verbose) {
+			fprintf(fp, "pahole: range.size_bytes evaluated from range=%s is %#" PRIx64 " \n",
+				range, size_bytes);
+		}
 
 		free(member_name);
 
