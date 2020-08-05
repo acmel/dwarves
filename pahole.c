@@ -1603,46 +1603,6 @@ static bool type__filter_value(struct tag *tag, void *instance)
 	return value != filter->right;
 }
 
-static struct tag *cus__tag_real_type(struct cus *cus, struct tag *tag, struct cu **cup, void *instance)
-{
-	if (tag__is_struct(tag)) {
-		struct type *type = tag__type(tag);
-
-		if (!list_empty(&type->type_enum) && type->type_member) {
-			struct class_member *member = type->type_member;
-			uint64_t value = base_type__value(instance + member->byte_offset, member->byte_size);
-			struct cu *cu_enumerator;
-			struct enumerator *enumerator = enumerations__lookup_entry_from_value(&type->type_enum, &cu_enumerator, value);
-			char name[1024];
-
-			if (!enumerator)
-				return tag;
-
-			if (enumerator->type_enum.tag) {
-				*cup = enumerator->type_enum.cu;
-				return enumerator->type_enum.tag;
-			}
-
-			snprintf(name, sizeof(name), enumerator__name(enumerator, cu_enumerator));
-			strlwr(name);
-
-			struct cu *orig_cu = *cup;
-			struct tag *real_type = cus__find_type_by_name(cus, cup, name, false, NULL);
-
-			if (real_type && tag__is_struct(real_type)) {
-				enumerator->type_enum.tag = real_type;
-				enumerator->type_enum.cu  = *cup;
-				return real_type;
-			}
-
-			// If the cast operation wasn't done, restore the original CU
-			*cup = orig_cu;
-		}
-	}
-
-	return tag;
-}
-
 static struct tag *tag__real_type(struct tag *tag, struct cu **cup, void *instance)
 {
 	if (tag__is_struct(tag)) {
@@ -1786,51 +1746,55 @@ static int64_t type__instance_read_once(struct type_instance *instance, FILE *fp
  * @name - type name
  * @type - name of the member containing a type id
  * @type_enum - translate @type into a enum entry/string
+ * @type_enum_resolved - if this was already resolved, i.e. if the enums were find in some CU
  * @size - the member with the size for variable sized records
  * @filter - filter expression using record contents and values or enum entries
  * @range - from where to get seek_bytes and size_bytes where to pretty print this specific class
  */
 struct prototype {
 	struct list_head node;
+	struct tag	 *class;
+	struct cu	 *cu;
 	const char *type,
 		   *type_enum,
 		   *size,
 		   *range;
 	char	   *filter;
 	uint16_t   nr_args;
+	bool	   type_enum_resolved;
 	char name[0];
 
 };
 
-static int tag__stdio_fprintf_value(struct tag *type, struct prototype *prototype,
-				    struct cu *cu, struct cus *cus, struct type_instance *header, FILE *fp)
+static int prototype__stdio_fprintf_value(struct prototype *prototype, struct type_instance *header, FILE *fp)
 {
+	struct tag *type = prototype->class;
+	struct cu *cu = prototype->cu;
 	int _sizeof = tag__size(type, cu), printed = 0;
 	int max_sizeof = _sizeof;
 	void *instance = malloc(_sizeof);
 	uint64_t size_bytes = ULLONG_MAX;
 	uint32_t count = 0;
 	uint32_t skip = conf.skip;
-	static uint64_t total_read_bytes = 0;
 
 	if (instance == NULL)
 		return -ENOMEM;
 
-	off_t header_size = type__instance_read_once(header, stdin);
-	if (header_size < 0) {
+	if (type__instance_read_once(header, stdin) < 0) {
 		int err = --errno;
 		fprintf(stderr, "pahole: --header (%s) type not be read\n", conf.header_type);
 		return err;
 	}
-
-	total_read_bytes += header_size;
 
 	if (conf.range || prototype->range) {
 		off_t seek_bytes;
 		const char *range = conf.range ?: prototype->range;
 
 		if (!header) {
-			fprintf(stderr, "pahole: range (%s) requires --header\n", range);
+			if (conf.header_type)
+				fprintf(stderr, "pahole: --header_type=%s not found\n", conf.header_type);
+			else
+				fprintf(stderr, "pahole: range (%s) requires --header\n", range);
 			return -ESRCH;
 		}
 
@@ -1853,6 +1817,8 @@ static int tag__stdio_fprintf_value(struct tag *type, struct prototype *prototyp
 		seek_bytes = value;
 
 		free(member_name);
+
+		off_t total_read_bytes = ftell(stdin);
 
 		// Since we're reading stdin, we need to account for what we already read
 		if (seek_bytes < total_read_bytes) {
@@ -1935,7 +1901,7 @@ static int tag__stdio_fprintf_value(struct tag *type, struct prototype *prototyp
 
 		if (header) {
 			// Since we're reading stdin, we need to account for already read header:
-			seek_bytes -= header->type->size;
+			seek_bytes -= ftell(stdin);
 		}
 
 		if (pipe_seek(stdin, seek_bytes) < 0) {
@@ -1973,6 +1939,7 @@ static int tag__stdio_fprintf_value(struct tag *type, struct prototype *prototyp
 do_read:
 {
 	uint64_t read_bytes = 0;
+	off_t record_offset = ftell(stdin);
 
 	while (fread(instance, _sizeof, 1, stdin) == 1) {
 		// Read it from each record/instance
@@ -1997,7 +1964,6 @@ do_read:
 		}
 
 		read_bytes += real_sizeof;
-		total_read_bytes += real_sizeof;
 
 		if (tag__type(type)->filter && type__filter_value(type, instance))
 			goto next_record;
@@ -2051,36 +2017,18 @@ do_read:
 		 */
 
 		struct cu *real_type_cu = cu;
-		/*
-		 * First look at the same CU, then, if cus was passed,
-		 * everywhere.
-		 *
-		 * This is because we can go from, say, 'struct
-		 * perf_event_header' to 'struct perf_record_mmap2', the later
-		 * having a 'struct perf_event_header' as its first member
-		 * would not find the type->type_enum set if the CU where
-		 * perf_record_mmap2 is found is different than the one where
-		 * the 'type' instance for 'perf_event_header' was first found.
-		 *
-		 * Perhaps we should do a best effort in the fallback, i.e.
-		 * when we're looking at the list of classes that were not
-		 * processed by the stealer, i.e. in the cus__load_files()
-		 * call, when we must use cus__find to locate all the types
-		 * referenced in the 'struct prototype' members. Yeah, dealing
-		 * with DWARF and its multiple representations for types found
-		 * in each of its CUs complicates things.
-		 *
-		 * When using BTF this is all moot, as we have just one 'CU'
-		 * with all the types. The fallbacks only happen when
-		 * referenced types are _really_ not found, and in the real_type
-		 * case we just pretty print with the original type and skip
-		 * to the next record using its ->sizeof field.
-		 */
 		struct tag *real_type = tag__real_type(type, &real_type_cu, instance);
 
 		if (real_type == NULL)
-			real_type = cus ? cus__tag_real_type(cus, type, &real_type_cu, instance) : type;
+			real_type = type;
 
+		if (global_verbose) {
+			printed += fprintf(fp, "// type=%s, offset=%#" PRIx64 ", sizeof=%d", type__name(tag__type(type), cu), record_offset, _sizeof);
+			if (real_sizeof != _sizeof)
+				printed += fprintf(fp, ", real_sizeof=%d\n", real_sizeof);
+			else
+				printed += fprintf(fp, "\n");
+		}
 		printed += tag__fprintf_value(real_type, real_type_cu, instance, real_sizeof, fp);
 		printed += fprintf(fp, ",\n");
 
@@ -2089,6 +2037,8 @@ do_read:
 next_record:
 		if (read_bytes >= size_bytes)
 			break;
+
+		record_offset = ftell(stdin);
 	}
 }
 out:
@@ -2396,7 +2346,7 @@ static struct type_instance *header;
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load __unused)
 {
-	int ret = !isatty(0) ? LSK__KEEPIT : LSK__DELETE;
+	int ret = LSK__DELETE;
 
 	if (!cu__filter(cu))
 		goto filter_it;
@@ -2431,19 +2381,27 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	if (header == NULL && conf.header_type) {
 		header = type_instance__new(tag__type(cu__find_type_by_name(cu, conf.header_type, false, NULL)), cu);
-		if (!header) // Lets try another CU where we can find the header type
-			return LSK__KEEPIT;
+		if (header)
+			ret = LSK__KEEPIT;
 	}
 
 	bool include_decls = find_pointers_in_structs != 0 || stats_formatter == nr_methods_formatter;
 	struct prototype *prototype, *n;
 
 	list_for_each_entry_safe(prototype, n, &class_names, node) {
+
+		/* See if we already found it */
+		if (prototype->class) {
+			if (prototype->type_enum && !prototype->type_enum_resolved)
+				prototype->type_enum_resolved = type__find_type_enum(tag__type(prototype->class), cu, prototype->type_enum) == 0;
+			continue;
+		}
+
 		static type_id_t class_id;
 		struct tag *class = cu__find_type_by_name(cu, prototype->name, include_decls, &class_id);
 
 		if (class == NULL)
-			continue; // couldn't find that class name in this CU, continue to the next one.
+			return ret; // couldn't find that class name in this CU, continue to the next one.
 
 		if (prototype->nr_args != 0 && !tag__is_struct(class)) {
 			fprintf(stderr, "pahole: attributes are only supported with 'class' and 'struct' types\n");
@@ -2471,10 +2429,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		}
 
 		if (prototype->type_enum) {
-			if (type__find_type_enum(type, cu, prototype->type_enum)) {
-				// just continue, maybe we'll find a CU that has all the types, if not, at the end we'll do multi-CU searches
-				continue;
-			}
+			prototype->type_enum_resolved = type__find_type_enum(type, cu, prototype->type_enum) == 0;
 		}
 
 		if (prototype->filter) {
@@ -2492,20 +2447,17 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			class_id = 0;
 		}
 
+		if (!isatty(0)) {
+			prototype->class = class;
+			prototype->cu	 = cu;
+			continue;
+		}
+
 		/*
 		 * Ok, found it, so remove from the list to avoid printing it
 		 * twice, in another CU.
 		 */
 		list_del_init(&prototype->node);
-
-		if (!isatty(0)) {
-			/*
-			 * For the pretty printer only the first class is considered,
-			 * ignore the rest.
-			 */
-			tag__stdio_fprintf_value(class, prototype, cu, NULL, header, stdout);
-			return LSK__STOP_LOADING;
-		}
 
 		if (defined_in) {
 			puts(cu->name);
@@ -2529,6 +2481,25 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			tag__fprintf(class, cu, &conf, stdout);
 			putchar('\n');
 		}
+	}
+
+	// If we got here with pretty printing is because we have everything solved except for type_enum
+
+	if (!isatty(0)) {
+		// Check if we need to continue loading CUs to get those type_enum= resolved
+		list_for_each_entry(prototype, &class_names, node) {
+			if (prototype->type_enum && !prototype->type_enum_resolved)
+				return LSK__KEEPIT;
+		}
+
+		// All set, pretty print it!
+		list_for_each_entry_safe(prototype, n, &class_names, node) {
+			list_del_init(&prototype->node);
+			if (prototype__stdio_fprintf_value(prototype, header, stdout) < 0)
+				break;
+		}
+
+		return LSK__STOP_LOADING;
 	}
 
 	/*
@@ -2663,54 +2634,6 @@ out_free:
 	return ret;
 }
 
-static int cus__find_type_enum(struct cus *cus, struct type *type, const char *type_enum)
-{
-	struct cu *cu;
-	struct tag *te = cus__find_type_by_name(cus, &cu, type_enum, false, NULL);
-
-	if (te)
-		return type__add_type_enum(type, te, cu);
-
-	// Now look at a 'virtual enum', i.e. the concatenation of multiple enums
-	char *sep = strchr(type_enum, '+');
-
-	if (!sep)
-		return -1;
-
-	char *type_enums = strdup(type_enum);
-
-	if (!type_enums)
-		return -1;
-
-	int ret = -1;
-
-	sep = type_enums + (sep - type_enum);
-
-	type_enum = type_enums;
-	*sep = '\0';
-
-	while (1) {
-		te = cus__find_type_by_name(cus, &cu, type_enum, false, NULL);
-
-		if (!te)
-			goto out;
-
-		ret = type__add_type_enum(type, te, cu);
-		if (ret)
-			goto out;
-
-		if (sep == NULL)
-			break;
-		type_enum = sep + 1;
-		sep = strchr(type_enum, '+');
-	}
-
-	ret = 0;
-out:
-	free(type_enums);
-	return ret;
-}
-
 int main(int argc, char *argv[])
 {
 	int err, remaining, rc = EXIT_FAILURE;
@@ -2762,78 +2685,34 @@ try_sole_arg_as_class_names:
 
 	if (!list_empty(&class_names)) {
 		struct prototype *prototype;
-		struct tag *class;
-		struct cu *cu;
-
-		if (conf.header_type) {
-			class = cus__find_type_by_name(cus, &cu, conf.header_type, false, NULL);
-			if (!class) {
-				fprintf(stderr, "pahole: --header (%s) type not found\n", conf.header_type);
-				goto out_cus_delete;
-			}
-
-			if (!header) {
-				header = type_instance__new(tag__type(class), cu);
-				if (!header) {
-					fprintf(stderr, "pahole: not enough memory for --header (%s) type\n", conf.header_type);
-					goto out_cus_delete;
-				}
-			}
-		}
 
 		list_for_each_entry(prototype, &class_names, node) {
-			if (prototype->nr_args == 0)
-				goto not_found_continue;
-
-			class = cus__find_type_by_name(cus, &cu, prototype->name, false, NULL);
-			if (!class) {
-not_found_continue:
-				fprintf(stderr, "pahole: type (%s) not found\n", prototype->name);
-				continue;
-			}
-
-			struct type *type = tag__type(class);
-
-			if (prototype->size) {
-				type->sizeof_member = type__find_member_by_name(type, cu, prototype->size);
-				if (type->sizeof_member == NULL) {
-					fprintf(stderr, "pahole: the sizeof member '%s' wasn't found in the '%s' type\n",
-						prototype->size, prototype->name);
-					continue;
-				}
-			}
-
-			if (prototype->type) {
-				type->type_member = type__find_member_by_name(type, cu, prototype->type);
-				if (type->type_member == NULL) {
-					fprintf(stderr, "pahole: the type member '%s' wasn't found in the '%s' type\n",
-						prototype->type, prototype->name);
-					continue;
-				}
-			}
-
-			if (prototype->type_enum) {
-				if (cus__find_type_enum(cus, type, prototype->type_enum)) {
-					fprintf(stderr, "pahole: type_enum=%s type not found for %s\n", prototype->type_enum, prototype->name);
-					continue;
-				}
-			}
-
-			if (prototype->filter) {
-				type->filter = class_member_filter__new(type, cu, prototype->filter);
-				if (type->filter == NULL) {
-					fprintf(stderr, "pahole: invalid filter '%s' for '%s'\n", prototype->filter, prototype->name);
-					continue;
-				}
-			}
-
-			if (!isatty(0)) {
-				/*
-				 * For the pretty printer only the first class is considered,
-				 * ignore the rest.
-				 */
-				tag__stdio_fprintf_value(class, prototype, cu, cus, header, stdout);
+			if (prototype->class == NULL) {
+				fprintf(stderr, "pahole: type '%s' not found%s\n", prototype->name,
+					prototype->nr_args ? " or arguments not validated" : "");
 				break;
+			} else {
+				struct type *type = tag__type(prototype->class);
+
+				if (prototype->type && !type->type_member) {
+					fprintf(stderr, "pahole: member 'type=%s' not found in '%s' type\n",
+						prototype->type, prototype->name);
+				}
+
+				if (prototype->size && !type->sizeof_member) {
+					fprintf(stderr, "pahole: member 'sizeof=%s' not found in '%s' type\n",
+						prototype->size, prototype->name);
+				}
+
+				if (prototype->filter && !type->filter) {
+					fprintf(stderr, "pahole: filter 'filter=%s' couldn't be evaluated for '%s' type\n",
+						prototype->filter, prototype->name);
+				}
+
+				if (prototype->type_enum && !prototype->type_enum_resolved) {
+					fprintf(stderr, "pahole: 'type_enum=%s' couldn't be evaluated for '%s' type\n",
+						prototype->type_enum, prototype->name);
+				}
 			}
 		}
 	}

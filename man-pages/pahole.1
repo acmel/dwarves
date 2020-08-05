@@ -896,6 +896,16 @@ $ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset'
 },
 $
 .fi
+.P
+It is possible to pass multiple types, one has only to make sure they appear in the file
+in sequence, i.e. for the perf.data example, see the perf_file_header dump above, one can print
+the perf_file_attr structs in the header attrs range, then the perf_event_header in the
+data range with the following command:
+.PP
+.nf
+pahole ~/bin/perf --header=perf_file_header \
+         -C 'perf_file_attr(range=attrs),perf_event_header(range=data,sizeof,type,type_enum=perf_event_type+perf_user_event_type)' < perf.data
+.fi
 
 .SH SEE ALSO
 \fIeu-readelf\fR(1), \fIreadelf\fR(1), \fIobjdump\fR(1).
