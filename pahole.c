@@ -1623,7 +1623,7 @@ static struct tag *tag__real_type(struct tag *tag, struct cu **cup, void *instan
 				return enumerator->type_enum.tag;
 			}
 
-			snprintf(name, sizeof(name), enumerator__name(enumerator, cu_enumerator));
+			snprintf(name, sizeof(name), "%s", enumerator__name(enumerator, cu_enumerator));
 			strlwr(name);
 
 			struct tag *real_type = cu__find_type_by_name(*cup, name, false, NULL);
