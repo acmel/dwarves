@@ -1,0 +1,7 @@
+CC=s390x-linux-gnu-gcc \
+	cmake -DDWARF_INCLUDE_DIR=/usr/s390x-linux-gnu/include/ \
+	      -DLIBDW_INCLUDE_DIR=/usr/s390x-linux-gnu/include/ \
+	      -DDWARF_LIBRARY=/usr/s390x-linux-gnu/lib/libdw.so.1 \
+	      -DELF_LIBRARY=/usr/s390x-linux-gnu/lib/libelf.so.1 \
+	      -DZLIB_LIBRARY=/usr/s390x-linux-gnu/lib/libz.so.1 \
+	      -DZLIB_INCLUDE_DIR=/usr/s390x-linux-gnu/include/ ..
