@@ -2309,11 +2309,11 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 {
 	Dwarf_Off off = 0, noff;
 	size_t cuhl;
-	GElf_Addr vaddr;
 	const unsigned char *build_id = NULL;
 	uint8_t pointer_size, offset_size;
 
 #ifdef HAVE_DWFL_MODULE_BUILD_ID
+	GElf_Addr vaddr;
 	int build_id_len = dwfl_module_build_id(mod, &build_id, &vaddr);
 #else
 	int build_id_len = 0;
