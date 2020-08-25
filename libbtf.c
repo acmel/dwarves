@@ -305,6 +305,8 @@ static const char * const btf_kind_str[NR_BTF_KINDS] = {
 	[BTF_KIND_RESTRICT]	= "RESTRICT",
 	[BTF_KIND_FUNC]		= "FUNC",
 	[BTF_KIND_FUNC_PROTO]	= "FUNC_PROTO",
+	[BTF_KIND_VAR]          = "VAR",
+	[BTF_KIND_DATASEC]      = "DATASEC",
 };
 
 static const char *btf_elf__name_in_gobuf(const struct btf_elf *btfe, uint32_t offset)
@@ -672,7 +674,7 @@ int32_t btf_elf__add_var_type(struct btf_elf *btfe, uint32_t type, uint32_t name
 		return -1;
 	}
 
-	btf_elf__log_type(btfe, &t.type, false, false, "type=%u name=%s",
+	btf_elf__log_type(btfe, &t.type, false, false, "type=%u name=%s\n",
 			  t.type.type, btf_elf__name_in_gobuf(btfe, t.type.name_off));
 
 	return btfe->type_index;

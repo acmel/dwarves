@@ -332,10 +332,10 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		struct hlist_head *head;
 
 		var = tag__variable(pos);
-		if (var->declaration)
+		if (var->declaration && !var->spec)
 			continue;
 		/* percpu variables are allocated in global space */
-		if (variable__scope(var) != VSCOPE_GLOBAL)
+		if (variable__scope(var) != VSCOPE_GLOBAL && !var->spec)
 			continue;
 		has_global_var = true;
 		head = &hash_addr[hashaddr__fn(var->ip.addr)];
@@ -379,6 +379,8 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		var = hashaddr__find_variable(hash_addr, addr);
 		if (var == NULL)
 			continue;
+		if (var->spec)
+			var = var->spec;
 
 		sym_name = elf_sym__name(&sym, btfe->symtab);
 		if (!btf_name_valid(sym_name)) {
@@ -390,7 +392,15 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 			break;
 		}
 		name = strings__add(strings, sym_name);
-		type = var->ip.tag.type + type_id_off;
+		if (var->ip.tag.type == 0) {
+			dump_invalid_symbol("Found symbol of void type when encoding btf",
+					    sym_name, cu->name, verbose, force);
+			if (force)
+				continue;
+			err = -1;
+			break;
+		}
+		type = type_id_off + var->ip.tag.type;
 		size = elf_sym__size(&sym);
 		if (!size) {
 			dump_invalid_symbol("Found symbol of zero size when encoding btf",

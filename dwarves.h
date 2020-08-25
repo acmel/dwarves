@@ -680,6 +680,7 @@ struct variable {
 	enum vscope	 scope;
 	struct location	 location;
 	struct hlist_node tool_hnode;
+	struct variable  *spec;
 };
 
 static inline struct variable *tag__variable(const struct tag *tag)
