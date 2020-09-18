@@ -2085,7 +2085,19 @@ static int die__process(Dwarf_Die *die, struct cu *cu)
 	Dwarf_Die child;
 	const uint16_t tag = dwarf_tag(die);
 
-	if (tag != DW_TAG_compile_unit && tag != DW_TAG_type_unit && tag != DW_TAG_partial_unit) {
+	if (tag == DW_TAG_partial_unit) {
+		static bool warned;
+
+		if (!warned) {
+			fprintf(stderr, "WARNING: DW_TAG_partial_unit used, some types will not be considered!\n"
+					"         Probably this was optimized using a tool like 'dwz'\n"
+					"         A future version of pahole will take support this.\n");
+			warned = true;
+		}
+		return 0; // so that other units can be processed
+	}
+
+	if (tag != DW_TAG_compile_unit && tag != DW_TAG_type_unit) {
 		fprintf(stderr, "%s: DW_TAG_compile_unit, DW_TAG_type_unit or DW_TAG_partial_unit expected got %s!\n",
 			__FUNCTION__, dwarf_tag_name(tag));
 		return -EINVAL;
