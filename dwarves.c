@@ -1007,6 +1007,8 @@ size_t tag__size(const struct tag *tag, const struct cu *cu)
 	size_t size;
 
 	switch (tag->tag) {
+	case DW_TAG_string_type:
+		return tag__string_type(tag)->nr_entries;
 	case DW_TAG_member: {
 		struct class_member *member = tag__class_member(tag);
 		if (member->is_static)

@@ -246,6 +246,16 @@ static size_t array_type__fprintf(const struct tag *tag,
 	return printed;
 }
 
+static size_t string_type__fprintf(const struct tag *tag,
+				   const struct cu *cu, const char *name,
+				   const struct conf_fprintf *conf,
+				   FILE *fp)
+{
+	struct string_type *st = tag__string_type(tag);
+
+	return fprintf(fp, "string %*s[%u]", conf->type_spacing - 5, name, st->nr_entries);
+}
+
 size_t typedef__fprintf(const struct tag *tag, const struct cu *cu,
 			const struct conf_fprintf *conf, FILE *fp)
 {
@@ -740,6 +750,9 @@ print_default:
 
 	case DW_TAG_array_type:
 		printed += array_type__fprintf(type, cu, name, &tconf, fp);
+		break;
+	case DW_TAG_string_type:
+		printed += string_type__fprintf(type, cu, name, &tconf, fp);
 		break;
 	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
