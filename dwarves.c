@@ -1488,6 +1488,13 @@ void type__check_structs_at_unnatural_alignments(struct type *type, const struct
 	type__for_each_member(type, member) {
 		struct tag *member_type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
 
+		if (member_type == NULL) {
+			// just be conservative and ignore
+			// Found first when a FORTRAN95 DWARF file was processed
+			// and the DW_TAG_string_type wasn't yet supported
+			continue;
+		}
+
 		if (!tag__is_struct(member_type))
 			continue;
 
