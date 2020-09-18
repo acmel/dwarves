@@ -472,6 +472,20 @@ static struct array_type *array_type__new(Dwarf_Die *die, struct cu *cu)
 	return at;
 }
 
+static struct string_type *string_type__new(Dwarf_Die *die, struct cu *cu)
+{
+	struct string_type *st = tag__alloc(cu, sizeof(*st));
+
+	if (st != NULL) {
+		tag__init(&st->tag, cu, die);
+		st->nr_entries = attr_numeric(die, DW_AT_byte_size);
+		if (st->nr_entries == 0)
+			st->nr_entries = 1;
+	}
+
+	return st;
+}
+
 static void namespace__init(struct namespace *namespace, Dwarf_Die *die,
 			    struct cu *cu)
 {
@@ -1127,6 +1141,16 @@ out_free:
 	return NULL;
 }
 
+static struct tag *die__create_new_string_type(Dwarf_Die *die, struct cu *cu)
+{
+	struct string_type *string = string_type__new(die, cu);
+
+	if (string == NULL)
+		return NULL;
+
+	return &string->tag;
+}
+
 static struct tag *die__create_new_parameter(Dwarf_Die *die,
 					     struct ftype *ftype,
 					     struct lexblock *lexblock,
@@ -1619,6 +1643,8 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 		return NULL; // We don't support imported units yet, so to avoid segfaults
 	case DW_TAG_array_type:
 		tag = die__create_new_array(die, cu);		break;
+	case DW_TAG_string_type: // FORTRAN stuff, looks like an array
+		tag = die__create_new_string_type(die, cu);	break;
 	case DW_TAG_base_type:
 		tag = die__create_new_base_type(die, cu);	break;
 	case DW_TAG_const_type:

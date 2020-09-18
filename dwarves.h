@@ -502,6 +502,7 @@ static inline int tag__is_tag_type(const struct tag *tag)
 {
 	return tag__is_type(tag) ||
 	       tag->tag == DW_TAG_array_type ||
+	       tag->tag == DW_TAG_string_type ||
 	       tag->tag == DW_TAG_base_type ||
 	       tag->tag == DW_TAG_const_type ||
 	       tag->tag == DW_TAG_pointer_type ||
@@ -1282,6 +1283,16 @@ struct array_type {
 static inline struct array_type *tag__array_type(const struct tag *tag)
 {
 	return (struct array_type *)tag;
+}
+
+struct string_type {
+	struct tag      tag;
+	uint32_t        nr_entries;
+};
+
+static inline struct string_type *tag__string_type(const struct tag *tag)
+{
+	return (struct string_type *)tag;
 }
 
 struct enumerator {
