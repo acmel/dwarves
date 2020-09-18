@@ -1615,6 +1615,8 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	struct tag *tag;
 
 	switch (dwarf_tag(die)) {
+	case DW_TAG_imported_unit:
+		return NULL; // We don't support imported units yet, so to avoid segfaults
 	case DW_TAG_array_type:
 		tag = die__create_new_array(die, cu);		break;
 	case DW_TAG_base_type:
