@@ -26,6 +26,7 @@
 static bool btf_encode;
 static bool ctf_encode;
 static bool first_obj_only;
+static bool skip_encoding_btf_vars;
 
 static uint8_t class__include_anonymous;
 static uint8_t class__include_nested_anonymous;
@@ -809,6 +810,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_header_type	   314
 #define ARGP_size_bytes		   315
 #define ARGP_range		   316
+#define ARGP_skip_encoding_btf_vars 317
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1088,6 +1090,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Encode as BTF",
 	},
 	{
+		.name = "skip_encoding_btf_vars",
+		.key  = ARGP_skip_encoding_btf_vars,
+		.doc  = "Do not encode VARs in BTF."
+	},
+	{
 		.name = "force",
 		.key  = 'j',
 		.doc  = "Ignore those symbols found invalid when encoding BTF."
@@ -1207,6 +1214,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf.range = arg;			break;
 	case ARGP_header_type:
 		conf.header_type = arg;			break;
+	case ARGP_skip_encoding_btf_vars:
+		skip_encoding_btf_vars = true;		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -2352,7 +2361,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto filter_it;
 
 	if (btf_encode) {
-		cu__encode_btf(cu, global_verbose, force);
+		cu__encode_btf(cu, global_verbose, force, skip_encoding_btf_vars);
 		return LSK__KEEPIT;
 	}
 

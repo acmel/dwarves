@@ -13,6 +13,7 @@ struct cu;
 
 int btf_encoder__encode();
 
-int cu__encode_btf(struct cu *cu, int verbose, bool force);
+int cu__encode_btf(struct cu *cu, int verbose, bool force,
+		   bool skip_encoding_vars);
 
 #endif /* _BTF_ENCODER_H_ */

@@ -237,7 +237,8 @@ static struct variable *hashaddr__find_variable(const struct hlist_head hashtabl
 	return NULL;
 }
 
-int cu__encode_btf(struct cu *cu, int verbose, bool force)
+int cu__encode_btf(struct cu *cu, int verbose, bool force,
+		   bool skip_encoding_vars)
 {
 	bool add_index_type = false;
 	uint32_t type_id_off;
@@ -314,6 +315,8 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force)
 		}
 	}
 
+	if (skip_encoding_vars)
+		goto out;
 
 	if (btfe->percpu_shndx == 0 || !btfe->symtab)
 		goto out;
