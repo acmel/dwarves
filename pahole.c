@@ -27,6 +27,7 @@ static bool btf_encode;
 static bool ctf_encode;
 static bool first_obj_only;
 static bool skip_encoding_btf_vars;
+static bool btf_encode_force;
 
 static uint8_t class__include_anonymous;
 static uint8_t class__include_nested_anonymous;
@@ -62,7 +63,6 @@ static int show_reorg_steps;
 static const char *class_name;
 static LIST_HEAD(class_names);
 static char separator = '\t';
-static bool force;
 
 static struct conf_fprintf conf = {
 	.emit_stats = 1,
@@ -811,6 +811,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_size_bytes		   315
 #define ARGP_range		   316
 #define ARGP_skip_encoding_btf_vars 317
+#define ARGP_btf_encode_force	   318
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1095,8 +1096,8 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Do not encode VARs in BTF."
 	},
 	{
-		.name = "force",
-		.key  = 'j',
+		.name = "btf_encode_force",
+		.key  = ARGP_btf_encode_force,
 		.doc  = "Ignore those symbols found invalid when encoding BTF."
 	},
 	{
@@ -1143,7 +1144,6 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'J': btf_encode = 1;
 		  conf_load.get_addr_info = true;
 		  no_bitfield_type_recode = true;	break;
-	case 'j': force = true;				break;
 	case 'l': conf.show_first_biggest_size_base_type_member = 1;	break;
 	case 'M': conf.show_only_data_members = 1;	break;
 	case 'm': stats_formatter = nr_methods_formatter; break;
@@ -1216,6 +1216,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf.header_type = arg;			break;
 	case ARGP_skip_encoding_btf_vars:
 		skip_encoding_btf_vars = true;		break;
+	case ARGP_btf_encode_force:
+		btf_encode_force = true;		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -2361,7 +2363,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto filter_it;
 
 	if (btf_encode) {
-		cu__encode_btf(cu, global_verbose, force, skip_encoding_btf_vars);
+		cu__encode_btf(cu, global_verbose, btf_encode_force,
+			       skip_encoding_btf_vars);
 		return LSK__KEEPIT;
 	}
 
