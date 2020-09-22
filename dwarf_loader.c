@@ -1300,6 +1300,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 
 	do {
 		switch (dwarf_tag(die)) {
+		case DW_TAG_variant_part: // XXX: Rust stuff
 #ifdef STB_GNU_UNIQUE
 		case DW_TAG_GNU_formal_parameter_pack:
 		case DW_TAG_GNU_template_parameter_pack:
