@@ -2382,6 +2382,9 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 		Dwarf_Die die_mem;
 		Dwarf_Die *cu_die = dwarf_offdie(dw, off + cuhl, &die_mem);
 
+		if (cu_die == NULL)
+			break;
+
 		/*
 		 * DW_AT_name in DW_TAG_compile_unit can be NULL, first
 		 * seen in:
