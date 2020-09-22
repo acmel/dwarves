@@ -1427,6 +1427,9 @@ static size_t tag__natural_alignment(struct tag *tag, const struct cu *cu)
 {
 	size_t natural_alignment = 1;
 
+	if (tag == NULL) // Maybe its a non supported type, like DW_TAG_subrange_type, ADA stuff
+		return natural_alignment;
+
 	if (tag__is_pointer(tag)) {
 		natural_alignment = cu->addr_size;
 	} else if (tag->tag == DW_TAG_base_type) {
@@ -1437,7 +1440,8 @@ static size_t tag__natural_alignment(struct tag *tag, const struct cu *cu)
 		natural_alignment = type__natural_alignment(tag__type(tag), cu);
 	} else if (tag->tag == DW_TAG_array_type) {
 		tag = tag__strip_typedefs_and_modifiers(tag, cu);
-		natural_alignment = tag__natural_alignment(tag, cu);
+		if (tag != NULL) // Maybe its a non supported type, like DW_TAG_subrange_type, ADA stuff
+			natural_alignment = tag__natural_alignment(tag, cu);
 	}
 
 	/*
@@ -1468,6 +1472,10 @@ static size_t type__natural_alignment(struct type *type, const struct cu *cu)
 		if (member->is_static) continue;
 
 		struct tag *member_type = tag__strip_typedefs_and_modifiers(&member->tag, cu);
+
+		if (member_type == NULL) // Maybe its a DW_TAG_subrange_type, ADA stuff still not supported
+			continue;
+
 		size_t member_natural_alignment = tag__natural_alignment(member_type, cu);
 
 		if (type->natural_alignment < member_natural_alignment)

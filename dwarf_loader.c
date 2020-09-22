@@ -1217,6 +1217,9 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 		uint32_t id;
 
 		switch (dwarf_tag(die)) {
+		case DW_TAG_subrange_type: // ADA stuff
+			tag__print_not_supported(dwarf_tag(die));
+			continue;
 		case DW_TAG_formal_parameter:
 			tag = die__create_new_parameter(die, ftype, NULL, cu);
 			break;
@@ -1300,6 +1303,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 
 	do {
 		switch (dwarf_tag(die)) {
+		case DW_TAG_subrange_type: // XXX: ADA stuff, its a type tho, will have other entries referencing it...
 		case DW_TAG_variant_part: // XXX: Rust stuff
 #ifdef STB_GNU_UNIQUE
 		case DW_TAG_GNU_formal_parameter_pack:
