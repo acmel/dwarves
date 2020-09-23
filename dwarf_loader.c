@@ -1350,6 +1350,11 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			if (tag == NULL)
 				return -ENOMEM;
 
+			if (tag == &unsupported_tag) {
+				tag__print_not_supported(dwarf_tag(die));
+				continue;
+			}
+
 			uint32_t id;
 
 			if (cu__table_add_tag(cu, tag, &id) < 0) {
