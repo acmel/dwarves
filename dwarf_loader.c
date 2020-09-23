@@ -1485,8 +1485,10 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct lexblock *lexblo
 			if (tag == NULL)
 				goto out_enomem;
 
-			if (tag == &unsupported_tag)
+			if (tag == &unsupported_tag) {
+				tag__print_not_supported(dwarf_tag(die));
 				continue;
+			}
 
 			if (cu__add_tag(cu, tag, &id) < 0)
 				goto out_delete_tag;
@@ -1602,8 +1604,10 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			if (tag == NULL)
 				goto out_enomem;
 
-			if (tag == &unsupported_tag)
+			if (tag == &unsupported_tag) {
+				tag__print_not_supported(dwarf_tag(die));
 				continue;
+			}
 
 			if (cu__add_tag(cu, tag, &id) < 0)
 				goto out_delete_tag;
@@ -1711,8 +1715,10 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu)
 		if (tag == NULL)
 			return -ENOMEM;
 
-		if (tag == &unsupported_tag)
+		if (tag == &unsupported_tag) {
+			tag__print_not_supported(dwarf_tag(die));
 			continue;
+		}
 
 		uint32_t id;
 		cu__add_tag(cu, tag, &id);
