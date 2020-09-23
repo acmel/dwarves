@@ -1231,6 +1231,11 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 			if (tag == NULL)
 				goto out_delete;
 
+			if (tag == &unsupported_tag) {
+				tag__print_not_supported(dwarf_tag(die));
+				continue;
+			}
+
 			if (cu__add_tag(cu, tag, &id) < 0)
 				goto out_delete_tag;
 
@@ -1389,6 +1394,11 @@ static int die__process_namespace(Dwarf_Die *die, struct namespace *namespace,
 		tag = die__process_tag(die, cu, 0);
 		if (tag == NULL)
 			goto out_enomem;
+
+		if (tag == &unsupported_tag) {
+			tag__print_not_supported(dwarf_tag(die));
+			continue;
+		}
 
 		uint32_t id;
 		if (cu__table_add_tag(cu, tag, &id) < 0)
