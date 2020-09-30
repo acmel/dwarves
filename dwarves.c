@@ -1901,6 +1901,8 @@ static struct debug_fmt_ops *debug_fmt_table[] = {
 	NULL,
 };
 
+struct debug_fmt_ops *dwarves__active_loader;
+
 static int debugging_formats__loader(const char *name)
 {
 	int i = 0;
@@ -1938,6 +1940,7 @@ int cus__load_file(struct cus *cus, struct conf_load *conf,
 				conf->conf_fprintf->has_alignment_info = debug_fmt_table[loader]->has_alignment_info;
 
 			err = 0;
+			dwarves__active_loader = debug_fmt_table[loader];
 			if (debug_fmt_table[loader]->load_file(cus, conf,
 							       filename) == 0)
 				break;
@@ -1949,17 +1952,20 @@ int cus__load_file(struct cus *cus, struct conf_load *conf,
 			fp = sep + 1;
 		}
 		free(fpath);
+		dwarves__active_loader = NULL;
 		return err;
 	}
 
 	while (debug_fmt_table[i] != NULL) {
 		if (conf && conf->conf_fprintf)
 			conf->conf_fprintf->has_alignment_info = debug_fmt_table[i]->has_alignment_info;
+		dwarves__active_loader = debug_fmt_table[i];
 		if (debug_fmt_table[i]->load_file(cus, conf, filename) == 0)
 			return 0;
 		++i;
 	}
 
+	dwarves__active_loader = NULL;
 	return -EINVAL;
 }
 
@@ -2283,8 +2289,10 @@ static int cus__load_running_kernel(struct cus *cus, struct conf_load *conf)
 		if (conf && conf->conf_fprintf)
 			conf->conf_fprintf->has_alignment_info = debug_fmt_table[loader]->has_alignment_info;
 
+		dwarves__active_loader = debug_fmt_table[loader];
 		if (debug_fmt_table[loader]->load_file(cus, conf, "/sys/kernel/btf/vmlinux") == 0)
 			return 0;
+		dwarves__active_loader = NULL;
 	}
 try_elf:
 	elf_version(EV_CURRENT);

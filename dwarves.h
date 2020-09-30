@@ -212,6 +212,8 @@ struct debug_fmt_ops {
 	bool		   has_alignment_info;
 };
 
+extern struct debug_fmt_ops *dwarves__active_loader;
+
 struct cu {
 	struct list_head node;
 	struct list_head tags;
