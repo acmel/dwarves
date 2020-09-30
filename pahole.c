@@ -2379,8 +2379,11 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto filter_it;
 
 	if (btf_encode) {
-		cu__encode_btf(cu, global_verbose, btf_encode_force,
-			       skip_encoding_btf_vars);
+		if (cu__encode_btf(cu, global_verbose, btf_encode_force,
+				   skip_encoding_btf_vars)) {
+			fprintf(stderr, "Encountered error while encoding BTF.\n");
+			exit(1);
+		}
 		return LSK__KEEPIT;
 	}
 
