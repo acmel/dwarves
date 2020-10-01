@@ -191,7 +191,8 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
 	}
 
 	if (gelf_getehdr(btfe->elf, &btfe->ehdr) == NULL) {
-		fprintf(stderr, "%s: cannot get elf header.\n", __func__);
+		if (btf_elf__verbose)
+			fprintf(stderr, "%s: cannot get elf header.\n", __func__);
 		goto errout;
 	}
 
