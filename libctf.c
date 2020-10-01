@@ -173,6 +173,8 @@ out:
 	return err;
 }
 
+bool ctf__verbose;
+
 struct ctf *ctf__new(const char *filename, Elf *elf)
 {
 	struct ctf *ctf = zalloc(sizeof(*ctf));
@@ -206,7 +208,8 @@ struct ctf *ctf__new(const char *filename, Elf *elf)
 		}
 
 		if (gelf_getehdr(ctf->elf, &ctf->ehdr) == NULL) {
-			fprintf(stderr, "%s: cannot get elf header.\n", __func__);
+			if (ctf__verbose)
+				fprintf(stderr, "%s: cannot get elf header.\n", __func__);
 			goto out_elf_end;
 		}
 
