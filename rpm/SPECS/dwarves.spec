@@ -62,11 +62,11 @@ Debugging information processing library development files.
 
 %build
 %cmake .
-make VERBOSE=1 %{?_smp_mflags}
+%cmake_build
 
 %install
 rm -Rf %{buildroot}
-make install DESTDIR=%{buildroot}
+%cmake_install
 
 %ldconfig_scriptlets -n %{libname}%{libver}
 
