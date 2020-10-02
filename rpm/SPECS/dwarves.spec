@@ -61,7 +61,7 @@ Debugging information processing library development files.
 %setup -q
 
 %build
-%cmake .
+%cmake -DCMAKE_BUILD_TYPE=Release .
 %cmake_build
 
 %install
