@@ -97,6 +97,7 @@ static int create_new_function(struct btf_elf *btfe, struct btf_type *tp, uint64
 	func->btf = 1;
 	func->proto.tag.tag = DW_TAG_subprogram;
 	func->proto.tag.type = type_id;
+	INIT_LIST_HEAD(&func->lexblock.tags);
 	func->name = name;
 	cu__add_tag_with_id(btfe->priv, &func->proto.tag, id);
 
