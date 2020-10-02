@@ -1,3 +1,113 @@
+v1.18:
+
+Fri 02 Oct 2020
+
+aee6808c478b760f btf_loader: Initialize function->lexblock.tags to fix segfault in pdwtags
+c815d26689313d8d btf_encoder: Handle DW_TAG_variable that has DW_AT_specification
+b8068e7373cc1592 pahole: Only try using a single file name as a type name if not encoding BTF or CTF
+8b1c63283194ebe1 libctf: Make can't get header message to appear only in verbose mode
+63e11400e80f6ac4 libbtf: Make can't get header message to appear only in verbose mode
+fc2b317db0bdc1a9 dwarf_loader: Check for unsupported_tag return in last two missing places
+2b5f4895e8968e83 dwarf_loader: Warn user about unsupported TAGs
+010a71e181b450d7 dwarf_loader: Handle unsupported_tag return in die__process_class()
+3d616609ee0fd6df dwarf_loader: Add minimal handling of DW_TAG_subrange_type
+2e8cd6a435d96335 dwarf_loader: Ignore DW_TAG_variant_part for now to fix a segfault
+e9e6285fd0d63ed0 dwarf_loader: Skip empty CUs
+1abc001417b579b8 btf_encoder: Introduce option '--btf_encode_force'
+da4ad2f65028e321 btf_encoder: Allow disabling BTF var encoding.
+f5847773d94d4875 fprintf: Support DW_TAG_string_type
+8b00a5cd677df778 dwarf_loader: Support DW_TAG_string_type
+0d9c3c9835659fb7 dwarves: Check if a member type wasn't found and avoid a NULL deref
+2ecc308518edfe05 dwarf_loader: Bail out at DW_TAG_imported_unit tags
+8c92fd298101171d dwarf_loader: Ignore entries in a DW_TAG_partial_unit, for now
+4cfd420f7ef13af4 README: Add instructions to do a cross build
+9e495f68c683574f dwarf_loader: Move vaddr to conditional where it is used
+69fce762074a5483 pahole: Use "%s" in a snprintf call
+22f93766cf02f4e0 pahole: Support multiple types for pretty printing
+78f2177d904902c6 pahole: Print the evaluated range= per class
+5c32b9d5c7ac8fff pahole: Count the total number of bytes read from stdin
+e3e5a4626c94d9c5 pahole: Make sure the header is read only once
+208bcd9873442013 pahole: Introduce 'range=member' as a class argument for pretty printing
+b9e406311990c2d5 pahole: Cache the type_enum lookups into struct enumerator
+fda1825f0b9f1c9f dwarves: Introduce tag_cu_node, so that we can have the leaner tag_cu
+47d4dd4c8a2cf9fd pahole: Optimize --header processing by keeping the first successfull instance
+fdfc64ec44f4ad53 pahole: Introduce --range
+f63d3677e31d88a3 pahole: Support multiple enums in type_enum=
+c50b6d37e99fddec pahole: Add infrastructure to have multiple concatenated type_enum
+671ea22ca18dd41f pahole: Move finding type_enum to a separate function
+dd3c0e9eb0cbc77f dwarves: Move the common initialization of fields for 'struct type'
+aa7ab3e8755a4c12 pahole: Allow for more compact enum filters by suppressing common prefix
+4ece15c37b028a80 dwarves: Find common enumerators prefix
+d28bc97b5c12736b man-pages: Document pretty printing capabilities and provide examples
+a345691f08f04f19 pahole: Make --header without -C to be equivalent to -C header-arg --count=1
+eba4ac6b2c1dcb11 pahole: Fallback to pretty printing using types in multiple CUs
+7c12b234ee30f6d2 dwarves: Introduce cus__find_type_by_name()
+c6f3386e3364486d pahole: Make the type_instance constructor receive the looked up type + its CU
+30297256e1f27de5 pahole: Pass the header type_instance to tag__stdio_fprintf_value()
+ead8084d3ffcda1f pahole: Store the CU in the type_instance struct
+2c886fff0af13510 pahole: Store the CU where type_enum was found
+526b116bfec71054 pahole: If pretty printing, don't discard CUs, keep them
+a1b8fddb4dcd90d9 pahole: Show which classes were not processed and why
+bc6a3cac50cdbdf6 pahole: Fixup the --class_name parsing wrt class args (type=, sizeof=, etc)
+363c37340521debe pahole: Remope pretty printed classes from the prototypes list
+9f675e7fdbf525fb cmake: Use -O0 for debug builds
+4e5b02beea24656d pahole: Don't stop when not finding the type_enum
+823739b56f2b5230 pahole: Convert class_names into a list of struct prototypes
+0a97d6c143fcc92a pahole: Factor out parsing class prototypes
+80af0fbbf3a3f1f6 dutils: Allow for having a priv area per strlist
+04b6547e7343410e pahole: Honour --hex_fmt when pretty printing
+266c0255984ddbe7 pahole: Support filters without 'filter='
+6c683ce0e11d6c1c pahole: Allow for a 'type' boolean class arg meaning 'type=type'
+1c68f41bb87f7718 pahole: Allow for a 'sizeof' boolean class arg meaning 'sizeof=size'
+b4b3fb0a3aeb9686 pahole: First look for ',' then '=' to allow for boolean args
+446b85f7276bda4c pahole: Add support for --size_bytes, accepts header variables
+0f10fa7529d4a9c7 pahole: Move reading the header to outside the --seek_bytes code
+9310b04854a8b709 pahole: Add support for referencing header variables when pretty printing
+611f5e8bd7eb760d pahole: Add == class member filtering
+f2987224beb2b496 pahole: Do the 'type_enum' class argument validation as soon as we parse it
+02ca176c6290ff96 pahole: Do the 'type' class argument validation earlier
+172d743d9ce3f3a1 pahole: Do the 'sizeof' class argument validation earlier
+9a30c101d7c019ee pahole: As soon as a attribute is found, check if the type is a struct or class
+a38ccf47237298dc pahole: Allow filter=expression as a class argument for pretty printing
+3c4ee1d91f5311ac pahole: Pretty print bitfields
+451d66ec02e94492 pahole: Pretty print unions too, cope with unnamed ones
+48c7704b49ffa6b1 pahole: Check if the type with arguments is present in the current CU
+472519ac2c49d340 pahole: Support nested structs
+ae43029363ee2c53 dwarves_fprintf: Export the 'tabs' variable
+ab714acec86841b7 pahole: Support zero sized base type arrays
+ff7815a0f823a676 pahole: Add missing space before '}' in array__fprintf_base_type_value()
+5f2502274e1097db pahole: Support zero sized arrays in array__fprintf_base_type_value()
+3aadfbdd72e32016 pahole: Follow array type typedefs to find real sizeof(entry)
+7309039aa7510eec pahole: Make 'type' + 'type_enum' select a type to cast a variable sized record
+42b7a759f37e5d45 dutil: Add a strlwr() helper to lowercase a string, returning it
+a5bb31b86fbe5362 pahole: Fix --skip for variable sized records
+f4df384d77312867 pahole: Decouple reading ->sizeof_member from printing
+78cdde5cb7200555 pahole: Introduce 'type_enum' class argument
+163c330d3138e56f dwarves: Introduce cu__find_enumeration_by_name()
+20051b7157fce20c pahole: Add the 'type' modifier to make a struct member be used to find a cast type
+210dffe0d13d171b pahole: Iterate classes in the order specified in the command line:
+37a5c7c5ba0e1e7d strlist: Allow iterating a strlist in the original order
+6b5d938d99b2e457 pahole: Support multiple class/struct args
+affbebf04bcaa1ec pahole: Make the class splitter take into account per-class parameters
+84387de4a5cf141d pahole: Allow specifying a struct member based sizeof() override
+e0773683fa3edd61 dwarves: Allow setting a struct/class member as the source of sizeof()
+f399db09a0d5b069 pahole: Allow simple parser for arguments to classes
+04d957ba3cdf1047 pahole: Add variable for class name when traversing list of classes
+f3d9054ba8ff1df0 btf_encoder: Teach pahole to store percpu variables in vmlinux BTF.
+fe284221448c950d pahole: Introduce --seek_bytes
+44af7c02b5d0a7f2 pahole: Implement --skip, just like dd
+5631fdcea1bbe2bc pahole: Introduce --count, just like dd's
+272bc75024b4f08c man-pages: Add information about stdin raw data pretty printing
+66835f9e190ce77e pahole: Add support for base type arrays
+1a67d6e70090953d pahole: Factor out base_type__fprintf_value()
+6fb98aa1209f02b5 pahole: Support char arrays when dumping from stdin
+a231d00f8d08825e pahole: Print comma at the end of field name + field value
+1b2cdda38c0a6f5e dwarves: Introduce tag__is_array()
+a83313fb22520d8d pahole: Pretty print base types in structs from stdin
+cc65946e3068f7b6 dwarves: Adopt tag__is_base_type() from ctrace.c
+d8079c6d373a5754 pahole: Hex dump a type from stdio when it isn't a tty
+38109ab45fe0307d spec: Fix date
+
 v1.17:
 
 Fri 13 Mar 2020
