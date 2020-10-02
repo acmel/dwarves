@@ -1738,7 +1738,10 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu)
 			return -ENOMEM;
 
 		if (tag == &unsupported_tag) {
-			tag__print_not_supported(dwarf_tag(die));
+			// XXX special case DW_TAG_dwarf_procedure, appears when looking at a recent ~/bin/perf
+			// Investigate later how to properly support this...
+			if (dwarf_tag(die) != DW_TAG_dwarf_procedure)
+				tag__print_not_supported(dwarf_tag(die));
 			continue;
 		}
 
