@@ -59,6 +59,7 @@ static bool show_private_classes;
 static bool defined_in;
 static bool just_unions;
 static bool just_structs;
+static bool just_packed_structs;
 static int show_reorg_steps;
 static const char *class_name;
 static LIST_HEAD(class_names);
@@ -370,6 +371,12 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 
 	if (just_structs && !tag__is_struct(tag))
 		return NULL;
+
+	if (just_packed_structs) {
+		/* Is it not packed? */
+		if (!class__infer_packed_attributes(class, cu))
+			return NULL;
+	}
 
 	if (!tag->top_level) {
 		class__find_holes(class);
@@ -812,6 +819,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_range		   316
 #define ARGP_skip_encoding_btf_vars 317
 #define ARGP_btf_encode_force	   318
+#define ARGP_just_packed_structs   319
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1111,6 +1119,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Show just unions",
 	},
 	{
+		.name = "packed",
+		.key  = ARGP_just_packed_structs,
+		.doc  = "Show just packed structs",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1202,6 +1215,9 @@ static error_t pahole__options_parser(int key, char *arg,
 		just_unions = true;			break;
 	case ARGP_just_structs:
 		just_structs = true;			break;
+	case ARGP_just_packed_structs:
+		just_structs = true;
+		just_packed_structs = true;		break;
 	case ARGP_count:
 		conf.count = atoi(arg);			break;
 	case ARGP_skip:
