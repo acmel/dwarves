@@ -87,6 +87,8 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
 		btfe->raw_btf  = true;
 		btfe->wordsize = sizeof(long);
 		btfe->is_big_endian = BYTE_ORDER == BIG_ENDIAN;
+		btf__set_endianness(btfe->btf,
+				    btfe->is_big_endian ? BTF_BIG_ENDIAN : BTF_LITTLE_ENDIAN);
 		return btfe;
 	}
 
@@ -118,8 +120,14 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
 	}
 
 	switch (btfe->ehdr.e_ident[EI_DATA]) {
-	case ELFDATA2LSB: btfe->is_big_endian = false; break;
-	case ELFDATA2MSB: btfe->is_big_endian = true;  break;
+	case ELFDATA2LSB:
+		btfe->is_big_endian = false;
+		btf__set_endianness(btfe->btf, BTF_LITTLE_ENDIAN);
+		break;
+	case ELFDATA2MSB:
+		btfe->is_big_endian = true;
+		btf__set_endianness(btfe->btf, BTF_BIG_ENDIAN);
+		break;
 	default:
 		fprintf(stderr, "%s: unknown elf endianness.\n", __func__);
 		goto errout;
@@ -701,6 +709,18 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 	ehdr = gelf_getehdr(elf, &ehdr_mem);
 	if (ehdr == NULL) {
 		fprintf(stderr, "%s: elf_getehdr failed.\n", __func__);
+		goto out;
+	}
+
+	switch (ehdr_mem.e_ident[EI_DATA]) {
+	case ELFDATA2LSB:
+		btf__set_endianness(btf, BTF_LITTLE_ENDIAN);
+		break;
+	case ELFDATA2MSB:
+		btf__set_endianness(btf, BTF_BIG_ENDIAN);
+		break;
+	default:
+		fprintf(stderr, "%s: unknown elf endianness.\n", __func__);
 		goto out;
 	}
 
