@@ -24,7 +24,7 @@ struct ctf {
 	struct gobuffer	  objects; /* data/variables */
 	struct gobuffer	  types;
 	struct gobuffer	  funcs;
-	struct gobuffer   *strings;
+	struct strings   *strings;
 	char		  *filename;
 	size_t		  size;
 	int		  swapped;
@@ -76,7 +76,7 @@ int ctf__add_function(struct ctf *ctf, uint16_t type, uint16_t nr_parms,
 
 int ctf__add_object(struct ctf *ctf, uint16_t type);
 
-void ctf__set_strings(struct ctf *ctf, struct gobuffer *strings);
+void ctf__set_strings(struct ctf *ctf, struct strings *strings);
 int  ctf__encode(struct ctf *ctf, uint8_t flags);
 
 char *ctf__string(struct ctf *ctf, uint32_t ref);
