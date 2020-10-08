@@ -28,6 +28,10 @@
 
 struct strings *strings;
 
+#ifndef DW_AT_alignment
+#define DW_AT_alignment 0x88
+#endif
+
 #ifndef DW_AT_GNU_vector
 #define DW_AT_GNU_vector 0x2107
 #endif
