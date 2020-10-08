@@ -67,6 +67,8 @@ static void dump_invalid_symbol(const char *msg, const char *sym, const char *cu
 	fprintf(stderr, "PAHOLE: Error: Use '-j' or '--force' to ignore such symbols and force emit the btf.\n");
 }
 
+extern struct debug_fmt_ops *dwarves__active_loader;
+
 static int tag__check_id_drift(const struct tag *tag,
 			       uint32_t core_id, uint32_t btf_type_id,
 			       uint32_t type_id_off)
@@ -82,36 +84,19 @@ static int tag__check_id_drift(const struct tag *tag,
 	return 0;
 }
 
-static int32_t structure_type__encode(struct btf_elf *btfe, struct tag *tag, uint32_t type_id_off)
+static int32_t structure_type__encode(struct btf_elf *btfe, struct cu *cu, struct tag *tag, uint32_t type_id_off)
 {
 	struct type *type = tag__type(tag);
 	struct class_member *pos;
-	bool kind_flag = false;
+	const char *name;
 	int32_t type_id;
 	uint8_t kind;
 
 	kind = (tag->tag == DW_TAG_union_type) ?
 		BTF_KIND_UNION : BTF_KIND_STRUCT;
 
-	/* Although no_bitfield_type_recode has been set true
-	 * in pahole.c if BTF encoding is requested, we still check
-	 * the value here. So if no_bitfield_type_recode is set
-	 * to false for whatever reason, we do not accidentally
-	 * set kind_flag incorrectly.
-	 */
-	if (no_bitfield_type_recode) {
-		/* kind_flag only set where there is a bitfield
-		 * in the struct.
-		 */
-		type__for_each_data_member(type, pos) {
-			if (pos->bitfield_size) {
-				kind_flag = true;
-				break;
-			}
-		}
-	}
-
-	type_id = btf_elf__add_struct(btfe, kind, type->namespace.name, kind_flag, type->size, type->nr_members);
+	name = dwarves__active_loader->strings__ptr(cu, type->namespace.name);
+	type_id = btf_elf__add_struct(btfe, kind, name, type->size);
 	if (type_id < 0)
 		return type_id;
 
@@ -121,7 +106,8 @@ static int32_t structure_type__encode(struct btf_elf *btfe, struct tag *tag, uin
 		 * scheme, which conforms to BTF requirement, so no conversion
 		 * is required.
 		 */
-		if (btf_elf__add_member(btfe, pos->name, type_id_off + pos->tag.type, kind_flag, pos->bitfield_size, pos->bit_offset))
+		name = dwarves__active_loader->strings__ptr(cu, pos->name);
+		if (btf_elf__add_member(btfe, name, type_id_off + pos->tag.type, pos->bitfield_size, pos->bit_offset))
 			return -1;
 	}
 
@@ -140,68 +126,70 @@ static uint32_t array_type__nelems(struct tag *tag)
 	return nelem;
 }
 
-static int32_t enumeration_type__encode(struct btf_elf *btfe, struct tag *tag)
+static int32_t enumeration_type__encode(struct btf_elf *btfe, struct cu *cu, struct tag *tag)
 {
 	struct type *etype = tag__type(tag);
 	struct enumerator *pos;
+	const char *name;
 	int32_t type_id;
 
-	type_id = btf_elf__add_enum(btfe, etype->namespace.name, etype->size, etype->nr_members);
+	name = dwarves__active_loader->strings__ptr(cu, etype->namespace.name);
+	type_id = btf_elf__add_enum(btfe, name, etype->size);
 	if (type_id < 0)
 		return type_id;
 
-	type__for_each_enumerator(etype, pos)
-		if (btf_elf__add_enum_val(btfe, pos->name, pos->value))
+	type__for_each_enumerator(etype, pos) {
+		name = dwarves__active_loader->strings__ptr(cu, pos->name);
+		if (btf_elf__add_enum_val(btfe, name, pos->value))
 			return -1;
+	}
 
 	return type_id;
 }
 
-static int tag__encode_btf(struct tag *tag, uint32_t core_id, struct btf_elf *btfe,
+static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, struct btf_elf *btfe,
 			   uint32_t array_index_id, uint32_t type_id_off)
 {
 	/* single out type 0 as it represents special type "void" */
 	uint32_t ref_type_id = tag->type == 0 ? 0 : type_id_off + tag->type;
+	const char *name;
 
 	switch (tag->tag) {
 	case DW_TAG_base_type:
-		return btf_elf__add_base_type(btfe, tag__base_type(tag));
+		name = dwarves__active_loader->strings__ptr(cu, tag__base_type(tag)->name);
+		return btf_elf__add_base_type(btfe, tag__base_type(tag), name);
 	case DW_TAG_const_type:
-		return btf_elf__add_ref_type(btfe, BTF_KIND_CONST, ref_type_id, 0, false);
+		return btf_elf__add_ref_type(btfe, BTF_KIND_CONST, ref_type_id, NULL, false);
 	case DW_TAG_pointer_type:
-		return btf_elf__add_ref_type(btfe, BTF_KIND_PTR, ref_type_id, 0, false);
+		return btf_elf__add_ref_type(btfe, BTF_KIND_PTR, ref_type_id, NULL, false);
 	case DW_TAG_restrict_type:
-		return btf_elf__add_ref_type(btfe, BTF_KIND_RESTRICT, ref_type_id, 0, false);
+		return btf_elf__add_ref_type(btfe, BTF_KIND_RESTRICT, ref_type_id, NULL, false);
 	case DW_TAG_volatile_type:
-		return btf_elf__add_ref_type(btfe, BTF_KIND_VOLATILE, ref_type_id, 0, false);
+		return btf_elf__add_ref_type(btfe, BTF_KIND_VOLATILE, ref_type_id, NULL, false);
 	case DW_TAG_typedef:
-		return btf_elf__add_ref_type(btfe, BTF_KIND_TYPEDEF, ref_type_id, tag__namespace(tag)->name, false);
+		name = dwarves__active_loader->strings__ptr(cu, tag__namespace(tag)->name);
+		return btf_elf__add_ref_type(btfe, BTF_KIND_TYPEDEF, ref_type_id, name, false);
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
 	case DW_TAG_class_type:
+		name = dwarves__active_loader->strings__ptr(cu, tag__namespace(tag)->name);
 		if (tag__type(tag)->declaration)
-			return btf_elf__add_ref_type(btfe, BTF_KIND_FWD, 0, tag__namespace(tag)->name, tag->tag == DW_TAG_union_type);
+			return btf_elf__add_ref_type(btfe, BTF_KIND_FWD, 0, name, tag->tag == DW_TAG_union_type);
 		else
-			return structure_type__encode(btfe, tag, type_id_off);
+			return structure_type__encode(btfe, cu, tag, type_id_off);
 	case DW_TAG_array_type:
 		/* TODO: Encode one dimension at a time. */
 		return btf_elf__add_array(btfe, ref_type_id, array_index_id, array_type__nelems(tag));
 	case DW_TAG_enumeration_type:
-		return enumeration_type__encode(btfe, tag);
+		return enumeration_type__encode(btfe, cu, tag);
 	case DW_TAG_subroutine_type:
-		return btf_elf__add_func_proto(btfe, tag__ftype(tag), type_id_off);
+		return btf_elf__add_func_proto(btfe, cu, tag__ftype(tag), type_id_off);
 	default:
 		fprintf(stderr, "Unsupported DW_TAG_%s(0x%x)\n",
 			dwarf_tag_name(tag->tag), tag->tag);
 		return -1;
 	}
 }
-
-/*
- * FIXME: Its in the DWARF loader, we have to find a better handoff
- * mechanizm...
- */
-extern struct strings *strings;
 
 static struct btf_elf *btfe;
 static uint32_t array_index_id;
@@ -265,7 +253,6 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		btfe = btf_elf__new(cu->filename, cu->elf);
 		if (!btfe)
 			return -1;
-		btf_elf__set_strings(btfe, &strings->gb);
 
 		/* cu__find_base_type_by_name() takes "type_id_t *id" */
 		type_id_t id;
@@ -280,10 +267,10 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 	}
 
 	btf_elf__verbose = verbose;
-	type_id_off = btfe->type_index;
+	type_id_off = btf__get_nr_types(btfe->btf);
 
 	cu__for_each_type(cu, core_id, pos) {
-		int32_t btf_type_id = tag__encode_btf(pos, core_id, btfe, array_index_id, type_id_off);
+		int32_t btf_type_id = tag__encode_btf(cu, pos, core_id, btfe, array_index_id, type_id_off);
 
 		if (btf_type_id < 0 ||
 		    tag__check_id_drift(pos, core_id, btf_type_id, type_id_off)) {
@@ -297,17 +284,19 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 
 		bt.name = 0;
 		bt.bit_size = 32;
-		btf_elf__add_base_type(btfe, &bt);
+		btf_elf__add_base_type(btfe, &bt, "__ARRAY_SIZE_TYPE__");
 	}
 
 	cu__for_each_function(cu, core_id, fn) {
 		int btf_fnproto_id, btf_fn_id;
+		const char *name;
 
 		if (fn->declaration || !fn->external)
 			continue;
 
-		btf_fnproto_id = btf_elf__add_func_proto(btfe, &fn->proto, type_id_off);
-		btf_fn_id = btf_elf__add_ref_type(btfe, BTF_KIND_FUNC, btf_fnproto_id, fn->name, false);
+		btf_fnproto_id = btf_elf__add_func_proto(btfe, cu, &fn->proto, type_id_off);
+		name = dwarves__active_loader->strings__ptr(cu, fn->name);
+		btf_fn_id = btf_elf__add_ref_type(btfe, BTF_KIND_FUNC, btf_fnproto_id, name, false);
 		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
 			err = -1;
 			printf("error: failed to encode function '%s'\n", function__name(fn, cu));
@@ -349,7 +338,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 
 	/* search within symtab for percpu variables */
 	elf_symtab__for_each_symbol(btfe->symtab, core_id, sym) {
-		uint32_t linkage, type, size, offset, name;
+		uint32_t linkage, type, size, offset;
 		int32_t btf_var_id, btf_var_secinfo_id;
 		uint64_t addr;
 		const char *sym_name;
@@ -391,7 +380,6 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 			err = -1;
 			break;
 		}
-		name = strings__add(strings, sym_name);
 		if (var->ip.tag.type == 0) {
 			dump_invalid_symbol("Found symbol of void type when encoding btf",
 					    sym_name, cu->name, verbose, force);
@@ -417,7 +405,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 
 		/* add a BTF_KIND_VAR in btfe->types */
 		linkage = var->external ? BTF_VAR_GLOBAL_ALLOCATED : BTF_VAR_STATIC;
-		btf_var_id = btf_elf__add_var_type(btfe, type, name, linkage);
+		btf_var_id = btf_elf__add_var_type(btfe, type, sym_name, linkage);
 		if (btf_var_id < 0) {
 			err = -1;
 			printf("error: failed to encode variable '%s'\n", sym_name);
@@ -440,7 +428,9 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 	}
 
 out:
-	if (err)
+	if (err) {
 		btf_elf__delete(btfe);
+		btfe = NULL;
+	}
 	return err;
 }

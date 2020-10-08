@@ -27,31 +27,6 @@
 #include "dwarves.h"
 #include "elf_symtab.h"
 
-#define BTF_INFO_ENCODE(kind, kind_flag, vlen)				\
-	((!!(kind_flag) << 31) | ((kind) << 24) | ((vlen) & BTF_MAX_VLEN))
-#define BTF_INT_ENCODE(encoding, bits_offset, nr_bits)		\
-	((encoding) << 24 | (bits_offset) << 16 | (nr_bits))
-
-struct btf_int_type {
-	struct btf_type type;
-	uint32_t 	data;
-};
-
-struct btf_enum_type {
-	struct btf_type type;
-	struct btf_enum btf_enum;
-};
-
-struct btf_array_type {
-	struct btf_type type;
-	struct btf_array array;
-};
-
-struct btf_var_type {
-	struct btf_type type;
-	struct btf_var var;
-};
-
 uint8_t btf_elf__verbose;
 
 static int btf_var_secinfo_cmp(const void *a, const void *b)
@@ -101,6 +76,12 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
 	btfe->filename = strdup(filename);
 	if (btfe->filename == NULL)
 		goto errout;
+
+	btfe->btf = btf__new_empty();
+	if (libbpf_get_error(btfe->btf)) {
+		fprintf(stderr, "%s: failed to create empty BTF.\n", __func__);
+		goto errout;
+	}
 
 	if (strcmp(filename, "/sys/kernel/btf/vmlinux") == 0) {
 		btfe->raw_btf  = true;
@@ -189,12 +170,9 @@ void btf_elf__delete(struct btf_elf *btfe)
 	}
 
 	elf_symtab__delete(btfe->symtab);
-
-	__gobuffer__delete(&btfe->types);
 	__gobuffer__delete(&btfe->percpu_secinfo);
 	btf__free(btfe->btf);
 	free(btfe->filename);
-	free(btfe->data);
 	free(btfe);
 }
 
@@ -203,16 +181,6 @@ const char *btf_elf__string(struct btf_elf *btfe, uint32_t ref)
 	const char *s = btf__str_by_offset(btfe->btf, ref);
 
 	return s && s[0] == '\0' ? NULL : s;
-}
-
-static void *btf_elf__nohdr_data(struct btf_elf *btfe)
-{
-	return btfe->hdr + 1;
-}
-
-void btf_elf__set_strings(struct btf_elf *btfe, struct gobuffer *strings)
-{
-	btfe->strings = strings;
 }
 
 #define BITS_PER_BYTE 8
@@ -240,12 +208,10 @@ static const char * const btf_kind_str[NR_BTF_KINDS] = {
 	[BTF_KIND_DATASEC]      = "DATASEC",
 };
 
-static const char *btf_elf__name_in_gobuf(const struct btf_elf *btfe, uint32_t offset)
+static const char *btf_elf__printable_name(const struct btf_elf *btfe, uint32_t offset)
 {
 	if (!offset)
 		return "(anon)";
-	else if (btfe->strings)
-		return &btfe->strings->entries[offset];
 	else
 		return btf__str_by_offset(btfe->btf, offset);
 }
@@ -264,6 +230,27 @@ static const char * btf_elf__int_encoding_str(uint8_t encoding)
 		return "UNKN";
 }
 
+
+__attribute ((format (printf, 5, 6)))
+static void btf_elf__log_err(const struct btf_elf *btfe, int kind, const char *name,
+			     bool output_cr, const char *fmt, ...)
+{
+	fprintf(stderr, "[%u] %s %s", btf__get_nr_types(btfe->btf) + 1,
+		btf_kind_str[kind], name ?: "(anon)");
+
+	if (fmt && *fmt) {
+		va_list ap;
+
+		fprintf(stderr, " ");
+		va_start(ap, fmt);
+		vfprintf(stderr, fmt, ap);
+		va_end(ap);
+	}
+
+	if (output_cr)
+		fprintf(stderr, "\n");
+}
+
 __attribute ((format (printf, 5, 6)))
 static void btf_elf__log_type(const struct btf_elf *btfe, const struct btf_type *t,
 			      bool err, bool output_cr, const char *fmt, ...)
@@ -278,8 +265,8 @@ static void btf_elf__log_type(const struct btf_elf *btfe, const struct btf_type 
 	out = err ? stderr : stdout;
 
 	fprintf(out, "[%u] %s %s",
-		btfe->type_index, btf_kind_str[kind],
-		btf_elf__name_in_gobuf(btfe, t->name_off));
+		btf__get_nr_types(btfe->btf), btf_kind_str[kind],
+		btf_elf__printable_name(btfe, t->name_off));
 
 	if (fmt && *fmt) {
 		va_list ap;
@@ -296,8 +283,9 @@ static void btf_elf__log_type(const struct btf_elf *btfe, const struct btf_type 
 
 __attribute ((format (printf, 5, 6)))
 static void btf_log_member(const struct btf_elf *btfe,
+			   const struct btf_type *t,
 			   const struct btf_member *member,
-			   bool kind_flag, bool err, const char *fmt, ...)
+			   bool err, const char *fmt, ...)
 {
 	FILE *out;
 
@@ -306,15 +294,15 @@ static void btf_log_member(const struct btf_elf *btfe,
 
 	out = err ? stderr : stdout;
 
-	if (kind_flag)
+	if (btf_kflag(t))
 		fprintf(out, "\t%s type_id=%u bitfield_size=%u bits_offset=%u",
-			btf_elf__name_in_gobuf(btfe, member->name_off),
+			btf_elf__printable_name(btfe, member->name_off),
 			member->type,
 			BTF_MEMBER_BITFIELD_SIZE(member->offset),
 			BTF_MEMBER_BIT_OFFSET(member->offset));
 	else
 		fprintf(out, "\t%s type_id=%u bits_offset=%u",
-			btf_elf__name_in_gobuf(btfe, member->name_off),
+			btf_elf__printable_name(btfe, member->name_off),
 			member->type,
 			member->offset);
 
@@ -332,7 +320,7 @@ static void btf_log_member(const struct btf_elf *btfe,
 
 __attribute ((format (printf, 6, 7)))
 static void btf_log_func_param(const struct btf_elf *btfe,
-			       uint32_t name_off, uint32_t type,
+			       const char *name, uint32_t type,
 			       bool err, bool is_last_param,
 			       const char *fmt, ...)
 {
@@ -346,9 +334,7 @@ static void btf_log_func_param(const struct btf_elf *btfe,
 	if (is_last_param && !type)
 		fprintf(out, "vararg)\n");
 	else
-		fprintf(out, "%u %s%s", type,
-			btf_elf__name_in_gobuf(btfe, name_off),
-			is_last_param ? ")\n" : ", ");
+		fprintf(out, "%u %s%s", type, name, is_last_param ? ")\n" : ", ");
 
 	if (fmt && *fmt) {
 		va_list ap;
@@ -360,15 +346,14 @@ static void btf_log_func_param(const struct btf_elf *btfe,
 	}
 }
 
-int32_t btf_elf__add_base_type(struct btf_elf *btfe, const struct base_type *bt)
+int32_t btf_elf__add_base_type(struct btf_elf *btfe, const struct base_type *bt,
+			       const char *name)
 {
-	struct btf_int_type int_type;
-	struct btf_type *t = &int_type.type;
+	struct btf *btf = btfe->btf;
+	const struct btf_type *t;
 	uint8_t encoding = 0;
+	int32_t id;
 
-	t->name_off = bt->name;
-	t->info = BTF_INFO_ENCODE(BTF_KIND_INT, 0, 0);
-	t->size = BITS_ROUNDUP_BYTES(bt->bit_size);
 	if (bt->is_signed) {
 		encoding = BTF_INT_SIGNED;
 	} else if (bt->is_bool) {
@@ -377,240 +362,253 @@ int32_t btf_elf__add_base_type(struct btf_elf *btfe, const struct base_type *bt)
 		fprintf(stderr, "float_type is not supported\n");
 		return -1;
 	}
-	int_type.data = BTF_INT_ENCODE(encoding, 0, bt->bit_size);
 
-	++btfe->type_index;
-	if (gobuffer__add(&btfe->types, &int_type, sizeof(int_type)) >= 0) {
-		btf_elf__log_type(btfe, t, false, true,
-			      "size=%u bit_offset=%u nr_bits=%u encoding=%s",
-			      t->size, BTF_INT_OFFSET(int_type.data),
-			      BTF_INT_BITS(int_type.data),
-			      btf_elf__int_encoding_str(BTF_INT_ENCODING(int_type.data)));
-		return btfe->type_index;
+	id = btf__add_int(btf, name, BITS_ROUNDUP_BYTES(bt->bit_size), encoding);
+	if (id < 0) {
+		btf_elf__log_err(btfe, BTF_KIND_INT, name, true, "Error emitting BTF type");
 	} else {
-		btf_elf__log_type(btfe, t, true, true,
-			      "size=%u bit_offset=%u nr_bits=%u encoding=%s Error in adding gobuffer",
-			      t->size, BTF_INT_OFFSET(int_type.data),
-			      BTF_INT_BITS(int_type.data),
-			      btf_elf__int_encoding_str(BTF_INT_ENCODING(int_type.data)));
-		return -1;
+		t = btf__type_by_id(btf, id);
+		btf_elf__log_type(btfe, t, false, true,
+				"size=%u nr_bits=%u encoding=%s%s",
+				t->size, bt->bit_size,
+				btf_elf__int_encoding_str(encoding),
+				id < 0 ? " Error in emitting BTF" : "" );
 	}
+
+	return id;
 }
 
 int32_t btf_elf__add_ref_type(struct btf_elf *btfe, uint16_t kind, uint32_t type,
-			      uint32_t name, bool kind_flag)
+			      const char *name, bool kind_flag)
 {
-	struct btf_type t;
+	struct btf *btf = btfe->btf;
+	const struct btf_type *t;
+	int32_t id;
 
-	t.name_off = name;
-	t.info = BTF_INFO_ENCODE(kind, kind_flag, 0);
-	t.type = type;
-
-	++btfe->type_index;
-	if (gobuffer__add(&btfe->types, &t, sizeof(t)) >= 0) {
-		if (kind == BTF_KIND_FWD)
-			btf_elf__log_type(btfe, &t, false, true, "%s", kind_flag ? "union" : "struct");
-		else
-			btf_elf__log_type(btfe, &t, false, true, "type_id=%u", t.type);
-		return btfe->type_index;
-	} else {
-		btf_elf__log_type(btfe, &t, true, true,
-			      "kind_flag=%d type_id=%u Error in adding gobuffer",
-			      kind_flag, t.type);
+	switch (kind) {
+	case BTF_KIND_PTR:
+		id = btf__add_ptr(btf, type);
+		break;
+	case BTF_KIND_VOLATILE:
+		id = btf__add_volatile(btf, type);
+		break;
+	case BTF_KIND_CONST:
+		id = btf__add_const(btf, type);
+		break;
+	case BTF_KIND_RESTRICT:
+		id = btf__add_const(btf, type);
+		break;
+	case BTF_KIND_TYPEDEF:
+		id = btf__add_typedef(btf, name, type);
+		break;
+	case BTF_KIND_FWD:
+		id = btf__add_fwd(btf, name, kind_flag);
+		break;
+	case BTF_KIND_FUNC:
+		id = btf__add_func(btf, name, BTF_FUNC_STATIC, type);
+		break;
+	default:
+		btf_elf__log_err(btfe, kind, name, true, "Unexpected kind for reference");
 		return -1;
 	}
+
+	if (id > 0) {
+		t = btf__type_by_id(btf, id);
+		if (kind == BTF_KIND_FWD)
+			btf_elf__log_type(btfe, t, false, true, "%s", kind_flag ? "union" : "struct");
+		else
+			btf_elf__log_type(btfe, t, false, true, "type_id=%u", t->type);
+	} else {
+		btf_elf__log_err(btfe, kind, name, true, "Error emitting BTF type");
+	}
+	return id;
 }
 
 int32_t btf_elf__add_array(struct btf_elf *btfe, uint32_t type, uint32_t index_type, uint32_t nelems)
 {
-	struct btf_array_type array_type;
-	struct btf_type *t = &array_type.type;
-	struct btf_array *array = &array_type.array;
+	struct btf *btf = btfe->btf;
+	const struct btf_type *t;
+	const struct btf_array *array;
+	int32_t id;
 
-	t->name_off = 0;
-	t->info = BTF_INFO_ENCODE(BTF_KIND_ARRAY, 0, 0);
-	t->size = 0;
-
-	array->type = type;
-	array->index_type = index_type;
-	array->nelems = nelems;
-
-	++btfe->type_index;
-	if (gobuffer__add(&btfe->types, &array_type, sizeof(array_type)) >= 0) {
+	id = btf__add_array(btf, index_type, type, nelems);
+	if (id > 0) {
+		t = btf__type_by_id(btf, id);
+		array = btf_array(t);
 		btf_elf__log_type(btfe, t, false, true,
 			      "type_id=%u index_type_id=%u nr_elems=%u",
 			      array->type, array->index_type, array->nelems);
-		return btfe->type_index;
 	} else {
-		btf_elf__log_type(btfe, t, true, true,
-			      "type_id=%u index_type_id=%u nr_elems=%u Error in adding gobuffer",
-			      array->type, array->index_type, array->nelems);
-		return -1;
+		btf_elf__log_err(btfe, BTF_KIND_ARRAY, NULL, true,
+			      "type_id=%u index_type_id=%u nr_elems=%u Error emitting BTF type",
+			      type, index_type, nelems);
 	}
+	return id;
 }
 
-int btf_elf__add_member(struct btf_elf *btfe, uint32_t name, uint32_t type, bool kind_flag,
+int btf_elf__add_member(struct btf_elf *btfe, const char *name, uint32_t type,
 			uint32_t bitfield_size, uint32_t offset)
 {
-	struct btf_member member = {
-		.name_off   = name,
-		.type   = type,
-		.offset = kind_flag ? (bitfield_size << 24 | offset) : offset,
-	};
+	struct btf *btf = btfe->btf;
+	const struct btf_type *t;
+	const struct btf_member *m;
+	int err;
 
-	if (gobuffer__add(&btfe->types, &member, sizeof(member)) >= 0) {
-		btf_log_member(btfe, &member, kind_flag, false, NULL);
-		return 0;
+	err = btf__add_field(btf, name, type, offset, bitfield_size);
+	t = btf__type_by_id(btf, btf__get_nr_types(btf));
+	if (err) {
+		fprintf(stderr, "[%u] %s %s's field '%s' offset=%u bit_size=%u type=%u Error emitting field\n",
+			btf__get_nr_types(btf), btf_kind_str[btf_kind(t)],
+			btf_elf__printable_name(btfe, t->name_off),
+			name, offset, bitfield_size, type);
 	} else {
-		btf_log_member(btfe, &member, kind_flag, true, "Error in adding gobuffer");
+		m = &btf_members(t)[btf_vlen(t) - 1];
+		btf_log_member(btfe, t, m, false, NULL);
+	}
+	return err;
+}
+
+int32_t btf_elf__add_struct(struct btf_elf *btfe, uint8_t kind, const char *name, uint32_t size)
+{
+	struct btf *btf = btfe->btf;
+	const struct btf_type *t;
+	int32_t id;
+
+	switch (kind) {
+	case BTF_KIND_STRUCT:
+		id = btf__add_struct(btf, name, size);
+		break;
+	case BTF_KIND_UNION:
+		id = btf__add_union(btf, name, size);
+		break;
+	default:
+		btf_elf__log_err(btfe, kind, name, true, "Unexpected kind of struct");
 		return -1;
 	}
-}
 
-int32_t btf_elf__add_struct(struct btf_elf *btfe, uint8_t kind, uint32_t name,
-			    bool kind_flag, uint32_t size, uint16_t nr_members)
-{
-	struct btf_type t;
-
-	t.name_off = name;
-	t.info = BTF_INFO_ENCODE(kind, kind_flag, nr_members);
-	t.size = size;
-
-	++btfe->type_index;
-	if (gobuffer__add(&btfe->types, &t, sizeof(t)) >= 0) {
-		btf_elf__log_type(btfe, &t, false, true, "kind_flag=%d size=%u vlen=%u",
-			      kind_flag, t.size, BTF_INFO_VLEN(t.info));
-		return btfe->type_index;
+	if (id < 0) {
+		btf_elf__log_err(btfe, kind, name, true, "Error emitting BTF type");
 	} else {
-		btf_elf__log_type(btfe, &t, true, true,
-			      "kind_flag=%d size=%u vlen=%u Error in adding gobuffer",
-			      kind_flag, t.size, BTF_INFO_VLEN(t.info));
-		return -1;
+		t = btf__type_by_id(btf, id);
+		btf_elf__log_type(btfe, t, false, true, "size=%u", t->size);
 	}
+
+	return id;
 }
 
-int32_t btf_elf__add_enum(struct btf_elf *btfe, uint32_t name, uint32_t bit_size, uint16_t nr_entries)
+int32_t btf_elf__add_enum(struct btf_elf *btfe, const char *name, uint32_t bit_size)
 {
-	struct btf_type t;
+	struct btf *btf = btfe->btf;
+	const struct btf_type *t;
+	int32_t id, size;
 
-	t.name_off = name;
-	t.info = BTF_INFO_ENCODE(BTF_KIND_ENUM, 0, nr_entries);
-	t.size = BITS_ROUNDUP_BYTES(bit_size);
-
-	++btfe->type_index;
-	if (gobuffer__add(&btfe->types, &t, sizeof(t)) >= 0) {
-		btf_elf__log_type(btfe, &t, false, true, "size=%u vlen=%u", t.size, BTF_INFO_VLEN(t.info));
-		return btfe->type_index;
+	size = BITS_ROUNDUP_BYTES(bit_size);
+	id = btf__add_enum(btf, name, size);
+	if (id > 0) {
+		t = btf__type_by_id(btf, id);
+		btf_elf__log_type(btfe, t, false, true, "size=%u", t->size);
 	} else {
-		btf_elf__log_type(btfe, &t, true, true,
-			      "size=%u vlen=%u Error in adding gobuffer",
-			      t.size, BTF_INFO_VLEN(t.info));
-		return -1;
+		btf_elf__log_err(btfe, BTF_KIND_ENUM, name, true,
+			      "size=%u Error emitting BTF type", size);
 	}
+	return id;
 }
 
-int btf_elf__add_enum_val(struct btf_elf *btfe, uint32_t name, int32_t value)
+int btf_elf__add_enum_val(struct btf_elf *btfe, const char *name, int32_t value)
 {
-	struct btf_enum e = {
-		.name_off = name,
-		.val  = value,
-	};
+	struct btf *btf = btfe->btf;
+	int err;
 
-	if (gobuffer__add(&btfe->types, &e, sizeof(e)) < 0) {
-		fprintf(stderr, "\t%s val=%d Error in adding gobuffer\n",
-			btf_elf__name_in_gobuf(btfe, e.name_off), e.val);
-		return -1;
-	} else if (btf_elf__verbose)
-		printf("\t%s val=%d\n", btf_elf__name_in_gobuf(btfe, e.name_off),
-		       e.val);
-
-	return 0;
+	err = btf__add_enum_value(btf, name, value);
+	if (!err) {
+		if (btf_elf__verbose)
+			printf("\t%s val=%d\n", name, value);
+	} else {
+		fprintf(stderr, "\t%s val=%d Error emitting BTF enum value\n",
+			name, value);
+	}
+	return err;
 }
 
-static int32_t btf_elf__add_func_proto_param(struct btf_elf *btfe, uint32_t name,
+static int32_t btf_elf__add_func_proto_param(struct btf_elf *btfe, const char *name,
 					     uint32_t type, bool is_last_param)
 {
-	struct btf_param param;
+	int err;
 
-	param.name_off = name;
-	param.type = type;
-
-	if (gobuffer__add(&btfe->types, &param, sizeof(param)) >= 0) {
+	err = btf__add_func_param(btfe->btf, name, type);
+	if (!err) {
 		btf_log_func_param(btfe, name, type, false, is_last_param, NULL);
 		return 0;
 	} else {
 		btf_log_func_param(btfe, name, type, true, is_last_param,
-				   "Error in adding gobuffer");
+				   "Error adding func param");
 		return -1;
 	}
 }
 
-int32_t btf_elf__add_func_proto(struct btf_elf *btfe, struct ftype *ftype, uint32_t type_id_off)
+extern struct debug_fmt_ops *dwarves__active_loader;
+
+int32_t btf_elf__add_func_proto(struct btf_elf *btfe, struct cu *cu, struct ftype *ftype, uint32_t type_id_off)
 {
-	uint16_t nr_params, param_idx;
+	struct btf *btf = btfe->btf;
+	const struct btf_type *t;
 	struct parameter *param;
-	struct btf_type t;
-	int32_t type_id;
+	uint16_t nr_params, param_idx;
+	int32_t id, type_id;
 
 	/* add btf_type for func_proto */
 	nr_params = ftype->nr_parms + (ftype->unspec_parms ? 1 : 0);
+	type_id = ftype->tag.type == 0 ? 0 : type_id_off + ftype->tag.type;
 
-	t.name_off = 0;
-	t.info = BTF_INFO_ENCODE(BTF_KIND_FUNC_PROTO, 0, nr_params);
-	t.type = ftype->tag.type == 0 ? 0 : type_id_off + ftype->tag.type;
-
-	++btfe->type_index;
-	if (gobuffer__add(&btfe->types, &t, sizeof(t)) >= 0) {
-		btf_elf__log_type(btfe, &t, false, false, "return=%u args=(%s",
-			      t.type, !nr_params ? "void)\n" : "");
-		type_id = btfe->type_index;
+	id = btf__add_func_proto(btf, type_id);
+	if (id > 0) {
+		t = btf__type_by_id(btf, id);
+		btf_elf__log_type(btfe, t, false, false, "return=%u args=(%s",
+			      t->type, !nr_params ? "void)\n" : "");
 	} else {
-		btf_elf__log_type(btfe, &t, true, true,
-			      "return=%u vlen=%u Error in adding gobuffer",
-			      t.type, BTF_INFO_VLEN(t.info));
-		return -1;
+		btf_elf__log_err(btfe, BTF_KIND_FUNC_PROTO, NULL, true,
+			      "return=%u vlen=%u Error emitting BTF type",
+			      type_id, nr_params);
+		return id;
 	}
 
 	/* add parameters */
 	param_idx = 0;
 	ftype__for_each_parameter(ftype, param) {
-		uint32_t param_type_id = param->tag.type == 0 ? 0 : type_id_off + param->tag.type;
+		const char *name = dwarves__active_loader->strings__ptr(cu, param->name);
+
+		type_id = param->tag.type == 0 ? 0 : type_id_off + param->tag.type;
 		++param_idx;
-		if (btf_elf__add_func_proto_param(btfe, param->name, param_type_id, param_idx == nr_params))
+		if (btf_elf__add_func_proto_param(btfe, name, type_id, param_idx == nr_params))
 			return -1;
 	}
 
 	++param_idx;
 	if (ftype->unspec_parms)
-		if (btf_elf__add_func_proto_param(btfe, 0, 0, param_idx == nr_params))
+		if (btf_elf__add_func_proto_param(btfe, NULL, 0, param_idx == nr_params))
 			return -1;
 
-	return type_id;
+	return id;
 }
 
-int32_t btf_elf__add_var_type(struct btf_elf *btfe, uint32_t type, uint32_t name_off,
+int32_t btf_elf__add_var_type(struct btf_elf *btfe, uint32_t type, const char *name,
 			      uint32_t linkage)
 {
-	struct btf_var_type t;
+	struct btf *btf = btfe->btf;
+	const struct btf_type *t;
+	int32_t id;
 
-	t.type.name_off = name_off;
-	t.type.info = BTF_INFO_ENCODE(BTF_KIND_VAR, 0, 0);
-	t.type.type = type;
-
-	t.var.linkage = linkage;
-
-	++btfe->type_index;
-	if (gobuffer__add(&btfe->types, &t.type, sizeof(t)) < 0) {
-		btf_elf__log_type(btfe, &t.type, true, true,
-				  "type=%u name=%s Error in adding gobuffer",
-				  t.type.type, btf_elf__name_in_gobuf(btfe, t.type.name_off));
-		return -1;
+	id = btf__add_var(btf, name, linkage, type);
+	if (id > 0) {
+		t = btf__type_by_id(btf, id);
+		btf_elf__log_type(btfe, t, false, true, "type=%u linkage=%u",
+				  t->type, btf_var(t)->linkage);
+	} else {
+		btf_elf__log_err(btfe, BTF_KIND_VAR, name, true,
+			      "type=%u linkage=%u Error emitting BTF type",
+			      type, linkage);
 	}
-
-	btf_elf__log_type(btfe, &t.type, false, false, "type=%u name=%s\n",
-			  t.type.type, btf_elf__name_in_gobuf(btfe, t.type.name_off));
-
-	return btfe->type_index;
+	return id;
 }
 
 int32_t btf_elf__add_var_secinfo(struct gobuffer *buf, uint32_t type,
@@ -624,52 +622,49 @@ int32_t btf_elf__add_var_secinfo(struct gobuffer *buf, uint32_t type,
 	return gobuffer__add(buf, &si, sizeof(si));
 }
 
-extern struct strings *strings;
-
 int32_t btf_elf__add_datasec_type(struct btf_elf *btfe, const char *section_name,
 				  struct gobuffer *var_secinfo_buf)
 {
-	struct btf_type type;
+	struct btf *btf = btfe->btf;
 	size_t sz = gobuffer__size(var_secinfo_buf);
 	uint16_t nr_var_secinfo = sz / sizeof(struct btf_var_secinfo);
-	uint32_t name_off;
-	struct btf_var_secinfo *last_vsi;
+	struct btf_var_secinfo *last_vsi, *vsi;
+	const struct btf_type *t;
+	uint32_t datasec_sz;
+	int32_t err, id, i;
 
 	qsort(var_secinfo_buf->entries, nr_var_secinfo,
 	      sizeof(struct btf_var_secinfo), btf_var_secinfo_cmp);
 
 	last_vsi = (struct btf_var_secinfo *)var_secinfo_buf->entries + nr_var_secinfo - 1;
+	datasec_sz = last_vsi->offset + last_vsi->size;
 
-	/*
-	 * dwarves doesn't store section names in its string table,
-	 * so we have to add it by ourselves.
-	 */
-	name_off = strings__add(strings, section_name);
-
-	type.name_off = name_off;
-	type.info = BTF_INFO_ENCODE(BTF_KIND_DATASEC, 0, nr_var_secinfo);
-	type.size = last_vsi->offset + last_vsi->size;
-
-	++btfe->type_index;
-	if (gobuffer__add(&btfe->types, &type, sizeof(type)) < 0) {
-		btf_elf__log_type(btfe, &type, true, true,
-				  "name=%s vlen=%u Error in adding datasec",
-				  btf_elf__name_in_gobuf(btfe, type.name_off),
-				  nr_var_secinfo);
-		return -1;
-	}
-	if (gobuffer__add(&btfe->types, var_secinfo_buf->entries, sz) < 0) {
-		btf_elf__log_type(btfe, &type, true, true,
-				  "name=%s vlen=%u Error in adding var_secinfo",
-				  btf_elf__name_in_gobuf(btfe, type.name_off),
-				  nr_var_secinfo);
-		return -1;
+	id = btf__add_datasec(btf, section_name, datasec_sz);
+	if (id < 0) {
+		btf_elf__log_err(btfe, BTF_KIND_DATASEC, section_name, true,
+				 "size=%u vlen=%u Error emitting BTF type",
+				 datasec_sz, nr_var_secinfo);
+	} else {
+		t = btf__type_by_id(btf, id);
+		btf_elf__log_type(btfe, t, false, true, "size=%u vlen=%u",
+				  t->size, nr_var_secinfo);
 	}
 
-	btf_elf__log_type(btfe, &type, false, false, "type=datasec name=%s",
-			  btf_elf__name_in_gobuf(btfe, type.name_off));
+	for (i = 0; i < nr_var_secinfo; i++) {
+		vsi = (struct btf_var_secinfo *)var_secinfo_buf->entries + i;
+		err = btf__add_datasec_var_info(btf, vsi->type, vsi->offset, vsi->size);
+		if (!err) {
+			if (btf_elf__verbose)
+				printf("\ttype=%u offset=%u size=%u\n",
+				       vsi->type, vsi->offset, vsi->size);
+		} else {
+			fprintf(stderr, "\ttype=%u offset=%u size=%u Error emitting BTF datasec var info\n",
+				       vsi->type, vsi->offset, vsi->size);
+			return -1;
+		}
+	}
 
-	return btfe->type_index;
+	return id;
 }
 
 static int btf_elf__write(const char *filename, struct btf *btf)
@@ -774,48 +769,16 @@ out:
 
 int btf_elf__encode(struct btf_elf *btfe, uint8_t flags)
 {
-	struct btf_header *hdr;
-	struct btf *btf;
-
-	/* Empty file, nothing to do, so... done! */
-	if (gobuffer__size(&btfe->types) == 0)
-		return 0;
+	struct btf *btf = btfe->btf;
 
 	if (gobuffer__size(&btfe->percpu_secinfo) != 0)
 		btf_elf__add_datasec_type(btfe, PERCPU_SECTION,
 					  &btfe->percpu_secinfo);
 
-	btfe->size = sizeof(*hdr) + (gobuffer__size(&btfe->types) + gobuffer__size(btfe->strings));
-	btfe->data = zalloc(btfe->size);
+	/* Empty file, nothing to do, so... done! */
+	if (btf__get_nr_types(btf) == 0)
+		return 0;
 
-	if (btfe->data == NULL) {
-		fprintf(stderr, "%s: malloc failed!\n", __func__);
-		return -1;
-	}
-
-	hdr = btfe->hdr;
-	hdr->magic = BTF_MAGIC;
-	hdr->version = 1;
-	hdr->flags = flags;
-	hdr->hdr_len = sizeof(*hdr);
-
-	hdr->type_off = 0;
-	hdr->type_len = gobuffer__size(&btfe->types);
-	hdr->str_off  = hdr->type_len;
-	hdr->str_len  = gobuffer__size(btfe->strings);
-
-	gobuffer__copy(&btfe->types, btf_elf__nohdr_data(btfe) + hdr->type_off);
-	gobuffer__copy(btfe->strings, btf_elf__nohdr_data(btfe) + hdr->str_off);
-
-	*(char *)(btf_elf__nohdr_data(btfe) + hdr->str_off) = '\0';
-
-	libbpf_set_print(libbpf_log);
-
-	btf = btf__new(btfe->data, btfe->size);
-	if (IS_ERR(btf)) {
-		fprintf(stderr, "%s: btf__new failed!\n", __func__);
-		return -1;
-	}
 	if (btf__dedup(btf, NULL, NULL)) {
 		fprintf(stderr, "%s: btf__dedup failed!\n", __func__);
 		return -1;
