@@ -28,6 +28,7 @@
 #include "elf_symtab.h"
 
 uint8_t btf_elf__verbose;
+uint8_t btf_elf__force;
 
 static int btf_var_secinfo_cmp(const void *a, const void *b)
 {
@@ -61,7 +62,6 @@ int btf_elf__load(struct btf_elf *btfe)
 
 	return 0;
 }
-
 
 struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
 {
@@ -770,10 +770,6 @@ out:
 int btf_elf__encode(struct btf_elf *btfe, uint8_t flags)
 {
 	struct btf *btf = btfe->btf;
-
-	if (gobuffer__size(&btfe->percpu_secinfo) != 0)
-		btf_elf__add_datasec_type(btfe, PERCPU_SECTION,
-					  &btfe->percpu_secinfo);
 
 	/* Empty file, nothing to do, so... done! */
 	if (btf__get_nr_types(btf) == 0)

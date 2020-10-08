@@ -17,6 +17,7 @@
 #include "btf_encoder.h"
 
 #include <ctype.h> /* for isalpha() and isalnum() */
+#include <stdlib.h> /* for qsort() and bsearch() */
 #include <inttypes.h>
 
 /*
@@ -53,18 +54,18 @@ static bool btf_name_valid(const char *p)
 	return !*p;
 }
 
-static void dump_invalid_symbol(const char *msg, const char *sym, const char *cu,
+static void dump_invalid_symbol(const char *msg, const char *sym,
 				int verbose, bool force)
 {
 	if (force) {
 		if (verbose)
-			fprintf(stderr, "PAHOLE: Warning: %s, ignored (sym: '%s', cu: '%s').\n",
-				msg, sym, cu);
+			fprintf(stderr, "PAHOLE: Warning: %s, ignored (sym: '%s').\n",
+				msg, sym);
 		return;
 	}
 
-	fprintf(stderr, "PAHOLE: Error: %s (sym: '%s', cu: '%s').\n", msg, sym, cu);
-	fprintf(stderr, "PAHOLE: Error: Use '-j' or '--force' to ignore such symbols and force emit the btf.\n");
+	fprintf(stderr, "PAHOLE: Error: %s (sym: '%s').\n", msg, sym);
+	fprintf(stderr, "PAHOLE: Error: Use '--btf_encode_force' to ignore such symbols and force emit the btf.\n");
 }
 
 extern struct debug_fmt_ops *dwarves__active_loader;
@@ -202,6 +203,9 @@ int btf_encoder__encode()
 {
 	int err;
 
+	if (gobuffer__size(&btfe->percpu_secinfo) != 0)
+		btf_elf__add_datasec_type(btfe, PERCPU_SECTION, &btfe->percpu_secinfo);
+
 	err = btf_elf__encode(btfe, 0);
 	btf_elf__delete(btfe);
 	btfe = NULL;
@@ -209,24 +213,117 @@ int btf_encoder__encode()
 	return err;
 }
 
-#define HASHADDR__BITS 8
-#define HASHADDR__SIZE (1UL << HASHADDR__BITS)
-#define hashaddr__fn(key) hash_64(key, HASHADDR__BITS)
+#define MAX_PERCPU_VAR_CNT 4096
 
-static struct variable *hashaddr__find_variable(const struct hlist_head hashtable[],
-						const uint64_t addr)
+struct var_info {
+	uint64_t addr;
+	uint32_t sz;
+	const char *name;
+};
+
+static struct var_info percpu_vars[MAX_PERCPU_VAR_CNT];
+static int percpu_var_cnt;
+
+static int percpu_var_cmp(const void *_a, const void *_b)
 {
-	struct variable *variable;
-	struct hlist_node *pos;
-	uint16_t bucket = hashaddr__fn(addr);
-	const struct hlist_head *head = &hashtable[bucket];
+	const struct var_info *a = _a;
+	const struct var_info *b = _b;
 
-	hlist_for_each_entry(variable, pos, head, tool_hnode) {
-		if (variable->ip.addr == addr)
-			return variable;
+	if (a->addr == b->addr)
+		return 0;
+	return a->addr < b->addr ? -1 : 1;
+}
+
+static bool percpu_var_exists(uint64_t addr, uint32_t *sz, const char **name)
+{
+	const struct var_info *p;
+	struct var_info key = { .addr = addr };
+
+	p = bsearch(&key, percpu_vars, percpu_var_cnt,
+		    sizeof(percpu_vars[0]), percpu_var_cmp);
+
+	if (!p)
+		return false;
+
+	*sz = p->sz;
+	*name = p->name;
+	return true;
+}
+
+static int find_all_percpu_vars(struct btf_elf *btfe)
+{
+	uint32_t core_id;
+	GElf_Sym sym;
+
+	/* cache variables' addresses, preparing for searching in symtab. */
+	percpu_var_cnt = 0;
+
+	/* search within symtab for percpu variables */
+	elf_symtab__for_each_symbol(btfe->symtab, core_id, sym) {
+		const char *sym_name;
+		uint64_t addr;
+		uint32_t size;
+
+		/* compare a symbol's shndx to determine if it's a percpu variable */
+		if (elf_sym__section(&sym) != btfe->percpu_shndx)
+			continue;
+		if (elf_sym__type(&sym) != STT_OBJECT)
+			continue;
+
+		addr = elf_sym__value(&sym);
+		/*
+		 * Store only those symbols that have allocated space in the percpu section.
+		 * This excludes the following three types of symbols:
+		 *
+		 *  1. __ADDRESSABLE(sym), which are forcely emitted as symbols.
+		 *  2. __UNIQUE_ID(prefix), which are introduced to generate unique ids.
+		 *  3. __exitcall(fn), functions which are labeled as exit calls.
+		 *
+		 * In addition, the variables defined using DEFINE_PERCPU_FIRST are
+		 * also not included, which currently includes:
+		 *
+		 *  1. fixed_percpu_data
+		 */
+		if (!addr)
+			continue;
+
+		sym_name = elf_sym__name(&sym, btfe->symtab);
+		if (!btf_name_valid(sym_name)) {
+			dump_invalid_symbol("Found symbol of invalid name when encoding btf",
+					    sym_name, btf_elf__verbose, btf_elf__force);
+			if (btf_elf__force)
+				continue;
+			return -1;
+		}
+		size = elf_sym__size(&sym);
+		if (!size) {
+			dump_invalid_symbol("Found symbol of zero size when encoding btf",
+					    sym_name, btf_elf__verbose, btf_elf__force);
+			if (btf_elf__force)
+				continue;
+			return -1;
+		}
+
+		if (btf_elf__verbose)
+			printf("Found per-CPU symbol '%s' at address 0x%lx\n", sym_name, addr);
+
+		if (percpu_var_cnt == MAX_PERCPU_VAR_CNT) {
+			fprintf(stderr, "Reached the limit of per-CPU variables: %d\n",
+				MAX_PERCPU_VAR_CNT);
+			return -1;
+		}
+		percpu_vars[percpu_var_cnt].addr = addr;
+		percpu_vars[percpu_var_cnt].sz = size;
+		percpu_vars[percpu_var_cnt].name = sym_name;
+		percpu_var_cnt++;
 	}
 
-	return NULL;
+	if (percpu_var_cnt)
+		qsort(percpu_vars, percpu_var_cnt, sizeof(percpu_vars[0]), percpu_var_cmp);
+
+	if (btf_elf__verbose)
+		printf("Found %d per-CPU variables!\n", percpu_var_cnt);
+	return 0;
 }
 
 int cu__encode_btf(struct cu *cu, int verbose, bool force,
@@ -234,13 +331,10 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 {
 	uint32_t type_id_off;
 	uint32_t core_id;
+	struct variable *var;
 	struct function *fn;
 	struct tag *pos;
 	int err = 0;
-	struct hlist_head hash_addr[HASHADDR__SIZE];
-	struct variable *var;
-	bool has_global_var = false;
-	GElf_Sym sym;
 
 	if (btfe && strcmp(btfe->filename, cu->filename)) {
 		err = btf_encoder__encode();
@@ -256,6 +350,9 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		btfe = btf_elf__new(cu->filename, cu->elf);
 		if (!btfe)
 			return -1;
+
+		if (!skip_encoding_vars && find_all_percpu_vars(btfe))
+			goto out;
 
 		has_index_type = false;
 		need_index_type = false;
@@ -278,6 +375,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 	}
 
 	btf_elf__verbose = verbose;
+	btf_elf__force = force;
 	type_id_off = btf__get_nr_types(btfe->btf);
 
 	cu__for_each_type(cu, core_id, pos) {
@@ -325,12 +423,11 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 	if (verbose)
 		printf("search cu '%s' for percpu global variables.\n", cu->name);
 
-	/* cache variables' addresses, preparing for searching in symtab. */
-	for (core_id = 0; core_id < HASHADDR__SIZE; ++core_id)
-		INIT_HLIST_HEAD(&hash_addr[core_id]);
-
 	cu__for_each_variable(cu, core_id, pos) {
-		struct hlist_head *head;
+		uint32_t size, type, linkage, offset;
+		const char *name;
+		uint64_t addr;
+		int id;
 
 		var = tag__variable(pos);
 		if (var->declaration && !var->spec)
@@ -338,89 +435,37 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		/* percpu variables are allocated in global space */
 		if (variable__scope(var) != VSCOPE_GLOBAL && !var->spec)
 			continue;
-		has_global_var = true;
-		head = &hash_addr[hashaddr__fn(var->ip.addr)];
-		hlist_add_head(&var->tool_hnode, head);
-	}
-	if (!has_global_var) {
-		if (verbose)
-			printf("cu has no global variable defined, skip.\n");
-		goto out;
-	}
 
-	/* search within symtab for percpu variables */
-	elf_symtab__for_each_symbol(btfe->symtab, core_id, sym) {
-		uint32_t linkage, type, size, offset;
-		int32_t btf_var_id, btf_var_secinfo_id;
-		uint64_t addr;
-		const char *sym_name;
-
-		/* compare a symbol's shndx to determine if it's a percpu variable */
-		if (elf_sym__section(&sym) != btfe->percpu_shndx)
-			continue;
-		if (elf_sym__type(&sym) != STT_OBJECT)
-			continue;
-
-		addr = elf_sym__value(&sym);
-		/*
-		 * Store only those symbols that have allocated space in the percpu section.
-		 * This excludes the following three types of symbols:
-		 *
-		 *  1. __ADDRESSABLE(sym), which are forcely emitted as symbols.
-		 *  2. __UNIQUE_ID(prefix), which are introduced to generate unique ids.
-		 *  3. __exitcall(fn), functions which are labeled as exit calls.
-		 *
-		 * In addition, the variables defined using DEFINE_PERCPU_FIRST are
-		 * also not included, which currently includes:
-		 *
-		 *  1. fixed_percpu_data
-		 */
-		if (!addr)
-			continue;
-		var = hashaddr__find_variable(hash_addr, addr);
-		if (var == NULL)
-			continue;
+		/* addr has to be recorded before we follow spec */
+		addr = var->ip.addr;
 		if (var->spec)
 			var = var->spec;
 
-		sym_name = elf_sym__name(&sym, btfe->symtab);
-		if (!btf_name_valid(sym_name)) {
-			dump_invalid_symbol("Found symbol of invalid name when encoding btf",
-					    sym_name, cu->name, verbose, force);
-			if (force)
-				continue;
-			err = -1;
-			break;
-		}
 		if (var->ip.tag.type == 0) {
-			dump_invalid_symbol("Found symbol of void type when encoding btf",
-					    sym_name, cu->name, verbose, force);
-			if (force)
-				continue;
-			err = -1;
-			break;
-		}
-		type = type_id_off + var->ip.tag.type;
-		size = elf_sym__size(&sym);
-		if (!size) {
-			dump_invalid_symbol("Found symbol of zero size when encoding btf",
-					    sym_name, cu->name, verbose, force);
+			fprintf(stderr, "error: found variable in CU '%s' that has void type\n",
+				cu->name);
 			if (force)
 				continue;
 			err = -1;
 			break;
 		}
 
-		if (verbose)
-			printf("symbol '%s' of address 0x%lx encoded\n",
-			       sym_name, addr);
+		type = var->ip.tag.type + type_id_off;
+		linkage = var->external ? BTF_VAR_GLOBAL_ALLOCATED : BTF_VAR_STATIC;
+		if (!percpu_var_exists(addr, &size, &name))
+			continue; /* not a per-CPU variable */
+
+		if (btf_elf__verbose) {
+			printf("Variable '%s' from CU '%s' at address 0x%lx encoded\n",
+			       name, cu->name, addr);
+		}
 
 		/* add a BTF_KIND_VAR in btfe->types */
-		linkage = var->external ? BTF_VAR_GLOBAL_ALLOCATED : BTF_VAR_STATIC;
-		btf_var_id = btf_elf__add_var_type(btfe, type, sym_name, linkage);
-		if (btf_var_id < 0) {
+		id = btf_elf__add_var_type(btfe, type, name, linkage);
+		if (id < 0) {
 			err = -1;
-			printf("error: failed to encode variable '%s'\n", sym_name);
+			fprintf(stderr, "error: failed to encode variable '%s' at addr 0x%lx\n",
+			        name, addr);
 			break;
 		}
 
@@ -428,13 +473,12 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		 * add a BTF_VAR_SECINFO in btfe->percpu_secinfo, which will be added into
 		 * btfe->types later when we add BTF_VAR_DATASEC.
 		 */
-		type = btf_var_id;
 		offset = addr - btfe->percpu_base_addr;
-		btf_var_secinfo_id = btf_elf__add_var_secinfo(&btfe->percpu_secinfo,
-							      type, offset, size);
-		if (btf_var_secinfo_id < 0) {
+		id = btf_elf__add_var_secinfo(&btfe->percpu_secinfo, id, offset, size);
+		if (id < 0) {
 			err = -1;
-			printf("error: failed to encode var secinfo '%s'\n", sym_name);
+			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%lx\n",
+			        name, addr);
 			break;
 		}
 	}
