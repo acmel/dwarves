@@ -2159,7 +2159,7 @@ static unsigned long long dwarf_tag__orig_id(const struct tag *tag,
 static const char *dwarf__strings_ptr(const struct cu *cu __unused,
 				      strings_t s)
 {
-	return strings__ptr(strings, s);
+	return s ? strings__ptr(strings, s) : NULL;
 }
 
 struct debug_fmt_ops dwarf__ops;

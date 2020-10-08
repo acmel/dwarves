@@ -248,7 +248,7 @@ int cu__encode_ctf(struct cu *cu, int verbose)
 	if (cu__cache_symtab(cu) < 0)
 		goto out_delete;
 
-	ctf__set_strings(ctf, &strings->gb);
+	ctf__set_strings(ctf, strings);
 
 	uint32_t id;
 	struct tag *pos;
