@@ -62,89 +62,29 @@ static int btf_var_secinfo_cmp(const void *a, const void *b)
 	return av->offset - bv->offset;
 }
 
-uint32_t btf_elf__get32(struct btf_elf *btfe, uint32_t *p)
+static int libbpf_log(enum libbpf_print_level level, const char *format, va_list args)
 {
-	uint32_t val = *p;
-
-	if (btfe->swapped)
-		val = ((val >> 24) |
-		       ((val >> 8) & 0x0000ff00) |
-		       ((val << 8) & 0x00ff0000) |
-		       (val << 24));
-	return val;
-}
-
-static int btf_raw__load(struct btf_elf *btfe)
-{
-        size_t read_cnt;
-        struct stat st;
-        void *data;
-        FILE *fp;
-
-        if (stat(btfe->filename, &st))
-                return -1;
-
-        data = malloc(st.st_size);
-        if (!data)
-                return -1;
-
-        fp = fopen(btfe->filename, "rb");
-        if (!fp)
-                goto cleanup;
-
-        read_cnt = fread(data, 1, st.st_size, fp);
-        fclose(fp);
-        if (read_cnt < st.st_size)
-                goto cleanup;
-
-	btfe->swapped	= 0;
-	btfe->data	= data;
-	btfe->size	= read_cnt;
-	return 0;
-cleanup:
-        free(data);
-        return -1;
+	return vfprintf(stderr, format, args);
 }
 
 int btf_elf__load(struct btf_elf *btfe)
 {
+	int err;
+
+	libbpf_set_print(libbpf_log);
+
+	/* free initial empty BTF */
+	btf__free(btfe->btf);
 	if (btfe->raw_btf)
-		return btf_raw__load(btfe);
-
-	int err = -ENOTSUP;
-	GElf_Shdr shdr;
-	Elf_Scn *sec = elf_section_by_name(btfe->elf, &btfe->ehdr, &shdr, ".BTF", NULL);
-
-	if (sec == NULL)
-		return -ESRCH;
-
-	Elf_Data *data = elf_getdata(sec, NULL);
-	if (data == NULL) {
-		fprintf(stderr, "%s: cannot get data of BTF section.\n", __func__);
-		return -1;
-	}
-
-	struct btf_header *hp = data->d_buf;
-	size_t orig_size = data->d_size;
-
-	if (hp->version != BTF_VERSION)
-		goto out;
-
-	err = -EINVAL;
-	if (hp->magic == BTF_MAGIC)
-		btfe->swapped = 0;
+		btfe->btf = btf__parse_raw(btfe->filename);
 	else
-		goto out;
+		btfe->btf = btf__parse_elf(btfe->filename, NULL);
 
-	err = -ENOMEM;
-	btfe->data = malloc(orig_size);
-	if (btfe->data != NULL) {
-		memcpy(btfe->data, hp, orig_size);
-		btfe->size = orig_size;
-		err = 0;
-	}
-out:
-	return err;
+	err = libbpf_get_error(btfe->btf);
+	if (err)
+		return err;
+
+	return 0;
 }
 
 
@@ -252,26 +192,17 @@ void btf_elf__delete(struct btf_elf *btfe)
 
 	__gobuffer__delete(&btfe->types);
 	__gobuffer__delete(&btfe->percpu_secinfo);
+	btf__free(btfe->btf);
 	free(btfe->filename);
 	free(btfe->data);
 	free(btfe);
 }
 
-char *btf_elf__string(struct btf_elf *btfe, uint32_t ref)
+const char *btf_elf__string(struct btf_elf *btfe, uint32_t ref)
 {
-	struct btf_header *hp = btfe->hdr;
-	uint32_t off = ref;
-	char *name;
+	const char *s = btf__str_by_offset(btfe->btf, ref);
 
-	if (off >= btf_elf__get32(btfe, &hp->str_len))
-		return "(ref out-of-bounds)";
-
-	if ((off + btf_elf__get32(btfe, &hp->str_off)) >= btfe->size)
-		return "(string table truncated)";
-
-	name = ((char *)(hp + 1) + btf_elf__get32(btfe, &hp->str_off) + off);
-
-	return name[0] == '\0' ? NULL : name;
+	return s && s[0] == '\0' ? NULL : s;
 }
 
 static void *btf_elf__nohdr_data(struct btf_elf *btfe)
@@ -313,8 +244,10 @@ static const char *btf_elf__name_in_gobuf(const struct btf_elf *btfe, uint32_t o
 {
 	if (!offset)
 		return "(anon)";
-	else
+	else if (btfe->strings)
 		return &btfe->strings->entries[offset];
+	else
+		return btf__str_by_offset(btfe->btf, offset);
 }
 
 static const char * btf_elf__int_encoding_str(uint8_t encoding)
@@ -839,11 +772,6 @@ out:
 	return err;
 }
 
-static int libbpf_log(enum libbpf_print_level level, const char *format, va_list args)
-{
-	return vfprintf(stderr, format, args);
-}
-
 int btf_elf__encode(struct btf_elf *btfe, uint8_t flags)
 {
 	struct btf_header *hdr;
@@ -889,7 +817,7 @@ int btf_elf__encode(struct btf_elf *btfe, uint8_t flags)
 		return -1;
 	}
 	if (btf__dedup(btf, NULL, NULL)) {
-		fprintf(stderr, "%s: btf__dedup failed!", __func__);
+		fprintf(stderr, "%s: btf__dedup failed!\n", __func__);
 		return -1;
 	}
 

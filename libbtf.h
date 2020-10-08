@@ -11,6 +11,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "lib/bpf/src/btf.h"
 
 struct btf_elf {
 	union {
@@ -26,7 +27,6 @@ struct btf_elf {
 	struct gobuffer   percpu_secinfo;
 	char		  *filename;
 	size_t		  size;
-	int		  swapped;
 	int		  in_fd;
 	uint8_t		  wordsize;
 	bool		  is_big_endian;
@@ -34,6 +34,7 @@ struct btf_elf {
 	uint32_t	  type_index;
 	uint32_t	  percpu_shndx;
 	uint64_t	  percpu_base_addr;
+	struct btf	  *btf;
 };
 
 extern uint8_t btf_elf__verbose;
@@ -70,13 +71,7 @@ int32_t btf_elf__add_datasec_type(struct btf_elf *btfe, const char *section_name
 void btf_elf__set_strings(struct btf_elf *btf, struct gobuffer *strings);
 int  btf_elf__encode(struct btf_elf *btf, uint8_t flags);
 
-char *btf_elf__string(struct btf_elf *btf, uint32_t ref);
+const char *btf_elf__string(struct btf_elf *btf, uint32_t ref);
 int btf_elf__load(struct btf_elf *btf);
-
-uint32_t btf_elf__get32(struct btf_elf *btf, uint32_t *p);
-
-void *btf_elf__get_buffer(struct btf_elf *btf);
-
-size_t btf_elf__get_size(struct btf_elf *btf);
 
 #endif /* _LIBBTF_H */

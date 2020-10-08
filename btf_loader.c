@@ -46,21 +46,17 @@ static void *tag__alloc(const size_t size)
 }
 
 static int btf_elf__load_ftype(struct btf_elf *btfe, struct ftype *proto, uint32_t tag,
-			       uint32_t type, uint16_t vlen, struct btf_param *args, uint32_t id)
+			       const struct btf_type *tp, uint32_t id)
 {
-	int i;
+	const struct btf_param *param = btf_params(tp);
+	int i, vlen = btf_vlen(tp);
 
 	proto->tag.tag	= tag;
-	proto->tag.type = type;
+	proto->tag.type = tp->type;
 	INIT_LIST_HEAD(&proto->parms);
 
-	for (i = 0; i < vlen; ++i) {
-		struct btf_param param = {
-		       .name_off = btf_elf__get32(btfe, &args[i].name_off),
-		       .type	 = btf_elf__get32(btfe, &args[i].type),
-		};
-
-		if (param.type == 0)
+	for (i = 0; i < vlen; ++i, param++) {
+		if (param->type == 0)
 			proto->unspec_parms = 1;
 		else {
 			struct parameter *p = tag__alloc(sizeof(*p));
@@ -68,25 +64,22 @@ static int btf_elf__load_ftype(struct btf_elf *btfe, struct ftype *proto, uint32
 			if (p == NULL)
 				goto out_free_parameters;
 			p->tag.tag  = DW_TAG_formal_parameter;
-			p->tag.type = param.type;
-			p->name	    = param.name_off;
+			p->tag.type = param->type;
+			p->name	    = param->name_off;
 			ftype__add_parameter(proto, p);
 		}
 	}
 
-	vlen *= sizeof(*args);
 	cu__add_tag_with_id(btfe->priv, &proto->tag, id);
 
-	return vlen;
+	return 0;
 out_free_parameters:
 	ftype__delete(proto, btfe->priv);
 	return -ENOMEM;
 }
 
-static int create_new_function(struct btf_elf *btfe, struct btf_type *tp, uint64_t size, uint32_t id)
+static int create_new_function(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	strings_t name = btf_elf__get32(btfe, &tp->name_off);
-	unsigned int type_id = btf_elf__get32(btfe, &tp->type);
 	struct function *func = tag__alloc(sizeof(*func));
 
 	if (func == NULL)
@@ -96,9 +89,9 @@ static int create_new_function(struct btf_elf *btfe, struct btf_type *tp, uint64
 	// but the prototype, the return type is the one in type_id
 	func->btf = 1;
 	func->proto.tag.tag = DW_TAG_subprogram;
-	func->proto.tag.type = type_id;
+	func->proto.tag.type = tp->type;
+	func->name = tp->name_off;
 	INIT_LIST_HEAD(&func->lexblock.tags);
-	func->name = name;
 	cu__add_tag_with_id(btfe->priv, &func->proto.tag, id);
 
 	return 0;
@@ -166,26 +159,24 @@ static struct variable *variable__new(strings_t name, uint32_t linkage)
 	return var;
 }
 
-static int create_new_base_type(struct btf_elf *btfe, void *ptr, struct btf_type *tp, uint32_t id)
+static int create_new_base_type(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	uint32_t *enc = ptr;
-	uint32_t eval = btf_elf__get32(btfe, enc);
-	uint32_t attrs = BTF_INT_ENCODING(eval);
-	strings_t name = btf_elf__get32(btfe, &tp->name_off);
-	struct base_type *base = base_type__new(name, attrs, 0,
-						BTF_INT_BITS(eval));
+	uint32_t attrs = btf_int_encoding(tp);
+	strings_t name = tp->name_off;
+	struct base_type *base = base_type__new(name, attrs, 0, btf_int_bits(tp));
+
 	if (base == NULL)
 		return -ENOMEM;
 
 	base->tag.tag = DW_TAG_base_type;
 	cu__add_tag_with_id(btfe->priv, &base->tag, id);
 
-	return sizeof(*enc);
+	return 0;
 }
 
-static int create_new_array(struct btf_elf *btfe, void *ptr, uint32_t id)
+static int create_new_array(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	struct btf_array *ap = ptr;
+	struct btf_array *ap = btf_array(tp);
 	struct array_type *array = tag__alloc(sizeof(*array));
 
 	if (array == NULL)
@@ -201,81 +192,67 @@ static int create_new_array(struct btf_elf *btfe, void *ptr, uint32_t id)
 		return -ENOMEM;
 	}
 
-	array->nr_entries[0] = btf_elf__get32(btfe, &ap->nelems);
+	array->nr_entries[0] = ap->nelems;
 	array->tag.tag = DW_TAG_array_type;
-	array->tag.type = btf_elf__get32(btfe, &ap->type);
+	array->tag.type = ap->type;
 
 	cu__add_tag_with_id(btfe->priv, &array->tag, id);
 
-	return sizeof(*ap);
+	return 0;
 }
 
-static int create_members(struct btf_elf *btfe, void *ptr, int vlen, struct type *class,
-			  bool kflag)
+static int create_members(struct btf_elf *btfe, const struct btf_type *tp,
+			  struct type *class)
 {
-	struct btf_member *mp = ptr;
-	int i;
+	struct btf_member *mp = btf_members(tp);
+	int i, vlen = btf_vlen(tp);
 
 	for (i = 0; i < vlen; i++) {
 		struct class_member *member = zalloc(sizeof(*member));
-		uint32_t offset;
 
 		if (member == NULL)
 			return -ENOMEM;
 
 		member->tag.tag    = DW_TAG_member;
-		member->tag.type   = btf_elf__get32(btfe, &mp[i].type);
-		member->name	   = btf_elf__get32(btfe, &mp[i].name_off);
-		offset = btf_elf__get32(btfe, &mp[i].offset);
-		if (kflag) {
-			member->bit_offset = BTF_MEMBER_BIT_OFFSET(offset);
-			member->bitfield_size = BTF_MEMBER_BITFIELD_SIZE(offset);
-		} else {
-			member->bit_offset = offset;
-			member->bitfield_size = 0;
-		}
+		member->tag.type   = mp[i].type;
+		member->name	   = mp[i].name_off;
+		member->bit_offset = btf_member_bit_offset(tp, i);
+		member->bitfield_size = btf_member_bitfield_size(tp, i);
 		member->byte_offset = member->bit_offset / 8;
 		/* sizes and offsets will be corrected at class__fixup_btf_bitfields */
 		type__add_member(class, member);
 	}
 
-	return sizeof(*mp);
+	return 0;
 }
 
-static int create_new_class(struct btf_elf *btfe, void *ptr, int vlen,
-			    struct btf_type *tp, uint64_t size, uint32_t id,
-			    bool kflag)
+static int create_new_class(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	strings_t name = btf_elf__get32(btfe, &tp->name_off);
-	struct class *class = class__new(name, size);
-	int member_size = create_members(btfe, ptr, vlen, &class->type, kflag);
+	struct class *class = class__new(tp->name_off, tp->size);
+	int member_size = create_members(btfe, tp, &class->type);
 
 	if (member_size < 0)
 		goto out_free;
 
 	cu__add_tag_with_id(btfe->priv, &class->type.namespace.tag, id);
 
-	return (vlen * member_size);
+	return 0;
 out_free:
 	class__delete(class, btfe->priv);
 	return -ENOMEM;
 }
 
-static int create_new_union(struct btf_elf *btfe, void *ptr,
-			    int vlen, struct btf_type *tp,
-			    uint64_t size, uint32_t id,
-			    bool kflag)
+static int create_new_union(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	strings_t name = btf_elf__get32(btfe, &tp->name_off);
-	struct type *un = type__new(DW_TAG_union_type, name, size);
-	int member_size = create_members(btfe, ptr, vlen, un, kflag);
+	struct type *un = type__new(DW_TAG_union_type, tp->name_off, tp->size);
+	int member_size = create_members(btfe, tp, un);
 
 	if (member_size < 0)
 		goto out_free;
 
 	cu__add_tag_with_id(btfe->priv, &un->namespace.tag, id);
 
-	return (vlen * member_size);
+	return 0;
 out_free:
 	type__delete(un, btfe->priv);
 	return -ENOMEM;
@@ -294,22 +271,20 @@ static struct enumerator *enumerator__new(strings_t name, uint32_t value)
 	return en;
 }
 
-static int create_new_enumeration(struct btf_elf *btfe, void *ptr,
-				  int vlen, struct btf_type *tp,
-				  uint16_t size, uint32_t id)
+static int create_new_enumeration(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	struct btf_enum *ep = ptr;
-	uint16_t i;
+	struct btf_enum *ep = btf_enum(tp);
+	uint16_t i, vlen = btf_vlen(tp);
 	struct type *enumeration = type__new(DW_TAG_enumeration_type,
-					     btf_elf__get32(btfe, &tp->name_off),
-					     size ? size * 8 : (sizeof(int) * 8));
+					     tp->name_off,
+					     tp->size ? tp->size * 8 : (sizeof(int) * 8));
 
 	if (enumeration == NULL)
 		return -ENOMEM;
 
 	for (i = 0; i < vlen; i++) {
-		strings_t name = btf_elf__get32(btfe, &ep[i].name_off);
-		uint32_t value = btf_elf__get32(btfe, (uint32_t *)&ep[i].val);
+		strings_t name = ep[i].name_off;
+		uint32_t value = ep[i].val;
 		struct enumerator *enumerator = enumerator__new(name, value);
 
 		if (enumerator == NULL)
@@ -320,32 +295,25 @@ static int create_new_enumeration(struct btf_elf *btfe, void *ptr,
 
 	cu__add_tag_with_id(btfe->priv, &enumeration->namespace.tag, id);
 
-	return (vlen * sizeof(*ep));
+	return 0;
 out_free:
 	enumeration__delete(enumeration, btfe->priv);
 	return -ENOMEM;
 }
 
-static int create_new_subroutine_type(struct btf_elf *btfe, void *ptr,
-				      int vlen, struct btf_type *tp,
-				      uint32_t id)
+static int create_new_subroutine_type(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	struct btf_param *args = ptr;
-	unsigned int type = btf_elf__get32(btfe, &tp->type);
 	struct ftype *proto = tag__alloc(sizeof(*proto));
 
 	if (proto == NULL)
 		return -ENOMEM;
 
-	vlen = btf_elf__load_ftype(btfe, proto, DW_TAG_subroutine_type, type, vlen, args, id);
-	return vlen < 0 ? -ENOMEM : vlen;
+	return btf_elf__load_ftype(btfe, proto, DW_TAG_subroutine_type, tp, id);
 }
 
-static int create_new_forward_decl(struct btf_elf *btfe, struct btf_type *tp,
-				   uint64_t size, uint32_t id)
+static int create_new_forward_decl(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	strings_t name = btf_elf__get32(btfe, &tp->name_off);
-	struct class *fwd = class__new(name, size);
+	struct class *fwd = class__new(tp->name_off, 0);
 
 	if (fwd == NULL)
 		return -ENOMEM;
@@ -354,41 +322,33 @@ static int create_new_forward_decl(struct btf_elf *btfe, struct btf_type *tp,
 	return 0;
 }
 
-static int create_new_typedef(struct btf_elf *btfe, struct btf_type *tp, uint64_t size, uint32_t id)
+static int create_new_typedef(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	strings_t name = btf_elf__get32(btfe, &tp->name_off);
-	unsigned int type_id = btf_elf__get32(btfe, &tp->type);
-	struct type *type = type__new(DW_TAG_typedef, name, size);
+	struct type *type = type__new(DW_TAG_typedef, tp->name_off, 0);
 
 	if (type == NULL)
 		return -ENOMEM;
 
-	type->namespace.tag.type = type_id;
+	type->namespace.tag.type = tp->type;
 	cu__add_tag_with_id(btfe->priv, &type->namespace.tag, id);
 
 	return 0;
 }
 
-static int create_new_variable(struct btf_elf *btfe, void *ptr, struct btf_type *tp,
-			       uint64_t size, uint32_t id)
+static int create_new_variable(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	strings_t name = btf_elf__get32(btfe, &tp->name_off);
-	unsigned int type_id = btf_elf__get32(btfe, &tp->type);
-	struct btf_var *bvar = ptr;
-	uint32_t linkage = btf_elf__get32(btfe, &bvar->linkage);
-	struct variable *var = variable__new(name, linkage);
+	struct btf_var *bvar = btf_var(tp);
+	struct variable *var = variable__new(tp->name_off, bvar->linkage);
 
 	if (var == NULL)
 		return -ENOMEM;
 
-	var->ip.tag.type = type_id;
+	var->ip.tag.type = tp->type;
 	cu__add_tag_with_id(btfe->priv, &var->ip.tag, id);
-	return sizeof(*bvar);
+	return 0;
 }
 
-static int create_new_datasec(struct btf_elf *btfe, void *ptr, int vlen,
-			      struct btf_type *tp, uint64_t size, uint32_t id,
-			      bool kflag)
+static int create_new_datasec(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
 	//strings_t name = btf_elf__get32(btfe, &tp->name_off);
 
@@ -398,12 +358,11 @@ static int create_new_datasec(struct btf_elf *btfe, void *ptr, int vlen,
 	 * FIXME: this will not be used to reconstruct some original C code,
 	 * its about runtime placement of variables so just ignore this for now
 	 */
-	return vlen * sizeof(struct btf_var_secinfo);
+	return 0;
 }
 
-static int create_new_tag(struct btf_elf *btfe, int type, struct btf_type *tp, uint32_t id)
+static int create_new_tag(struct btf_elf *btfe, int type, const struct btf_type *tp, uint32_t id)
 {
-	unsigned int type_id = btf_elf__get32(btfe, &tp->type);
 	struct tag *tag = zalloc(sizeof(*tag));
 
 	if (tag == NULL)
@@ -420,104 +379,77 @@ static int create_new_tag(struct btf_elf *btfe, int type, struct btf_type *tp, u
 		return 0;
 	}
 
-	tag->type = type_id;
+	tag->type = tp->type;
 	cu__add_tag_with_id(btfe->priv, tag, id);
 
 	return 0;
 }
 
-void *btf_elf__get_buffer(struct btf_elf *btfe)
-{
-	return btfe->data;
-}
-
-size_t btf_elf__get_size(struct btf_elf *btfe)
-{
-	return btfe->size;
-}
-
 static int btf_elf__load_types(struct btf_elf *btfe)
 {
-	void *btf_buffer = btf_elf__get_buffer(btfe);
-	struct btf_header *hp = btf_buffer;
-	void *btf_contents = btf_buffer + sizeof(*hp),
-	     *type_section = (btf_contents + btf_elf__get32(btfe, &hp->type_off)),
-	     *strings_section = (btf_contents + btf_elf__get32(btfe, &hp->str_off));
-	struct btf_type *type_ptr = type_section,
-			*end = strings_section;
-	uint32_t type_index = 0x0001;
+	uint32_t type_index;
+	int err;
 
-	while (type_ptr < end) {
-		uint32_t val  = btf_elf__get32(btfe, &type_ptr->info);
-		uint32_t type = BTF_INFO_KIND(val);
-		int	 vlen = BTF_INFO_VLEN(val);
-		void	 *ptr = type_ptr;
-		uint32_t size = btf_elf__get32(btfe, &type_ptr->size);
-		bool     kflag = BTF_INFO_KFLAG(val);
-
-		ptr += sizeof(struct btf_type);
+	for (type_index = 1; type_index <= btf__get_nr_types(btfe->btf); type_index++) {
+		const struct btf_type *type_ptr = btf__type_by_id(btfe->btf, type_index);
+		uint32_t type = btf_kind(type_ptr);
 
 		switch (type) {
 		case BTF_KIND_INT:
-			vlen = create_new_base_type(btfe, ptr, type_ptr, type_index);
+			err = create_new_base_type(btfe, type_ptr, type_index);
 			break;
 		case BTF_KIND_ARRAY:
-			vlen = create_new_array(btfe, ptr, type_index);
+			err = create_new_array(btfe, type_ptr, type_index);
 			break;
 		case BTF_KIND_STRUCT:
-			vlen = create_new_class(btfe, ptr, vlen, type_ptr, size, type_index, kflag);
+			err = create_new_class(btfe, type_ptr, type_index);
 			break;
 		case BTF_KIND_UNION:
-			vlen = create_new_union(btfe, ptr, vlen, type_ptr, size, type_index, kflag);
+			err = create_new_union(btfe, type_ptr, type_index);
 			break;
 		case BTF_KIND_ENUM:
-			vlen = create_new_enumeration(btfe, ptr, vlen, type_ptr, size, type_index);
+			err = create_new_enumeration(btfe, type_ptr, type_index);
 			break;
 		case BTF_KIND_FWD:
-			vlen = create_new_forward_decl(btfe, type_ptr, size, type_index);
+			err = create_new_forward_decl(btfe, type_ptr, type_index);
 			break;
 		case BTF_KIND_TYPEDEF:
-			vlen = create_new_typedef(btfe, type_ptr, size, type_index);
+			err = create_new_typedef(btfe, type_ptr, type_index);
 			break;
 		case BTF_KIND_VAR:
-			vlen = create_new_variable(btfe, ptr, type_ptr, size, type_index);
+			err = create_new_variable(btfe, type_ptr, type_index);
 			break;
 		case BTF_KIND_DATASEC:
-			vlen = create_new_datasec(btfe, ptr, vlen, type_ptr, size, type_index, kflag);
+			err = create_new_datasec(btfe, type_ptr, type_index);
 			break;
 		case BTF_KIND_VOLATILE:
 		case BTF_KIND_PTR:
 		case BTF_KIND_CONST:
 		case BTF_KIND_RESTRICT:
-			vlen = create_new_tag(btfe, type, type_ptr, type_index);
+			err = create_new_tag(btfe, type, type_ptr, type_index);
 			break;
 		case BTF_KIND_UNKN:
 			cu__table_nullify_type_entry(btfe->priv, type_index);
-			fprintf(stderr, "BTF: idx: %d, off: %zd, Unknown kind %d\n",
-				type_index, ((void *)type_ptr) - type_section, type);
+			fprintf(stderr, "BTF: idx: %d, Unknown kind %d\n", type_index, type);
 			fflush(stderr);
-			vlen = 0;
+			err = 0;
 			break;
 		case BTF_KIND_FUNC_PROTO:
-			vlen = create_new_subroutine_type(btfe, ptr, vlen, type_ptr, type_index);
+			err = create_new_subroutine_type(btfe, type_ptr, type_index);
 			break;
 		case BTF_KIND_FUNC:
 			// BTF_KIND_FUNC corresponding to a defined subprogram.
-			vlen = create_new_function(btfe, type_ptr, size, type_index);
+			err = create_new_function(btfe, type_ptr, type_index);
 			break;
 		default:
-			fprintf(stderr, "BTF: idx: %d, off: %zd, Unknown kind %d\n",
-				type_index, ((void *)type_ptr) - type_section, type);
+			fprintf(stderr, "BTF: idx: %d, Unknown kind %d\n", type_index, type);
 			fflush(stderr);
-			vlen = 0;
+			err = 0;
 			break;
 		}
 
-		if (vlen < 0)
-			return vlen;
-
-		type_ptr = ptr + vlen;
-		type_index++;
+		if (err < 0)
+			return err;
 	}
 	return 0;
 }
