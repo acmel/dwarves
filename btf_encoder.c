@@ -147,6 +147,8 @@ static int32_t enumeration_type__encode(struct btf_elf *btfe, struct cu *cu, str
 	return type_id;
 }
 
+static bool need_index_type;
+
 static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, struct btf_elf *btfe,
 			   uint32_t array_index_id, uint32_t type_id_off)
 {
@@ -179,6 +181,7 @@ static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, str
 			return structure_type__encode(btfe, cu, tag, type_id_off);
 	case DW_TAG_array_type:
 		/* TODO: Encode one dimension at a time. */
+		need_index_type = true;
 		return btf_elf__add_array(btfe, ref_type_id, array_index_id, array_type__nelems(tag));
 	case DW_TAG_enumeration_type:
 		return enumeration_type__encode(btfe, cu, tag);
@@ -193,6 +196,7 @@ static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, str
 
 static struct btf_elf *btfe;
 static uint32_t array_index_id;
+static bool has_index_type;
 
 int btf_encoder__encode()
 {
@@ -228,7 +232,6 @@ static struct variable *hashaddr__find_variable(const struct hlist_head hashtabl
 int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		   bool skip_encoding_vars)
 {
-	bool add_index_type = false;
 	uint32_t type_id_off;
 	uint32_t core_id;
 	struct function *fn;
@@ -254,16 +257,24 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		if (!btfe)
 			return -1;
 
-		/* cu__find_base_type_by_name() takes "type_id_t *id" */
-		type_id_t id;
-		if (!cu__find_base_type_by_name(cu, "int", &id)) {
-			add_index_type = true;
-			id = cu->types_table.nr_entries;
-		}
-		array_index_id = id;
+		has_index_type = false;
+		need_index_type = false;
+		array_index_id = 0;
 
 		if (verbose)
 			printf("File %s:\n", btfe->filename);
+	}
+
+	if (!has_index_type) {
+		/* cu__find_base_type_by_name() takes "type_id_t *id" */
+		type_id_t id;
+		if (cu__find_base_type_by_name(cu, "int", &id)) {
+			has_index_type = true;
+			array_index_id = id;
+		} else {
+			has_index_type = false;
+			array_index_id = cu->types_table.nr_entries;
+		}
 	}
 
 	btf_elf__verbose = verbose;
@@ -279,12 +290,13 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		}
 	}
 
-	if (add_index_type) {
+	if (need_index_type && !has_index_type) {
 		struct base_type bt = {};
 
 		bt.name = 0;
 		bt.bit_size = 32;
 		btf_elf__add_base_type(btfe, &bt, "__ARRAY_SIZE_TYPE__");
+		has_index_type = true;
 	}
 
 	cu__for_each_function(cu, core_id, fn) {
