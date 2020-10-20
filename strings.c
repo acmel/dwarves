@@ -4,7 +4,7 @@
   Copyright (C) 2008 Arnaldo Carvalho de Melo <acme@redhat.com>
 */
 
-#include "strings.h"
+#include "pahole_strings.h"
 #include "gobuffer.h"
 
 #include <search.h>

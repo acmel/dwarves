@@ -23,7 +23,7 @@
 #include "list.h"
 #include "dwarves.h"
 #include "dutil.h"
-#include "strings.h"
+#include "pahole_strings.h"
 #include "hash.h"
 
 struct strings *strings;

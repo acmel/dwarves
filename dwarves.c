@@ -27,7 +27,7 @@
 #include "list.h"
 #include "dwarves.h"
 #include "dutil.h"
-#include "strings.h"
+#include "pahole_strings.h"
 #include <obstack.h>
 
 #define obstack_chunk_alloc malloc

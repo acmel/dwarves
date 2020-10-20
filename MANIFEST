@@ -42,7 +42,7 @@ rbtree.h
 scncopy.c
 syscse.c
 strings.c
-strings.h
+pahole_strings.h
 dutil.c
 dutil.h
 changes-v1.13
