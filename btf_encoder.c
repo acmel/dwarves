@@ -287,17 +287,13 @@ static int find_all_percpu_vars(struct btf_elf *btfe)
 		if (!addr)
 			continue;
 
+		size = elf_sym__size(&sym);
+		if (!size)
+			continue; /* ignore zero-sized symbols */
+
 		sym_name = elf_sym__name(&sym, btfe->symtab);
 		if (!btf_name_valid(sym_name)) {
 			dump_invalid_symbol("Found symbol of invalid name when encoding btf",
-					    sym_name, btf_elf__verbose, btf_elf__force);
-			if (btf_elf__force)
-				continue;
-			return -1;
-		}
-		size = elf_sym__size(&sym);
-		if (!size) {
-			dump_invalid_symbol("Found symbol of zero size when encoding btf",
 					    sym_name, btf_elf__verbose, btf_elf__force);
 			if (btf_elf__force)
 				continue;
