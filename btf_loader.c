@@ -134,12 +134,13 @@ static struct type *type__new(uint16_t tag, strings_t name, size_t size)
 	return type;
 }
 
-static struct class *class__new(strings_t name, size_t size)
+static struct class *class__new(strings_t name, size_t size, bool is_union)
 {
 	struct class *class = tag__alloc(sizeof(*class));
+	uint32_t tag = is_union ? DW_TAG_union_type : DW_TAG_structure_type;
 
 	if (class != NULL) {
-		type__init(&class->type, DW_TAG_structure_type, name, size);
+		type__init(&class->type, tag, name, size);
 		INIT_LIST_HEAD(&class->vtable);
 	}
 
@@ -228,7 +229,7 @@ static int create_members(struct btf_elf *btfe, const struct btf_type *tp,
 
 static int create_new_class(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	struct class *class = class__new(tp->name_off, tp->size);
+	struct class *class = class__new(tp->name_off, tp->size, false);
 	int member_size = create_members(btfe, tp, &class->type);
 
 	if (member_size < 0)
@@ -313,7 +314,7 @@ static int create_new_subroutine_type(struct btf_elf *btfe, const struct btf_typ
 
 static int create_new_forward_decl(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
-	struct class *fwd = class__new(tp->name_off, 0);
+	struct class *fwd = class__new(tp->name_off, 0, btf_kflag(tp));
 
 	if (fwd == NULL)
 		return -ENOMEM;
