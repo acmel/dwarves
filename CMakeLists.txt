@@ -2,7 +2,9 @@ project(pahole C)
 cmake_minimum_required(VERSION 2.8.8)
 cmake_policy(SET CMP0005 NEW)
 
-INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR} )
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}
+		    ${CMAKE_CURRENT_SOURCE_DIR}
+		    ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
 
 # Try to parse this later, Helio just showed me a KDE4 example to support
 # x86-64 builds.
