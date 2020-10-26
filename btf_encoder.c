@@ -437,9 +437,12 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		if (var->spec)
 			var = var->spec;
 
+		if (!percpu_var_exists(addr, &size, &name))
+			continue; /* not a per-CPU variable */
+
 		if (var->ip.tag.type == 0) {
-			fprintf(stderr, "error: found variable in CU '%s' that has void type\n",
-				cu->name);
+			fprintf(stderr, "error: found variable '%s' in CU '%s' that has void type\n",
+				name, cu->name);
 			if (force)
 				continue;
 			err = -1;
@@ -448,8 +451,6 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 
 		type = var->ip.tag.type + type_id_off;
 		linkage = var->external ? BTF_VAR_GLOBAL_ALLOCATED : BTF_VAR_STATIC;
-		if (!percpu_var_exists(addr, &size, &name))
-			continue; /* not a per-CPU variable */
 
 		if (btf_elf__verbose) {
 			printf("Variable '%s' from CU '%s' at address 0x%lx encoded\n",
