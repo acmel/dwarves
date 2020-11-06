@@ -611,21 +611,21 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 			printf("File %s:\n", btfe->filename);
 	}
 
+	btf_elf__verbose = verbose;
+	btf_elf__force = force;
+	type_id_off = btf__get_nr_types(btfe->btf);
+
 	if (!has_index_type) {
 		/* cu__find_base_type_by_name() takes "type_id_t *id" */
 		type_id_t id;
 		if (cu__find_base_type_by_name(cu, "int", &id)) {
 			has_index_type = true;
-			array_index_id = id;
+			array_index_id = type_id_off + id;
 		} else {
 			has_index_type = false;
-			array_index_id = cu->types_table.nr_entries;
+			array_index_id = type_id_off + cu->types_table.nr_entries;
 		}
 	}
-
-	btf_elf__verbose = verbose;
-	btf_elf__force = force;
-	type_id_off = btf__get_nr_types(btfe->btf);
 
 	cu__for_each_type(cu, core_id, pos) {
 		int32_t btf_type_id = tag__encode_btf(cu, pos, core_id, btfe, array_index_id, type_id_off);
