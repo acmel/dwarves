@@ -27,8 +27,10 @@ struct btf_elf {
 	uint32_t	  percpu_shndx;
 	uint64_t	  percpu_base_addr;
 	struct btf	  *btf;
+	struct btf	  *base_btf;
 };
 
+extern struct btf *base_btf;
 extern uint8_t btf_elf__verbose;
 extern uint8_t btf_elf__force;
 #define btf_elf__verbose_log(fmt, ...) { if (btf_elf__verbose) printf(fmt, __VA_ARGS__); }
@@ -39,7 +41,7 @@ struct cu;
 struct base_type;
 struct ftype;
 
-struct btf_elf *btf_elf__new(const char *filename, Elf *elf);
+struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_btf);
 void btf_elf__delete(struct btf_elf *btf);
 
 int32_t btf_elf__add_base_type(struct btf_elf *btf, const struct base_type *bt,

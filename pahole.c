@@ -22,12 +22,15 @@
 #include "dutil.h"
 #include "ctf_encoder.h"
 #include "btf_encoder.h"
+#include "libbtf.h"
+#include "lib/bpf/src/libbpf.h"
 
 static bool btf_encode;
 static bool ctf_encode;
 static bool first_obj_only;
 static bool skip_encoding_btf_vars;
 static bool btf_encode_force;
+static const char *base_btf_file;
 
 static uint8_t class__include_anonymous;
 static uint8_t class__include_nested_anonymous;
@@ -821,6 +824,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_btf_encode_force	   318
 #define ARGP_just_packed_structs   319
 #define ARGP_numeric_version       320
+#define ARGP_btf_base		   321
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1095,6 +1099,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Print offsets and sizes in hexadecimal",
 	},
 	{
+		.name = "btf_base",
+		.key  = ARGP_btf_base,
+		.arg  = "SIZE",
+		.doc  = "Path to the base BTF file",
+	},
+	{
 		.name = "btf_encode",
 		.key  = 'J',
 		.doc  = "Encode as BTF",
@@ -1240,6 +1250,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		skip_encoding_btf_vars = true;		break;
 	case ARGP_btf_encode_force:
 		btf_encode_force = true;		break;
+	case ARGP_btf_base:
+		base_btf_file = arg;			break;
 	case ARGP_numeric_version:
 		print_numeric_version = true;		break;
 	default:
@@ -2695,6 +2707,15 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
+	if (base_btf_file) {
+		base_btf = btf__parse(base_btf_file, NULL);
+		if (libbpf_get_error(base_btf)) {
+			fprintf(stderr, "Failed to parse base BTF '%s': %ld\n",
+				base_btf_file, libbpf_get_error(base_btf));
+			goto out;
+		}
+	}
+
 	struct cus *cus = cus__new();
 	if (cus == NULL) {
 		fputs("pahole: insufficient memory\n", stderr);
@@ -2784,6 +2805,7 @@ out_cus_delete:
 #ifdef DEBUG_CHECK_LEAKS
 	cus__delete(cus);
 	structures__delete();
+	btf__free(base_btf);
 #endif
 out_dwarves_exit:
 #ifdef DEBUG_CHECK_LEAKS

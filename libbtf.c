@@ -27,6 +27,7 @@
 #include "dwarves.h"
 #include "elf_symtab.h"
 
+struct btf *base_btf;
 uint8_t btf_elf__verbose;
 uint8_t btf_elf__force;
 
@@ -52,9 +53,9 @@ int btf_elf__load(struct btf_elf *btfe)
 	/* free initial empty BTF */
 	btf__free(btfe->btf);
 	if (btfe->raw_btf)
-		btfe->btf = btf__parse_raw(btfe->filename);
+		btfe->btf = btf__parse_raw_split(btfe->filename, btfe->base_btf);
 	else
-		btfe->btf = btf__parse_elf(btfe->filename, NULL);
+		btfe->btf = btf__parse_elf_split(btfe->filename, btfe->base_btf);
 
 	err = libbpf_get_error(btfe->btf);
 	if (err)
@@ -63,7 +64,7 @@ int btf_elf__load(struct btf_elf *btfe)
 	return 0;
 }
 
-struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
+struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_btf)
 {
 	struct btf_elf *btfe = zalloc(sizeof(*btfe));
 	GElf_Shdr shdr;
@@ -77,7 +78,8 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf)
 	if (btfe->filename == NULL)
 		goto errout;
 
-	btfe->btf = btf__new_empty();
+	btfe->base_btf = base_btf;
+	btfe->btf = btf__new_empty_split(base_btf);
 	if (libbpf_get_error(btfe->btf)) {
 		fprintf(stderr, "%s: failed to create empty BTF.\n", __func__);
 		goto errout;

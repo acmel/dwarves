@@ -12,6 +12,7 @@
 #include "dwarves.h"
 #include "libbtf.h"
 #include "lib/bpf/include/uapi/linux/btf.h"
+#include "lib/bpf/src/libbpf.h"
 #include "hash.h"
 #include "elf_symtab.h"
 #include "btf_encoder.h"
@@ -595,7 +596,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 	}
 
 	if (!btfe) {
-		btfe = btf_elf__new(cu->filename, cu->elf);
+		btfe = btf_elf__new(cu->filename, cu->elf, base_btf);
 		if (!btfe)
 			return -1;
 
