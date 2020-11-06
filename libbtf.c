@@ -679,11 +679,11 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 {
 	GElf_Shdr shdr_mem, *shdr;
 	GElf_Ehdr ehdr_mem, *ehdr;
-	Elf_Data *btf_elf = NULL;
+	Elf_Data *btf_data = NULL;
 	Elf_Scn *scn = NULL;
 	Elf *elf = NULL;
-	const void *btf_data;
-	uint32_t btf_size;
+	const void *raw_btf_data;
+	uint32_t raw_btf_size;
 	int fd, err = -1;
 	size_t strndx;
 
@@ -735,18 +735,18 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 			continue;
 		char *secname = elf_strptr(elf, strndx, shdr->sh_name);
 		if (strcmp(secname, ".BTF") == 0) {
-			btf_elf = elf_getdata(scn, btf_elf);
+			btf_data = elf_getdata(scn, btf_data);
 			break;
 		}
 	}
 
-	btf_data = btf__get_raw_data(btf, &btf_size);
+	raw_btf_data = btf__get_raw_data(btf, &raw_btf_size);
 
-	if (btf_elf) {
+	if (btf_data) {
 		/* Exisiting .BTF section found */
-		btf_elf->d_buf = (void *)btf_data;
-		btf_elf->d_size = btf_size;
-		elf_flagdata(btf_elf, ELF_C_SET, ELF_F_DIRTY);
+		btf_data->d_buf = (void *)raw_btf_data;
+		btf_data->d_size = raw_btf_size;
+		elf_flagdata(btf_data, ELF_C_SET, ELF_F_DIRTY);
 
 		if (elf_update(elf, ELF_C_NULL) >= 0 &&
 		    elf_update(elf, ELF_C_WRITE) >= 0)
@@ -770,12 +770,21 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 			goto out;
 		}
 
+		if (write(fd, raw_btf_data, raw_btf_size) != raw_btf_size) {
+			fprintf(stderr, "%s: write of %d bytes to '%s' failed: %d!\n",
+				__func__, raw_btf_size, tmp_fn, errno);
+			goto out;
+		}
+
 		snprintf(cmd, sizeof(cmd), "%s --add-section .BTF=%s %s",
 			 llvm_objcopy, tmp_fn, filename);
+		if (system(cmd)) {
+			fprintf(stderr, "%s: failed to add .BTF section to '%s': %d!\n",
+				__func__, tmp_fn, errno);
+			goto out;
+		}
 
-		if (write(fd, btf_data, btf_size) == btf_size && !system(cmd))
-			err = 0;
-
+		err = 0;
 		unlink(tmp_fn);
 	}
 
