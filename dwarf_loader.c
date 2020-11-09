@@ -2175,7 +2175,7 @@ static int die__process(Dwarf_Die *die, struct cu *cu)
 		if (!warned) {
 			fprintf(stderr, "WARNING: DW_TAG_partial_unit used, some types will not be considered!\n"
 					"         Probably this was optimized using a tool like 'dwz'\n"
-					"         A future version of pahole will take support this.\n");
+					"         A future version of pahole will support this.\n");
 			warned = true;
 		}
 		return 0; // so that other units can be processed
