@@ -722,11 +722,23 @@ int main(int argc, char *argv[])
 		goto out_dwarves_exit;
 	}
 
+try_sole_arg_as_function_name:
 	err = cus__load_files(cus, &conf_load, argv + remaining);
 	if (err != 0) {
+		if (function_name == NULL) {
+                        function_name = argv[remaining];
+                        if (access(function_name, R_OK) == 0) {
+                                fprintf(stderr, "pfunct: file '%s' has no %s type information.\n",
+                                                function_name, conf_load.format_path ?: "supported");
+                                goto out_dwarves_exit;
+                        }
+                        remaining = argc;
+			goto try_sole_arg_as_function_name;
+		}
 		cus__fprintf_load_files_err(cus, "pfunct", argv + remaining, err, stderr);
 		goto out_cus_delete;
 	}
+
 
 	cus__for_each_cu(cus, cu_unique_iterator, NULL, NULL);
 
