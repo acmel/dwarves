@@ -2707,6 +2707,11 @@ try_sole_arg_as_class_names:
 	if (err != 0) {
 		if (class_name == NULL && !btf_encode && !ctf_encode) {
 			class_name = argv[remaining];
+			if (access(class_name, R_OK) == 0) {
+				fprintf(stderr, "pahole: file '%s' has no %s type information.\n",
+						class_name, conf_load.format_path ?: "supported");
+				goto out_dwarves_exit;
+			}
 			remaining = argc;
 			goto try_sole_arg_as_class_names;
 		}
