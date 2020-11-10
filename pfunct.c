@@ -33,6 +33,7 @@ static bool expand_types;
 static bool compilable_output;
 static struct type_emissions emissions;
 static uint64_t addr;
+static char *function_name;
 
 static struct conf_fprintf conf;
 
@@ -494,6 +495,21 @@ int elf_symtabs__show(char *filenames[])
 	return EXIT_SUCCESS;
 }
 
+static enum load_steal_kind pfunct_stealer(struct cu *cu, struct conf_load *conf_load __unused)
+{
+
+	if (function_name) {
+		struct tag *tag = cu__find_function_by_name(cu, function_name);
+
+		if (tag) {
+			function__show(tag__function(tag), cu);
+			return LSK__STOP_LOADING;
+		}
+	}
+
+	return LSK__DELETE;
+}
+
 /* Name and version of program.  */
 ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
@@ -632,7 +648,6 @@ static const struct argp_option pfunct__options[] = {
 
 static void (*formatter)(const struct fn_stats *f) = fn_stats_fmtr;
 static char *class_name;
-static char *function_name;
 static int show_total_inline_expansion_stats;
 
 static error_t pfunct__options_parser(int key, char *arg,
@@ -722,6 +737,9 @@ int main(int argc, char *argv[])
 		goto out_dwarves_exit;
 	}
 
+	if (function_name)
+		conf_load.steal = pfunct_stealer;
+
 try_sole_arg_as_function_name:
 	err = cus__load_files(cus, &conf_load, argv + remaining);
 	if (err != 0) {
@@ -732,6 +750,7 @@ try_sole_arg_as_function_name:
                                                 function_name, conf_load.format_path ?: "supported");
                                 goto out_dwarves_exit;
                         }
+			conf_load.steal = pfunct_stealer;
                         remaining = argc;
 			goto try_sole_arg_as_function_name;
 		}
