@@ -820,6 +820,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_skip_encoding_btf_vars 317
 #define ARGP_btf_encode_force	   318
 #define ARGP_just_packed_structs   319
+#define ARGP_numeric_version       320
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1124,6 +1125,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Show just packed structs",
 	},
 	{
+		.name = "numeric_version",
+		.key  = ARGP_numeric_version,
+		.doc  = "Print a numeric version, i.e. 119 instead of v1.19"
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1234,6 +1240,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		skip_encoding_btf_vars = true;		break;
 	case ARGP_btf_encode_force:
 		btf_encode_force = true;		break;
+	case ARGP_numeric_version:
+		print_numeric_version = true;		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -2675,6 +2683,11 @@ int main(int argc, char *argv[])
 	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL)) {
 		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, argv[0]);
 		goto out;
+	}
+
+	if (print_numeric_version) {
+		dwarves_print_numeric_version(stdout);
+		return 0;
 	}
 
 	if (dwarves__init(cacheline_size)) {

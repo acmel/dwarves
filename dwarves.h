@@ -1324,6 +1324,9 @@ const char *dwarf_tag_name(const uint32_t tag);
 struct argp_state;
 
 void dwarves_print_version(FILE *fp, struct argp_state *state);
+void dwarves_print_numeric_version(FILE *fp);
+
+extern bool print_numeric_version;;
 
 extern bool no_bitfield_type_recode;
 

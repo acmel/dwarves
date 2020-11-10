@@ -304,6 +304,15 @@ sizes of all packed structs combine --packed with --sizes, etc.
 Show only unions, all the other filters apply, i.e. to show just the sizes of all unions
 combine --union with --sizes, etc.
 
+.TP
+.B \-\-version
+Show a traditional string version, i.e.: "v1.18".
+
+.TP
+.B \-\-numeric_version
+Show a numeric only version, suitable for use in Makefiles and scripts where
+one wants to know what if the installed version has some feature, i.e.: 118 instead of "v1.18".
+
 .SH NOTES
 
 To enable the generation of debugging information in the Linux kernel build

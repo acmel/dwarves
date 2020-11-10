@@ -2406,3 +2406,10 @@ void dwarves_print_version(FILE *fp, struct argp_state *state __unused)
 {
 	fprintf(fp, "v%u.%u\n", DWARVES_MAJOR_VERSION, DWARVES_MINOR_VERSION);
 }
+
+bool print_numeric_version;
+
+void dwarves_print_numeric_version(FILE *fp)
+{
+	fprintf(fp, "%u%u\n", DWARVES_MAJOR_VERSION, DWARVES_MINOR_VERSION);
+}
