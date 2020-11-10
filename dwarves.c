@@ -2404,5 +2404,5 @@ struct argp_state;
 
 void dwarves_print_version(FILE *fp, struct argp_state *state __unused)
 {
-	fprintf(fp, "%s\n", DWARVES_VERSION);
+	fprintf(fp, "v%u.%u\n", DWARVES_MAJOR_VERSION, DWARVES_MINOR_VERSION);
 }
