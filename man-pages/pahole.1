@@ -182,6 +182,14 @@ the debugging information.
 Do not encode VARs in BTF.
 
 .TP
+.B \-J, \-\-btf_encode
+Encode BTF information from DWARF, used in the Linux kernel build process when
+CONFIG_DEBUG_INFO_BTF=y is present, introduced in Linux v5.2. Used to implement
+features such as BPF CO-RE (Compile Once - Run Everywhere).
+
+See \fIhttps://nakryiko.com/posts/bpf-portability-and-co-re/\fR.
+
+.TP
 .B \-\-btf_encode_force
 Ignore those symbols found invalid when encoding BTF.
 
