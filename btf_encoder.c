@@ -30,10 +30,6 @@
 struct funcs_layout {
 	unsigned long mcount_start;
 	unsigned long mcount_stop;
-	unsigned long init_begin;
-	unsigned long init_end;
-	unsigned long init_bpf_begin;
-	unsigned long init_bpf_end;
 	unsigned long mcount_sec_idx;
 };
 
@@ -105,16 +101,6 @@ static int addrs_cmp(const void *_a, const void *_b)
 	return *a < *b ? -1 : 1;
 }
 
-static bool is_init(struct funcs_layout *fl, unsigned long addr)
-{
-	return addr >= fl->init_begin && addr < fl->init_end;
-}
-
-static bool is_bpf_init(struct funcs_layout *fl, unsigned long addr)
-{
-	return addr >= fl->init_bpf_begin && addr < fl->init_bpf_end;
-}
-
 static int filter_functions(struct btf_elf *btfe, struct funcs_layout *fl)
 {
 	unsigned long *addrs, count, offset, i;
@@ -156,17 +142,10 @@ static int filter_functions(struct btf_elf *btfe, struct funcs_layout *fl)
 
 	/*
 	 * Let's got through all collected functions and filter
-	 * out those that are not in ftrace and init code.
+	 * out those that are not in ftrace.
 	 */
 	for (i = 0; i < functions_cnt; i++) {
 		struct elf_function *func = &functions[i];
-
-		/*
-		 * Do not enable .init section functions,
-		 * but keep .init.bpf.preserve_type functions.
-		 */
-		if (is_init(fl, func->addr) && !is_bpf_init(fl, func->addr))
-			continue;
 
 		/* Make sure function is within ftrace addresses. */
 		if (bsearch(&func->addr, addrs, count, sizeof(addrs[0]), addrs_cmp)) {
@@ -494,29 +473,11 @@ static void collect_symbol(GElf_Sym *sym, struct funcs_layout *fl)
 	if (!fl->mcount_stop &&
 	    !strcmp("__stop_mcount_loc", elf_sym__name(sym, btfe->symtab)))
 		fl->mcount_stop = sym->st_value;
-
-	if (!fl->init_begin &&
-	    !strcmp("__init_begin", elf_sym__name(sym, btfe->symtab)))
-		fl->init_begin = sym->st_value;
-
-	if (!fl->init_end &&
-	    !strcmp("__init_end", elf_sym__name(sym, btfe->symtab)))
-		fl->init_end = sym->st_value;
-
-	if (!fl->init_bpf_begin &&
-	    !strcmp("__init_bpf_preserve_type_begin", elf_sym__name(sym, btfe->symtab)))
-		fl->init_bpf_begin = sym->st_value;
-
-	if (!fl->init_bpf_end &&
-	    !strcmp("__init_bpf_preserve_type_end", elf_sym__name(sym, btfe->symtab)))
-		fl->init_bpf_end = sym->st_value;
 }
 
 static int has_all_symbols(struct funcs_layout *fl)
 {
-	return fl->mcount_start && fl->mcount_stop &&
-	       fl->init_begin && fl->init_end &&
-	       fl->init_bpf_begin && fl->init_bpf_end;
+	return fl->mcount_start && fl->mcount_stop;
 }
 
 static int collect_symbols(struct btf_elf *btfe, bool collect_percpu_vars)
