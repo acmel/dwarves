@@ -165,18 +165,13 @@ static int filter_functions(struct btf_elf *btfe, struct funcs_layout *fl)
 	return 0;
 }
 
-static bool should_generate_function(const struct btf_elf *btfe, const char *name)
+static struct elf_function *find_function(const struct btf_elf *btfe,
+					  const char *name)
 {
-	struct elf_function *p;
 	struct elf_function key = { .name = name };
 
-	p = bsearch(&key, functions, functions_cnt,
-		    sizeof(functions[0]), functions_cmp);
-	if (!p || p->generated)
-		return false;
-
-	p->generated = true;
-	return true;
+	return bsearch(&key, functions, functions_cnt, sizeof(functions[0]),
+		       functions_cmp);
 }
 
 static bool btf_name_char_ok(char c, bool first)
@@ -613,25 +608,25 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		const char *name;
 
 		/*
-		 * The functions_cnt != 0 means we parsed all necessary
-		 * kernel symbols and we are using ftrace location filter
-		 * for functions. If it's not available keep the current
-		 * dwarf declaration check.
+		 * Skip functions that:
+		 *   - are marked as declarations
+		 *   - do not have full argument names
+		 *   - are not in ftrace list (if it's available)
+		 *   - are not external (in case ftrace filter is not available)
 		 */
+		if (fn->declaration)
+			continue;
+		if (!has_arg_names(cu, &fn->proto))
+			continue;
 		if (functions_cnt) {
-			/*
-			 * We check following conditions:
-			 *   - argument names are defined
-			 *   - there's symbol and address defined for the function
-			 *   - function address belongs to ftrace locations
-			 *   - function is generated only once
-			 */
-			if (!has_arg_names(cu, &fn->proto))
+			struct elf_function *func;
+
+			func = find_function(btfe, function__name(fn, cu));
+			if (!func || func->generated)
 				continue;
-			if (!should_generate_function(btfe, function__name(fn, cu)))
-				continue;
+			func->generated = true;
 		} else {
-			if (fn->declaration || !fn->external)
+			if (!fn->external)
 				continue;
 		}
 
