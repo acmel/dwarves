@@ -511,7 +511,7 @@ static int collect_symbols(struct btf_elf *btfe, bool collect_percpu_vars)
 			printf("Found %d functions!\n", functions_cnt);
 	} else {
 		if (btf_elf__verbose)
-			printf("vmlinux not detected, falling back to dwarf data\n");
+			printf("ftrace symbols not detected, falling back to DWARF data\n");
 		delete_functions();
 	}
 
