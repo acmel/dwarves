@@ -541,6 +541,9 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 	struct tag *pos;
 	int err = 0;
 
+	btf_elf__verbose = verbose;
+	btf_elf__force = force;
+
 	if (btfe && strcmp(btfe->filename, cu->filename)) {
 		err = btf_encoder__encode();
 		if (err)
@@ -568,8 +571,6 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 			printf("File %s:\n", btfe->filename);
 	}
 
-	btf_elf__verbose = verbose;
-	btf_elf__force = force;
 	type_id_off = btf__get_nr_types(btfe->btf);
 
 	if (!has_index_type) {
