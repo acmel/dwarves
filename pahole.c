@@ -1101,7 +1101,7 @@ static const struct argp_option pahole__options[] = {
 	{
 		.name = "btf_base",
 		.key  = ARGP_btf_base,
-		.arg  = "SIZE",
+		.arg  = "PATH",
 		.doc  = "Path to the base BTF file",
 	},
 	{
