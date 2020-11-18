@@ -2741,6 +2741,22 @@ try_sole_arg_as_class_names:
 	if (class_name && populate_class_names())
 		goto out_dwarves_exit;
 
+	if (base_btf_file == NULL) {
+		const char *filename = argv[remaining];
+
+		if (filename &&
+		    strstarts(filename, "/sys/kernel/btf/") &&
+		    strstr(filename, "/vmlinux") == NULL) {
+			base_btf_file = "/sys/kernel/btf/vmlinux";
+			base_btf = btf__parse(base_btf_file, NULL);
+			if (libbpf_get_error(base_btf)) {
+				fprintf(stderr, "Failed to parse base BTF '%s': %ld\n",
+					base_btf_file, libbpf_get_error(base_btf));
+				goto out;
+			}
+		}
+	}
+
 	err = cus__load_files(cus, &conf_load, argv + remaining);
 	if (err != 0) {
 		if (class_name == NULL && !btf_encode && !ctf_encode) {

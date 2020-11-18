@@ -196,6 +196,8 @@ Ignore those symbols found invalid when encoding BTF.
 .TP
 .B \-\-btf_base=PATH
 Path to the base BTF file, for instance: vmlinux when encoding kernel module BTF information.
+This may be inferred when asking for a /sys/kernel/btf/MODULE, when it will be autoconfigured
+to "/sys/kernel/btf/vmlinux".
 
 .TP
 .B \-l, \-\-show_first_biggest_size_base_type_member
