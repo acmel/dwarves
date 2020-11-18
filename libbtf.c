@@ -86,6 +86,7 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 	}
 
 	if (strstarts(filename, "/sys/kernel/btf/")) {
+try_as_raw_btf:
 		btfe->raw_btf  = true;
 		btfe->wordsize = sizeof(long);
 		btfe->is_big_endian = BYTE_ORDER == BIG_ENDIAN;
@@ -116,6 +117,15 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 	}
 
 	if (gelf_getehdr(btfe->elf, &btfe->ehdr) == NULL) {
+		struct btf_header hdr;
+		if (lseek(btfe->in_fd, 0, SEEK_SET) == 0 &&
+		    read(btfe->in_fd, &hdr, sizeof(hdr)) == sizeof(hdr) &&
+		    hdr.magic == BTF_MAGIC) {
+			close(btfe->in_fd);
+			elf_end(btfe->elf);
+			btfe->in_fd = -1;
+			goto try_as_raw_btf;
+		}
 		if (btf_elf__verbose)
 			fprintf(stderr, "%s: cannot get elf header.\n", __func__);
 		goto errout;
