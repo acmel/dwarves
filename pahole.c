@@ -2714,6 +2714,10 @@ int main(int argc, char *argv[])
 				base_btf_file, libbpf_get_error(base_btf));
 			goto out;
 		}
+		if (!btf_encode && !ctf_encode) {
+			// Force "btf" since a btf_base is being informed
+			conf_load.format_path = "btf";
+		}
 	}
 
 	struct cus *cus = cus__new();
