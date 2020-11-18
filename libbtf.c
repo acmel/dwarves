@@ -85,7 +85,7 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 		goto errout;
 	}
 
-	if (strcmp(filename, "/sys/kernel/btf/vmlinux") == 0) {
+	if (strstarts(filename, "/sys/kernel/btf/")) {
 		btfe->raw_btf  = true;
 		btfe->wordsize = sizeof(long);
 		btfe->is_big_endian = BYTE_ORDER == BIG_ENDIAN;
