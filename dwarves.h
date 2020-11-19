@@ -977,6 +977,7 @@ struct type {
 	struct list_head type_enum;
 	char 		 *member_prefix;
 	uint16_t	 member_prefix_len;
+	uint16_t	 max_tag_name_len;
 	uint16_t	 natural_alignment;
 	bool		 packed_attributes_inferred;
 	uint8_t		 declaration; /* only one bit used */
@@ -1101,6 +1102,7 @@ struct class_member *type__last_member(struct type *type);
 void enumeration__calc_prefix(struct type *type, const struct cu *cu);
 const char *enumeration__prefix(struct type *type, const struct cu *cu);
 uint16_t enumeration__prefix_len(struct type *type, const struct cu *cu);
+int enumeration__max_entry_name_len(struct type *type, const struct cu *cu);
 
 void enumerations__calc_prefix(struct list_head *enumerations);
 
