@@ -324,6 +324,17 @@ size_t typedef__fprintf(const struct tag *tag, const struct cu *cu,
 		tconf.suffix = type__name(type, cu);
 		return fprintf(fp, "typedef ") + __class__fprintf(tag__class(tag_type), cu, &tconf, fp);
 	}
+	case DW_TAG_enumeration_type: {
+		struct type *ctype = tag__type(tag_type);
+
+		if (type__name(ctype, cu) != NULL)
+			return fprintf(fp, "typedef enum %s %s", type__name(ctype, cu), type__name(type, cu));
+
+		struct conf_fprintf tconf = *pconf;
+
+		tconf.suffix = type__name(type, cu);
+		return fprintf(fp, "typedef ") + enumeration__fprintf(tag_type, cu, &tconf, fp);
+	}
 	}
 
 	return fprintf(fp, "typedef %s %s",
