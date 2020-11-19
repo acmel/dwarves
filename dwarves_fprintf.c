@@ -181,6 +181,8 @@ size_t tag__fprintf_decl_info(const struct tag *tag,
 	return 0;
 }
 
+static size_t __class__fprintf(struct class *class, const struct cu *cu,
+			       const struct conf_fprintf *conf, FILE *fp);
 static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			    const char *name, const struct conf_fprintf *conf,
 			    FILE *fp);
@@ -316,6 +318,11 @@ size_t typedef__fprintf(const struct tag *tag, const struct cu *cu,
 			return fprintf(fp, "typedef struct %s %s",
 				       type__name(ctype, cu),
 				       type__name(type, cu));
+
+		struct conf_fprintf tconf = *pconf;
+
+		tconf.suffix = type__name(type, cu);
+		return fprintf(fp, "typedef ") + __class__fprintf(tag__class(tag_type), cu, &tconf, fp);
 	}
 	}
 
@@ -594,9 +601,6 @@ static size_t type__fprintf_stats(struct type *type, const struct cu *cu,
 
 static size_t union__fprintf(struct type *type, const struct cu *cu,
 			     const struct conf_fprintf *conf, FILE *fp);
-
-static size_t __class__fprintf(struct class *class, const struct cu *cu,
-			       const struct conf_fprintf *conf, FILE *fp);
 
 static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			    const char *name, const struct conf_fprintf *conf,
