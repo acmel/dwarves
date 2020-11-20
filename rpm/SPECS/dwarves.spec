@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.18
+Version: 1.19
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -39,7 +39,7 @@ One example of pfunct usage is in the fullcircle tool, a shell that drivers
 pfunct to generate compileable code out of a .o file and then build it using
 gcc, with the same compiler flags, and then use codiff to make sure the
 original .o file and the new one generated from debug info produces the same
-debug info.pick
+debug info.
 
 Pahole also can be used to use all this type information to pretty print raw data
 according to command line directions.
@@ -79,7 +79,7 @@ rm -Rf %{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
-%doc changes-v1.18
+%doc changes-v1.19
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -128,18 +128,38 @@ rm -Rf %{buildroot}
 %{_includedir}/dwarves/libctf.h
 %{_includedir}/dwarves/list.h
 %{_includedir}/dwarves/rbtree.h
-%{_includedir}/dwarves/strings.h
+%{_includedir}/dwarves/pahole_strings.h
 %{_libdir}/%{libname}.so
 %{_libdir}/%{libname}_emit.so
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Fri Nov 20 2020 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.19-1
+- New release: 1.19
+- Split BTF
+- DWARF workarounds for DW_AT_declaration
+- Support cross-compiled ELF binaries with different endianness
+- Support showing typedefs for anonymous types
+- Speedups using libbpf algorithms
+- See changes-v1.19 for a complete and more detailed list of changes
+
 * Fri Oct 02 2020 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.18-1
 - New release: 1.18
 - Use debugging info to pretty print raw data
 - Store percpu variables in vmlinux BTF.
 - Fixes to address segfaults on the gdb testsuite binaries
 - Bail out on partial units for now, avoiding segfaults and providing warning to user.
+
+* Mon Aug 31 2020 - Zamir SUN <sztsian@gmail.com> - 1.17-4
+- Fix FTBFS
+- Resolves: bug 1863459
+
+* Sat Aug 01 2020 Fedora Release Engineering <releng@fedoraproject.org> - 1.17-3
+- Second attempt - Rebuilt for
+  https://fedoraproject.org/wiki/Fedora_33_Mass_Rebuild
+
+* Mon Jul 27 2020 Fedora Release Engineering <releng@fedoraproject.org> - 1.17-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_33_Mass_Rebuild
 
 * Fri Mar 13 2020 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.17-1
 - New release: 1.17
@@ -155,7 +175,7 @@ rm -Rf %{buildroot}
 - Introduce --unions to consider just unions:
 - Fix -m/--nr_methods - Number of functions operating on a type pointer
 
-* Mon Dec 16 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.16-1
+* Wed Feb 12 2020 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.16-1
 - New release: 1.16
 - BTF encoder: Preserve and encode exported functions as BTF_KIND_FUNC.
 - BTF loader: Add support for BTF_KIND_FUNC
@@ -169,10 +189,16 @@ rm -Rf %{buildroot}
 - pglobal: Allow passing the format path specifier, to use with BTF
 - Tree wide: Fixup issues pointed out by various coverity reports.
 
-* Tue Nov 05 2019 Jiri Olsa <jolsa@redhat.com> - 1.15-2
-- Add libdwarves version dependency to dwarves package
+* Tue Jan 28 2020 Fedora Release Engineering <releng@fedoraproject.org> - 1.15-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_32_Mass_Rebuild
 
-* Fri May 27 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.15-1
+* Wed Jul 24 2019 Fedora Release Engineering <releng@fedoraproject.org> - 1.15-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_31_Mass_Rebuild
+
+* Mon Jul  1 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.15-2
+- Fix bug when processing classes without members
+
+* Thu Jun 27 2019 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.15-1
 - New release: 1.15
 - Fix --expand_types/-E segfault
 - Fixup endless printing named structs inside structs in --expand_types
@@ -188,21 +214,69 @@ rm -Rf %{buildroot}
 - Support unions as arguments to -C/--class
 - New 'pfunct --compile' generates compilable output with type definitions
 
-* Thu Aug 16 2018 Arnaldo Carvalho de Melo <acme@kernel.org> - 1.12-1
-- New release:
+* Thu Jan 31 2019 Fedora Release Engineering <releng@fedoraproject.org> - 1.12-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_30_Mass_Rebuild
+
+* Fri Aug 31 2018 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.12-1
+- New release: 1.12
 - union member cacheline boundaries for all inner structs
 - print union member offsets
 - Document 'pahole --hex'
 - Encode BTF type format for use with eBPF
 
-* Wed Jun 28 2017 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.11-1
-- New release
+* Thu Jul 12 2018 Fedora Release Engineering <releng@fedoraproject.org> - 1.10-15
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_29_Mass_Rebuild
+
+* Wed Feb 07 2018 Fedora Release Engineering <releng@fedoraproject.org> - 1.10-14
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_28_Mass_Rebuild
+
+* Wed Aug 02 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1.10-13
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_27_Binutils_Mass_Rebuild
+
+* Wed Jul 26 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1.10-12
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_27_Mass_Rebuild
+
+* Fri Feb 10 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1.10-11
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_26_Mass_Rebuild
+
+* Wed Aug 03 2016 Cole Robinson <crobinso@redhat.com> - 1.10-9%{?dist}
+- pdwtags: don't fail on unhandled tags (bz 1348200)
+
+* Wed Feb 03 2016 Fedora Release Engineering <releng@fedoraproject.org> - 1.10-9
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
+
+* Wed Jun 17 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.10-8
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
+
+* Fri Sep 05 2014 Marcin Juszkiewicz <mjuszkiewicz@redhat.com> - 1.10-7
+- backport removal of DW_TAG_mutable_type
+
+* Sat Aug 16 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.10-6
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_22_Mass_Rebuild
+
+* Sat Jun 07 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.10-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
+
+* Sat Aug 03 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.10-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
+
+* Wed Feb 13 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.10-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_19_Mass_Rebuild
+
+* Wed Jul 18 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.10-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_18_Mass_Rebuild
 
 * Wed May 30 2012 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.10-1
 - New release
 
+* Fri Jan 13 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.9-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
+
 * Sat Nov 20 2010 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.9-1
 - New release
+
+* Tue Feb 08 2011 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.8-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild
 
 * Fri Dec  4 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.8-1
 - New release

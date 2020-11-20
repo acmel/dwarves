@@ -1,3 +1,54 @@
+v1.19:
+
+Fri Nov 20 2020
+
+bf21da407593f104 fprintf: Make typedef__fprintf print anonymous enums
+9c4bdf9331bf06a7 fprintf: Align enumerators
+89cf28228a8ab55e fprintf: Add enumeration__max_entry_name_len()
+932b84eb45a9b8ba fprintf: Make typedef__fprintf print anonymous structs
+4a1479305b53933d pahole: Add heuristic to auto-add --btf_base for /sys/kernel/btf/ prefixed files
+e1d01045828a5c4c btf: Fallback to raw BTF mode if the header magic matches
+24cea890abedb15b pahole: Force '-F btf' with --btf_base
+cfad738682506ce4 libbtf: Assume its raw_btf if filename starts with "/sys/kernel/btf/"
+7293c7fceac36844 pahole: The --btf_base option receives a PATH, not a SIZE
+b3dd4f3c3d5ea59e btf_encoder: Use better fallback message
+d06048c53094d9d2 btf_encoder: Move btf_elf__verbose/btf_elf__force setup
+8156bec8aedb685b btf_encoder: Fix function generation
+d0cd007339ee509e btf_encoder: Generate also .init functions
+25753e0396abea25 pfunct: Use load stealer to speed up --class
+aa8fb8c091446467 man-pages: Add entry for -J/--btf_encode to pahole's man page
+ace05ba9414c1fe4 btf: Add support for split BTF loading and encoding
+7290d08b4a6e5876 libbpf: Update libbpf submodule reference to latest master
+344f2483cfcd4952 libbtf: Improve variable naming and error reporting when writing out BTF
+94a7535939f92e91 btf_encoder: Fix array index type numbering
+9fa3a100f71e7a13 pfunct: Use a load stealer to stop as soon as a function is found
+de18bd5fe3515358 pfunct: Try sole argument as a function name, just like pahole
+bc1afd458562f21e pahole: Introduce --numeric_version for use in scripts and Makefiles
+784c3dfbd63d5bcf dwarves: Switch from a string based version to major/minor numbers
+fc06ee1b6e9dc14a pahole: Check if the sole arg is a file, not considering it a type if so
+f47b3a2df3622204 dwarf_loader: Fix partial unit warning
+5a22c2de79fb9edf btf_encoder: Change functions check due to broken dwarf
+7b1af3f4844b36b9 btf_encoder: Move find_all_percpu_vars in generic collect_symbols
+863e6f0f2cc08592 btf_encoder: Check var type after checking var addr.
+5e7ab5b9e064a3eb btf_loader: Handle union forward declaration properly
+ec3f944102a71241 cmake: Make libbpf's Linux UAPI headers available to all binaries
+8cac1c54c83c346b btf_encoder: Ignore zero-sized ELF symbols
+040fd7f585c9b9fc btf_encoder: Support cross-compiled ELF binaries with different endianness
+29fce8dc8571c6af strings: use BTF's string APIs for strings management
+75f3520fedf6afdb strings: Rename strings.h to avoid clashing with /usr/include/strings.h
+bba7151e0fd2fb3a dwarf_loader: increase the size of lookup hash map
+2e719cca66721284 btf_encoder: revamp how per-CPU variables are encoded
+0258a47ef99500db btf_encoder: Discard CUs after BTF encoding
+3c913e18b2702a9e btf_encoder: Fix emitting __ARRAY_SIZE_TYPE__ as index range type
+48efa92933e81d28 btf_encoder: Use libbpf APIs to encode BTF type info
+5d863aa7ce539e86 btf_loader: Use libbpf to load BTF
+0a9b89910e711951 dwarves: Expose and maintain active debug info loader operations
+7bc2dd07d51cb5ee btf_encoder: detect BTF encoding errors and exit
+c35b7fa52cb8112a libbpf: Update to latest libbpf version
+ef4f971a9cf745fc dwarf_loader: Conditionally define DW_AT_alignment
+cc3f9dce3378280f pahole: Implement --packed
+08f49262f474370a man-pages: Fix 'coimbine' typo
+
 v1.18:
 
 Fri 02 Oct 2020

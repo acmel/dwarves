@@ -33,9 +33,9 @@ set(CMAKE_C_FLAGS_DEBUG "-Wall -Werror -ggdb -O0")
 set(CMAKE_C_FLAGS_RELEASE "-Wall -O2")
 
 # Just for grepping, DWARVES_VERSION isn't used anywhere anymore
-# add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.18")
+# add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.19")
 add_definitions(-D_GNU_SOURCE -DDWARVES_MAJOR_VERSION=1)
-add_definitions(-D_GNU_SOURCE -DDWARVES_MINOR_VERSION=18)
+add_definitions(-D_GNU_SOURCE -DDWARVES_MINOR_VERSION=19)
 find_package(DWARF REQUIRED)
 find_package(ZLIB REQUIRED)
 
