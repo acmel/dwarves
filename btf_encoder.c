@@ -93,8 +93,8 @@ static int collect_function(struct btf_elf *btfe, GElf_Sym *sym)
 
 static int addrs_cmp(const void *_a, const void *_b)
 {
-	const unsigned long *a = _a;
-	const unsigned long *b = _b;
+	const __u64 *a = _a;
+	const __u64 *b = _b;
 
 	if (*a == *b)
 		return 0;
@@ -102,9 +102,10 @@ static int addrs_cmp(const void *_a, const void *_b)
 }
 
 static int get_vmlinux_addrs(struct btf_elf *btfe, struct funcs_layout *fl,
-			     unsigned long **paddrs, unsigned long *pcount)
+			     __u64 **paddrs, __u64 *pcount)
 {
-	unsigned long *addrs, count, offset;
+	__u64 *addrs, count, offset;
+	unsigned int addr_size, i;
 	Elf_Data *data;
 	GElf_Shdr shdr;
 	Elf_Scn *sec;
@@ -128,8 +129,11 @@ static int get_vmlinux_addrs(struct btf_elf *btfe, struct funcs_layout *fl,
 		return -1;
 	}
 
+	/* Get address size from processed file's ELF class. */
+	addr_size = gelf_getclass(btfe->elf) == ELFCLASS32 ? 4 : 8;
+
 	offset = fl->mcount_start - shdr.sh_addr;
-	count  = (fl->mcount_stop - fl->mcount_start) / 8;
+	count  = (fl->mcount_stop - fl->mcount_start) / addr_size;
 
 	data = elf_getdata(sec, 0);
 	if (!data) {
@@ -144,7 +148,13 @@ static int get_vmlinux_addrs(struct btf_elf *btfe, struct funcs_layout *fl,
 		return -1;
 	}
 
-	memcpy(addrs, data->d_buf + offset, count * sizeof(addrs[0]));
+	if (addr_size == sizeof(__u64)) {
+		memcpy(addrs, data->d_buf + offset, count * addr_size);
+	} else {
+		for (i = 0; i < count; i++)
+			addrs[i] = (__u64) *((__u32 *) (data->d_buf + offset + i * addr_size));
+	}
+
 	*paddrs = addrs;
 	*pcount = count;
 	return 0;
@@ -152,7 +162,7 @@ static int get_vmlinux_addrs(struct btf_elf *btfe, struct funcs_layout *fl,
 
 static int setup_functions(struct btf_elf *btfe, struct funcs_layout *fl)
 {
-	unsigned long *addrs, count, i;
+	__u64 *addrs, count, i;
 	int functions_valid = 0;
 
 	/*
