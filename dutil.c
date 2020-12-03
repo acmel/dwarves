@@ -196,6 +196,16 @@ Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
 	return sec;
 }
 
+Elf_Scn *elf_section_by_idx(Elf *elf, GElf_Shdr *shp, int idx)
+{
+	Elf_Scn *sec;
+
+	sec = elf_getscn(elf, idx);
+	if (sec)
+		gelf_getshdr(sec, shp);
+	return sec;
+}
+
 char *strlwr(char *s)
 {
 	int len = strlen(s), i;

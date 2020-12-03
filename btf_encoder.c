@@ -36,6 +36,7 @@ struct funcs_layout {
 struct elf_function {
 	const char	*name;
 	unsigned long	 addr;
+	unsigned long	 sh_addr;
 	bool		 generated;
 };
 
@@ -65,10 +66,11 @@ static void delete_functions(void)
 static int collect_function(struct btf_elf *btfe, GElf_Sym *sym)
 {
 	struct elf_function *new;
+	static GElf_Shdr sh;
+	static int last_idx;
+	int idx;
 
 	if (elf_sym__type(sym) != STT_FUNC)
-		return 0;
-	if (!elf_sym__value(sym))
 		return 0;
 
 	if (functions_cnt == functions_alloc) {
@@ -84,8 +86,17 @@ static int collect_function(struct btf_elf *btfe, GElf_Sym *sym)
 		functions = new;
 	}
 
+	idx = elf_sym__section(sym);
+
+	if (idx != last_idx) {
+		if (!elf_section_by_idx(btfe->elf, &sh, idx))
+			return 0;
+		last_idx = idx;
+	}
+
 	functions[functions_cnt].name = elf_sym__name(sym, btfe->symtab);
 	functions[functions_cnt].addr = elf_sym__value(sym);
+	functions[functions_cnt].sh_addr = sh.sh_addr;
 	functions[functions_cnt].generated = false;
 	functions_cnt++;
 	return 0;
@@ -160,10 +171,74 @@ static int get_vmlinux_addrs(struct btf_elf *btfe, struct funcs_layout *fl,
 	return 0;
 }
 
+static int
+get_kmod_addrs(struct btf_elf *btfe, __u64 **paddrs, __u64 *pcount)
+{
+	__u64 *addrs, count;
+	unsigned int addr_size, i;
+	GElf_Shdr shdr_mcount;
+	Elf_Data *data;
+	Elf_Scn *sec;
+
+	/* Initialize for the sake of all error paths below. */
+	*paddrs = NULL;
+	*pcount = 0;
+
+	/* get __mcount_loc */
+	sec = elf_section_by_name(btfe->elf, &btfe->ehdr, &shdr_mcount,
+				  "__mcount_loc", NULL);
+	if (!sec) {
+		if (btf_elf__verbose) {
+			printf("%s: '%s' doesn't have __mcount_loc section\n", __func__,
+			       btfe->filename);
+		}
+		return 0;
+	}
+
+	data = elf_getdata(sec, NULL);
+	if (!data) {
+		fprintf(stderr, "Failed to data for __mcount_loc section.\n");
+		return -1;
+	}
+
+	/* Get address size from processed file's ELF class. */
+	addr_size = gelf_getclass(btfe->elf) == ELFCLASS32 ? 4 : 8;
+
+	count = data->d_size / addr_size;
+
+	addrs = malloc(count * sizeof(addrs[0]));
+	if (!addrs) {
+		fprintf(stderr, "Failed to allocate memory for ftrace addresses.\n");
+		return -1;
+	}
+
+	if (addr_size == sizeof(__u64)) {
+		memcpy(addrs, data->d_buf, count * addr_size);
+	} else {
+		for (i = 0; i < count; i++)
+			addrs[i] = (__u64) *((__u32 *) (data->d_buf + i * addr_size));
+	}
+
+	/*
+	 * We get Elf object from dwfl_module_getelf function,
+	 * which performs all possible relocations, including
+	 * __mcount_loc section.
+	 *
+	 * So addrs array now contains relocated values, which
+	 * we need take into account when we compare them to
+	 * functions values, see comment in setup_functions
+	 * function.
+	 */
+	*paddrs = addrs;
+	*pcount = count;
+	return 0;
+}
+
 static int setup_functions(struct btf_elf *btfe, struct funcs_layout *fl)
 {
 	__u64 *addrs, count, i;
 	int functions_valid = 0;
+	bool kmod = false;
 
 	/*
 	 * Check if we are processing vmlinux image and
@@ -171,6 +246,16 @@ static int setup_functions(struct btf_elf *btfe, struct funcs_layout *fl)
 	 */
 	if (get_vmlinux_addrs(btfe, fl, &addrs, &count))
 		return -1;
+
+	/*
+	 * Check if we are processing kernel module and
+	 * get mcount data if it's detected.
+	 */
+	if (!addrs) {
+		if (get_kmod_addrs(btfe, &addrs, &count))
+			return -1;
+		kmod = true;
+	}
 
 	if (!addrs) {
 		if (btf_elf__verbose)
@@ -188,9 +273,18 @@ static int setup_functions(struct btf_elf *btfe, struct funcs_layout *fl)
 	 */
 	for (i = 0; i < functions_cnt; i++) {
 		struct elf_function *func = &functions[i];
+		/*
+		 * For vmlinux image both addrs[x] and functions[x]::addr
+		 * values are final address and are comparable.
+		 *
+		 * For kernel module addrs[x] is final address, but
+		 * functions[x]::addr is relative address within section
+		 * and needs to be relocated by adding sh_addr.
+		 */
+		__u64 addr = kmod ? func->addr + func->sh_addr : func->addr;
 
 		/* Make sure function is within ftrace addresses. */
-		if (bsearch(&func->addr, addrs, count, sizeof(addrs[0]), addrs_cmp)) {
+		if (bsearch(&addr, addrs, count, sizeof(addrs[0]), addrs_cmp)) {
 			/*
 			 * We iterate over sorted array, so we can easily skip
 			 * not valid item and move following valid field into
