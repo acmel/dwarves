@@ -101,13 +101,20 @@ static int addrs_cmp(const void *_a, const void *_b)
 	return *a < *b ? -1 : 1;
 }
 
-static int filter_functions(struct btf_elf *btfe, struct funcs_layout *fl)
+static int get_vmlinux_addrs(struct btf_elf *btfe, struct funcs_layout *fl,
+			     unsigned long **paddrs, unsigned long *pcount)
 {
-	unsigned long *addrs, count, offset, i;
-	int functions_valid = 0;
+	unsigned long *addrs, count, offset;
 	Elf_Data *data;
 	GElf_Shdr shdr;
 	Elf_Scn *sec;
+
+	/* Initialize for the sake of all error paths below. */
+	*paddrs = NULL;
+	*pcount = 0;
+
+	if (!fl->mcount_start || !fl->mcount_stop)
+		return 0;
 
 	/*
 	 * Find mcount addressed marked by __start_mcount_loc
@@ -138,7 +145,32 @@ static int filter_functions(struct btf_elf *btfe, struct funcs_layout *fl)
 	}
 
 	memcpy(addrs, data->d_buf + offset, count * sizeof(addrs[0]));
+	*paddrs = addrs;
+	*pcount = count;
+	return 0;
+}
+
+static int setup_functions(struct btf_elf *btfe, struct funcs_layout *fl)
+{
+	unsigned long *addrs, count, i;
+	int functions_valid = 0;
+
+	/*
+	 * Check if we are processing vmlinux image and
+	 * get mcount data if it's detected.
+	 */
+	if (get_vmlinux_addrs(btfe, fl, &addrs, &count))
+		return -1;
+
+	if (!addrs) {
+		if (btf_elf__verbose)
+			printf("ftrace symbols not detected, falling back to DWARF data\n");
+		delete_functions();
+		return 0;
+	}
+
 	qsort(addrs, count, sizeof(addrs[0]), addrs_cmp);
+	qsort(functions, functions_cnt, sizeof(functions[0]), functions_cmp);
 
 	/*
 	 * Let's got through all collected functions and filter
@@ -162,6 +194,9 @@ static int filter_functions(struct btf_elf *btfe, struct funcs_layout *fl)
 
 	functions_cnt = functions_valid;
 	free(addrs);
+
+	if (btf_elf__verbose)
+		printf("Found %d functions!\n", functions_cnt);
 	return 0;
 }
 
@@ -470,11 +505,6 @@ static void collect_symbol(GElf_Sym *sym, struct funcs_layout *fl)
 		fl->mcount_stop = sym->st_value;
 }
 
-static int has_all_symbols(struct funcs_layout *fl)
-{
-	return fl->mcount_start && fl->mcount_stop;
-}
-
 static int collect_symbols(struct btf_elf *btfe, bool collect_percpu_vars)
 {
 	struct funcs_layout fl = { };
@@ -501,18 +531,9 @@ static int collect_symbols(struct btf_elf *btfe, bool collect_percpu_vars)
 			printf("Found %d per-CPU variables!\n", percpu_var_cnt);
 	}
 
-	if (functions_cnt && has_all_symbols(&fl)) {
-		qsort(functions, functions_cnt, sizeof(functions[0]), functions_cmp);
-		if (filter_functions(btfe, &fl)) {
-			fprintf(stderr, "Failed to filter dwarf functions\n");
-			return -1;
-		}
-		if (btf_elf__verbose)
-			printf("Found %d functions!\n", functions_cnt);
-	} else {
-		if (btf_elf__verbose)
-			printf("ftrace symbols not detected, falling back to DWARF data\n");
-		delete_functions();
+	if (functions_cnt && setup_functions(btfe, &fl)) {
+		fprintf(stderr, "Failed to filter DWARF functions\n");
+		return -1;
 	}
 
 	return 0;
