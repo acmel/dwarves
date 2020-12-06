@@ -1869,7 +1869,7 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 
 		// Since we're reading stdin, we need to account for what we already read
 		if (seek_bytes < total_read_bytes) {
-			fprintf(stderr, "pahole: can't go back in stdin, already read %" PRIu64 " bytes, can't go to position %ld\n",
+			fprintf(stderr, "pahole: can't go back in stdin, already read %" PRIu64 " bytes, can't go to position %#" PRIx64 "\n",
 					total_read_bytes, seek_bytes);
 			return -ENOMEM;
 		}

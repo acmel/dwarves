@@ -581,7 +581,7 @@ static int collect_percpu_var(struct btf_elf *btfe, GElf_Sym *sym)
 	}
 
 	if (btf_elf__verbose)
-		printf("Found per-CPU symbol '%s' at address 0x%lx\n", sym_name, addr);
+		printf("Found per-CPU symbol '%s' at address 0x%" PRIx64 "\n", sym_name, addr);
 
 	if (percpu_var_cnt == MAX_PERCPU_VAR_CNT) {
 		fprintf(stderr, "Reached the limit of per-CPU variables: %d\n",
@@ -809,7 +809,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		linkage = var->external ? BTF_VAR_GLOBAL_ALLOCATED : BTF_VAR_STATIC;
 
 		if (btf_elf__verbose) {
-			printf("Variable '%s' from CU '%s' at address 0x%lx encoded\n",
+			printf("Variable '%s' from CU '%s' at address 0x%" PRIx64 " encoded\n",
 			       name, cu->name, addr);
 		}
 
@@ -817,7 +817,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		id = btf_elf__add_var_type(btfe, type, name, linkage);
 		if (id < 0) {
 			err = -1;
-			fprintf(stderr, "error: failed to encode variable '%s' at addr 0x%lx\n",
+			fprintf(stderr, "error: failed to encode variable '%s' at addr 0x%" PRIx64 "\n",
 			        name, addr);
 			break;
 		}
@@ -830,7 +830,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		id = btf_elf__add_var_secinfo(&btfe->percpu_secinfo, id, offset, size);
 		if (id < 0) {
 			err = -1;
-			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%lx\n",
+			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%" PRIx64 "\n",
 			        name, addr);
 			break;
 		}
