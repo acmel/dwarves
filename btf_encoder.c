@@ -776,7 +776,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		printf("search cu '%s' for percpu global variables.\n", cu->name);
 
 	cu__for_each_variable(cu, core_id, pos) {
-		uint32_t size, type, linkage, offset;
+		uint32_t size, type, linkage;
 		const char *name;
 		uint64_t addr;
 		int id;
@@ -790,11 +790,23 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 
 		/* addr has to be recorded before we follow spec */
 		addr = var->ip.addr;
-		if (var->spec)
-			var = var->spec;
+
+		/* DWARF takes into account .data..percpu section offset
+		 * within its segment, which for vmlinux is 0, but for kernel
+		 * modules is >0. ELF symbols, on the other hand, don't take
+		 * into account these offsets (as they are relative to the
+		 * section start), so to match DWARF and ELF symbols we need
+		 * to negate the section base address here.
+		 */
+		if (addr < btfe->percpu_base_addr || addr >= btfe->percpu_base_addr + btfe->percpu_sec_sz)
+			continue;
+		addr -= btfe->percpu_base_addr;
 
 		if (!percpu_var_exists(addr, &size, &name))
 			continue; /* not a per-CPU variable */
+
+		if (var->spec)
+			var = var->spec;
 
 		if (var->ip.tag.type == 0) {
 			fprintf(stderr, "error: found variable '%s' in CU '%s' that has void type\n",
@@ -826,8 +838,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		 * add a BTF_VAR_SECINFO in btfe->percpu_secinfo, which will be added into
 		 * btfe->types later when we add BTF_VAR_DATASEC.
 		 */
-		offset = addr - btfe->percpu_base_addr;
-		id = btf_elf__add_var_secinfo(&btfe->percpu_secinfo, id, offset, size);
+		id = btf_elf__add_var_secinfo(&btfe->percpu_secinfo, id, addr, size);
 		if (id < 0) {
 			err = -1;
 			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%" PRIx64 "\n",

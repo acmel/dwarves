@@ -26,6 +26,7 @@ struct btf_elf {
 	bool		  raw_btf; // "/sys/kernel/btf/vmlinux"
 	uint32_t	  percpu_shndx;
 	uint64_t	  percpu_base_addr;
+	uint64_t	  percpu_sec_sz;
 	struct btf	  *btf;
 	struct btf	  *base_btf;
 };

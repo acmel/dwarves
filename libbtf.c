@@ -170,6 +170,7 @@ try_as_raw_btf:
 	}
 	btfe->percpu_shndx = elf_ndxscn(sec);
 	btfe->percpu_base_addr = shdr.sh_addr;
+	btfe->percpu_sec_sz = shdr.sh_size;
 
 	return btfe;
 
