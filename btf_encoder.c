@@ -551,21 +551,6 @@ static int collect_percpu_var(struct btf_elf *btfe, GElf_Sym *sym)
 		return 0;
 
 	addr = elf_sym__value(sym);
-	/*
-	 * Store only those symbols that have allocated space in the percpu section.
-	 * This excludes the following three types of symbols:
-	 *
-	 *  1. __ADDRESSABLE(sym), which are forcely emitted as symbols.
-	 *  2. __UNIQUE_ID(prefix), which are introduced to generate unique ids.
-	 *  3. __exitcall(fn), functions which are labeled as exit calls.
-	 *
-	 * In addition, the variables defined using DEFINE_PERCPU_FIRST are
-	 * also not included, which currently includes:
-	 *
-	 *  1. fixed_percpu_data
-	 */
-	if (!addr)
-		return 0;
 
 	size = elf_sym__size(sym);
 	if (!size)
@@ -777,7 +762,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 
 	cu__for_each_variable(cu, core_id, pos) {
 		uint32_t size, type, linkage;
-		const char *name;
+		const char *name, *dwarf_name;
 		uint64_t addr;
 		int id;
 
@@ -804,6 +789,29 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 
 		if (!percpu_var_exists(addr, &size, &name))
 			continue; /* not a per-CPU variable */
+
+		/* A lot of "special" DWARF variables (e.g, __UNIQUE_ID___xxx)
+		 * have addr == 0, which is the same as, say, valid
+		 * fixed_percpu_data per-CPU variable. To distinguish between
+		 * them, additionally compare DWARF and ELF symbol names. If
+		 * DWARF doesn't provide proper name, pessimistically assume
+		 * bad variable.
+		 *
+		 * Examples of such special variables are:
+		 *
+		 *  1. __ADDRESSABLE(sym), which are forcely emitted as symbols.
+		 *  2. __UNIQUE_ID(prefix), which are introduced to generate unique ids.
+		 *  3. __exitcall(fn), functions which are labeled as exit calls.
+		 *
+		 *  This is relevant only for vmlinux image, as for kernel
+		 *  modules per-CPU data section has non-zero offset so all
+		 *  per-CPU symbols have non-zero values.
+		 */
+		if (var->ip.addr == 0) {
+			dwarf_name = variable__name(var, cu);
+			if (!dwarf_name || strcmp(dwarf_name, name))
+				continue;
+		}
 
 		if (var->spec)
 			var = var->spec;
