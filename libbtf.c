@@ -786,18 +786,27 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 		if (write(fd, raw_btf_data, raw_btf_size) != raw_btf_size) {
 			fprintf(stderr, "%s: write of %d bytes to '%s' failed: %d!\n",
 				__func__, raw_btf_size, tmp_fn, errno);
-			goto out;
+			goto unlink;
 		}
 
 		snprintf(cmd, sizeof(cmd), "%s --add-section .BTF=%s %s",
 			 llvm_objcopy, tmp_fn, filename);
 		if (system(cmd)) {
 			fprintf(stderr, "%s: failed to add .BTF section to '%s': %d!\n",
-				__func__, tmp_fn, errno);
-			goto out;
+				__func__, filename, errno);
+			goto unlink;
+		}
+
+		snprintf(cmd, sizeof(cmd), "%s --set-section-alignment .BTF=16 %s",
+			 llvm_objcopy, filename);
+		if (system(cmd)) {
+			/* non-fatal, this is a nice-to-have and it's only supported from LLVM 10 */
+			fprintf(stderr, "%s: warning: failed to align .BTF section in '%s': %d!\n",
+				__func__, filename, errno);
 		}
 
 		err = 0;
+	unlink:
 		unlink(tmp_fn);
 	}
 
