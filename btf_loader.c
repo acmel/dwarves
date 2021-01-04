@@ -20,12 +20,12 @@
 #include <string.h>
 #include <limits.h>
 #include <libgen.h>
+#include <linux/btf.h>
+#include <bpf/libbpf.h>
 #include <zlib.h>
 
 #include <gelf.h>
 
-#include "lib/bpf/include/uapi/linux/btf.h"
-#include "lib/bpf/src/libbpf.h"
 #include "dutil.h"
 #include "dwarves.h"
 

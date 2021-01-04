@@ -16,13 +16,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "bpf/libbpf.h"
 
 #include "dwarves_reorganize.h"
 #include "dwarves.h"
 #include "dutil.h"
 #include "ctf_encoder.h"
 #include "btf_encoder.h"
-#include "lib/bpf/src/libbpf.h"
 #include "pahole_strings.h"
 
 static struct btf_encoder *btf_encoder;

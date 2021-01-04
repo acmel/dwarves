@@ -2,9 +2,24 @@ project(pahole C)
 cmake_minimum_required(VERSION 2.8.12)
 cmake_policy(SET CMP0005 NEW)
 
+option(LIBBPF_EMBEDDED "Use the embedded version of libbpf instead of searching it via pkg-config" ON)
+if (NOT LIBBPF_EMBEDDED)
+	find_package(PkgConfig)
+	if(PKGCONFIG_FOUND)
+		pkg_check_modules(LIBBPF libbpf>=0.3.0)
+	endif()
+endif()
+
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}
-		    ${CMAKE_CURRENT_SOURCE_DIR}
-		    ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
+		    ${CMAKE_CURRENT_SOURCE_DIR})
+if(NOT LIBBPF_FOUND)
+	# Allows to use 'system' style #include with both embedded and system libbpf
+	INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/lib/include)
+	INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
+else()
+	INCLUDE_DIRECTORIES(${LIBBPF_INCLUDE_DIRS})
+	LINK_DIRECTORIES(${LIBBPF_LIBRARY_DIRS})
+endif()
 
 # Try to parse this later, Helio just showed me a KDE4 example to support
 # x86-64 builds.
@@ -56,7 +71,7 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
 		endif()
 	endif()
 endif()
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/lib/bpf/src/btf.h")
+if(NOT LIBBPF_FOUND AND NOT EXISTS "${PROJECT_SOURCE_DIR}/lib/bpf/src/btf.h")
 	message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
 
@@ -81,22 +96,25 @@ endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64")
 
-file(GLOB libbpf_sources "lib/bpf/src/*.c")
-add_library(bpf OBJECT ${libbpf_sources})
-set_property(TARGET bpf PROPERTY POSITION_INDEPENDENT_CODE 1)
-target_include_directories(bpf PRIVATE
-			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include
-			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
+if (NOT LIBBPF_FOUND)
+	file(GLOB libbpf_sources "lib/bpf/src/*.c")
+	add_library(bpf OBJECT ${libbpf_sources})
+	set_property(TARGET bpf PROPERTY POSITION_INDEPENDENT_CODE 1)
+	target_include_directories(bpf PRIVATE
+				   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include
+				   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
+endif()
 
 set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer.c strings.c
 		     ctf_encoder.c ctf_loader.c libctf.c btf_encoder.c btf_loader.c
 		     dwarf_loader.c dutil.c elf_symtab.c rbtree.c)
-add_library(dwarves SHARED ${dwarves_LIB_SRCS} $<TARGET_OBJECTS:bpf>)
+if (NOT LIBBPF_FOUND)
+	list(APPEND dwarves_LIB_SRCS $<TARGET_OBJECTS:bpf>)
+endif()
+add_library(dwarves SHARED ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 set_target_properties(dwarves PROPERTIES INTERFACE_LINK_LIBRARIES "")
-target_include_directories(dwarves PRIVATE
-			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
-target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES})
+target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES} ${LIBBPF_LIBRARIES})
 
 set(dwarves_emit_LIB_SRCS dwarves_emit.c)
 add_library(dwarves_emit SHARED ${dwarves_emit_LIB_SRCS})
