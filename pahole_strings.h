@@ -6,7 +6,7 @@
   Copyright (C) 2008 Arnaldo Carvalho de Melo <acme@redhat.com>
 */
 
-#include "lib/bpf/src/btf.h"
+#include <bpf/btf.h>
 
 typedef unsigned int strings_t;
 

@@ -11,12 +11,12 @@
 
 #include "dwarves.h"
 #include "libbtf.h"
-#include "lib/bpf/include/uapi/linux/btf.h"
-#include "lib/bpf/src/libbpf.h"
 #include "hash.h"
 #include "elf_symtab.h"
 #include "btf_encoder.h"
 
+#include <linux/btf.h>
+#include <bpf/libbpf.h>
 #include <ctype.h> /* for isalpha() and isalnum() */
 #include <stdlib.h> /* for qsort() and bsearch() */
 #include <inttypes.h>
