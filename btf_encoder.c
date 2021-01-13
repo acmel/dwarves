@@ -68,9 +68,13 @@ static int collect_function(struct btf_elf *btfe, GElf_Sym *sym)
 	struct elf_function *new;
 	static GElf_Shdr sh;
 	static int last_idx;
+	const char *name;
 	int idx;
 
 	if (elf_sym__type(sym) != STT_FUNC)
+		return 0;
+	name = elf_sym__name(sym, btfe->symtab);
+	if (!name)
 		return 0;
 
 	if (functions_cnt == functions_alloc) {
@@ -94,7 +98,7 @@ static int collect_function(struct btf_elf *btfe, GElf_Sym *sym)
 		last_idx = idx;
 	}
 
-	functions[functions_cnt].name = elf_sym__name(sym, btfe->symtab);
+	functions[functions_cnt].name = name;
 	functions[functions_cnt].addr = elf_sym__value(sym);
 	functions[functions_cnt].sh_addr = sh.sh_addr;
 	functions[functions_cnt].generated = false;
@@ -731,8 +735,13 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 			continue;
 		if (functions_cnt) {
 			struct elf_function *func;
+			const char *name;
 
-			func = find_function(btfe, function__name(fn, cu));
+			name = function__name(fn, cu);
+			if (!name)
+				continue;
+
+			func = find_function(btfe, name);
 			if (!func || func->generated)
 				continue;
 			func->generated = true;
