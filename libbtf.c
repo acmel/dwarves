@@ -417,7 +417,7 @@ int32_t btf_elf__add_ref_type(struct btf_elf *btfe, uint16_t kind, uint32_t type
 		id = btf__add_const(btf, type);
 		break;
 	case BTF_KIND_RESTRICT:
-		id = btf__add_const(btf, type);
+		id = btf__add_restrict(btf, type);
 		break;
 	case BTF_KIND_TYPEDEF:
 		id = btf__add_typedef(btf, name, type);
