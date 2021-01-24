@@ -17,11 +17,13 @@
 
 struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr)
 {
+	size_t symtab_index;
+
 	if (name == NULL)
 		name = ".symtab";
 
 	GElf_Shdr shdr;
-	Elf_Scn *sec = elf_section_by_name(elf, ehdr, &shdr, name, NULL);
+	Elf_Scn *sec = elf_section_by_name(elf, ehdr, &shdr, name, &symtab_index);
 
 	if (sec == NULL)
 		return NULL;
@@ -29,7 +31,7 @@ struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr)
 	if (gelf_getshdr(sec, &shdr) == NULL)
 		return NULL;
 
-	struct elf_symtab *symtab = malloc(sizeof(*symtab));
+	struct elf_symtab *symtab = zalloc(sizeof(*symtab));
 	if (symtab == NULL)
 		return NULL;
 
@@ -41,6 +43,12 @@ struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr)
 	if (symtab->syms == NULL)
 		goto out_free_name;
 
+	/*
+	 * This returns extended section index table's
+	 * section index, if it exists.
+	 */
+	int symtab_xindex = elf_scnshndx(sec);
+
 	sec = elf_getscn(elf, shdr.sh_link);
 	if (sec == NULL)
 		goto out_free_name;
@@ -48,6 +56,35 @@ struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr)
 	symtab->symstrs = elf_getdata(sec, NULL);
 	if (symtab->symstrs == NULL)
 		goto out_free_name;
+
+	/*
+	 * The .symtab section has optional extended section index
+	 * table, load its data so it can be used to resolve symbol's
+	 * section index.
+	 **/
+	if (symtab_xindex > 0) {
+		GElf_Shdr shdr_xindex;
+		Elf_Scn *sec_xindex;
+
+		sec_xindex = elf_getscn(elf, symtab_xindex);
+		if (sec_xindex == NULL)
+			goto out_free_name;
+
+		if (gelf_getshdr(sec_xindex, &shdr_xindex) == NULL)
+			goto out_free_name;
+
+		/* Extra check to verify it's correct type */
+		if (shdr_xindex.sh_type != SHT_SYMTAB_SHNDX)
+			goto out_free_name;
+
+		/* Extra check to verify it belongs to the .symtab */
+		if (symtab_index != shdr_xindex.sh_link)
+			goto out_free_name;
+
+		symtab->syms_sec_idx_table = elf_getdata(elf_getscn(elf, symtab_xindex), NULL);
+		if (symtab->syms_sec_idx_table == NULL)
+			goto out_free_name;
+	}
 
 	symtab->nr_syms = shdr.sh_size / shdr.sh_entsize;
 

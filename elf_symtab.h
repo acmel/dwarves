@@ -16,6 +16,8 @@ struct elf_symtab {
 	uint32_t  nr_syms;
 	Elf_Data  *syms;
 	Elf_Data  *symstrs;
+	/* Data of SHT_SYMTAB_SHNDX section. */
+	Elf_Data  *syms_sec_idx_table;
 	char	  *name;
 };
 
@@ -77,6 +79,19 @@ static inline bool elf_sym__is_local_object(const GElf_Sym *sym)
 	       sym->st_shndx != SHN_UNDEF;
 }
 
+static inline bool
+elf_sym__get(Elf_Data *syms, Elf_Data *syms_sec_idx_table,
+	     int id, GElf_Sym *sym, Elf32_Word *sym_sec_idx)
+{
+	if (!gelf_getsymshndx(syms, syms_sec_idx_table, id, sym, sym_sec_idx))
+		return false;
+
+	if (sym->st_shndx != SHN_XINDEX)
+		*sym_sec_idx = sym->st_shndx;
+
+	return true;
+}
+
 /**
  * elf_symtab__for_each_symbol - iterate thru all the symbols
  *
@@ -88,5 +103,19 @@ static inline bool elf_sym__is_local_object(const GElf_Sym *sym)
 	for (index = 0, gelf_getsym(symtab->syms, index, &sym);\
 	     index < symtab->nr_syms; \
 	     index++, gelf_getsym(symtab->syms, index, &sym))
+
+/**
+ * elf_symtab__for_each_symbol_index - iterate through all the symbols,
+ * that takes extended symbols indexes into account
+ *
+ * @symtab: struct elf_symtab instance to iterate
+ * @index: uint32_t index
+ * @sym: GElf_Sym iterator
+ * @sym_sec_idx: symbol's index
+ */
+#define elf_symtab__for_each_symbol_index(symtab, id, sym, sym_sec_idx)		\
+	for (id = 0; id < symtab->nr_syms; id++)				\
+		if (elf_sym__get(symtab->syms, symtab->syms_sec_idx_table,	\
+				 id, &sym, &sym_sec_idx))
 
 #endif /* _ELF_SYMTAB_H_ */

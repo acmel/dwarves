@@ -63,13 +63,13 @@ static void delete_functions(void)
 #define max(x, y) ((x) < (y) ? (y) : (x))
 #endif
 
-static int collect_function(struct btf_elf *btfe, GElf_Sym *sym)
+static int collect_function(struct btf_elf *btfe, GElf_Sym *sym,
+			    size_t sym_sec_idx)
 {
 	struct elf_function *new;
 	static GElf_Shdr sh;
-	static int last_idx;
+	static size_t last_idx;
 	const char *name;
-	int idx;
 
 	if (elf_sym__type(sym) != STT_FUNC)
 		return 0;
@@ -90,12 +90,10 @@ static int collect_function(struct btf_elf *btfe, GElf_Sym *sym)
 		functions = new;
 	}
 
-	idx = elf_sym__section(sym);
-
-	if (idx != last_idx) {
-		if (!elf_section_by_idx(btfe->elf, &sh, idx))
+	if (sym_sec_idx != last_idx) {
+		if (!elf_section_by_idx(btfe->elf, &sh, sym_sec_idx))
 			return 0;
-		last_idx = idx;
+		last_idx = sym_sec_idx;
 	}
 
 	functions[functions_cnt].name = name;
@@ -542,14 +540,15 @@ static bool percpu_var_exists(uint64_t addr, uint32_t *sz, const char **name)
 	return true;
 }
 
-static int collect_percpu_var(struct btf_elf *btfe, GElf_Sym *sym)
+static int collect_percpu_var(struct btf_elf *btfe, GElf_Sym *sym,
+			      size_t sym_sec_idx)
 {
 	const char *sym_name;
 	uint64_t addr;
 	uint32_t size;
 
 	/* compare a symbol's shndx to determine if it's a percpu variable */
-	if (elf_sym__section(sym) != btfe->percpu_shndx)
+	if (sym_sec_idx != btfe->percpu_shndx)
 		return 0;
 	if (elf_sym__type(sym) != STT_OBJECT)
 		return 0;
@@ -585,12 +584,13 @@ static int collect_percpu_var(struct btf_elf *btfe, GElf_Sym *sym)
 	return 0;
 }
 
-static void collect_symbol(GElf_Sym *sym, struct funcs_layout *fl)
+static void collect_symbol(GElf_Sym *sym, struct funcs_layout *fl,
+			   size_t sym_sec_idx)
 {
 	if (!fl->mcount_start &&
 	    !strcmp("__start_mcount_loc", elf_sym__name(sym, btfe->symtab))) {
 		fl->mcount_start = sym->st_value;
-		fl->mcount_sec_idx = sym->st_shndx;
+		fl->mcount_sec_idx = sym_sec_idx;
 	}
 
 	if (!fl->mcount_stop &&
@@ -601,6 +601,7 @@ static void collect_symbol(GElf_Sym *sym, struct funcs_layout *fl)
 static int collect_symbols(struct btf_elf *btfe, bool collect_percpu_vars)
 {
 	struct funcs_layout fl = { };
+	Elf32_Word sym_sec_idx;
 	uint32_t core_id;
 	GElf_Sym sym;
 
@@ -608,12 +609,12 @@ static int collect_symbols(struct btf_elf *btfe, bool collect_percpu_vars)
 	percpu_var_cnt = 0;
 
 	/* search within symtab for percpu variables */
-	elf_symtab__for_each_symbol(btfe->symtab, core_id, sym) {
-		if (collect_percpu_vars && collect_percpu_var(btfe, &sym))
+	elf_symtab__for_each_symbol_index(btfe->symtab, core_id, sym, sym_sec_idx) {
+		if (collect_percpu_vars && collect_percpu_var(btfe, &sym, sym_sec_idx))
 			return -1;
-		if (collect_function(btfe, &sym))
+		if (collect_function(btfe, &sym, sym_sec_idx))
 			return -1;
-		collect_symbol(&sym, &fl);
+		collect_symbol(&sym, &fl, sym_sec_idx);
 	}
 
 	if (collect_percpu_vars) {
