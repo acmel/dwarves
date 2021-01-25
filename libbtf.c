@@ -109,8 +109,8 @@ try_as_raw_btf:
 
 		btfe->elf = elf_begin(btfe->in_fd, ELF_C_READ_MMAP, NULL);
 		if (!btfe->elf) {
-			fprintf(stderr, "%s: cannot read %s ELF file.\n",
-				__func__, filename);
+			fprintf(stderr, "%s: cannot read %s ELF file: %s.\n",
+				__func__, filename, elf_errmsg(elf_errno()));
 			goto errout;
 		}
 	}
@@ -706,13 +706,15 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 	}
 
 	if (elf_version(EV_CURRENT) == EV_NONE) {
-		fprintf(stderr, "Cannot set libelf version.\n");
+		fprintf(stderr, "Cannot set libelf version: %s.\n",
+			elf_errmsg(elf_errno()));
 		goto out;
 	}
 
 	elf = elf_begin(fd, ELF_C_RDWR, NULL);
 	if (elf == NULL) {
-		fprintf(stderr, "Cannot update ELF file.\n");
+		fprintf(stderr, "Cannot update ELF file: %s.\n",
+			elf_errmsg(elf_errno()));
 		goto out;
 	}
 
@@ -720,7 +722,8 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 
 	ehdr = gelf_getehdr(elf, &ehdr_mem);
 	if (ehdr == NULL) {
-		fprintf(stderr, "%s: elf_getehdr failed.\n", __func__);
+		fprintf(stderr, "%s: elf_getehdr failed: %s.\n", __func__,
+			elf_errmsg(elf_errno()));
 		goto out;
 	}
 
@@ -763,6 +766,9 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 		if (elf_update(elf, ELF_C_NULL) >= 0 &&
 		    elf_update(elf, ELF_C_WRITE) >= 0)
 			err = 0;
+		else
+			fprintf(stderr, "%s: elf_update failed: %s.\n",
+				__func__, elf_errmsg(elf_errno()));
 	} else {
 		const char *llvm_objcopy;
 		char tmp_fn[PATH_MAX];
