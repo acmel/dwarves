@@ -291,15 +291,11 @@ static uint64_t dwarf_expr(const uint8_t *expr, uint32_t len __unused)
 	return UINT64_MAX;
 }
 
-static Dwarf_Off attr_offset(Dwarf_Die *die, const uint32_t name)
+static Dwarf_Off __attr_offset(Dwarf_Attribute *attr)
 {
-	Dwarf_Attribute attr;
 	Dwarf_Block block;
 
-	if (dwarf_attr(die, name, &attr) == NULL)
-		return 0;
-
-	switch (dwarf_whatform(&attr)) {
+	switch (dwarf_whatform(attr)) {
 	case DW_FORM_data1:
 	case DW_FORM_data2:
 	case DW_FORM_data4:
@@ -307,16 +303,26 @@ static Dwarf_Off attr_offset(Dwarf_Die *die, const uint32_t name)
 	case DW_FORM_sdata:
 	case DW_FORM_udata: {
 		Dwarf_Word value;
-		if (dwarf_formudata(&attr, &value) == 0)
+		if (dwarf_formudata(attr, &value) == 0)
 			return value;
 		break;
 	}
 	default:
-		if (dwarf_formblock(&attr, &block) == 0)
+		if (dwarf_formblock(attr, &block) == 0)
 			return dwarf_expr(block.data, block.length);
 	}
 
 	return 0;
+}
+
+static Dwarf_Off attr_offset(Dwarf_Die *die, const uint32_t name)
+{
+	Dwarf_Attribute attr;
+
+	if (dwarf_attr(die, name, &attr) == NULL)
+		return 0;
+
+	return __attr_offset(&attr);
 }
 
 static const char *attr_string(Dwarf_Die *die, uint32_t name)
