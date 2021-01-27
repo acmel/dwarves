@@ -2257,7 +2257,7 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 	member->bit_size = member->byte_size * 8;
 
 	/*
-	 * XXX: after all the attemps to determine byte size, we might still
+	 * XXX: after all the attempts to determine byte size, we might still
 	 * be unsuccessful, because base_type__name_to_size doesn't know about
 	 * the base_type name, so one has to add there when such base_type
 	 * isn't found. pahole will put zero on the struct output so it should
