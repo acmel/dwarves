@@ -248,6 +248,7 @@ static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 			return addr;
 	}
 		break;
+	case DW_FORM_implicit_const:
 	case DW_FORM_data1:
 	case DW_FORM_data2:
 	case DW_FORM_data4:
