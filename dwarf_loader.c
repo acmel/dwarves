@@ -771,10 +771,17 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
 	if (member != NULL) {
 		tag__init(&member->tag, cu, die);
 		member->name = strings__add(strings, attr_string(die, DW_AT_name));
-		member->is_static   = !in_union && !dwarf_hasattr(die, DW_AT_data_member_location);
 		member->const_value = attr_numeric(die, DW_AT_const_value);
 		member->alignment = attr_numeric(die, DW_AT_alignment);
-		member->byte_offset = attr_offset(die, DW_AT_data_member_location);
+
+		Dwarf_Attribute attr;
+
+		if (dwarf_attr(die, DW_AT_data_member_location, &attr) != NULL) {
+			member->byte_offset = __attr_offset(&attr);
+		} else {
+			member->is_static = !in_union;
+		}
+
 		/*
 		 * Bit offset calculated here is valid only for byte-aligned
 		 * fields. For bitfields on little-endian archs we need to
