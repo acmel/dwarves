@@ -776,27 +776,36 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
 
 		Dwarf_Attribute attr;
 
-		if (dwarf_attr(die, DW_AT_data_member_location, &attr) != NULL) {
-			member->byte_offset = __attr_offset(&attr);
+		member->has_bit_offset = dwarf_attr(die, DW_AT_data_bit_offset, &attr) != NULL;
+
+		if (member->has_bit_offset) {
+			member->bit_offset = __attr_offset(&attr);
+			// byte_offset and bitfield_offset will be recalculated later, when
+			// we discover the size of this bitfield base type.
 		} else {
-			member->is_static = !in_union;
+			if (dwarf_attr(die, DW_AT_data_member_location, &attr) != NULL) {
+				member->byte_offset = __attr_offset(&attr);
+			} else {
+				member->is_static = !in_union;
+			}
+
+			/*
+			 * Bit offset calculated here is valid only for byte-aligned
+			 * fields. For bitfields on little-endian archs we need to
+			 * adjust them taking into account byte size of the field,
+			 * which might not be yet known. So we'll re-calculate bit
+			 * offset later, in class_member__cache_byte_size.
+			 */
+			member->bit_offset = member->byte_offset * 8;
+			member->bitfield_offset = attr_numeric(die, DW_AT_bit_offset);
 		}
 
-		/*
-		 * Bit offset calculated here is valid only for byte-aligned
-		 * fields. For bitfields on little-endian archs we need to
-		 * adjust them taking into account byte size of the field,
-		 * which might not be yet known. So we'll re-calculate bit
-		 * offset later, in class_member__cache_byte_size.
-		 */
-		member->bit_offset = member->byte_offset * 8;
 		/*
 		 * If DW_AT_byte_size is not present, byte size will be
 		 * determined later in class_member__cache_byte_size using
 		 * base integer/enum type
 		 */
 		member->byte_size = attr_numeric(die, DW_AT_byte_size);
-		member->bitfield_offset = attr_numeric(die, DW_AT_bit_offset);
 		member->bitfield_size = attr_numeric(die, DW_AT_bit_size);
 		member->bit_hole = 0;
 		member->bitfield_end = 0;
@@ -2275,24 +2284,31 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 		return 0;
 	}
 
-	/*
-	 * For little-endian architectures, DWARF data emitted by gcc/clang
-	 * specifies bitfield offset as an offset from the highest-order bit
-	 * of an underlying integral type (e.g., int) to a highest-order bit
-	 * of a bitfield. E.g., for bitfield taking first 5 bits of int-backed
-	 * bitfield, bit offset will be 27 (sizeof(int) - 0 offset - 5 bit
-	 * size), which is very counter-intuitive and isn't a natural
-	 * extension of byte offset, which on little-endian points to
-	 * lowest-order byte. So here we re-adjust bitfield offset to be an
-	 * offset from lowest-order bit of underlying integral type to
-	 * a lowest-order bit of a bitfield. This makes bitfield offset
-	 * a natural extension of byte offset for bitfields and is uniform
-	 * with how big-endian bit offsets work.
-	 */
-	if (cu->little_endian) {
-		member->bitfield_offset = member->bit_size - member->bitfield_offset - member->bitfield_size;
+	if (!member->has_bit_offset) {
+		/*
+		 * For little-endian architectures, DWARF data emitted by gcc/clang
+		 * specifies bitfield offset as an offset from the highest-order bit
+		 * of an underlying integral type (e.g., int) to a highest-order bit
+		 * of a bitfield. E.g., for bitfield taking first 5 bits of int-backed
+		 * bitfield, bit offset will be 27 (sizeof(int) - 0 offset - 5 bit
+		 * size), which is very counter-intuitive and isn't a natural
+		 * extension of byte offset, which on little-endian points to
+		 * lowest-order byte. So here we re-adjust bitfield offset to be an
+		 * offset from lowest-order bit of underlying integral type to
+		 * a lowest-order bit of a bitfield. This makes bitfield offset
+		 * a natural extension of byte offset for bitfields and is uniform
+		 * with how big-endian bit offsets work.
+		 */
+		if (cu->little_endian)
+			member->bitfield_offset = member->bit_size - member->bitfield_offset - member->bitfield_size;
+
+		member->bit_offset = member->byte_offset * 8 + member->bitfield_offset;
+	} else {
+		// DWARF5 has DW_AT_data_bit_offset, offset in bits from the
+		// start of the container type (struct, class, etc).
+		member->byte_offset = member->bit_offset / 8;
+		member->bitfield_offset = member->bit_offset - member->byte_offset * 8;
 	}
-	member->bit_offset = member->byte_offset * 8 + member->bitfield_offset;
 
 	/* make sure bitfield offset is non-negative */
 	if (member->bitfield_offset < 0) {

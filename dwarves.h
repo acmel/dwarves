@@ -899,6 +899,7 @@ static inline int function__inlined(const struct function *func)
  * @accessibility - DW_ACCESS_{public,protected,private}
  * @virtuality - DW_VIRTUALITY_{none,virtual,pure_virtual}
  * @hole - If there is a hole before the next one (or the end of the struct)
+ * @has_bit_offset: Don't recalcule this, it came from the debug info (DWARF5's DW_AT_data_bit_offset)
  */
 struct class_member {
 	struct tag	 tag;
@@ -915,6 +916,7 @@ struct class_member {
 	uint32_t	 alignment;
 	uint8_t		 visited:1;
 	uint8_t		 is_static:1;
+	uint8_t		 has_bit_offset:1;
 	uint8_t		 accessibility:2;
 	uint8_t		 virtuality:2;
 	uint16_t	 hole;
