@@ -296,6 +296,7 @@ static Dwarf_Off __attr_offset(Dwarf_Attribute *attr)
 	Dwarf_Block block;
 
 	switch (dwarf_whatform(attr)) {
+	case DW_FORM_implicit_const:
 	case DW_FORM_data1:
 	case DW_FORM_data2:
 	case DW_FORM_data4:
