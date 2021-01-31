@@ -41,6 +41,11 @@ struct strings *strings;
 #define DW_TAG_GNU_call_site_parameter 0x410a
 #endif
 
+#ifndef DW_TAG_call_site
+#define DW_TAG_call_site 0x48
+#define DW_TAG_call_site_parameter 0x49
+#endif
+
 #define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
 
 bool no_bitfield_type_recode = true;
@@ -1596,6 +1601,8 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 		uint32_t id;
 
 		switch (dwarf_tag(die)) {
+		case DW_TAG_call_site:
+		case DW_TAG_call_site_parameter:
 		case DW_TAG_GNU_call_site:
 		case DW_TAG_GNU_call_site_parameter:
 			/*
