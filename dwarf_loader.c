@@ -46,6 +46,10 @@ struct strings *strings;
 #define DW_TAG_call_site_parameter 0x49
 #endif
 
+#ifndef DW_FORM_implicit_const
+#define DW_FORM_implicit_const 0x21
+#endif
+
 #define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
 
 bool no_bitfield_type_recode = true;
