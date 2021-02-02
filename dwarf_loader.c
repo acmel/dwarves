@@ -1504,6 +1504,8 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct lexblock *lexblo
 		uint32_t id;
 
 		switch (dwarf_tag(die)) {
+		case DW_TAG_call_site:
+		case DW_TAG_call_site_parameter:
 		case DW_TAG_GNU_call_site:
 		case DW_TAG_GNU_call_site_parameter:
 			/*
