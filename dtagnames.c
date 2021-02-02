@@ -7,17 +7,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <malloc.h>
 
 #include "dwarves.h"
 #include "dutil.h"
-
-static void print_malloc_stats(void)
-{
-	struct mallinfo m = mallinfo();
-
-	fprintf(stderr, "size: %u\n", m.uordblks);
-}
 
 static int class__tag_name(struct tag *tag, struct cu *cu __unused,
 			   void *cookie __unused)
@@ -54,7 +46,6 @@ int main(int argc __unused, char *argv[])
 	}
 
 	cus__dump_class_tag_names(cus);
-	print_malloc_stats();
 	rc = EXIT_SUCCESS;
 out:
 	cus__delete(cus);
