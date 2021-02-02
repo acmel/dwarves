@@ -1680,8 +1680,14 @@ void enumeration__calc_prefix(struct type *enumeration, const struct cu *cu)
 		previous_name = curr_name;
 	}
 
-	enumeration->member_prefix = strndup(curr_name, common_part);
-	enumeration->member_prefix_len = common_part == INT32_MAX ? 0 : common_part;
+	enumeration->member_prefix     = NULL;
+	enumeration->member_prefix_len = 0;
+
+	if (common_part != INT32_MAX) {
+		enumeration->member_prefix = strndup(curr_name, common_part);
+		if (enumeration->member_prefix != NULL)
+			enumeration->member_prefix_len = common_part;
+	}
 }
 
 void enumerations__calc_prefix(struct list_head *enumerations)
