@@ -1,3 +1,33 @@
+v1.20:
+
+Tue Feb  2 2021
+
+8d6f06f053a06829 (HEAD -> master, seventh/master, quaco/master, origin/master, origin/HEAD) dwarf_loader: Add conditional DW_FORM_implicit_const definition for older systems
+66d12e4790b7c5e5 dtagnames: Stop using the deprecated mallinfo() function
+1279e439b622aeb5 cmake: Bump minimum required version to 2.8.12 as per upstream support warning
+b1eaf0da6d1f72b2 dwarves: Make enum prefix search more robust
+d783117162c0212d dwarf_loader: Handle DWARF5 DW_TAG_call_site like DW_TAG_GNU_call_site
+3ff98a6396e91d0a dwarf_loader: Support DW_FORM_implicit_const in __attr_offset()
+b91b19840b0062b8 dwarf_loader: Support DW_AT_data_bit_offset
+c692e8ac5ccbab99 dwarf_loader: Optimize a bit the reading of DW_AT_data_member_location
+65917b24942ce620 dwarf_loader: Fix typo
+77205a119c85e396 dwarf_loader: Introduce __attr_offset() to reuse call to dwarf_attr()
+8ec231f6b0c8aaef dwarf_loader: Support DW_FORM_implicit_const in attr_numeric()
+7453895e01edb535 btf_encoder: Improve ELF error reporting
+1bb49897dd2b65b0 bpf_encoder: Translate SHN_XINDEX in symbol's st_shndx values
+3f8aad340bf1a188 elf_symtab: Handle SHN_XINDEX index in elf_section_by_name()
+e32b9800e650a6eb btf_encoder: Add extra checks for symbol names
+82749180b23d3c9c libbpf: allow to use packaged version
+452dbcf35f1a7bf9 btf_encoder: Improve error-handling around objcopy
+cf381f9a3822d68b btf_encoder: Fix handling of restrict qualifier
+b688e35970600c15 btf_encoder: fix skipping per-CPU variables at offset 0
+8c009d6ce762dfc9 btf_encoder: fix BTF variable generation for kernel modules
+b94e97e015a94e6b dwarves: Fix compilation on 32-bit architectures
+17df51c700248f02 btf_encoder: Detect kernel module ftrace addresses
+06ca639505fc56c6 btf_encoder: Use address size based on ELF's class
+aff60970d16b909e btf_encoder: Factor filter_functions function
+1e6a3fed6e52d365 rpm: Fix changelog date
+
 v1.19:
 
 Fri Nov 20 2020

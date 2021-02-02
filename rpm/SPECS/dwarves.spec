@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.19
+Version: 1.20
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -10,7 +10,7 @@ URL: http://acmel.wordpress.com
 Source: http://fedorapeople.org/~acme/dwarves/%{name}-%{version}.tar.xz
 Requires: %{libname}%{libver} = %{version}-%{release}
 BuildRequires: gcc
-BuildRequires: cmake
+BuildRequires: cmake >= 2.8.12
 BuildRequires: zlib-devel
 BuildRequires: elfutils-devel >= 0.130
 
@@ -79,7 +79,7 @@ rm -Rf %{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
-%doc changes-v1.19
+%doc changes-v1.20
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -134,6 +134,26 @@ rm -Rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Tue Feb  2 2021 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.20-1
+- New release: v1.20
+- btf_encoder:
+- Improve ELF error reporting using elf_errmsg(elf_errno())
+- Improve objcopy error handling.
+- Fix handling of 'restrict' qualifier, that was being treated as a 'const'.
+- Support SHN_XINDEX in st_shndx symbol indexes
+- Cope with functions without a name
+- Fix BTF variable generation for kernel modules
+- Fix address size to match what is in the ELF file being processed.
+- Use kernel module ftrace addresses when finding which functions to encode.
+- libbpf:
+- Allow use of packaged version.
+- dwarf_loader:
+- Support DW_AT_data_bit_offset
+- DW_FORM_implicit_const in attr_numeric() and attr_offset()
+- Support DW_TAG_GNU_call_site, standardized rename of DW_TAG_GNU_call_site.
+- build:
+- Fix compilation on 32-bit architectures.
+
 * Fri Nov 20 2020 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.19-1
 - New release: 1.19
 - Split BTF

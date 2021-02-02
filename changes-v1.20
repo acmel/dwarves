@@ -1,0 +1,66 @@
+BTF encoder:
+
+  - Improve ELF error reporting using elf_errmsg(elf_errno()).
+
+  - Improve objcopy error handling.
+
+  - Fix handling of 'restrict' qualifier, that was being treated as a 'const'.
+
+  - Support SHN_XINDEX in st_shndx symbol indexes, to handle ELF objects with
+    more than 65534 sections, for instance, which happens with kernels built
+    with 'KCFLAGS="-ffunction-sections -fdata-sections", Other cases may
+    include when using FG-ASLR, LTO.
+
+  - Cope with functions without a name, as seen sometimes when building kernel
+    images with some versions of clang, when a SEGFAULT was taking place.
+
+  - Fix BTF variable generation for kernel modules, not skipping variables at
+    offset zero.
+
+  - Fix address size to match what is in the ELF file being processed, to fix using
+    a 64-bit pahole binary to generate BTF for a 32-bit vmlinux image.
+
+  - Use kernel module ftrace addresses when finding which functions to encode,
+    which increases the number of functions encoded.
+
+libbpf:
+
+  - Allow use of packaged version, for distros wanting to dynamically link with
+    the system's libbpf package instead of using the libbpf git submodule shipped
+    in pahole's source code.
+
+DWARF loader:
+
+  - Support DW_AT_data_bit_offset
+    
+    This appeared in DWARF4 but is supported only in gcc's -gdwarf-5,
+    support it in a way that makes the output be the same for both cases.
+    
+      $ gcc -gdwarf-5 -c examples/dwarf5/bf.c
+      $ pahole bf.o
+      struct pea {
+            long int                   a:1;                  /*     0: 0  8 */
+            long int                   b:1;                  /*     0: 1  8 */
+            long int                   c:1;                  /*     0: 2  8 */
+    
+            /* XXX 29 bits hole, try to pack */
+            /* Bitfield combined with next fields */
+    
+            int                        after_bitfield;       /*     4     4 */
+    
+            /* size: 8, cachelines: 1, members: 4 */
+            /* sum members: 4 */
+            /* sum bitfield members: 3 bits, bit holes: 1, sum bit holes: 29 bits */
+            /* last cacheline: 8 bytes */
+      };
+
+  - DW_FORM_implicit_const in attr_numeric() and attr_offset()
+
+  - Support DW_TAG_GNU_call_site, its the standardized rename of the previously supported
+    DW_TAG_GNU_call_site.
+
+build:
+
+    - Fix compilation on 32-bit architectures.
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
