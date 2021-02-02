@@ -1,5 +1,5 @@
 project(pahole C)
-cmake_minimum_required(VERSION 2.8.8)
+cmake_minimum_required(VERSION 2.8.12)
 cmake_policy(SET CMP0005 NEW)
 
 option(LIBBPF_EMBEDDED "Use the embedded version of libbpf instead of searching it via pkg-config" ON)
