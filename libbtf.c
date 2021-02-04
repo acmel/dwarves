@@ -16,11 +16,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdarg.h>
-#include <linux/btf.h>
-#include <bpf/btf.h>
-#include <bpf/libbpf.h>
 
 #include "libbtf.h"
+#include "lib/bpf/include/uapi/linux/btf.h"
+#include "lib/bpf/include/linux/err.h"
+#include "lib/bpf/src/btf.h"
+#include "lib/bpf/src/libbpf.h"
 #include "dutil.h"
 #include "gobuffer.h"
 #include "dwarves.h"

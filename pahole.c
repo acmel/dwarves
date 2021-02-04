@@ -16,7 +16,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <bpf/libbpf.h>
 
 #include "dwarves_reorganize.h"
 #include "dwarves.h"
@@ -24,6 +23,7 @@
 #include "ctf_encoder.h"
 #include "btf_encoder.h"
 #include "libbtf.h"
+#include "lib/bpf/src/libbpf.h"
 
 static bool btf_encode;
 static bool ctf_encode;

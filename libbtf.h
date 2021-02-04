@@ -11,7 +11,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <bpf/btf.h>
+#include "lib/bpf/src/btf.h"
 
 struct btf_elf {
 	void		  *priv;

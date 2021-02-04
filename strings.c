@@ -13,9 +13,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <zlib.h>
-#include <bpf/libbpf.h>
 
 #include "dutil.h"
+#include "lib/bpf/src/libbpf.h"
 
 struct strings *strings__new(void)
 {
