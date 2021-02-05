@@ -295,7 +295,7 @@ rm -Rf %{buildroot}
 * Sat Nov 20 2010 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.9-1
 - New release
 
-* Tue Feb 08 2010 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.8-2
+* Mon Feb 08 2010 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.8-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild
 
 * Fri Dec  4 2009 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.8-1
@@ -446,7 +446,7 @@ rm -Rf %{buildroot}
 - Fix emission of arrays of structs, unions, etc
 - use sysconf for the default cacheline size
 
-* Wed Jan 18 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+* Thu Jan 18 2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 - fab0db03ea9046893ca110bb2b7d71b764f61033
 - pdwtags added
 
