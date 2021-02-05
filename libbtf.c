@@ -27,6 +27,16 @@
 #include "dwarves.h"
 #include "elf_symtab.h"
 
+/*
+ * This depends on the GNU extension to eliminate the stray comma in the zero
+ * arguments case.
+ *
+ * The difference between elf_errmsg(-1) and elf_errmsg(elf_errno()) is that the
+ * latter clears the current error.
+ */
+#define elf_error(fmt, ...) \
+	fprintf(stderr, "%s: " fmt ": %s.\n", __func__, ##__VA_ARGS__, elf_errmsg(-1))
+
 struct btf *base_btf;
 uint8_t btf_elf__verbose;
 uint8_t btf_elf__force;
@@ -103,15 +113,13 @@ try_as_raw_btf:
 			goto errout;
 
 		if (elf_version(EV_CURRENT) == EV_NONE) {
-			fprintf(stderr, "%s: cannot set libelf version.\n",
-				__func__);
+			elf_error("cannot set libelf version");
 			goto errout;
 		}
 
 		btfe->elf = elf_begin(btfe->in_fd, ELF_C_READ_MMAP, NULL);
 		if (!btfe->elf) {
-			fprintf(stderr, "%s: cannot read %s ELF file: %s.\n",
-				__func__, filename, elf_errmsg(elf_errno()));
+			elf_error("cannot read %s ELF file", filename);
 			goto errout;
 		}
 	}
@@ -127,7 +135,7 @@ try_as_raw_btf:
 			goto try_as_raw_btf;
 		}
 		if (btf_elf__verbose)
-			fprintf(stderr, "%s: cannot get elf header.\n", __func__);
+			elf_error("cannot get ELF header");
 		goto errout;
 	}
 
@@ -141,7 +149,7 @@ try_as_raw_btf:
 		btf__set_endianness(btfe->btf, BTF_BIG_ENDIAN);
 		break;
 	default:
-		fprintf(stderr, "%s: unknown elf endianness.\n", __func__);
+		fprintf(stderr, "%s: unknown ELF endianness.\n", __func__);
 		goto errout;
 	}
 
@@ -744,15 +752,13 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 	}
 
 	if (elf_version(EV_CURRENT) == EV_NONE) {
-		fprintf(stderr, "Cannot set libelf version: %s.\n",
-			elf_errmsg(elf_errno()));
+		elf_error("Cannot set libelf version");
 		goto out;
 	}
 
 	elf = elf_begin(fd, ELF_C_RDWR, NULL);
 	if (elf == NULL) {
-		fprintf(stderr, "Cannot update ELF file: %s.\n",
-			elf_errmsg(elf_errno()));
+		elf_error("Cannot update ELF file");
 		goto out;
 	}
 
@@ -760,8 +766,7 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 
 	ehdr = gelf_getehdr(elf, &ehdr_mem);
 	if (ehdr == NULL) {
-		fprintf(stderr, "%s: elf_getehdr failed: %s.\n", __func__,
-			elf_errmsg(elf_errno()));
+		elf_error("elf_getehdr failed");
 		goto out;
 	}
 
@@ -773,7 +778,7 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 		btf__set_endianness(btf, BTF_BIG_ENDIAN);
 		break;
 	default:
-		fprintf(stderr, "%s: unknown elf endianness.\n", __func__);
+		fprintf(stderr, "%s: unknown ELF endianness.\n", __func__);
 		goto out;
 	}
 
@@ -805,8 +810,7 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 		    elf_update(elf, ELF_C_WRITE) >= 0)
 			err = 0;
 		else
-			fprintf(stderr, "%s: elf_update failed: %s.\n",
-				__func__, elf_errmsg(elf_errno()));
+			elf_error("elf_update failed");
 	} else {
 		const char *llvm_objcopy;
 		char tmp_fn[PATH_MAX];
