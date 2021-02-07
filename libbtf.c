@@ -373,6 +373,7 @@ int32_t btf_elf__add_base_type(struct btf_elf *btfe, const struct base_type *bt,
 	struct btf *btf = btfe->btf;
 	const struct btf_type *t;
 	uint8_t encoding = 0;
+	uint16_t byte_sz;
 	int32_t id;
 
 	if (bt->is_signed) {
@@ -384,7 +385,43 @@ int32_t btf_elf__add_base_type(struct btf_elf *btfe, const struct base_type *bt,
 		return -1;
 	}
 
-	id = btf__add_int(btf, name, BITS_ROUNDUP_BYTES(bt->bit_size), encoding);
+	/* dwarf5 may emit DW_ATE_[un]signed_{num} base types where
+	 * {num} is not power of 2 and may exceed 128. Such attributes
+	 * are mostly used to record operation for an actual parameter
+	 * or variable.
+	 * For example,
+	 *     DW_AT_location        (indexed (0x3c) loclist = 0x00008fb0:
+	 *         [0xffffffff82808812, 0xffffffff82808817):
+	 *             DW_OP_breg0 RAX+0,
+	 *             DW_OP_convert (0x000e97d5) "DW_ATE_unsigned_64",
+	 *             DW_OP_convert (0x000e97df) "DW_ATE_unsigned_8",
+	 *             DW_OP_stack_value,
+	 *             DW_OP_piece 0x1,
+	 *             DW_OP_breg0 RAX+0,
+	 *             DW_OP_convert (0x000e97d5) "DW_ATE_unsigned_64",
+	 *             DW_OP_convert (0x000e97da) "DW_ATE_unsigned_32",
+	 *             DW_OP_lit8,
+	 *             DW_OP_shr,
+	 *             DW_OP_convert (0x000e97da) "DW_ATE_unsigned_32",
+	 *             DW_OP_convert (0x000e97e4) "DW_ATE_unsigned_24",
+	 *             DW_OP_stack_value, DW_OP_piece 0x3
+	 *     DW_AT_name    ("ebx")
+	 *     DW_AT_decl_file       ("/linux/arch/x86/events/intel/core.c")
+	 *
+	 * In the above example, at some point, one unsigned_32 value
+	 * is right shifted by 8 and the result is converted to unsigned_32
+	 * and then unsigned_24.
+	 *
+	 * BTF does not need such DW_OP_* information so let us sanitize
+	 * these non-regular int types to avoid libbpf/kernel complaints.
+	 */
+	byte_sz = BITS_ROUNDUP_BYTES(bt->bit_size);
+	if (!byte_sz || (byte_sz & (byte_sz - 1))) {
+		name = "__SANITIZED_FAKE_INT__";
+		byte_sz = 4;
+	}
+
+	id = btf__add_int(btf, name, byte_sz, encoding);
 	if (id < 0) {
 		btf_elf__log_err(btfe, BTF_KIND_INT, name, true, "Error emitting BTF type");
 	} else {
