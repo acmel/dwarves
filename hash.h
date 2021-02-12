@@ -33,25 +33,7 @@
 
 static inline uint64_t hash_64(const uint64_t val, const unsigned int bits)
 {
-	uint64_t hash = val;
-
-	/*  Sigh, gcc can't optimise this alone like it does for 32 bits. */
-	uint64_t n = hash;
-	n <<= 18;
-	hash -= n;
-	n <<= 33;
-	hash -= n;
-	n <<= 3;
-	hash += n;
-	n <<= 3;
-	hash -= n;
-	n <<= 4;
-	hash += n;
-	n <<= 2;
-	hash += n;
-
-	/* High bits are more random, so use them. */
-	return hash >> (64 - bits);
+	return (val * 11400714819323198485LLU) >> (64 - bits);
 }
 
 static inline uint32_t hash_32(uint32_t val, unsigned int bits)
