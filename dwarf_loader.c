@@ -954,9 +954,10 @@ static struct lexblock *lexblock__new(Dwarf_Die *die, struct cu *cu)
 
 static void ftype__init(struct ftype *ftype, Dwarf_Die *die, struct cu *cu)
 {
+#ifndef NDEBUG
 	const uint16_t tag = dwarf_tag(die);
 	assert(tag == DW_TAG_subprogram || tag == DW_TAG_subroutine_type);
-
+#endif
 	tag__init(&ftype->tag, cu, die);
 	INIT_LIST_HEAD(&ftype->parms);
 	ftype->nr_parms	    = 0;
