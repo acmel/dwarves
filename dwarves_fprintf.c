@@ -401,9 +401,12 @@ size_t enumeration__fprintf(const struct tag *tag, const struct cu *cu,
 	if (indent >= (int)sizeof(tabs))
 		indent = sizeof(tabs) - 1;
 
-	type__for_each_enumerator(type, pos)
-		printed += fprintf(fp, "%.*s\t%-*s = %u,\n", indent, tabs,
-				   max_entry_name_len, enumerator__name(pos, cu), pos->value);
+	type__for_each_enumerator(type, pos) {
+		printed += fprintf(fp, "%.*s\t%-*s = ", indent, tabs,
+				   max_entry_name_len, enumerator__name(pos, cu));
+		printed += fprintf(fp, conf->hex_fmt ?  "%#x" : "%u", pos->value);
+		printed += fprintf(fp, ",\n");
+	}
 
 	printed += fprintf(fp, "%.*s}", indent, tabs);
 
