@@ -825,6 +825,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_just_packed_structs   319
 #define ARGP_numeric_version       320
 #define ARGP_btf_base		   321
+#define ARGP_btf_gen_floats	   322
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1120,6 +1121,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Ignore those symbols found invalid when encoding BTF."
 	},
 	{
+		.name = "btf_gen_floats",
+		.key  = ARGP_btf_gen_floats,
+		.doc  = "Allow producing BTF_KIND_FLOAT entries."
+	},
+	{
 		.name = "structs",
 		.key  = ARGP_just_structs,
 		.doc  = "Show just structs",
@@ -1254,6 +1260,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		base_btf_file = arg;			break;
 	case ARGP_numeric_version:
 		print_numeric_version = true;		break;
+	case ARGP_btf_gen_floats:
+		btf_gen_floats = true;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}

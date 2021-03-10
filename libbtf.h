@@ -35,6 +35,7 @@ extern struct btf *base_btf;
 extern uint8_t btf_elf__verbose;
 extern uint8_t btf_elf__force;
 #define btf_elf__verbose_log(fmt, ...) { if (btf_elf__verbose) printf(fmt, __VA_ARGS__); }
+extern bool btf_gen_floats;
 
 #define PERCPU_SECTION ".data..percpu"
 

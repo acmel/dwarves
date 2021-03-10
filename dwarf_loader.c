@@ -461,6 +461,16 @@ static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die,
 	return ptr;
 }
 
+static uint8_t encoding_to_float_type(uint64_t encoding)
+{
+	switch (encoding) {
+	case DW_ATE_complex_float:	return BT_FP_CMPLX;
+	case DW_ATE_float:		return BT_FP_SINGLE;
+	case DW_ATE_imaginary_float:	return BT_FP_IMGRY;
+	default:			return 0;
+	}
+}
+
 static struct base_type *base_type__new(Dwarf_Die *die, struct cu *cu)
 {
 	struct base_type *bt = tag__alloc(cu, sizeof(*bt));
@@ -474,6 +484,7 @@ static struct base_type *base_type__new(Dwarf_Die *die, struct cu *cu)
 		bt->is_signed = encoding == DW_ATE_signed;
 		bt->is_varargs = false;
 		bt->name_has_encoding = true;
+		bt->float_type = encoding_to_float_type(encoding);
 	}
 
 	return bt;
