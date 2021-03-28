@@ -2427,6 +2427,23 @@ static int finalize_cu_immediately(struct cus *cus, struct cu *cu,
 	return lsk;
 }
 
+static int cu__set_common(struct cu *cu, struct conf_load *conf,
+			  Dwfl_Module *mod, Elf *elf)
+{
+	cu->uses_global_strings = true;
+	cu->elf = elf;
+	cu->dwfl = mod;
+	cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
+	cu->has_addr_info = conf ? conf->get_addr_info : 0;
+
+	GElf_Ehdr ehdr;
+	if (gelf_getehdr(elf, &ehdr) == NULL)
+		return DWARF_CB_ABORT;
+
+	cu->little_endian = ehdr.e_ident[EI_DATA] == ELFDATA2LSB;
+	return 0;
+}
+
 static int cus__load_debug_types(struct cus *cus, struct conf_load *conf,
 				 Dwfl_Module *mod, Dwarf *dw, Elf *elf,
 				 const char *filename,
@@ -2450,21 +2467,10 @@ static int cus__load_debug_types(struct cus *cus, struct conf_load *conf,
 
 			cu = cu__new("", pointer_size, build_id,
 				     build_id_len, filename);
-			if (cu == NULL) {
+			if (cu == NULL ||
+			    cu__set_common(cu, conf, mod, elf) != 0) {
 				return DWARF_CB_ABORT;
 			}
-
-			cu->uses_global_strings = true;
-			cu->elf = elf;
-			cu->dwfl = mod;
-			cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
-			cu->has_addr_info = conf ? conf->get_addr_info : 0;
-
-			GElf_Ehdr ehdr;
-			if (gelf_getehdr(elf, &ehdr) == NULL) {
-				return DWARF_CB_ABORT;
-			}
-			cu->little_endian = ehdr.e_ident[EI_DATA] == ELFDATA2LSB;
 
 			if (dwarf_cu__init(dcup) != 0)
 				return DWARF_CB_ABORT;
@@ -2544,19 +2550,8 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 		const char *name = attr_string(cu_die, DW_AT_name);
 		struct cu *cu = cu__new(name ?: "", pointer_size,
 					build_id, build_id_len, filename);
-		if (cu == NULL)
+		if (cu == NULL || cu__set_common(cu, conf, mod, elf) != 0)
 			return DWARF_CB_ABORT;
-		cu->uses_global_strings = true;
-		cu->elf = elf;
-		cu->dwfl = mod;
-		cu->extra_dbg_info = conf ? conf->extra_dbg_info : 0;
-		cu->has_addr_info = conf ? conf->get_addr_info : 0;
-
-		GElf_Ehdr ehdr;
-		if (gelf_getehdr(elf, &ehdr) == NULL) {
-			return DWARF_CB_ABORT;
-		}
-		cu->little_endian = ehdr.e_ident[EI_DATA] == ELFDATA2LSB;
 
 		struct dwarf_cu *dcu = dwarf_cu__new();
 
