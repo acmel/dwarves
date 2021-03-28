@@ -51,6 +51,7 @@ struct strings *strings;
 #endif
 
 static uint32_t hashtags__bits = 15;
+static uint32_t max_hashtags__bits = 21;
 
 static uint32_t hashtags__fn(Dwarf_Off key)
 {
@@ -2500,6 +2501,115 @@ static int cus__load_debug_types(struct cus *cus, struct conf_load *conf,
 	return 0;
 }
 
+static bool cus__merging_cu(Dwarf *dw)
+{
+	uint8_t pointer_size, offset_size;
+	Dwarf_Off off = 0, noff;
+	size_t cuhl;
+	int cnt = 0;
+
+	/*
+	 * Just checking the first cu is not enough.
+	 * In linux, some C files may have LTO is disabled, e.g.,
+	 *   e242db40be27  x86, vdso: disable LTO only for vDSO
+	 *   d2dcd3e37475  x86, cpu: disable LTO for cpu.c
+	 * Fortunately, disabling LTO for a particular file in a LTO build
+	 * is rather an exception. Iterating 5 cu's to check whether
+	 * LTO is used or not should be enough.
+	 */
+	while (dwarf_nextcu(dw, off, &noff, &cuhl, NULL, &pointer_size,
+			    &offset_size) == 0) {
+		Dwarf_Die die_mem;
+		Dwarf_Die *cu_die = dwarf_offdie(dw, off + cuhl, &die_mem);
+
+		if (cu_die == NULL)
+			break;
+
+		if (++cnt > 5)
+			break;
+
+		const char *producer = attr_string(cu_die, DW_AT_producer);
+		if (strstr(producer, "clang version") != NULL &&
+		    strstr(producer, "-flto") != NULL)
+			return true;
+
+		off = noff;
+	}
+
+	return false;
+}
+
+static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
+				     Dwfl_Module *mod, Dwarf *dw, Elf *elf,
+				     const char *filename,
+				     const unsigned char *build_id,
+				     int build_id_len,
+				     struct dwarf_cu *type_dcu)
+{
+	uint8_t pointer_size, offset_size;
+	struct dwarf_cu *dcu = NULL;
+	Dwarf_Off off = 0, noff;
+	struct cu *cu = NULL;
+	size_t cuhl;
+
+	while (dwarf_nextcu(dw, off, &noff, &cuhl, NULL, &pointer_size,
+			    &offset_size) == 0) {
+		Dwarf_Die die_mem;
+		Dwarf_Die *cu_die = dwarf_offdie(dw, off + cuhl, &die_mem);
+
+		if (cu_die == NULL)
+			break;
+
+		if (cu == NULL) {
+			cu = cu__new("", pointer_size, build_id, build_id_len,
+				     filename);
+			if (cu == NULL || cu__set_common(cu, conf, mod, elf) != 0)
+				return DWARF_CB_ABORT;
+
+			dcu = malloc(sizeof(struct dwarf_cu));
+			if (dcu == NULL)
+				return DWARF_CB_ABORT;
+
+			/* Merged cu tends to need a lot more memory.
+			 * Let us start with max_hashtags__bits and
+			 * go down to find a proper hashtag bit value.
+			 */
+			uint32_t default_hbits = hashtags__bits;
+			for (hashtags__bits = max_hashtags__bits;
+			     hashtags__bits >= default_hbits;
+			     hashtags__bits--) {
+				if (dwarf_cu__init(dcu) == 0)
+					break;
+			}
+			if (hashtags__bits < default_hbits)
+				return DWARF_CB_ABORT;
+
+			dcu->cu = cu;
+			dcu->type_unit = type_dcu;
+			cu->priv = dcu;
+			cu->dfops = &dwarf__ops;
+			cu->language = attr_numeric(cu_die, DW_AT_language);
+		}
+
+		Dwarf_Die child;
+		if (dwarf_child(cu_die, &child) == 0) {
+			if (die__process_unit(&child, cu) != 0)
+				return DWARF_CB_ABORT;
+		}
+
+		off = noff;
+	}
+
+	/* process merged cu */
+	if (cu__recode_dwarf_types(cu) != LSK__KEEPIT)
+		return DWARF_CB_ABORT;
+	if (finalize_cu_immediately(cus, cu, dcu, conf)
+	    == LSK__STOP_LOADING)
+		return DWARF_CB_ABORT;
+
+	return 0;
+}
+
 static int cus__load_module(struct cus *cus, struct conf_load *conf,
 			    Dwfl_Module *mod, Dwarf *dw, Elf *elf,
 			    const char *filename)
@@ -2532,6 +2642,15 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 		if (type_lsk == LSK__KEEPIT) {
 			cus__add(cus, type_cu);
 		}
+	}
+
+	if (cus__merging_cu(dw)) {
+		res = cus__merge_and_process_cu(cus, conf, mod, dw, elf, filename,
+						build_id, build_id_len,
+						type_cu ? &type_dcu : NULL);
+		if (res)
+			return res;
+		goto out;
 	}
 
 	while (dwarf_nextcu(dw, off, &noff, &cuhl, NULL, &pointer_size,
@@ -2572,6 +2691,7 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 		off = noff;
 	}
 
+out:
 	if (type_lsk == LSK__DELETE)
 		cu__delete(type_cu);
 
