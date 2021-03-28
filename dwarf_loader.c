@@ -50,7 +50,12 @@ struct strings *strings;
 #define DW_FORM_implicit_const 0x21
 #endif
 
-#define hashtags__fn(key) hash_64(key, HASHTAGS__BITS)
+static uint32_t hashtags__bits = 15;
+
+static uint32_t hashtags__fn(Dwarf_Off key)
+{
+	return hash_64(key, hashtags__bits);
+}
 
 bool no_bitfield_type_recode = true;
 
@@ -102,9 +107,6 @@ static void dwarf_tag__set_spec(struct dwarf_tag *dtag, dwarf_off_ref spec)
 	*(dwarf_off_ref *)(dtag + 1) = spec;
 }
 
-#define HASHTAGS__BITS 15
-#define HASHTAGS__SIZE (1UL << HASHTAGS__BITS)
-
 #define obstack_chunk_alloc malloc
 #define obstack_chunk_free free
 
@@ -118,22 +120,57 @@ static void *obstack_zalloc(struct obstack *obstack, size_t size)
 }
 
 struct dwarf_cu {
-	struct hlist_head hash_tags[HASHTAGS__SIZE];
-	struct hlist_head hash_types[HASHTAGS__SIZE];
+	struct hlist_head *hash_tags;
+	struct hlist_head *hash_types;
 	struct obstack obstack;
 	struct cu *cu;
 	struct dwarf_cu *type_unit;
 };
 
-static void dwarf_cu__init(struct dwarf_cu *dcu)
+static int dwarf_cu__init(struct dwarf_cu *dcu)
 {
+	uint64_t hashtags_size = 1UL << hashtags__bits;
+	dcu->hash_tags = malloc(sizeof(struct hlist_head) * hashtags_size);
+	if (!dcu->hash_tags)
+		return -ENOMEM;
+
+	dcu->hash_types = malloc(sizeof(struct hlist_head) * hashtags_size);
+	if (!dcu->hash_types) {
+		free(dcu->hash_tags);
+		return -ENOMEM;
+	}
+
 	unsigned int i;
-	for (i = 0; i < HASHTAGS__SIZE; ++i) {
+	for (i = 0; i < hashtags_size; ++i) {
 		INIT_HLIST_HEAD(&dcu->hash_tags[i]);
 		INIT_HLIST_HEAD(&dcu->hash_types[i]);
 	}
 	obstack_init(&dcu->obstack);
 	dcu->type_unit = NULL;
+	return 0;
+}
+
+static struct dwarf_cu *dwarf_cu__new(void)
+{
+	struct dwarf_cu *dwarf_cu = zalloc(sizeof(*dwarf_cu));
+
+	if (dwarf_cu != NULL && dwarf_cu__init(dwarf_cu) != 0) {
+		free(dwarf_cu);
+		dwarf_cu = NULL;
+	}
+
+	return dwarf_cu;
+}
+
+static void dwarf_cu__delete(struct cu *cu)
+{
+	struct dwarf_cu *dcu = cu->priv;
+	free(dcu->hash_tags);
+	dcu->hash_tags = NULL;
+	free(dcu->hash_types);
+	dcu->hash_types = NULL;
+	free(dcu);
+	cu->priv = NULL;
 }
 
 static void hashtags__hash(struct hlist_head *hashtable,
@@ -151,7 +188,7 @@ static struct dwarf_tag *hashtags__find(const struct hlist_head *hashtable,
 
 	struct dwarf_tag *tpos;
 	struct hlist_node *pos;
-	uint16_t bucket = hashtags__fn(id);
+	uint32_t bucket = hashtags__fn(id);
 	const struct hlist_head *head = hashtable + bucket;
 
 	hlist_for_each_entry(tpos, pos, head, hash_node) {
@@ -2429,7 +2466,9 @@ static int cus__load_debug_types(struct cus *cus, struct conf_load *conf,
 			}
 			cu->little_endian = ehdr.e_ident[EI_DATA] == ELFDATA2LSB;
 
-			dwarf_cu__init(dcup);
+			if (dwarf_cu__init(dcup) != 0)
+				return DWARF_CB_ABORT;
+
 			dcup->cu = cu;
 			/* Funny hack.  */
 			dcup->type_unit = dcup;
@@ -2519,19 +2558,20 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 		}
 		cu->little_endian = ehdr.e_ident[EI_DATA] == ELFDATA2LSB;
 
-		struct dwarf_cu dcu;
+		struct dwarf_cu *dcu = dwarf_cu__new();
 
-		dwarf_cu__init(&dcu);
-		dcu.cu = cu;
-		dcu.type_unit = type_cu ? &type_dcu : NULL;
-		cu->priv = &dcu;
+		if (dcu == NULL)
+			return DWARF_CB_ABORT;
+
+		dcu->cu = cu;
+		dcu->type_unit = type_cu ? &type_dcu : NULL;
+		cu->priv = dcu;
 		cu->dfops = &dwarf__ops;
 
 		if (die__process_and_recode(cu_die, cu) != 0)
 			return DWARF_CB_ABORT;
 
-		if (finalize_cu_immediately(cus, cu, &dcu, conf)
-		    == LSK__STOP_LOADING)
+		if (finalize_cu_immediately(cus, cu, dcu, conf) == LSK__STOP_LOADING)
 			return DWARF_CB_ABORT;
 
 		off = noff;
@@ -2672,5 +2712,6 @@ struct debug_fmt_ops dwarf__ops = {
 	.tag__decl_file	     = dwarf_tag__decl_file,
 	.tag__decl_line	     = dwarf_tag__decl_line,
 	.tag__orig_id	     = dwarf_tag__orig_id,
+	.cu__delete	     = dwarf_cu__delete,
 	.has_alignment_info  = true,
 };
