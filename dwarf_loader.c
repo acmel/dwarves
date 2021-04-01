@@ -2198,6 +2198,34 @@ out:
 	return 0;
 }
 
+static int cu__resolve_func_ret_types(struct cu *cu)
+{
+	struct ptr_table *pt = &cu->functions_table;
+	uint32_t i;
+
+	for (i = 0; i < pt->nr_entries; ++i) {
+		struct tag *tag = pt->entries[i];
+
+		if (tag == NULL || tag->type != 0)
+			continue;
+
+		struct function *fn = tag__function(tag);
+		if (!fn->abstract_origin)
+			continue;
+
+		struct dwarf_tag *dtag = tag->priv;
+		struct dwarf_tag *dfunc;
+		dfunc = dwarf_cu__find_tag_by_ref(cu->priv, &dtag->abstract_origin);
+		if (dfunc == NULL) {
+			tag__print_abstract_origin_not_found(tag);
+			return -1;
+		}
+
+		tag->type = dfunc->tag->type;
+	}
+	return 0;
+}
+
 static int cu__recode_dwarf_types_table(struct cu *cu,
 					struct ptr_table *pt,
 					uint32_t i)
@@ -2295,7 +2323,11 @@ static int die__process_and_recode(Dwarf_Die *die, struct cu *cu)
 	int ret = die__process(die, cu);
 	if (ret != 0)
 		return ret;
-	return cu__recode_dwarf_types(cu);
+	ret = cu__recode_dwarf_types(cu);
+	if (ret != 0)
+		return ret;
+
+	return cu__resolve_func_ret_types(cu);
 }
 
 static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
@@ -2637,6 +2669,16 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 	/* process merged cu */
 	if (cu__recode_dwarf_types(cu) != LSK__KEEPIT)
 		return DWARF_CB_ABORT;
+
+	/*
+	 * for lto build, the function return type may not be
+	 * resolved due to the return type of a subprogram is
+	 * encoded in another subprogram through abstract_origin
+	 * tag. Let us visit all subprograms again to resolve this.
+	 */
+	if (cu__resolve_func_ret_types(cu) != LSK__KEEPIT)
+		return DWARF_CB_ABORT;
+
 	if (finalize_cu_immediately(cus, cu, dcu, conf)
 	    == LSK__STOP_LOADING)
 		return DWARF_CB_ABORT;
