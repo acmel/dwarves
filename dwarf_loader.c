@@ -2501,8 +2501,37 @@ static int cus__load_debug_types(struct cus *cus, struct conf_load *conf,
 	return 0;
 }
 
-static bool cus__merging_cu(Dwarf *dw)
+/* Match the define in linux:include/linux/elfnote.h */
+#define LINUX_ELFNOTE_BUILD_LTO		0x101
+
+static bool cus__merging_cu(Dwarf *dw, Elf *elf)
 {
+	Elf_Scn *section = NULL;
+	while ((section = elf_nextscn(elf, section)) != 0) {
+		GElf_Shdr header;
+		if (!gelf_getshdr(section, &header))
+			continue;
+
+		if (header.sh_type != SHT_NOTE)
+			continue;
+
+		Elf_Data *data = NULL;
+		while ((data = elf_getdata(section, data)) != 0) {
+			size_t name_off, desc_off, offset = 0;
+			GElf_Nhdr hdr;
+			while ((offset = gelf_getnote(data, offset, &hdr, &name_off, &desc_off)) != 0) {
+				if (hdr.n_type != LINUX_ELFNOTE_BUILD_LTO)
+					continue;
+
+				/* owner is Linux */
+				if (strcmp((char *)data->d_buf + name_off, "Linux") != 0)
+					continue;
+
+				return *(int *)(data->d_buf + desc_off) != 0;
+			}
+		}
+	}
+
 	Dwarf_Off off = 0, noff;
 	size_t cuhl;
 
@@ -2649,7 +2678,7 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 		}
 	}
 
-	if (cus__merging_cu(dw)) {
+	if (cus__merging_cu(dw, elf)) {
 		res = cus__merge_and_process_cu(cus, conf, mod, dw, elf, filename,
 						build_id, build_id_len,
 						type_cu ? &type_dcu : NULL);
