@@ -2503,35 +2503,40 @@ static int cus__load_debug_types(struct cus *cus, struct conf_load *conf,
 
 static bool cus__merging_cu(Dwarf *dw)
 {
-	uint8_t pointer_size, offset_size;
 	Dwarf_Off off = 0, noff;
 	size_t cuhl;
-	int cnt = 0;
 
-	/*
-	 * Just checking the first cu is not enough.
-	 * In linux, some C files may have LTO is disabled, e.g.,
-	 *   e242db40be27  x86, vdso: disable LTO only for vDSO
-	 *   d2dcd3e37475  x86, cpu: disable LTO for cpu.c
-	 * Fortunately, disabling LTO for a particular file in a LTO build
-	 * is rather an exception. Iterating 5 cu's to check whether
-	 * LTO is used or not should be enough.
-	 */
-	while (dwarf_nextcu(dw, off, &noff, &cuhl, NULL, &pointer_size,
-			    &offset_size) == 0) {
+	while (dwarf_nextcu (dw, off, &noff, &cuhl, NULL, NULL, NULL) == 0) {
 		Dwarf_Die die_mem;
 		Dwarf_Die *cu_die = dwarf_offdie(dw, off + cuhl, &die_mem);
 
 		if (cu_die == NULL)
 			break;
 
-		if (++cnt > 5)
-			break;
+		Dwarf_Off offset = 0;
+		while (true) {
+			size_t length;
+			Dwarf_Abbrev *abbrev = dwarf_getabbrev (cu_die, offset, &length);
+			if (abbrev == NULL || abbrev == DWARF_END_ABBREV)
+				break;
 
-		const char *producer = attr_string(cu_die, DW_AT_producer);
-		if (strstr(producer, "clang version") != NULL &&
-		    strstr(producer, "-flto") != NULL)
-			return true;
+			size_t attrcnt;
+			if (dwarf_getattrcnt (abbrev, &attrcnt) != 0)
+				return false;
+
+			unsigned int attr_num, attr_form;
+			Dwarf_Off aboffset;
+			size_t j;
+			for (j = 0; j < attrcnt; ++j) {
+				if (dwarf_getabbrevattr (abbrev, j, &attr_num, &attr_form,
+							 &aboffset))
+					return false;
+				if (attr_form == DW_FORM_ref_addr)
+					return true;
+			}
+
+			offset += length;
+		}
 
 		off = noff;
 	}
