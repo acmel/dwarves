@@ -401,8 +401,19 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 {
 	Dwarf_Attribute attr;
 	if (dwarf_attr(die, DW_AT_location, &attr) != NULL) {
-		if (dwarf_getlocation(&attr, expr, exprlen) == 0)
+		if (dwarf_getlocation(&attr, expr, exprlen) == 0) {
+			/* DW_OP_addrx needs additional lookup for real addr. */
+			if (*exprlen != 0 && expr[0]->atom == DW_OP_addrx) {
+				Dwarf_Attribute addr_attr;
+				dwarf_getlocation_attr(&attr, expr[0], &addr_attr);
+
+				Dwarf_Addr address;
+				dwarf_formaddr (&addr_attr, &address);
+
+				expr[0]->number = address;
+			}
 			return 0;
+		}
 	}
 
 	return 1;
@@ -626,6 +637,7 @@ static enum vscope dwarf__location(Dwarf_Die *die, uint64_t *addr, struct locati
 		Dwarf_Op *expr = location->expr;
 		switch (expr->atom) {
 		case DW_OP_addr:
+		case DW_OP_addrx:
 			scope = VSCOPE_GLOBAL;
 			*addr = expr[0].number;
 			break;
