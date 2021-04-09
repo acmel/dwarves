@@ -1,0 +1,70 @@
+DWARF loader:
+
+- Handle DWARF5 DW_OP_addrx properly
+
+  Part of the effort to support the subset of DWARF5 that is generated when building the kernel.
+
+- Handle subprogram ret type with abstract_origin properly
+
+  Adds a second pass to resolve abstract origin DWARF description of functions to aid
+  the BTF encoder in getting the right return type.
+
+- Check .notes section for LTO build info
+
+  When LTO is used, currently only with clang, we need to do extra steps to handle references
+  from one object (compile unit, aka CU) to another, a way for DWARF to avoid duplicating
+  information.
+
+- Check .debug_abbrev for cross-CU references
+
+  When the kernel build process doesn't add an ELF note in vmlinux indicating that LTO was
+  used and thus intra-CU references are present and thus we need to use a more expensive
+  way to resolve types and (again) thus to encode BTF, we need to look at DWARF's .debug_abbrev
+  ELF section to figure out if such intra-CU references are present.
+
+- Permit merging all DWARF CU's for clang LTO built binary
+
+  Allow not trowing away previously supposedly self contained compile units
+  (objects, aka CU, aka Compile Units) as they have type descriptions that will
+  be used in later CUs.
+
+- Permit a flexible HASHTAGS__BITS
+
+  So that we can use a more expensive algorithm when we need to keep previously processed
+  compile units that will then be referenced by later ones to resolve types.
+
+- Use a better hashing function, from libbpf
+
+  Enabling patch to combine compile units when using LTO.
+
+BTF encoder:
+
+- Add --btf_gen_all flag
+
+  A new command line to allow asking for the generation of all BTF encodings, so that we
+  can stop adding new command line options to enable new encodings in the kernel Makefile.
+
+- Match ftrace addresses within ELF functions
+
+  To cope with differences in how DWARF and ftrace describes function boundaries.
+
+- Funnel ELF error reporting through a macro
+
+  To use libelf's elf_error() function, improving error messages.
+
+- Sanitize non-regular int base type
+
+  Cope with clang with dwarf5 non-regular int base types, tricky stuff, see yhs
+  full explanation in the relevant cset.
+
+- Add support for the floating-point types
+
+  S/390 has floats'n'doubles in its arch specific linux headers, cope with that.
+
+Pretty printer:
+
+- Honour conf_fprintf.hex when printing enumerations
+
+  If the user specifies --hex in the command line, honour it when printing enumerations.
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>

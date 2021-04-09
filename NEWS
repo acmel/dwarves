@@ -1,3 +1,23 @@
+v1.21:
+
+Fri Apr  9 2021
+
+ae0b7dde1fd50b12 dwarf_loader: Handle DWARF5 DW_OP_addrx properly
+9adb014930f31c66 dwarf_loader: Handle subprogram ret type with abstract_origin properly
+5752d1951d081a80 dwarf_loader: Check .notes section for LTO build info
+209e45424ff4a22d dwarf_loader: Check .debug_abbrev for cross-CU references
+39227909db3cc2c2 dwarf_loader: Permit merging all DWARF CU's for clang LTO built binary
+763475ca1101ccfe dwarf_loader: Factor out common code to initialize a cu
+d0d3fbd4744953e8 dwarf_loader: Permit a flexible HASHTAGS__BITS
+ffe0ef4d73906c18 btf: Add --btf_gen_all flag
+de708b33114d42c2 btf: Add support for the floating-point types
+4b7f8c04d009942b fprintf: Honour conf_fprintf.hex when printing enumerations
+f2889ff163726336 Avoid warning when building with NDEBUG
+8e1f8c904e303d5d btf_encoder: Match ftrace addresses within ELF functions
+9fecc77ed82d429f dwarf_loader: Use a better hashing function, from libbpf
+0125de3a4c055cdf btf_encoder: Funnel ELF error reporting through a macro
+7d8e829f636f47ab btf_encoder: Sanitize non-regular int base type
+
 v1.20:
 
 Tue Feb  2 2021

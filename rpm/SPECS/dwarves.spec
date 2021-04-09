@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.20
+Version: 1.21
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -79,7 +79,7 @@ rm -Rf %{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
-%doc changes-v1.20
+%doc changes-v1.21
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -134,7 +134,27 @@ rm -Rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
-* Tue Feb  2 2021 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.20-1
+* Fri Apr 9 2021 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.21-1
+- New release: v1.21
+- DWARF loader:
+- Handle DWARF5 DW_OP_addrx properly
+- Handle subprogram ret type with abstract_origin properly
+- Check .notes section for LTO build info
+- Check .debug_abbrev for cross-CU references
+- Permit merging all DWARF CU's for clang LTO built binary
+- Factor out common code to initialize a cu
+- Permit a flexible HASHTAGS__BITS
+- Use a better hashing function, from libbpf
+- btf_encoder:
+- Add --btf_gen_all flag
+- Match ftrace addresses within ELF functions
+- Funnel ELF error reporting through a macro
+- Sanitize non-regular int base type
+- Add support for the floating-point types
+- Pretty printer:
+- Honour conf_fprintf.hex when printing enumerations
+
+* Tue Feb 2 2021 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.20-1
 - New release: v1.20
 - btf_encoder:
 - Improve ELF error reporting using elf_errmsg(elf_errno())
