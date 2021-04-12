@@ -52,6 +52,7 @@ static uint16_t nr_holes;
 static uint16_t nr_bit_holes;
 static uint16_t hole_size_ge;
 static uint8_t show_packable;
+static bool show_with_flexible_array;
 static uint8_t global_verbose;
 static uint8_t recursive;
 static size_t cacheline_size;
@@ -363,6 +364,29 @@ static int class__packable(struct class *class, struct cu *cu)
 	return 0;
 }
 
+static bool class__has_flexible_array(struct class *class, struct cu *cu)
+{
+	struct class_member *member = type__last_member(&class->type);
+
+	if (member == NULL)
+		return false;
+
+	struct tag *type = cu__type(cu, member->tag.type);
+
+	if (type->tag != DW_TAG_array_type)
+		return false;
+
+	struct array_type *array = tag__array_type(type);
+
+	if (array->dimensions > 1)
+		return false;
+
+	if (array->nr_entries == NULL || array->nr_entries[0] == 0)
+		return true;
+
+	return false;
+}
+
 static struct class *class__filter(struct class *class, struct cu *cu,
 				   uint32_t tag_id)
 {
@@ -455,6 +479,9 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 		return NULL;
 
 	if (show_packable && !class__packable(class, cu))
+		return NULL;
+
+	if (show_with_flexible_array && !class__has_flexible_array(class, cu))
 		return NULL;
 
 	return class;
@@ -827,6 +854,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_btf_base		   321
 #define ARGP_btf_gen_floats	   322
 #define ARGP_btf_gen_all	   323
+#define ARGP_with_flexible_array   324
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -923,6 +951,11 @@ static const struct argp_option pahole__options[] = {
 		.name = "packable",
 		.key  = 'P',
 		.doc  = "show only structs that has holes that can be packed",
+	},
+	{
+		.name = "with_flexible_array",
+		.key  = ARGP_with_flexible_array,
+		.doc  = "show only structs with a flexible array",
 	},
 	{
 		.name = "expand_types",
@@ -1270,6 +1303,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		btf_gen_floats = true;			break;
 	case ARGP_btf_gen_all:
 		btf_gen_floats = true;			break;
+	case ARGP_with_flexible_array:
+		show_with_flexible_array = true;	break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
