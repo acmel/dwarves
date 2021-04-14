@@ -1880,7 +1880,7 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 
 	if (type__instance_read_once(header, stdin) < 0) {
 		int err = --errno;
-		fprintf(stderr, "pahole: --header (%s) type not be read\n", conf.header_type);
+		fprintf(stderr, "pahole: --header (%s) type couldn't be read\n", conf.header_type);
 		return err;
 	}
 
