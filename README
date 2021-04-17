@@ -6,8 +6,8 @@ Build instructions:
 4. cmake -D__LIB=lib ..
 5. make install
 
-Default is to be installed on /usr/local, see rpm spec file for
-installing on other places.
+Default is to install to /usr/local, use -DCMAKE_INSTALL_PREFIX=
+when invoking cmake to specify another install location.
 
 Known to work scenarios:
 
