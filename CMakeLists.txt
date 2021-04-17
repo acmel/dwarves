@@ -88,7 +88,7 @@ target_include_directories(bpf PRIVATE
 			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include
 			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
 
-set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer strings
+set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer.c strings.c
 		     ctf_encoder.c ctf_loader.c libctf.c btf_encoder.c btf_loader.c libbtf.c
 		     dwarf_loader.c dutil.c elf_symtab.c rbtree.c)
 add_library(dwarves SHARED ${dwarves_LIB_SRCS} $<TARGET_OBJECTS:bpf>)
