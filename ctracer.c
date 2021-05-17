@@ -398,7 +398,7 @@ static int class__emit_ostra_converter(struct tag *tag,
 	struct type *type = &mini_class->type;
 	int field = 0, first = 1;
 	char filename[128];
-	char parm_list[1024];
+	char parm_list[1024] = "";
 	char *p = parm_list;
 	size_t n;
 	size_t plen = sizeof(parm_list);
