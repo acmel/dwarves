@@ -159,6 +159,17 @@ static void dwarf_cu__delete(struct cu *cu)
 	cu->priv = NULL;
 }
 
+static void __tag__print_type_not_found(struct tag *tag, const char *func)
+{
+	struct dwarf_tag *dtag = tag->priv;
+	fprintf(stderr, "%s: couldn't find %#llx type for %#llx (%s)!\n", func,
+		(unsigned long long)dtag->type.off, (unsigned long long)dtag->id,
+		dwarf_tag_name(tag->tag));
+}
+
+#define tag__print_type_not_found(tag) \
+	__tag__print_type_not_found(tag, __func__)
+
 static void hashtags__hash(struct hlist_head *hashtable,
 			   struct dwarf_tag *dtag)
 {
@@ -699,6 +710,12 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		const struct dwarf_tag *dtag = tag->priv;
 		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv,
 								     &dtag->type);
+
+		if (dtype == NULL) {
+			tag__print_type_not_found(tag);
+			return -ENOENT;
+		}
+
 		struct tag *type = dtype->tag;
 
 		id = tag__recode_dwarf_bitfield(type, cu, bit_size);
@@ -720,6 +737,12 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 	case DW_TAG_volatile_type: {
 		const struct dwarf_tag *dtag = tag->priv;
 		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
+
+		if (dtype == NULL) {
+			tag__print_type_not_found(tag);
+			return -ENOENT;
+		}
+
 		struct tag *type = dtype->tag;
 
 		id = tag__recode_dwarf_bitfield(type, cu, bit_size);
@@ -1839,17 +1862,6 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu)
 
 	return 0;
 }
-
-static void __tag__print_type_not_found(struct tag *tag, const char *func)
-{
-	struct dwarf_tag *dtag = tag->priv;
-	fprintf(stderr, "%s: couldn't find %#llx type for %#llx (%s)!\n", func,
-		(unsigned long long)dtag->type.off, (unsigned long long)dtag->id,
-		dwarf_tag_name(tag->tag));
-}
-
-#define tag__print_type_not_found(tag) \
-	__tag__print_type_not_found(tag, __func__)
 
 static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu);
 
