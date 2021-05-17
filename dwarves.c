@@ -1111,6 +1111,8 @@ void enumeration__delete(struct type *type, struct cu *cu)
 		list_del_init(&pos->tag.node);
 		enumerator__delete(pos, cu);
 	}
+
+	free(type);
 }
 
 void class__add_vtable_entry(struct class *class, struct function *vtable_entry)
