@@ -550,7 +550,7 @@ struct debug_fmt_ops btf_elf__ops;
 
 int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *filename)
 {
-	int err;
+	int err = -1;
 	struct btf_elf *btfe = btf_elf__new(filename, NULL, base_btf);
 
 	if (btfe == NULL)
@@ -558,7 +558,7 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 
 	struct cu *cu = cu__new(filename, btfe->wordsize, NULL, 0, filename);
 	if (cu == NULL)
-		return -1;
+		goto out_free_btf_elf;
 
 	cu->language = LANG_C;
 	cu->uses_global_strings = false;
@@ -566,15 +566,14 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 	cu->dfops = &btf_elf__ops;
 	cu->priv = btfe;
 	btfe->priv = cu;
-	if (btf_elf__load(btfe) != 0)
-		return -1;
+
+	err = btf_elf__load(btfe);
+	if (err != 0)
+		goto out_free_cu;
 
 	err = btf_elf__load_sections(btfe);
-
-	if (err != 0) {
-		cu__delete(cu);
-		return err;
-	}
+	if (err != 0)
+		goto out_free_cu;
 
 	err = cu__fixup_btf_bitfields(cu, btfe);
 	/*
@@ -585,6 +584,17 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 		return 0;
 
 	cus__add(cus, cu);
+	return err;
+
+out_free_cu:
+	cu__delete(cu);
+	/*
+	 * cu__delete() calls the per-debugginf format destructor,
+	 * btf_elf__cu_delete() in this case, and it calls btf_elf__delete(cu->priv).
+	 */
+	btfe = NULL;
+out_free_btf_elf:
+	btf_elf__delete(btfe);
 	return err;
 }
 
