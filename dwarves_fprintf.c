@@ -1953,7 +1953,7 @@ void cus__print_error_msg(const char *progname, const struct cus *cus,
 		fprintf(stderr, "%s: couldn't load debugging info from %s\n",
 		       progname, filename);
 	else
-		fprintf(stderr, "%s: %s\n", progname, strerror(err));
+		fprintf(stderr, "%s: %s\n", progname, strerror(-err));
 }
 
 void dwarves__fprintf_init(uint16_t user_cacheline_size)
