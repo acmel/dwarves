@@ -2670,6 +2670,9 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 		off = noff;
 	}
 
+	if (cu == NULL)
+		return 0;
+
 	/* process merged cu */
 	if (cu__recode_dwarf_types(cu) != LSK__KEEPIT)
 		return DWARF_CB_ABORT;
