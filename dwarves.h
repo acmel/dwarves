@@ -10,7 +10,6 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <obstack.h>
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
 #include <sys/types.h>
@@ -225,7 +224,6 @@ struct cu {
 	char		 *name;
 	char		 *filename;
 	void 		 *priv;
-	struct obstack	 obstack;
 	struct debug_fmt_ops *dfops;
 	Elf		 *elf;
 	Dwfl_Module	 *dwfl;

@@ -28,10 +28,6 @@
 #include "dwarves.h"
 #include "dutil.h"
 #include "pahole_strings.h"
-#include <obstack.h>
-
-#define obstack_chunk_alloc malloc
-#define obstack_chunk_free free
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
@@ -122,7 +118,7 @@ static void lexblock__delete_tags(struct tag *tag, struct cu *cu)
 void lexblock__delete(struct lexblock *block, struct cu *cu)
 {
 	lexblock__delete_tags(&block->ip.tag, cu);
-	obstack_free(&cu->obstack, block);
+	free(block);
 }
 
 void tag__delete(struct tag *tag, struct cu *cu)
@@ -144,7 +140,7 @@ void tag__delete(struct tag *tag, struct cu *cu)
 	case DW_TAG_lexical_block:
 		lexblock__delete(tag__lexblock(tag), cu);	break;
 	default:
-		obstack_free(&cu->obstack, tag);
+		free(tag);
 	}
 }
 
@@ -569,7 +565,6 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		if (cu->name == NULL || cu->filename == NULL)
 			goto out_free;
 
-		obstack_init(&cu->obstack);
 		ptr_table__init(&cu->tags_table);
 		ptr_table__init(&cu->types_table);
 		ptr_table__init(&cu->functions_table);
@@ -618,7 +613,6 @@ void cu__delete(struct cu *cu)
 	ptr_table__exit(&cu->functions_table);
 	if (cu->dfops && cu->dfops->cu__delete)
 		cu->dfops->cu__delete(cu);
-	obstack_free(&cu->obstack, NULL);
 	free(cu->filename);
 	free(cu->name);
 	free(cu);
@@ -1067,13 +1061,13 @@ const char *variable__type_name(const struct variable *var,
 
 void class_member__delete(struct class_member *member, struct cu *cu)
 {
-	obstack_free(&cu->obstack, member);
+	free(member);
 }
 
 static struct class_member *class_member__clone(const struct class_member *from,
 						struct cu *cu)
 {
-	struct class_member *member = obstack_alloc(&cu->obstack, sizeof(*member));
+	struct class_member *member = malloc(sizeof(*member));
 
 	if (member != NULL)
 		memcpy(member, from, sizeof(*member));
@@ -1096,18 +1090,18 @@ void class__delete(struct class *class, struct cu *cu)
 	if (class->type.namespace.sname != NULL)
 		free(class->type.namespace.sname);
 	type__delete_class_members(&class->type, cu);
-	obstack_free(&cu->obstack, class);
+	free(class);
 }
 
 void type__delete(struct type *type, struct cu *cu)
 {
 	type__delete_class_members(type, cu);
-	obstack_free(&cu->obstack, type);
+	free(type);
 }
 
 static void enumerator__delete(struct enumerator *enumerator, struct cu *cu)
 {
-	obstack_free(&cu->obstack, enumerator);
+	free(enumerator);
 }
 
 void enumeration__delete(struct type *type, struct cu *cu)
@@ -1172,7 +1166,7 @@ static int type__clone_members(struct type *type, const struct type *from,
 struct class *class__clone(const struct class *from,
 			   const char *new_class_name, struct cu *cu)
 {
-	struct class *class = obstack_alloc(&cu->obstack, sizeof(*class));
+	struct class *class = malloc(sizeof(*class));
 
 	 if (class != NULL) {
 		memcpy(class, from, sizeof(*class));
@@ -1214,7 +1208,7 @@ const char *function__name(struct function *func, const struct cu *cu)
 
 static void parameter__delete(struct parameter *parm, struct cu *cu)
 {
-	obstack_free(&cu->obstack, parm);
+	free(parm);
 }
 
 void ftype__delete(struct ftype *type, struct cu *cu)
@@ -1228,7 +1222,7 @@ void ftype__delete(struct ftype *type, struct cu *cu)
 		list_del_init(&pos->tag.node);
 		parameter__delete(pos, cu);
 	}
-	obstack_free(&cu->obstack, type);
+	free(type);
 }
 
 void function__delete(struct function *func, struct cu *cu)

@@ -357,10 +357,7 @@ static int class__packable(struct class *class, struct cu *cu)
 		class->priv = clone;
 		return 1;
 	}
-	/* FIXME: we need to free in the right order,
-	 *	  cu->obstack is being corrupted...
 	class__delete(clone, cu);
-	*/
 	return 0;
 }
 
@@ -1353,10 +1350,7 @@ static void do_reorg(struct tag *class, struct cu *cu)
 	} else
 		putchar('\n');
 
-	/* FIXME: we need to free in the right order,
-	 *	  cu->obstack is being corrupted...
 	 class__delete(clone, cu);
-	*/
 }
 
 static int tag__fprintf_hexdump_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, FILE *fp)
