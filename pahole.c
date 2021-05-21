@@ -24,6 +24,7 @@
 #include "btf_encoder.h"
 #include "libbtf.h"
 #include "lib/bpf/src/libbpf.h"
+#include "pahole_strings.h"
 
 static bool btf_encode;
 static bool ctf_encode;
@@ -855,6 +856,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_btf_gen_floats	   322
 #define ARGP_btf_gen_all	   323
 #define ARGP_with_flexible_array   324
+#define ARGP_kabi_prefix   325
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1140,6 +1142,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Path to the base BTF file",
 	},
 	{
+		.name = "kabi_prefix",
+		.key  = ARGP_kabi_prefix,
+		.arg  = "STRING",
+		.doc  = "When the prefix of the string is STRING, treat the string as STRING.",
+	},
+	{
 		.name = "btf_encode",
 		.key  = 'J',
 		.doc  = "Encode as BTF",
@@ -1297,6 +1305,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		btf_encode_force = true;		break;
 	case ARGP_btf_base:
 		base_btf_file = arg;			break;
+	case ARGP_kabi_prefix:
+		kabi_prefix = arg;		break;
 	case ARGP_numeric_version:
 		print_numeric_version = true;		break;
 	case ARGP_btf_gen_floats:

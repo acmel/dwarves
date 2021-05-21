@@ -14,6 +14,8 @@ struct strings {
 	struct btf *btf;
 };
 
+extern const char *kabi_prefix;
+
 struct strings *strings__new(void);
 
 void strings__delete(struct strings *strings);
