@@ -538,6 +538,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 	cu__for_each_variable(cu, core_id, pos) {
 		uint32_t size, type, linkage;
 		const char *name, *dwarf_name;
+		const struct tag *tag;
 		uint64_t addr;
 		int id;
 
@@ -550,6 +551,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 
 		/* addr has to be recorded before we follow spec */
 		addr = var->ip.addr;
+		dwarf_name = variable__name(var, cu);
 
 		/* DWARF takes into account .data..percpu section offset
 		 * within its segment, which for vmlinux is 0, but for kernel
@@ -583,7 +585,6 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 		 *  per-CPU symbols have non-zero values.
 		 */
 		if (var->ip.addr == 0) {
-			dwarf_name = variable__name(var, cu);
 			if (!dwarf_name || strcmp(dwarf_name, name))
 				continue;
 		}
@@ -598,6 +599,13 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 				continue;
 			err = -1;
 			break;
+		}
+
+		tag = cu__type(cu, var->ip.tag.type);
+		if (tag__size(tag, cu) == 0) {
+			if (btf_elf__verbose)
+				fprintf(stderr, "Ignoring zero-sized per-CPU variable '%s'...\n", dwarf_name ?: "<missing name>");
+			continue;
 		}
 
 		type = var->ip.tag.type + type_id_off;
