@@ -2637,11 +2637,11 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 			cu = cu__new("", pointer_size, build_id, build_id_len,
 				     filename);
 			if (cu == NULL || cu__set_common(cu, conf, mod, elf) != 0)
-				return DWARF_CB_ABORT;
+				goto out_abort;
 
 			dcu = zalloc(sizeof(*dcu));
 			if (dcu == NULL)
-				return DWARF_CB_ABORT;
+				goto out_abort;
 
 			/* Merged cu tends to need a lot more memory.
 			 * Let us start with max_hashtags__bits and
@@ -2655,7 +2655,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 					break;
 			}
 			if (hashtags__bits < default_hbits)
-				return DWARF_CB_ABORT;
+				goto out_abort;
 
 			dcu->cu = cu;
 			dcu->type_unit = type_dcu;
@@ -2667,7 +2667,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 		Dwarf_Die child;
 		if (dwarf_child(cu_die, &child) == 0) {
 			if (die__process_unit(&child, cu) != 0)
-				return DWARF_CB_ABORT;
+				goto out_abort;
 		}
 
 		off = noff;
@@ -2678,7 +2678,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 
 	/* process merged cu */
 	if (cu__recode_dwarf_types(cu) != LSK__KEEPIT)
-		return DWARF_CB_ABORT;
+		goto out_abort;
 
 	/*
 	 * for lto build, the function return type may not be
@@ -2687,13 +2687,16 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 	 * tag. Let us visit all subprograms again to resolve this.
 	 */
 	if (cu__resolve_func_ret_types(cu) != LSK__KEEPIT)
-		return DWARF_CB_ABORT;
+		goto out_abort;
 
 	if (finalize_cu_immediately(cus, cu, dcu, conf)
 	    == LSK__STOP_LOADING)
-		return DWARF_CB_ABORT;
+		goto out_abort;
 
 	return 0;
+
+out_abort:
+	return DWARF_CB_ABORT;
 }
 
 static int cus__load_module(struct cus *cus, struct conf_load *conf,
