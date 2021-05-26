@@ -2639,7 +2639,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 			if (cu == NULL || cu__set_common(cu, conf, mod, elf) != 0)
 				return DWARF_CB_ABORT;
 
-			dcu = malloc(sizeof(struct dwarf_cu));
+			dcu = zalloc(sizeof(*dcu));
 			if (dcu == NULL)
 				return DWARF_CB_ABORT;
 
