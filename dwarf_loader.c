@@ -150,6 +150,9 @@ static struct dwarf_cu *dwarf_cu__new(void)
 
 static void dwarf_cu__delete(struct cu *cu)
 {
+	if (cu == NULL || cu->priv == NULL)
+		return;
+
 	struct dwarf_cu *dcu = cu->priv;
 	free(dcu->hash_tags);
 	dcu->hash_tags = NULL;
