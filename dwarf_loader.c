@@ -2696,6 +2696,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 	return 0;
 
 out_abort:
+	cu__delete(cu);
 	return DWARF_CB_ABORT;
 }
 
