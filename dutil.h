@@ -336,4 +336,6 @@ static inline int elf_getshdrstrndx(Elf *elf, size_t *dst)
 
 char *strlwr(char *s);
 
+#define zfree(ptr) ({ free(*ptr); *ptr = NULL; })
+
 #endif /* _DUTIL_H_ */

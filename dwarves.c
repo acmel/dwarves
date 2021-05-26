@@ -2213,8 +2213,6 @@ static int filename__sprintf_build_id(const char *pathname, char *sbuild_id)
 	return build_id__sprintf(build_id, sizeof(build_id), sbuild_id);
 }
 
-#define zfree(ptr) ({ free(*ptr); *ptr = NULL; })
-
 static int vmlinux_path__nr_entries;
 static char **vmlinux_path;
 
