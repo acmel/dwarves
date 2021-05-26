@@ -608,6 +608,9 @@ out_free:
 
 void cu__delete(struct cu *cu)
 {
+	if (cu == NULL)
+		return;
+
 	ptr_table__exit(&cu->tags_table);
 	ptr_table__exit(&cu->types_table);
 	ptr_table__exit(&cu->functions_table);
