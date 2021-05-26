@@ -561,9 +561,12 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		uint32_t void_id;
 
 		cu->name = strdup(name);
-		cu->filename = strdup(filename);
-		if (cu->name == NULL || cu->filename == NULL)
+		if (cu->name == NULL)
 			goto out_free;
+
+		cu->filename = strdup(filename);
+		if (cu->filename == NULL)
+			goto out_free_name;
 
 		ptr_table__init(&cu->tags_table);
 		ptr_table__init(&cu->types_table);
@@ -573,7 +576,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		 * so make sure we don't use it
 		 */
 		if (ptr_table__add(&cu->types_table, NULL, &void_id) < 0)
-			goto out_free_name;
+			goto out_free_filename;
 
 		cu->functions = RB_ROOT;
 
@@ -595,15 +598,16 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		if (build_id_len > 0)
 			memcpy(cu->build_id, build_id, build_id_len);
 	}
-out:
+
 	return cu;
+
+out_free_filename:
+	free(cu->filename);
 out_free_name:
 	free(cu->name);
-	free(cu->filename);
 out_free:
 	free(cu);
-	cu = NULL;
-	goto out;
+	return NULL;
 }
 
 void cu__delete(struct cu *cu)
