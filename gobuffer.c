@@ -41,7 +41,10 @@ struct gobuffer *gobuffer__new(void)
 
 void __gobuffer__delete(struct gobuffer *gb)
 {
-	free(gb->entries);
+	if (gb == NULL)
+		return;
+
+	zfree(&gb->entries);
 }
 
 void gobuffer__delete(struct gobuffer *gb)
