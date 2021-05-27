@@ -104,7 +104,7 @@ static struct structure *structure__new(const char *name)
 
 static void structure__delete(struct structure *st)
 {
-	free(st->name);
+	zfree(&st->name);
 	free(st);
 }
 
