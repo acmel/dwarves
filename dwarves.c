@@ -117,12 +117,18 @@ static void lexblock__delete_tags(struct tag *tag, struct cu *cu)
 
 void lexblock__delete(struct lexblock *block, struct cu *cu)
 {
+	if (block == NULL)
+		return;
+
 	lexblock__delete_tags(&block->ip.tag, cu);
 	free(block);
 }
 
 void tag__delete(struct tag *tag, struct cu *cu)
 {
+	if (tag == NULL)
+		return;
+
 	assert(list_empty(&tag->node));
 
 	switch (tag->tag) {
@@ -307,6 +313,9 @@ const char *base_type__name(const struct base_type *bt, const struct cu *cu,
 void namespace__delete(struct namespace *space, struct cu *cu)
 {
 	struct tag *pos, *n;
+
+	if (space == NULL)
+		return;
 
 	namespace__for_each_tag_safe_reverse(space, pos, n) {
 		list_del_init(&pos->node);
@@ -1093,6 +1102,9 @@ static void type__delete_class_members(struct type *type, struct cu *cu)
 
 void class__delete(struct class *class, struct cu *cu)
 {
+	if (class == NULL)
+		return;
+
 	if (class->type.namespace.sname != NULL)
 		zfree(&class->type.namespace.sname);
 	type__delete_class_members(&class->type, cu);
@@ -1101,6 +1113,9 @@ void class__delete(struct class *class, struct cu *cu)
 
 void type__delete(struct type *type, struct cu *cu)
 {
+	if (type == NULL)
+		return;
+
 	type__delete_class_members(type, cu);
 	free(type);
 }
@@ -1113,6 +1128,10 @@ static void enumerator__delete(struct enumerator *enumerator, struct cu *cu)
 void enumeration__delete(struct type *type, struct cu *cu)
 {
 	struct enumerator *pos, *n;
+
+	if (type == NULL)
+		return;
+
 	type__for_each_enumerator_safe_reverse(type, pos, n) {
 		list_del_init(&pos->tag.node);
 		enumerator__delete(pos, cu);
@@ -1235,6 +1254,9 @@ void ftype__delete(struct ftype *type, struct cu *cu)
 
 void function__delete(struct function *func, struct cu *cu)
 {
+	if (func == NULL)
+		return;
+
 	lexblock__delete_tags(&func->lexblock.ip.tag, cu);
 	ftype__delete(&func->proto, cu);
 }
