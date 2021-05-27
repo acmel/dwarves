@@ -679,10 +679,10 @@ static int cu_delete_priv(struct cu *cu, void *cookie __unused)
 	uint32_t id;
 
 	cu__for_each_struct(cu, id, c)
-		free(c->priv);
+		zfree(&c->priv);
 
 	cu__for_each_function(cu, id, f)
-		free(f->priv);
+		zfree(&f->priv);
 
 	return 0;
 }
