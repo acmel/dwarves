@@ -13,12 +13,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-void *zalloc(const size_t size)
+void *zalloc(size_t size)
 {
-	void *s = malloc(size);
-	if (s != NULL)
-		memset(s, 0, size);
-	return s;
+        return calloc(1, size);
+}
+
+void __zfree(void **ptr)
+{
+        free(*ptr);
+        *ptr = NULL;
 }
 
 struct str_node *str_node__new(const char *s, bool dupstr)
@@ -44,7 +47,7 @@ out_delete:
 static void str_node__delete(struct str_node *snode, bool dupstr)
 {
 	if (dupstr)
-		free((void *)snode->s);
+		zfree(&snode->s);
 	free(snode);
 }
 
