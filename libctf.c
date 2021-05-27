@@ -229,7 +229,7 @@ out_close:
 	if (elf == NULL)
 		close(ctf->in_fd);
 out_delete_filename:
-	free(ctf->filename);
+	zfree(&ctf->filename);
 out_delete:
 	free(ctf);
 	return NULL;
@@ -246,8 +246,8 @@ void ctf__delete(struct ctf *ctf)
 		__gobuffer__delete(&ctf->types);
 		__gobuffer__delete(&ctf->funcs);
 		elf_symtab__delete(ctf->symtab);
-		free(ctf->filename);
-		free(ctf->buf);
+		zfree(&ctf->filename);
+		zfree(&ctf->buf);
 		free(ctf);
 	}
 }
