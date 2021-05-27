@@ -46,6 +46,9 @@ out_delete:
 
 static void str_node__delete(struct str_node *snode, bool dupstr)
 {
+	if (snode == NULL)
+		return;
+
 	if (dupstr)
 		zfree(&snode->s);
 	free(snode);
