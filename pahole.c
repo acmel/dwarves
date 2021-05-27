@@ -104,6 +104,9 @@ static struct structure *structure__new(const char *name)
 
 static void structure__delete(struct structure *st)
 {
+	if (st == NULL)
+		return;
+
 	zfree(&st->name);
 	free(st);
 }
@@ -2627,6 +2630,9 @@ static int prototypes__add(struct list_head *prototypes, const char *entry)
 static void prototypes__delete(struct list_head *prototypes)
 {
 	struct prototype *prototype, *n;
+
+	if (prototypes == NULL)
+		return;
 
 	list_for_each_entry_safe(prototype, n, prototypes, node) {
 		list_del_init(&prototype->node);
