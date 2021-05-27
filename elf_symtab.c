@@ -90,7 +90,7 @@ struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr)
 
 	return symtab;
 out_free_name:
-	free(symtab->name);
+	zfree(&symtab->name);
 out_delete:
 	free(symtab);
 	return NULL;
@@ -100,6 +100,6 @@ void elf_symtab__delete(struct elf_symtab *symtab)
 {
 	if (symtab == NULL)
 		return;
-	free(symtab->name);
+	zfree(&symtab->name);
 	free(symtab);
 }
