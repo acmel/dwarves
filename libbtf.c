@@ -202,7 +202,8 @@ void btf_elf__delete(struct btf_elf *btfe)
 	elf_symtab__delete(btfe->symtab);
 	__gobuffer__delete(&btfe->percpu_secinfo);
 	btf__free(btfe->btf);
-	free(btfe->filename);
+	btfe->btf = NULL;
+	zfree(&btfe->filename);
 	free(btfe);
 }
 
