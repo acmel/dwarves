@@ -423,8 +423,7 @@ static void ptr_table__init(struct ptr_table *pt)
 
 static void ptr_table__exit(struct ptr_table *pt)
 {
-	free(pt->entries);
-	pt->entries = NULL;
+	zfree(&pt->entries);
 }
 
 static int ptr_table__add(struct ptr_table *pt, void *ptr, uint32_t *idxp)
@@ -602,9 +601,9 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 	return cu;
 
 out_free_filename:
-	free(cu->filename);
+	zfree(&cu->filename);
 out_free_name:
-	free(cu->name);
+	zfree(&cu->name);
 out_free:
 	free(cu);
 	return NULL;
@@ -620,8 +619,8 @@ void cu__delete(struct cu *cu)
 	ptr_table__exit(&cu->functions_table);
 	if (cu->dfops && cu->dfops->cu__delete)
 		cu->dfops->cu__delete(cu);
-	free(cu->filename);
-	free(cu->name);
+	zfree(&cu->filename);
+	zfree(&cu->name);
 	free(cu);
 }
 
@@ -1095,7 +1094,7 @@ static void type__delete_class_members(struct type *type, struct cu *cu)
 void class__delete(struct class *class, struct cu *cu)
 {
 	if (class->type.namespace.sname != NULL)
-		free(class->type.namespace.sname);
+		zfree(&class->type.namespace.sname);
 	type__delete_class_members(&class->type, cu);
 	free(class);
 }
