@@ -123,7 +123,7 @@ static int dwarf_cu__init(struct dwarf_cu *dcu)
 
 	dcu->hash_types = malloc(sizeof(struct hlist_head) * hashtags_size);
 	if (!dcu->hash_types) {
-		free(dcu->hash_tags);
+		zfree(&dcu->hash_tags);
 		return -ENOMEM;
 	}
 
@@ -154,10 +154,9 @@ static void dwarf_cu__delete(struct cu *cu)
 		return;
 
 	struct dwarf_cu *dcu = cu->priv;
-	free(dcu->hash_tags);
-	dcu->hash_tags = NULL;
-	free(dcu->hash_types);
-	dcu->hash_types = NULL;
+
+	zfree(&dcu->hash_tags);
+	zfree(&dcu->hash_types);
 	free(dcu);
 	cu->priv = NULL;
 }
