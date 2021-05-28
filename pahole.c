@@ -26,6 +26,7 @@
 #include "lib/bpf/src/libbpf.h"
 #include "pahole_strings.h"
 
+static char *detached_btf_filename;
 static bool btf_encode;
 static bool ctf_encode;
 static bool first_obj_only;
@@ -1153,6 +1154,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Encode as BTF",
 	},
 	{
+		.name = "btf_encode_detached",
+		.key  = 'j',
+		.arg  = "FILENAME",
+		.doc  = "Encode as BTF in a detached file",
+	},
+	{
 		.name = "skip_encoding_btf_vars",
 		.key  = ARGP_skip_encoding_btf_vars,
 		.doc  = "Do not encode VARs in BTF."
@@ -1223,6 +1230,7 @@ static error_t pahole__options_parser(int key, char *arg,
 		  conf_load.extra_dbg_info = 1;		break;
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
+	case 'j': detached_btf_filename = arg; // fallthru
 	case 'J': btf_encode = 1;
 		  conf_load.get_addr_info = true;
 		  no_bitfield_type_recode = true;	break;
@@ -2458,7 +2466,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	if (btf_encode) {
 		if (cu__encode_btf(cu, global_verbose, btf_encode_force,
-				   skip_encoding_btf_vars)) {
+				   skip_encoding_btf_vars, detached_btf_filename)) {
 			fprintf(stderr, "Encountered error while encoding BTF.\n");
 			exit(1);
 		}
@@ -2872,7 +2880,7 @@ try_sole_arg_as_class_names:
 	header = NULL;
 
 	if (btf_encode) {
-		err = btf_encoder__encode();
+		err = btf_encoder__encode(detached_btf_filename);
 		if (err) {
 			fputs("Failed to encode BTF\n", stderr);
 			goto out_cus_delete;

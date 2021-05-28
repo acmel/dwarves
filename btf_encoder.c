@@ -21,6 +21,14 @@
 #include <stdlib.h> /* for qsort() and bsearch() */
 #include <inttypes.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include <unistd.h>
+
+#include <errno.h>
+
 /*
  * This corresponds to the same macro defined in
  * include/linux/kallsyms.h
@@ -267,14 +275,62 @@ static struct btf_elf *btfe;
 static uint32_t array_index_id;
 static bool has_index_type;
 
-int btf_encoder__encode()
+static int btf__encode_as_raw_file(struct btf *btf, const char *filename)
+{
+	uint32_t raw_btf_size;
+	const void *raw_btf_data;
+	int fd, err;
+
+	/* Empty file, nothing to do, so... done! */
+	if (btf__get_nr_types(btf) == 0)
+		return 0;
+
+	if (btf__dedup(btf, NULL, NULL)) {
+		fprintf(stderr, "%s: btf__dedup failed!\n", __func__);
+		return -1;
+	}
+
+	raw_btf_data = btf__get_raw_data(btf, &raw_btf_size);
+	if (raw_btf_data == NULL) {
+		fprintf(stderr, "%s: btf__get_raw_data failed!\n", __func__);
+		return -1;
+	}
+
+	fd = open(filename, O_WRONLY | O_CREAT, 0640);
+	if (fd < 0) {
+		fprintf(stderr, "%s: Couldn't open %s for writing the raw BTF info: %s\n", __func__, filename, strerror(errno));
+		return -1;
+	}
+	err = write(fd, raw_btf_data, raw_btf_size);
+	if (err < 0)
+		fprintf(stderr, "%s: Couldn't write the raw BTF info to %s: %s\n", __func__, filename, strerror(errno));
+
+	close(fd);
+
+	if (err != raw_btf_size) {
+		fprintf(stderr, "%s: Could only write %d bytes to %s of raw BTF info out of %d, aborting\n", __func__, err, filename, raw_btf_size);
+		unlink(filename);
+		err = -1;
+	} else {
+		/* go from bytes written == raw_btf_size to an indication that all went fine */
+		err = 0;
+	}
+
+	return err;
+}
+
+int btf_encoder__encode(const char *filename)
 {
 	int err;
 
 	if (gobuffer__size(&btfe->percpu_secinfo) != 0)
 		btf_elf__add_datasec_type(btfe, PERCPU_SECTION, &btfe->percpu_secinfo);
 
-	err = btf_elf__encode(btfe, 0);
+	if (filename == NULL)
+		err = btf_elf__encode(btfe, 0);
+	else
+		err = btf__encode_as_raw_file(btfe->btf, filename);
+
 	delete_functions();
 	btf_elf__delete(btfe);
 	btfe = NULL;
@@ -412,7 +468,7 @@ static bool has_arg_names(struct cu *cu, struct ftype *ftype)
 }
 
 int cu__encode_btf(struct cu *cu, int verbose, bool force,
-		   bool skip_encoding_vars)
+		   bool skip_encoding_vars, const char *detached_btf_filename)
 {
 	uint32_t type_id_off;
 	uint32_t core_id;
@@ -425,7 +481,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force,
 	btf_elf__force = force;
 
 	if (btfe && strcmp(btfe->filename, cu->filename)) {
-		err = btf_encoder__encode();
+		err = btf_encoder__encode(detached_btf_filename);
 		if (err)
 			goto out;
 
