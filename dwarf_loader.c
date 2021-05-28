@@ -49,6 +49,10 @@ struct strings *strings;
 #define DW_FORM_implicit_const 0x21
 #endif
 
+#ifndef DW_OP_addrx
+#define DW_OP_addrx 0xa1
+#endif
+
 static uint32_t hashtags__bits = 15;
 static uint32_t max_hashtags__bits = 21;
 
