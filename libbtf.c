@@ -834,7 +834,7 @@ static int btf_elf__write(const char *filename, struct btf *btf)
 	raw_btf_data = btf__get_raw_data(btf, &raw_btf_size);
 
 	if (btf_data) {
-		/* Exisiting .BTF section found */
+		/* Existing .BTF section found */
 		btf_data->d_buf = (void *)raw_btf_data;
 		btf_data->d_size = raw_btf_size;
 		elf_flagdata(btf_data, ELF_C_SET, ELF_F_DIRTY);
