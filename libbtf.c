@@ -63,10 +63,8 @@ int btf_elf__load(struct btf_elf *btfe)
 
 	/* free initial empty BTF */
 	btf__free(btfe->btf);
-	if (btfe->raw_btf)
-		btfe->btf = btf__parse_raw_split(btfe->filename, btfe->base_btf);
-	else
-		btfe->btf = btf__parse_elf_split(btfe->filename, btfe->base_btf);
+
+	btfe->btf = btf__parse_split(btfe->filename, btfe->base_btf);
 
 	err = libbpf_get_error(btfe->btf);
 	if (err)
