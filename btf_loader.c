@@ -468,9 +468,9 @@ static int btf__load_types(struct btf *btf, struct cu *cu)
 	return 0;
 }
 
-static int btf_elf__load_sections(struct btf_elf *btfe, struct cu *cu)
+static int btf__load_sections(struct btf *btf, struct cu *cu)
 {
-	return btf__load_types(btfe->btf, cu);
+	return btf__load_types(btf, cu);
 }
 
 static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu, struct btf_elf *btfe)
@@ -570,7 +570,7 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 	cu->little_endian = btf__endianness(btfe->btf) == BTF_LITTLE_ENDIAN;
 	cu->addr_size	  = btf__pointer_size(btfe->btf);
 
-	err = btf_elf__load_sections(btfe, cu);
+	err = btf__load_sections(btfe->btf, cu);
 	if (err != 0)
 		goto out_free_cu;
 
