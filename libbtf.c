@@ -70,13 +70,6 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 		goto errout;
 	}
 
-	if (strstarts(filename, "/sys/kernel/btf/")) {
-try_as_raw_btf:
-		btf__set_endianness(btfe->btf,
-				    BYTE_ORDER == BIG_ENDIAN ? BTF_BIG_ENDIAN : BTF_LITTLE_ENDIAN);
-		return btfe;
-	}
-
 	if (elf != NULL) {
 		btfe->elf = elf;
 	} else {
@@ -104,7 +97,7 @@ try_as_raw_btf:
 			close(btfe->in_fd);
 			elf_end(btfe->elf);
 			btfe->in_fd = -1;
-			goto try_as_raw_btf;
+			return btfe;
 		}
 		if (btf_elf__verbose)
 			elf_error("cannot get ELF header");
