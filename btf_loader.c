@@ -551,7 +551,7 @@ struct debug_fmt_ops btf_elf__ops;
 int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *filename)
 {
 	int err = -1;
-	struct btf_elf *btfe = btf_elf__new(filename, NULL, base_btf);
+	struct btf_elf *btfe = btf_elf__new(filename, NULL, conf->base_btf);
 
 	if (btfe == NULL)
 		return -1;
