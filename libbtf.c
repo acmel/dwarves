@@ -642,10 +642,9 @@ int32_t btf__encode_var_secinfo(struct gobuffer *buf, uint32_t type,
 	return gobuffer__add(buf, &si, sizeof(si));
 }
 
-int32_t btf_elf__add_datasec_type(struct btf_elf *btfe, const char *section_name,
-				  struct gobuffer *var_secinfo_buf)
+int32_t btf__encode_datasec_type(struct btf *btf, const char *section_name,
+				 struct gobuffer *var_secinfo_buf)
 {
-	struct btf *btf = btfe->btf;
 	size_t sz = gobuffer__size(var_secinfo_buf);
 	uint16_t nr_var_secinfo = sz / sizeof(struct btf_var_secinfo);
 	struct btf_var_secinfo *last_vsi, *vsi;

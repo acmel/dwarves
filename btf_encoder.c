@@ -325,7 +325,7 @@ int btf_encoder__encode(const char *filename)
 	int err;
 
 	if (gobuffer__size(&btfe->percpu_secinfo) != 0)
-		btf_elf__add_datasec_type(btfe, PERCPU_SECTION, &btfe->percpu_secinfo);
+		btf__encode_datasec_type(btfe->btf, PERCPU_SECTION, &btfe->percpu_secinfo);
 
 	if (filename == NULL)
 		err = btf_elf__encode(btfe, 0);
