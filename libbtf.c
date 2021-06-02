@@ -553,12 +553,12 @@ int btf__encode_enum_val(struct btf *btf, const char *name, int32_t value)
 	return err;
 }
 
-static int32_t btf_elf__add_func_proto_param(struct btf_elf *btfe, const char *name,
-					     uint32_t type, bool is_last_param)
+static int32_t btf__encode_func_proto_param(struct btf *btf, const char *name,
+					    uint32_t type, bool is_last_param)
 {
 	int err;
 
-	err = btf__add_func_param(btfe->btf, name, type);
+	err = btf__add_func_param(btf, name, type);
 	if (!err) {
 		btf__log_func_param(name, type, false, is_last_param, NULL);
 		return 0;
@@ -571,9 +571,8 @@ static int32_t btf_elf__add_func_proto_param(struct btf_elf *btfe, const char *n
 
 extern struct debug_fmt_ops *dwarves__active_loader;
 
-int32_t btf_elf__add_func_proto(struct btf_elf *btfe, struct cu *cu, struct ftype *ftype, uint32_t type_id_off)
+int32_t btf__encode_func_proto(struct btf *btf, struct cu *cu, struct ftype *ftype, uint32_t type_id_off)
 {
-	struct btf *btf = btfe->btf;
 	const struct btf_type *t;
 	struct parameter *param;
 	uint16_t nr_params, param_idx;
@@ -602,13 +601,13 @@ int32_t btf_elf__add_func_proto(struct btf_elf *btfe, struct cu *cu, struct ftyp
 
 		type_id = param->tag.type == 0 ? 0 : type_id_off + param->tag.type;
 		++param_idx;
-		if (btf_elf__add_func_proto_param(btfe, name, type_id, param_idx == nr_params))
+		if (btf__encode_func_proto_param(btf, name, type_id, param_idx == nr_params))
 			return -1;
 	}
 
 	++param_idx;
 	if (ftype->unspec_parms)
-		if (btf_elf__add_func_proto_param(btfe, NULL, 0, param_idx == nr_params))
+		if (btf__encode_func_proto_param(btf, NULL, 0, param_idx == nr_params))
 			return -1;
 
 	return id;
