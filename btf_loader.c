@@ -562,7 +562,6 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 
 	cu->language = LANG_C;
 	cu->uses_global_strings = false;
-	cu->little_endian = !btfe->is_big_endian;
 	cu->dfops = &btf_elf__ops;
 	cu->priv = btfe;
 	btfe->priv = cu;
@@ -570,6 +569,8 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 	err = btf_elf__load(btfe);
 	if (err != 0)
 		goto out_free_cu;
+
+	cu->little_endian = btf__endianness(btfe->btf) == BTF_LITTLE_ENDIAN;
 
 	err = btf_elf__load_sections(btfe);
 	if (err != 0)
