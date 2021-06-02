@@ -473,7 +473,7 @@ static int btf__load_sections(struct btf *btf, struct cu *cu)
 	return btf__load_types(btf, cu);
 }
 
-static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu, struct btf_elf *btfe)
+static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu)
 {
 	struct class_member *pos;
 	struct type *tag_type = tag__type(tag);
@@ -523,7 +523,7 @@ static int cu__fixup_btf_bitfields(struct cu *cu, struct btf_elf *btfe)
 
 	list_for_each_entry(pos, &cu->tags, node)
 		if (tag__is_struct(pos) || tag__is_union(pos)) {
-			err = class__fixup_btf_bitfields(pos, cu, btfe);
+			err = class__fixup_btf_bitfields(pos, cu);
 			if (err)
 				break;
 		}
