@@ -556,7 +556,8 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 	if (btfe == NULL)
 		return -1;
 
-	struct cu *cu = cu__new(filename, btfe->wordsize, NULL, 0, filename);
+	// Pass a zero for addr_size, we'll get it after we load via btf__pointer_size()
+	struct cu *cu = cu__new(filename, 0, NULL, 0, filename);
 	if (cu == NULL)
 		goto out_free_btf_elf;
 
@@ -571,6 +572,7 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 		goto out_free_cu;
 
 	cu->little_endian = btf__endianness(btfe->btf) == BTF_LITTLE_ENDIAN;
+	cu->addr_size	  = btf__pointer_size(btfe->btf);
 
 	err = btf_elf__load_sections(btfe);
 	if (err != 0)
