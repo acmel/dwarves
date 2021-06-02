@@ -188,7 +188,7 @@ static int create_new_float_type(struct cu *cu, const struct btf_type *tp, uint3
 	return 0;
 }
 
-static int create_new_array(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_array(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct btf_array *ap = btf_array(tp);
 	struct array_type *array = tag__alloc(sizeof(*array));
@@ -210,7 +210,7 @@ static int create_new_array(struct btf_elf *btfe, const struct btf_type *tp, uin
 	array->tag.tag = DW_TAG_array_type;
 	array->tag.type = ap->type;
 
-	cu__add_tag_with_id(btfe->priv, &array->tag, id);
+	cu__add_tag_with_id(cu, &array->tag, id);
 
 	return 0;
 }
@@ -413,7 +413,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			err = create_new_int_type(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_ARRAY:
-			err = create_new_array(btfe, type_ptr, type_index);
+			err = create_new_array(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_STRUCT:
 			err = create_new_class(btfe, type_ptr, type_index);
