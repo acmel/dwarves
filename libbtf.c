@@ -96,7 +96,6 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 
 	if (strstarts(filename, "/sys/kernel/btf/")) {
 try_as_raw_btf:
-		btfe->raw_btf  = true;
 		btfe->wordsize = sizeof(long);
 		btfe->is_big_endian = BYTE_ORDER == BIG_ENDIAN;
 		btf__set_endianness(btfe->btf,
