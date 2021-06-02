@@ -494,9 +494,8 @@ int btf__encode_member(struct btf *btf, const char *name, uint32_t type, uint32_
 	return err;
 }
 
-int32_t btf_elf__add_struct(struct btf_elf *btfe, uint8_t kind, const char *name, uint32_t size)
+int32_t btf__encode_struct(struct btf *btf, uint8_t kind, const char *name, uint32_t size)
 {
-	struct btf *btf = btfe->btf;
 	const struct btf_type *t;
 	int32_t id;
 

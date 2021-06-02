@@ -173,7 +173,7 @@ static int32_t structure_type__encode(struct btf_elf *btfe, struct cu *cu, struc
 		BTF_KIND_UNION : BTF_KIND_STRUCT;
 
 	name = dwarves__active_loader->strings__ptr(cu, type->namespace.name);
-	type_id = btf_elf__add_struct(btfe, kind, name, type->size);
+	type_id = btf__encode_struct(btfe->btf, kind, name, type->size);
 	if (type_id < 0)
 		return type_id;
 
