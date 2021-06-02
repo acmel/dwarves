@@ -62,6 +62,4 @@ int32_t btf_elf__add_datasec_type(struct btf_elf *btfe, const char *section_name
 				  struct gobuffer *var_secinfo_buf);
 int  btf_elf__encode(struct btf_elf *btf, uint8_t flags);
 
-const char *btf_elf__string(struct btf_elf *btf, uint32_t ref);
-
 #endif /* _LIBBTF_H */

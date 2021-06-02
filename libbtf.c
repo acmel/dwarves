@@ -170,13 +170,6 @@ void btf_elf__delete(struct btf_elf *btfe)
 	free(btfe);
 }
 
-const char *btf_elf__string(struct btf_elf *btfe, uint32_t ref)
-{
-	const char *s = btf__str_by_offset(btfe->btf, ref);
-
-	return s && s[0] == '\0' ? NULL : s;
-}
-
 #define BITS_PER_BYTE 8
 #define BITS_PER_BYTE_MASK (BITS_PER_BYTE - 1)
 #define BITS_PER_BYTE_MASKED(bits) ((bits) & BITS_PER_BYTE_MASK)
