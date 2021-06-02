@@ -187,7 +187,7 @@ static const char *btf__printable_name(const struct btf *btf, uint32_t offset)
 		return btf__str_by_offset(btf, offset);
 }
 
-static const char * btf_elf__int_encoding_str(uint8_t encoding)
+static const char * btf__int_encoding_str(uint8_t encoding)
 {
 	if (encoding == 0)
 		return "(none)";
@@ -409,7 +409,7 @@ int32_t btf_elf__add_base_type(struct btf_elf *btfe, const struct base_type *bt,
 		btf_elf__log_type(btfe, t, false, true,
 				"size=%u nr_bits=%u encoding=%s%s",
 				t->size, bt->bit_size,
-				btf_elf__int_encoding_str(encoding),
+				btf__int_encoding_str(encoding),
 				id < 0 ? " Error in emitting BTF" : "" );
 	}
 
