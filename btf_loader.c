@@ -45,8 +45,7 @@ static void *tag__alloc(const size_t size)
 	return tag;
 }
 
-static int btf_elf__load_ftype(struct btf_elf *btfe, struct ftype *proto, uint32_t tag,
-			       const struct btf_type *tp, uint32_t id)
+static int cu__load_ftype(struct cu *cu, struct ftype *proto, uint32_t tag, const struct btf_type *tp, uint32_t id)
 {
 	const struct btf_param *param = btf_params(tp);
 	int i, vlen = btf_vlen(tp);
@@ -70,11 +69,11 @@ static int btf_elf__load_ftype(struct btf_elf *btfe, struct ftype *proto, uint32
 		}
 	}
 
-	cu__add_tag_with_id(btfe->priv, &proto->tag, id);
+	cu__add_tag_with_id(cu, &proto->tag, id);
 
 	return 0;
 out_free_parameters:
-	ftype__delete(proto, btfe->priv);
+	ftype__delete(proto, cu);
 	return -ENOMEM;
 }
 
@@ -323,7 +322,7 @@ static int create_new_subroutine_type(struct btf_elf *btfe, const struct btf_typ
 	if (proto == NULL)
 		return -ENOMEM;
 
-	return btf_elf__load_ftype(btfe, proto, DW_TAG_subroutine_type, tp, id);
+	return cu__load_ftype(btfe->priv, proto, DW_TAG_subroutine_type, tp, id);
 }
 
 static int create_new_forward_decl(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
