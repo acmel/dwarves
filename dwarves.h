@@ -33,6 +33,7 @@ enum load_steal_kind {
  */
 typedef uint32_t type_id_t;
 
+struct btf;
 struct conf_fprintf;
 
 /** struct conf_load - load configuration
@@ -49,6 +50,7 @@ struct conf_load {
 	bool			extra_dbg_info;
 	bool			fixup_silly_bitfields;
 	bool			get_addr_info;
+	struct btf		*base_btf;
 	struct conf_fprintf	*conf_fprintf;
 };
 
