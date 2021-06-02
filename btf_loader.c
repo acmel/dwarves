@@ -400,7 +400,7 @@ static int create_new_tag(struct btf_elf *btfe, int type, const struct btf_type 
 	return 0;
 }
 
-static int btf_elf__load_types(struct btf_elf *btfe)
+static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 {
 	uint32_t type_index;
 	int err;
@@ -444,7 +444,7 @@ static int btf_elf__load_types(struct btf_elf *btfe)
 			err = create_new_tag(btfe, type, type_ptr, type_index);
 			break;
 		case BTF_KIND_UNKN:
-			cu__table_nullify_type_entry(btfe->priv, type_index);
+			cu__table_nullify_type_entry(cu, type_index);
 			fprintf(stderr, "BTF: idx: %d, Unknown kind %d\n", type_index, type);
 			fflush(stderr);
 			err = 0;
@@ -472,9 +472,9 @@ static int btf_elf__load_types(struct btf_elf *btfe)
 	return 0;
 }
 
-static int btf_elf__load_sections(struct btf_elf *btfe)
+static int btf_elf__load_sections(struct btf_elf *btfe, struct cu *cu)
 {
-	return btf_elf__load_types(btfe);
+	return btf_elf__load_types(btfe, cu);
 }
 
 static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu, struct btf_elf *btfe)
@@ -574,7 +574,7 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 	cu->little_endian = btf__endianness(btfe->btf) == BTF_LITTLE_ENDIAN;
 	cu->addr_size	  = btf__pointer_size(btfe->btf);
 
-	err = btf_elf__load_sections(btfe);
+	err = btf_elf__load_sections(btfe, cu);
 	if (err != 0)
 		goto out_free_cu;
 
