@@ -259,7 +259,7 @@ static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, str
 	case DW_TAG_array_type:
 		/* TODO: Encode one dimension at a time. */
 		need_index_type = true;
-		return btf_elf__add_array(btfe, ref_type_id, array_index_id, array_type__nelems(tag));
+		return btf__encode_array(btfe->btf, ref_type_id, array_index_id, array_type__nelems(tag));
 	case DW_TAG_enumeration_type:
 		return enumeration_type__encode(btfe, cu, tag);
 	case DW_TAG_subroutine_type:

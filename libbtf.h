@@ -44,8 +44,7 @@ int32_t btf__encode_base_type(struct btf *btf, const struct base_type *bt, const
 int32_t btf__encode_ref_type(struct btf *btf, uint16_t kind, uint32_t type, const char *name, bool kind_flag);
 int btf__encode_member(struct btf *btf, const char *name, uint32_t type, uint32_t bitfield_size, uint32_t bit_offset);
 int32_t btf_elf__add_struct(struct btf_elf *btf, uint8_t kind, const char *name, uint32_t size);
-int32_t btf_elf__add_array(struct btf_elf *btf, uint32_t type, uint32_t index_type,
-			   uint32_t nelems);
+int32_t btf__encode_array(struct btf *btf, uint32_t type, uint32_t index_type, uint32_t nelems);
 int32_t btf_elf__add_enum(struct btf_elf *btf, const char *name, uint32_t size);
 int btf_elf__add_enum_val(struct btf_elf *btf, const char *name, int32_t value);
 int32_t btf_elf__add_func_proto(struct btf_elf *btf, struct cu *cu, struct ftype *ftype,
