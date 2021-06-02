@@ -516,7 +516,7 @@ static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu)
 	return 0;
 }
 
-static int cu__fixup_btf_bitfields(struct cu *cu, struct btf_elf *btfe)
+static int cu__fixup_btf_bitfields(struct cu *cu)
 {
 	int err = 0;
 	struct tag *pos;
@@ -575,7 +575,7 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 	if (err != 0)
 		goto out_free_cu;
 
-	err = cu__fixup_btf_bitfields(cu, btfe);
+	err = cu__fixup_btf_bitfields(cu);
 	/*
 	 * The app stole this cu, possibly deleting it,
 	 * so forget about it
