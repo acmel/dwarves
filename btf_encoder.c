@@ -467,7 +467,7 @@ static bool has_arg_names(struct cu *cu, struct ftype *ftype)
 	return true;
 }
 
-int cu__encode_btf(struct cu *cu, int verbose, bool force,
+int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		   bool skip_encoding_vars, const char *detached_btf_filename)
 {
 	uint32_t type_id_off;

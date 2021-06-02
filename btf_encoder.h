@@ -9,11 +9,12 @@
   Copyright (C) Arnaldo Carvalho de Melo <acme@redhat.com>
  */
 
+struct btf;
 struct cu;
 
 int btf_encoder__encode(const char *filename);
 
-int cu__encode_btf(struct cu *cu, int verbose, bool force,
+int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		   bool skip_encoding_vars, const char *detached_btf_filename);
 
 #endif /* _BTF_ENCODER_H_ */
