@@ -314,14 +314,14 @@ out_free:
 	return -ENOMEM;
 }
 
-static int create_new_subroutine_type(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_subroutine_type(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct ftype *proto = tag__alloc(sizeof(*proto));
 
 	if (proto == NULL)
 		return -ENOMEM;
 
-	return cu__load_ftype(btfe->priv, proto, DW_TAG_subroutine_type, tp, id);
+	return cu__load_ftype(cu, proto, DW_TAG_subroutine_type, tp, id);
 }
 
 static int create_new_forward_decl(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
@@ -448,7 +448,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			err = 0;
 			break;
 		case BTF_KIND_FUNC_PROTO:
-			err = create_new_subroutine_type(btfe, type_ptr, type_index);
+			err = create_new_subroutine_type(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_FUNC:
 			// BTF_KIND_FUNC corresponding to a defined subprogram.
