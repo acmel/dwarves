@@ -613,10 +613,8 @@ int32_t btf__encode_func_proto(struct btf *btf, struct cu *cu, struct ftype *fty
 	return id;
 }
 
-int32_t btf_elf__add_var_type(struct btf_elf *btfe, uint32_t type, const char *name,
-			      uint32_t linkage)
+int32_t btf__encode_var_type(struct btf *btf, uint32_t type, const char *name, uint32_t linkage)
 {
-	struct btf *btf = btfe->btf;
 	const struct btf_type *t;
 	int32_t id;
 

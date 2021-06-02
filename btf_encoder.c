@@ -674,7 +674,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		}
 
 		/* add a BTF_KIND_VAR in btfe->types */
-		id = btf_elf__add_var_type(btfe, type, name, linkage);
+		id = btf__encode_var_type(btfe->btf, type, name, linkage);
 		if (id < 0) {
 			err = -1;
 			fprintf(stderr, "error: failed to encode variable '%s' at addr 0x%" PRIx64 "\n",

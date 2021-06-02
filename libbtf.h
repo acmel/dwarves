@@ -48,8 +48,7 @@ int32_t btf__encode_array(struct btf *btf, uint32_t type, uint32_t index_type, u
 int32_t btf__encode_enum(struct btf *btf, const char *name, uint32_t size);
 int btf__encode_enum_val(struct btf *btf, const char *name, int32_t value);
 int32_t btf__encode_func_proto(struct btf *btf, struct cu *cu, struct ftype *ftype, uint32_t type_id_off);
-int32_t btf_elf__add_var_type(struct btf_elf *btfe, uint32_t type, const char *name,
-			      uint32_t linkage);
+int32_t btf__encode_var_type(struct btf *btf, uint32_t type, const char *name, uint32_t linkage);
 int32_t btf_elf__add_var_secinfo(struct gobuffer *buf, uint32_t type,
 				 uint32_t offset, uint32_t size);
 int32_t btf_elf__add_datasec_type(struct btf_elf *btfe, const char *section_name,
