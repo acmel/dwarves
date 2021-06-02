@@ -90,15 +90,6 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 	}
 
 	if (gelf_getehdr(btfe->elf, &btfe->ehdr) == NULL) {
-		struct btf_header hdr;
-		if (lseek(btfe->in_fd, 0, SEEK_SET) == 0 &&
-		    read(btfe->in_fd, &hdr, sizeof(hdr)) == sizeof(hdr) &&
-		    hdr.magic == BTF_MAGIC) {
-			close(btfe->in_fd);
-			elf_end(btfe->elf);
-			btfe->in_fd = -1;
-			return btfe;
-		}
 		if (btf_elf__verbose)
 			elf_error("cannot get ELF header");
 		goto errout;
