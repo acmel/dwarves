@@ -77,7 +77,7 @@ out_free_parameters:
 	return -ENOMEM;
 }
 
-static int create_new_function(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_function(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct function *func = tag__alloc(sizeof(*func));
 
@@ -91,7 +91,7 @@ static int create_new_function(struct btf_elf *btfe, const struct btf_type *tp, 
 	func->proto.tag.type = tp->type;
 	func->name = tp->name_off;
 	INIT_LIST_HEAD(&func->lexblock.tags);
-	cu__add_tag_with_id(btfe->priv, &func->proto.tag, id);
+	cu__add_tag_with_id(cu, &func->proto.tag, id);
 
 	return 0;
 }
@@ -453,7 +453,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			break;
 		case BTF_KIND_FUNC:
 			// BTF_KIND_FUNC corresponding to a defined subprogram.
-			err = create_new_function(btfe, type_ptr, type_index);
+			err = create_new_function(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_FLOAT:
 			err = create_new_float_type(btfe, type_ptr, type_index);
