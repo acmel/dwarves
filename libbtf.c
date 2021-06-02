@@ -223,7 +223,7 @@ static void btf__log_err(const struct btf *btf, int kind, const char *name,
 }
 
 __attribute ((format (printf, 5, 6)))
-static void btf_elf__log_type(const struct btf_elf *btfe, const struct btf_type *t,
+static void btf__log_type(const struct btf *btf, const struct btf_type *t,
 			      bool err, bool output_cr, const char *fmt, ...)
 {
 	uint8_t kind;
@@ -236,8 +236,8 @@ static void btf_elf__log_type(const struct btf_elf *btfe, const struct btf_type 
 	out = err ? stderr : stdout;
 
 	fprintf(out, "[%u] %s %s",
-		btf__get_nr_types(btfe->btf), btf_kind_str[kind],
-		btf__printable_name(btfe->btf, t->name_off));
+		btf__get_nr_types(btf), btf_kind_str[kind],
+		btf__printable_name(btf, t->name_off));
 
 	if (fmt && *fmt) {
 		va_list ap;
@@ -330,7 +330,7 @@ static int32_t btf_elf__add_float_type(struct btf_elf *btfe,
 		const struct btf_type *t;
 
 		t = btf__type_by_id(btfe->btf, id);
-		btf_elf__log_type(btfe, t, false, true,
+		btf__log_type(btfe->btf, t, false, true,
 				  "size=%u nr_bits=%u",
 				  t->size, bt->bit_size);
 	}
@@ -406,7 +406,7 @@ int32_t btf_elf__add_base_type(struct btf_elf *btfe, const struct base_type *bt,
 		btf__log_err(btf, BTF_KIND_INT, name, true, "Error emitting BTF type");
 	} else {
 		t = btf__type_by_id(btf, id);
-		btf_elf__log_type(btfe, t, false, true,
+		btf__log_type(btf, t, false, true,
 				"size=%u nr_bits=%u encoding=%s%s",
 				t->size, bt->bit_size,
 				btf__int_encoding_str(encoding),
@@ -453,9 +453,9 @@ int32_t btf_elf__add_ref_type(struct btf_elf *btfe, uint16_t kind, uint32_t type
 	if (id > 0) {
 		t = btf__type_by_id(btf, id);
 		if (kind == BTF_KIND_FWD)
-			btf_elf__log_type(btfe, t, false, true, "%s", kind_flag ? "union" : "struct");
+			btf__log_type(btf, t, false, true, "%s", kind_flag ? "union" : "struct");
 		else
-			btf_elf__log_type(btfe, t, false, true, "type_id=%u", t->type);
+			btf__log_type(btf, t, false, true, "type_id=%u", t->type);
 	} else {
 		btf__log_err(btf, kind, name, true, "Error emitting BTF type");
 	}
@@ -473,7 +473,7 @@ int32_t btf_elf__add_array(struct btf_elf *btfe, uint32_t type, uint32_t index_t
 	if (id > 0) {
 		t = btf__type_by_id(btf, id);
 		array = btf_array(t);
-		btf_elf__log_type(btfe, t, false, true,
+		btf__log_type(btf, t, false, true,
 			      "type_id=%u index_type_id=%u nr_elems=%u",
 			      array->type, array->index_type, array->nelems);
 	} else {
@@ -528,7 +528,7 @@ int32_t btf_elf__add_struct(struct btf_elf *btfe, uint8_t kind, const char *name
 		btf__log_err(btf, kind, name, true, "Error emitting BTF type");
 	} else {
 		t = btf__type_by_id(btf, id);
-		btf_elf__log_type(btfe, t, false, true, "size=%u", t->size);
+		btf__log_type(btf, t, false, true, "size=%u", t->size);
 	}
 
 	return id;
@@ -544,7 +544,7 @@ int32_t btf_elf__add_enum(struct btf_elf *btfe, const char *name, uint32_t bit_s
 	id = btf__add_enum(btf, name, size);
 	if (id > 0) {
 		t = btf__type_by_id(btf, id);
-		btf_elf__log_type(btfe, t, false, true, "size=%u", t->size);
+		btf__log_type(btf, t, false, true, "size=%u", t->size);
 	} else {
 		btf__log_err(btf, BTF_KIND_ENUM, name, true,
 			      "size=%u Error emitting BTF type", size);
@@ -601,7 +601,7 @@ int32_t btf_elf__add_func_proto(struct btf_elf *btfe, struct cu *cu, struct ftyp
 	id = btf__add_func_proto(btf, type_id);
 	if (id > 0) {
 		t = btf__type_by_id(btf, id);
-		btf_elf__log_type(btfe, t, false, false, "return=%u args=(%s",
+		btf__log_type(btf, t, false, false, "return=%u args=(%s",
 			      t->type, !nr_params ? "void)\n" : "");
 	} else {
 		btf__log_err(btf, BTF_KIND_FUNC_PROTO, NULL, true,
@@ -639,7 +639,7 @@ int32_t btf_elf__add_var_type(struct btf_elf *btfe, uint32_t type, const char *n
 	id = btf__add_var(btf, name, linkage, type);
 	if (id > 0) {
 		t = btf__type_by_id(btf, id);
-		btf_elf__log_type(btfe, t, false, true, "type=%u linkage=%u",
+		btf__log_type(btf, t, false, true, "type=%u linkage=%u",
 				  t->type, btf_var(t)->linkage);
 	} else {
 		btf__log_err(btf, BTF_KIND_VAR, name, true,
@@ -684,7 +684,7 @@ int32_t btf_elf__add_datasec_type(struct btf_elf *btfe, const char *section_name
 				 datasec_sz, nr_var_secinfo);
 	} else {
 		t = btf__type_by_id(btf, id);
-		btf_elf__log_type(btfe, t, false, true, "size=%u vlen=%u",
+		btf__log_type(btf, t, false, true, "size=%u vlen=%u",
 				  t->size, nr_var_secinfo);
 	}
 
