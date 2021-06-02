@@ -14,7 +14,6 @@
 #include "lib/bpf/src/btf.h"
 
 struct btf_elf {
-	void		  *priv;
 	Elf		  *elf;
 	GElf_Ehdr	  ehdr;
 	struct elf_symtab *symtab;

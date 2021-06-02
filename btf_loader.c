@@ -561,7 +561,6 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 	cu->uses_global_strings = false;
 	cu->dfops = &btf_elf__ops;
 	cu->priv = btfe;
-	btfe->priv = cu;
 
 	err = btf_elf__load(btfe);
 	if (err != 0)
