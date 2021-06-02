@@ -215,8 +215,7 @@ static int create_new_array(struct cu *cu, const struct btf_type *tp, uint32_t i
 	return 0;
 }
 
-static int create_members(struct btf_elf *btfe, const struct btf_type *tp,
-			  struct type *class)
+static int create_members(const struct btf_type *tp, struct type *class)
 {
 	struct btf_member *mp = btf_members(tp);
 	int i, vlen = btf_vlen(tp);
@@ -243,7 +242,7 @@ static int create_members(struct btf_elf *btfe, const struct btf_type *tp,
 static int create_new_class(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
 	struct class *class = class__new(tp->name_off, tp->size, false);
-	int member_size = create_members(btfe, tp, &class->type);
+	int member_size = create_members(tp, &class->type);
 
 	if (member_size < 0)
 		goto out_free;
@@ -259,7 +258,7 @@ out_free:
 static int create_new_union(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
 {
 	struct type *un = type__new(DW_TAG_union_type, tp->name_off, tp->size);
-	int member_size = create_members(btfe, tp, un);
+	int member_size = create_members(tp, un);
 
 	if (member_size < 0)
 		goto out_free;
