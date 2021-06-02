@@ -159,7 +159,7 @@ static struct variable *variable__new(strings_t name, uint32_t linkage)
 	return var;
 }
 
-static int create_new_int_type(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_int_type(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	uint32_t attrs = btf_int_encoding(tp);
 	strings_t name = tp->name_off;
@@ -169,7 +169,7 @@ static int create_new_int_type(struct btf_elf *btfe, const struct btf_type *tp, 
 		return -ENOMEM;
 
 	base->tag.tag = DW_TAG_base_type;
-	cu__add_tag_with_id(btfe->priv, &base->tag, id);
+	cu__add_tag_with_id(cu, &base->tag, id);
 
 	return 0;
 }
@@ -410,7 +410,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 
 		switch (type) {
 		case BTF_KIND_INT:
-			err = create_new_int_type(btfe, type_ptr, type_index);
+			err = create_new_int_type(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_ARRAY:
 			err = create_new_array(btfe, type_ptr, type_index);
