@@ -21,7 +21,6 @@ struct btf_elf {
 	struct gobuffer   percpu_secinfo;
 	char		  *filename;
 	int		  in_fd;
-	uint8_t		  wordsize;
 	uint32_t	  percpu_shndx;
 	uint64_t	  percpu_base_addr;
 	uint64_t	  percpu_sec_sz;

@@ -96,7 +96,6 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 
 	if (strstarts(filename, "/sys/kernel/btf/")) {
 try_as_raw_btf:
-		btfe->wordsize = sizeof(long);
 		btf__set_endianness(btfe->btf,
 				    BYTE_ORDER == BIG_ENDIAN ? BTF_BIG_ENDIAN : BTF_LITTLE_ENDIAN);
 		return btfe;
@@ -146,12 +145,6 @@ try_as_raw_btf:
 	default:
 		fprintf(stderr, "%s: unknown ELF endianness.\n", __func__);
 		goto errout;
-	}
-
-	switch (btfe->ehdr.e_ident[EI_CLASS]) {
-	case ELFCLASS32: btfe->wordsize = 4; break;
-	case ELFCLASS64: btfe->wordsize = 8; break;
-	default:	 btfe->wordsize = 0; break;
 	}
 
 	btfe->symtab = elf_symtab__new(NULL, btfe->elf, &btfe->ehdr);
