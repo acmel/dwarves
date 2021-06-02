@@ -239,7 +239,7 @@ static int create_members(const struct btf_type *tp, struct type *class)
 	return 0;
 }
 
-static int create_new_class(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_class(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct class *class = class__new(tp->name_off, tp->size, false);
 	int member_size = create_members(tp, &class->type);
@@ -247,11 +247,11 @@ static int create_new_class(struct btf_elf *btfe, const struct btf_type *tp, uin
 	if (member_size < 0)
 		goto out_free;
 
-	cu__add_tag_with_id(btfe->priv, &class->type.namespace.tag, id);
+	cu__add_tag_with_id(cu, &class->type.namespace.tag, id);
 
 	return 0;
 out_free:
-	class__delete(class, btfe->priv);
+	class__delete(class, cu);
 	return -ENOMEM;
 }
 
@@ -415,7 +415,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			err = create_new_array(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_STRUCT:
-			err = create_new_class(btfe, type_ptr, type_index);
+			err = create_new_class(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_UNION:
 			err = create_new_union(btfe, type_ptr, type_index);
