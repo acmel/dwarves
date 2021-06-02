@@ -2457,7 +2457,7 @@ out:
 static struct type_instance *header;
 
 static enum load_steal_kind pahole_stealer(struct cu *cu,
-					   struct conf_load *conf_load __unused)
+					   struct conf_load *conf_load)
 {
 	int ret = LSK__DELETE;
 
@@ -2465,7 +2465,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto filter_it;
 
 	if (btf_encode) {
-		if (cu__encode_btf(cu, base_btf, global_verbose, btf_encode_force,
+		if (cu__encode_btf(cu, conf_load->base_btf, global_verbose, btf_encode_force,
 				   skip_encoding_btf_vars, detached_btf_filename)) {
 			fprintf(stderr, "Encountered error while encoding BTF.\n");
 			exit(1);
