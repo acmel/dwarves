@@ -49,29 +49,6 @@ static int btf_var_secinfo_cmp(const void *a, const void *b)
 	return av->offset - bv->offset;
 }
 
-static int libbpf_log(enum libbpf_print_level level, const char *format, va_list args)
-{
-	return vfprintf(stderr, format, args);
-}
-
-int btf_elf__load(struct btf_elf *btfe)
-{
-	int err;
-
-	libbpf_set_print(libbpf_log);
-
-	/* free initial empty BTF */
-	btf__free(btfe->btf);
-
-	btfe->btf = btf__parse_split(btfe->filename, btfe->base_btf);
-
-	err = libbpf_get_error(btfe->btf);
-	if (err)
-		return err;
-
-	return 0;
-}
-
 struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_btf)
 {
 	struct btf_elf *btfe = zalloc(sizeof(*btfe));

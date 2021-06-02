@@ -63,6 +63,5 @@ int32_t btf_elf__add_datasec_type(struct btf_elf *btfe, const char *section_name
 int  btf_elf__encode(struct btf_elf *btf, uint8_t flags);
 
 const char *btf_elf__string(struct btf_elf *btf, uint32_t ref);
-int btf_elf__load(struct btf_elf *btf);
 
 #endif /* _LIBBTF_H */
