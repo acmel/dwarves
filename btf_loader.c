@@ -255,7 +255,7 @@ out_free:
 	return -ENOMEM;
 }
 
-static int create_new_union(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_union(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct type *un = type__new(DW_TAG_union_type, tp->name_off, tp->size);
 	int member_size = create_members(tp, un);
@@ -263,11 +263,11 @@ static int create_new_union(struct btf_elf *btfe, const struct btf_type *tp, uin
 	if (member_size < 0)
 		goto out_free;
 
-	cu__add_tag_with_id(btfe->priv, &un->namespace.tag, id);
+	cu__add_tag_with_id(cu, &un->namespace.tag, id);
 
 	return 0;
 out_free:
-	type__delete(un, btfe->priv);
+	type__delete(un, cu);
 	return -ENOMEM;
 }
 
@@ -418,7 +418,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			err = create_new_class(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_UNION:
-			err = create_new_union(btfe, type_ptr, type_index);
+			err = create_new_union(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_ENUM:
 			err = create_new_enumeration(btfe, type_ptr, type_index);
