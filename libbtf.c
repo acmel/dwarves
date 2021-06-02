@@ -631,8 +631,8 @@ int32_t btf__encode_var_type(struct btf *btf, uint32_t type, const char *name, u
 	return id;
 }
 
-int32_t btf_elf__add_var_secinfo(struct gobuffer *buf, uint32_t type,
-				 uint32_t offset, uint32_t size)
+int32_t btf__encode_var_secinfo(struct gobuffer *buf, uint32_t type,
+				uint32_t offset, uint32_t size)
 {
 	struct btf_var_secinfo si = {
 		.type = type,
