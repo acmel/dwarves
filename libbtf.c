@@ -289,9 +289,8 @@ static void btf__log_member(const struct btf *btf,
 	fprintf(out, "\n");
 }
 
-__attribute ((format (printf, 6, 7)))
-static void btf_log_func_param(const struct btf_elf *btfe,
-			       const char *name, uint32_t type,
+__attribute ((format (printf, 5, 6)))
+static void btf__log_func_param(const char *name, uint32_t type,
 			       bool err, bool is_last_param,
 			       const char *fmt, ...)
 {
@@ -575,10 +574,10 @@ static int32_t btf_elf__add_func_proto_param(struct btf_elf *btfe, const char *n
 
 	err = btf__add_func_param(btfe->btf, name, type);
 	if (!err) {
-		btf_log_func_param(btfe, name, type, false, is_last_param, NULL);
+		btf__log_func_param(name, type, false, is_last_param, NULL);
 		return 0;
 	} else {
-		btf_log_func_param(btfe, name, type, true, is_last_param,
+		btf__log_func_param(name, type, true, is_last_param,
 				   "Error adding func param");
 		return -1;
 	}
