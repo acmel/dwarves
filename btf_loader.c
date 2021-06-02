@@ -348,7 +348,7 @@ static int create_new_typedef(struct cu *cu, const struct btf_type *tp, uint32_t
 	return 0;
 }
 
-static int create_new_variable(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_variable(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct btf_var *bvar = btf_var(tp);
 	struct variable *var = variable__new(tp->name_off, bvar->linkage);
@@ -357,7 +357,7 @@ static int create_new_variable(struct btf_elf *btfe, const struct btf_type *tp, 
 		return -ENOMEM;
 
 	var->ip.tag.type = tp->type;
-	cu__add_tag_with_id(btfe->priv, &var->ip.tag, id);
+	cu__add_tag_with_id(cu, &var->ip.tag, id);
 	return 0;
 }
 
@@ -430,7 +430,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			err = create_new_typedef(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_VAR:
-			err = create_new_variable(btfe, type_ptr, type_index);
+			err = create_new_variable(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_DATASEC:
 			err = create_new_datasec(btfe, type_ptr, type_index);
