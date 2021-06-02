@@ -567,10 +567,12 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 	if (err != 0)
 		goto out_free_cu;
 
-	cu->little_endian = btf__endianness(btfe->btf) == BTF_LITTLE_ENDIAN;
-	cu->addr_size	  = btf__pointer_size(btfe->btf);
+	struct btf *btf = btfe->btf;
 
-	err = btf__load_sections(btfe->btf, cu);
+	cu->little_endian = btf__endianness(btf) == BTF_LITTLE_ENDIAN;
+	cu->addr_size	  = btf__pointer_size(btf);
+
+	err = btf__load_sections(btf, cu);
 	if (err != 0)
 		goto out_free_cu;
 
