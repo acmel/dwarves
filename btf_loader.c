@@ -396,13 +396,13 @@ static int create_new_tag(struct cu *cu, int type, const struct btf_type *tp, ui
 	return 0;
 }
 
-static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
+static int btf__load_types(struct btf *btf, struct cu *cu)
 {
 	uint32_t type_index;
 	int err;
 
-	for (type_index = 1; type_index <= btf__get_nr_types(btfe->btf); type_index++) {
-		const struct btf_type *type_ptr = btf__type_by_id(btfe->btf, type_index);
+	for (type_index = 1; type_index <= btf__get_nr_types(btf); type_index++) {
+		const struct btf_type *type_ptr = btf__type_by_id(btf, type_index);
 		uint32_t type = btf_kind(type_ptr);
 
 		switch (type) {
@@ -470,7 +470,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 
 static int btf_elf__load_sections(struct btf_elf *btfe, struct cu *cu)
 {
-	return btf_elf__load_types(btfe, cu);
+	return btf__load_types(btfe->btf, cu);
 }
 
 static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu, struct btf_elf *btfe)
