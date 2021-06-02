@@ -361,11 +361,9 @@ static int create_new_variable(struct cu *cu, const struct btf_type *tp, uint32_
 	return 0;
 }
 
-static int create_new_datasec(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_datasec(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
-	//strings_t name = btf_elf__get32(btfe, &tp->name_off);
-
-	//cu__add_tag_with_id(btfe->priv, &datasec->tag, id);
+	//cu__add_tag_with_id(cu, &datasec->tag, id);
 
 	/*
 	 * FIXME: this will not be used to reconstruct some original C code,
@@ -433,7 +431,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			err = create_new_variable(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_DATASEC:
-			err = create_new_datasec(btfe, type_ptr, type_index);
+			err = create_new_datasec(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_VOLATILE:
 		case BTF_KIND_PTR:
