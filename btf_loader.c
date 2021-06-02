@@ -372,7 +372,7 @@ static int create_new_datasec(struct cu *cu, const struct btf_type *tp, uint32_t
 	return 0;
 }
 
-static int create_new_tag(struct btf_elf *btfe, int type, const struct btf_type *tp, uint32_t id)
+static int create_new_tag(struct cu *cu, int type, const struct btf_type *tp, uint32_t id)
 {
 	struct tag *tag = zalloc(sizeof(*tag));
 
@@ -391,7 +391,7 @@ static int create_new_tag(struct btf_elf *btfe, int type, const struct btf_type 
 	}
 
 	tag->type = tp->type;
-	cu__add_tag_with_id(btfe->priv, tag, id);
+	cu__add_tag_with_id(cu, tag, id);
 
 	return 0;
 }
@@ -437,7 +437,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 		case BTF_KIND_PTR:
 		case BTF_KIND_CONST:
 		case BTF_KIND_RESTRICT:
-			err = create_new_tag(btfe, type, type_ptr, type_index);
+			err = create_new_tag(cu, type, type_ptr, type_index);
 			break;
 		case BTF_KIND_UNKN:
 			cu__table_nullify_type_entry(cu, type_index);
