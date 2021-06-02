@@ -324,14 +324,14 @@ static int create_new_subroutine_type(struct cu *cu, const struct btf_type *tp, 
 	return cu__load_ftype(cu, proto, DW_TAG_subroutine_type, tp, id);
 }
 
-static int create_new_forward_decl(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_forward_decl(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct class *fwd = class__new(tp->name_off, 0, btf_kflag(tp));
 
 	if (fwd == NULL)
 		return -ENOMEM;
 	fwd->type.declaration = 1;
-	cu__add_tag_with_id(btfe->priv, &fwd->type.namespace.tag, id);
+	cu__add_tag_with_id(cu, &fwd->type.namespace.tag, id);
 	return 0;
 }
 
@@ -424,7 +424,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			err = create_new_enumeration(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_FWD:
-			err = create_new_forward_decl(btfe, type_ptr, type_index);
+			err = create_new_forward_decl(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_TYPEDEF:
 			err = create_new_typedef(btfe, type_ptr, type_index);
