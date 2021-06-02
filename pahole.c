@@ -2777,7 +2777,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (base_btf_file) {
-		base_btf = btf__parse(base_btf_file, NULL);
+		conf_load.base_btf = base_btf = btf__parse(base_btf_file, NULL);
 		if (libbpf_get_error(base_btf)) {
 			fprintf(stderr, "Failed to parse base BTF '%s': %ld\n",
 				base_btf_file, libbpf_get_error(base_btf));
@@ -2817,7 +2817,7 @@ try_sole_arg_as_class_names:
 		    strstarts(filename, "/sys/kernel/btf/") &&
 		    strstr(filename, "/vmlinux") == NULL) {
 			base_btf_file = "/sys/kernel/btf/vmlinux";
-			base_btf = btf__parse(base_btf_file, NULL);
+			conf_load.base_btf = base_btf = btf__parse(base_btf_file, NULL);
 			if (libbpf_get_error(base_btf)) {
 				fprintf(stderr, "Failed to parse base BTF '%s': %ld\n",
 					base_btf_file, libbpf_get_error(base_btf));
