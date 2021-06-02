@@ -226,12 +226,12 @@ static const char * const btf_kind_str[NR_BTF_KINDS] = {
 	[BTF_KIND_FLOAT]        = "FLOAT",
 };
 
-static const char *btf_elf__printable_name(const struct btf_elf *btfe, uint32_t offset)
+static const char *btf__printable_name(const struct btf *btf, uint32_t offset)
 {
 	if (!offset)
 		return "(anon)";
 	else
-		return btf__str_by_offset(btfe->btf, offset);
+		return btf__str_by_offset(btf, offset);
 }
 
 static const char * btf_elf__int_encoding_str(uint8_t encoding)
@@ -284,7 +284,7 @@ static void btf_elf__log_type(const struct btf_elf *btfe, const struct btf_type 
 
 	fprintf(out, "[%u] %s %s",
 		btf__get_nr_types(btfe->btf), btf_kind_str[kind],
-		btf_elf__printable_name(btfe, t->name_off));
+		btf__printable_name(btfe->btf, t->name_off));
 
 	if (fmt && *fmt) {
 		va_list ap;
@@ -314,13 +314,13 @@ static void btf_log_member(const struct btf_elf *btfe,
 
 	if (btf_kflag(t))
 		fprintf(out, "\t%s type_id=%u bitfield_size=%u bits_offset=%u",
-			btf_elf__printable_name(btfe, member->name_off),
+			btf__printable_name(btfe->btf, member->name_off),
 			member->type,
 			BTF_MEMBER_BITFIELD_SIZE(member->offset),
 			BTF_MEMBER_BIT_OFFSET(member->offset));
 	else
 		fprintf(out, "\t%s type_id=%u bits_offset=%u",
-			btf_elf__printable_name(btfe, member->name_off),
+			btf__printable_name(btfe->btf, member->name_off),
 			member->type,
 			member->offset);
 
@@ -544,7 +544,7 @@ int btf_elf__add_member(struct btf_elf *btfe, const char *name, uint32_t type,
 	if (err) {
 		fprintf(stderr, "[%u] %s %s's field '%s' offset=%u bit_size=%u type=%u Error emitting field\n",
 			btf__get_nr_types(btf), btf_kind_str[btf_kind(t)],
-			btf_elf__printable_name(btfe, t->name_off),
+			btf__printable_name(btf, t->name_off),
 			name, offset, bitfield_size, type);
 	} else {
 		m = &btf_members(t)[btf_vlen(t) - 1];
