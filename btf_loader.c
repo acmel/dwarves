@@ -174,7 +174,7 @@ static int create_new_int_type(struct cu *cu, const struct btf_type *tp, uint32_
 	return 0;
 }
 
-static int create_new_float_type(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_float_type(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	strings_t name = tp->name_off;
 	struct base_type *base = base_type__new(name, 0, BT_FP_SINGLE, tp->size * 8);
@@ -183,7 +183,7 @@ static int create_new_float_type(struct btf_elf *btfe, const struct btf_type *tp
 		return -ENOMEM;
 
 	base->tag.tag = DW_TAG_base_type;
-	cu__add_tag_with_id(btfe->priv, &base->tag, id);
+	cu__add_tag_with_id(cu, &base->tag, id);
 
 	return 0;
 }
@@ -456,7 +456,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			err = create_new_function(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_FLOAT:
-			err = create_new_float_type(btfe, type_ptr, type_index);
+			err = create_new_float_type(cu, type_ptr, type_index);
 			break;
 		default:
 			fprintf(stderr, "BTF: idx: %d, Unknown kind %d\n", type_index, type);
