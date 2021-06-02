@@ -24,8 +24,8 @@
 
 #include <gelf.h>
 
-#include "libbtf.h"
 #include "lib/bpf/include/uapi/linux/btf.h"
+#include "lib/bpf/src/libbpf.h"
 #include "dutil.h"
 #include "dwarves.h"
 
@@ -531,49 +531,54 @@ static int cu__fixup_btf_bitfields(struct cu *cu)
 	return err;
 }
 
-static void btf_elf__cu_delete(struct cu *cu)
+static void btf__cu_delete(struct cu *cu)
 {
-	btf_elf__delete(cu->priv);
+	btf__free(cu->priv);
 	cu->priv = NULL;
 }
 
-static const char *btf_elf__strings_ptr(const struct cu *cu, strings_t s)
+static const char *btf__strings_ptr(const struct cu *cu, strings_t s)
 {
-	return btf_elf__string(cu->priv, s);
+        const char *str = btf__str_by_offset(cu->priv, s);
+
+        return str && str[0] == '\0' ? NULL : str;
 }
 
-struct debug_fmt_ops btf_elf__ops;
+static int libbpf_log(enum libbpf_print_level level, const char *format, va_list args)
+{
+	return vfprintf(stderr, format, args);
+}
 
-int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *filename)
+struct debug_fmt_ops btf__ops;
+
+static int cus__load_btf(struct cus *cus, struct conf_load *conf, const char *filename)
 {
 	int err = -1;
-	struct btf_elf *btfe = btf_elf__new(filename, NULL, conf->base_btf);
-
-	if (btfe == NULL)
-		return -1;
 
 	// Pass a zero for addr_size, we'll get it after we load via btf__pointer_size()
 	struct cu *cu = cu__new(filename, 0, NULL, 0, filename);
 	if (cu == NULL)
-		goto out_free_btf_elf;
+		return -1;
 
 	cu->language = LANG_C;
 	cu->uses_global_strings = false;
-	cu->dfops = &btf_elf__ops;
-	cu->priv = btfe;
+	cu->dfops = &btf__ops;
 
-	err = btf_elf__load(btfe);
-	if (err != 0)
-		goto out_free_cu;
+	libbpf_set_print(libbpf_log);
 
-	struct btf *btf = btfe->btf;
+	struct btf *btf = btf__parse_split(filename, conf->base_btf);
 
+	err = libbpf_get_error(btf);
+	if (err)
+		goto out_free;
+
+	cu->priv = btf;
 	cu->little_endian = btf__endianness(btf) == BTF_LITTLE_ENDIAN;
 	cu->addr_size	  = btf__pointer_size(btf);
 
 	err = btf__load_sections(btf, cu);
 	if (err != 0)
-		goto out_free_cu;
+		goto out_free;
 
 	err = cu__fixup_btf_bitfields(cu);
 	/*
@@ -586,21 +591,14 @@ int btf_elf__load_file(struct cus *cus, struct conf_load *conf, const char *file
 	cus__add(cus, cu);
 	return err;
 
-out_free_cu:
-	cu__delete(cu);
-	/*
-	 * cu__delete() calls the per-debugginf format destructor,
-	 * btf_elf__cu_delete() in this case, and it calls btf_elf__delete(cu->priv).
-	 */
-	btfe = NULL;
-out_free_btf_elf:
-	btf_elf__delete(btfe);
+out_free:
+	cu__delete(cu); // will call btf__free(cu->priv);
 	return err;
 }
 
-struct debug_fmt_ops btf_elf__ops = {
+struct debug_fmt_ops btf__ops = {
 	.name		= "btf",
-	.load_file	= btf_elf__load_file,
-	.strings__ptr	= btf_elf__strings_ptr,
-	.cu__delete	= btf_elf__cu_delete,
+	.load_file	= cus__load_btf,
+	.strings__ptr	= btf__strings_ptr,
+	.cu__delete	= btf__cu_delete,
 };
