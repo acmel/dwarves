@@ -40,8 +40,7 @@ struct ftype;
 struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_btf);
 void btf_elf__delete(struct btf_elf *btf);
 
-int32_t btf_elf__add_base_type(struct btf_elf *btf, const struct base_type *bt,
-			       const char *name);
+int32_t btf__encode_base_type(struct btf *btf, const struct base_type *bt, const char *name);
 int32_t btf_elf__add_ref_type(struct btf_elf *btf, uint16_t kind, uint32_t type,
 			      const char *name, bool kind_flag);
 int btf_elf__add_member(struct btf_elf *btf, const char *name, uint32_t type,

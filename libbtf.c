@@ -332,10 +332,8 @@ static int32_t btf__encode_float_type(struct btf *btf, const struct base_type *b
 	return id;
 }
 
-int32_t btf_elf__add_base_type(struct btf_elf *btfe, const struct base_type *bt,
-			       const char *name)
+int32_t btf__encode_base_type(struct btf *btf, const struct base_type *bt, const char *name)
 {
-	struct btf *btf = btfe->btf;
 	const struct btf_type *t;
 	uint8_t encoding = 0;
 	uint16_t byte_sz;

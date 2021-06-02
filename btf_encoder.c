@@ -236,7 +236,7 @@ static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, str
 	switch (tag->tag) {
 	case DW_TAG_base_type:
 		name = dwarves__active_loader->strings__ptr(cu, tag__base_type(tag)->name);
-		return btf_elf__add_base_type(btfe, tag__base_type(tag), name);
+		return btf__encode_base_type(btfe->btf, tag__base_type(tag), name);
 	case DW_TAG_const_type:
 		return btf_elf__add_ref_type(btfe, BTF_KIND_CONST, ref_type_id, NULL, false);
 	case DW_TAG_pointer_type:
@@ -536,7 +536,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 
 		bt.name = 0;
 		bt.bit_size = 32;
-		btf_elf__add_base_type(btfe, &bt, "__ARRAY_SIZE_TYPE__");
+		btf__encode_base_type(btfe->btf, &bt, "__ARRAY_SIZE_TYPE__");
 		has_index_type = true;
 	}
 
