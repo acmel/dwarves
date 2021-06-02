@@ -335,7 +335,7 @@ static int create_new_forward_decl(struct cu *cu, const struct btf_type *tp, uin
 	return 0;
 }
 
-static int create_new_typedef(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_typedef(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct type *type = type__new(DW_TAG_typedef, tp->name_off, 0);
 
@@ -343,7 +343,7 @@ static int create_new_typedef(struct btf_elf *btfe, const struct btf_type *tp, u
 		return -ENOMEM;
 
 	type->namespace.tag.type = tp->type;
-	cu__add_tag_with_id(btfe->priv, &type->namespace.tag, id);
+	cu__add_tag_with_id(cu, &type->namespace.tag, id);
 
 	return 0;
 }
@@ -427,7 +427,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			err = create_new_forward_decl(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_TYPEDEF:
-			err = create_new_typedef(btfe, type_ptr, type_index);
+			err = create_new_typedef(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_VAR:
 			err = create_new_variable(btfe, type_ptr, type_index);
