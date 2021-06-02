@@ -476,10 +476,8 @@ int32_t btf_elf__add_array(struct btf_elf *btfe, uint32_t type, uint32_t index_t
 	return id;
 }
 
-int btf_elf__add_member(struct btf_elf *btfe, const char *name, uint32_t type,
-			uint32_t bitfield_size, uint32_t offset)
+int btf__encode_member(struct btf *btf, const char *name, uint32_t type, uint32_t bitfield_size, uint32_t offset)
 {
-	struct btf *btf = btfe->btf;
 	const struct btf_type *t;
 	const struct btf_member *m;
 	int err;
