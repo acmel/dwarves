@@ -253,7 +253,7 @@ static void btf__log_type(const struct btf *btf, const struct btf_type *t,
 }
 
 __attribute ((format (printf, 5, 6)))
-static void btf_log_member(const struct btf_elf *btfe,
+static void btf__log_member(const struct btf *btf,
 			   const struct btf_type *t,
 			   const struct btf_member *member,
 			   bool err, const char *fmt, ...)
@@ -267,13 +267,13 @@ static void btf_log_member(const struct btf_elf *btfe,
 
 	if (btf_kflag(t))
 		fprintf(out, "\t%s type_id=%u bitfield_size=%u bits_offset=%u",
-			btf__printable_name(btfe->btf, member->name_off),
+			btf__printable_name(btf, member->name_off),
 			member->type,
 			BTF_MEMBER_BITFIELD_SIZE(member->offset),
 			BTF_MEMBER_BIT_OFFSET(member->offset));
 	else
 		fprintf(out, "\t%s type_id=%u bits_offset=%u",
-			btf__printable_name(btfe->btf, member->name_off),
+			btf__printable_name(btf, member->name_off),
 			member->type,
 			member->offset);
 
@@ -501,7 +501,7 @@ int btf_elf__add_member(struct btf_elf *btfe, const char *name, uint32_t type,
 			name, offset, bitfield_size, type);
 	} else {
 		m = &btf_members(t)[btf_vlen(t) - 1];
-		btf_log_member(btfe, t, m, false, NULL);
+		btf__log_member(btf, t, m, false, NULL);
 	}
 	return err;
 }
