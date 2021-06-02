@@ -22,7 +22,6 @@ struct btf_elf {
 	char		  *filename;
 	int		  in_fd;
 	uint8_t		  wordsize;
-	bool		  is_big_endian;
 	uint32_t	  percpu_shndx;
 	uint64_t	  percpu_base_addr;
 	uint64_t	  percpu_sec_sz;

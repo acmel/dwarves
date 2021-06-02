@@ -97,9 +97,8 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 	if (strstarts(filename, "/sys/kernel/btf/")) {
 try_as_raw_btf:
 		btfe->wordsize = sizeof(long);
-		btfe->is_big_endian = BYTE_ORDER == BIG_ENDIAN;
 		btf__set_endianness(btfe->btf,
-				    btfe->is_big_endian ? BTF_BIG_ENDIAN : BTF_LITTLE_ENDIAN);
+				    BYTE_ORDER == BIG_ENDIAN ? BTF_BIG_ENDIAN : BTF_LITTLE_ENDIAN);
 		return btfe;
 	}
 
@@ -139,11 +138,9 @@ try_as_raw_btf:
 
 	switch (btfe->ehdr.e_ident[EI_DATA]) {
 	case ELFDATA2LSB:
-		btfe->is_big_endian = false;
 		btf__set_endianness(btfe->btf, BTF_LITTLE_ENDIAN);
 		break;
 	case ELFDATA2MSB:
-		btfe->is_big_endian = true;
 		btf__set_endianness(btfe->btf, BTF_BIG_ENDIAN);
 		break;
 	default:
