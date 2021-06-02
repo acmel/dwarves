@@ -226,7 +226,7 @@ static int32_t btf__encode_enumeration_type(struct btf *btf, struct cu *cu, stru
 
 static bool need_index_type;
 
-static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, struct btf_elf *btfe,
+static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, struct btf *btf,
 			   uint32_t array_index_id, uint32_t type_id_off)
 {
 	/* single out type 0 as it represents special type "void" */
@@ -236,34 +236,34 @@ static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, str
 	switch (tag->tag) {
 	case DW_TAG_base_type:
 		name = dwarves__active_loader->strings__ptr(cu, tag__base_type(tag)->name);
-		return btf__encode_base_type(btfe->btf, tag__base_type(tag), name);
+		return btf__encode_base_type(btf, tag__base_type(tag), name);
 	case DW_TAG_const_type:
-		return btf__encode_ref_type(btfe->btf, BTF_KIND_CONST, ref_type_id, NULL, false);
+		return btf__encode_ref_type(btf, BTF_KIND_CONST, ref_type_id, NULL, false);
 	case DW_TAG_pointer_type:
-		return btf__encode_ref_type(btfe->btf, BTF_KIND_PTR, ref_type_id, NULL, false);
+		return btf__encode_ref_type(btf, BTF_KIND_PTR, ref_type_id, NULL, false);
 	case DW_TAG_restrict_type:
-		return btf__encode_ref_type(btfe->btf, BTF_KIND_RESTRICT, ref_type_id, NULL, false);
+		return btf__encode_ref_type(btf, BTF_KIND_RESTRICT, ref_type_id, NULL, false);
 	case DW_TAG_volatile_type:
-		return btf__encode_ref_type(btfe->btf, BTF_KIND_VOLATILE, ref_type_id, NULL, false);
+		return btf__encode_ref_type(btf, BTF_KIND_VOLATILE, ref_type_id, NULL, false);
 	case DW_TAG_typedef:
 		name = dwarves__active_loader->strings__ptr(cu, tag__namespace(tag)->name);
-		return btf__encode_ref_type(btfe->btf, BTF_KIND_TYPEDEF, ref_type_id, name, false);
+		return btf__encode_ref_type(btf, BTF_KIND_TYPEDEF, ref_type_id, name, false);
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
 	case DW_TAG_class_type:
 		name = dwarves__active_loader->strings__ptr(cu, tag__namespace(tag)->name);
 		if (tag__type(tag)->declaration)
-			return btf__encode_ref_type(btfe->btf, BTF_KIND_FWD, 0, name, tag->tag == DW_TAG_union_type);
+			return btf__encode_ref_type(btf, BTF_KIND_FWD, 0, name, tag->tag == DW_TAG_union_type);
 		else
-			return btf__encode_struct_type(btfe->btf, cu, tag, type_id_off);
+			return btf__encode_struct_type(btf, cu, tag, type_id_off);
 	case DW_TAG_array_type:
 		/* TODO: Encode one dimension at a time. */
 		need_index_type = true;
-		return btf__encode_array(btfe->btf, ref_type_id, array_index_id, array_type__nelems(tag));
+		return btf__encode_array(btf, ref_type_id, array_index_id, array_type__nelems(tag));
 	case DW_TAG_enumeration_type:
-		return btf__encode_enumeration_type(btfe->btf, cu, tag);
+		return btf__encode_enumeration_type(btf, cu, tag);
 	case DW_TAG_subroutine_type:
-		return btf__encode_func_proto(btfe->btf, cu, tag__ftype(tag), type_id_off);
+		return btf__encode_func_proto(btf, cu, tag__ftype(tag), type_id_off);
 	default:
 		fprintf(stderr, "Unsupported DW_TAG_%s(0x%x)\n",
 			dwarf_tag_name(tag->tag), tag->tag);
@@ -522,7 +522,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 	}
 
 	cu__for_each_type(cu, core_id, pos) {
-		int32_t btf_type_id = tag__encode_btf(cu, pos, core_id, btfe, array_index_id, type_id_off);
+		int32_t btf_type_id = tag__encode_btf(cu, pos, core_id, btfe->btf, array_index_id, type_id_off);
 
 		if (btf_type_id < 0 ||
 		    tag__check_id_drift(pos, core_id, btf_type_id, type_id_off)) {
