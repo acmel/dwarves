@@ -203,10 +203,10 @@ static const char * btf__int_encoding_str(uint8_t encoding)
 
 
 __attribute ((format (printf, 5, 6)))
-static void btf_elf__log_err(const struct btf_elf *btfe, int kind, const char *name,
-			     bool output_cr, const char *fmt, ...)
+static void btf__log_err(const struct btf *btf, int kind, const char *name,
+			 bool output_cr, const char *fmt, ...)
 {
-	fprintf(stderr, "[%u] %s %s", btf__get_nr_types(btfe->btf) + 1,
+	fprintf(stderr, "[%u] %s %s", btf__get_nr_types(btf) + 1,
 		btf_kind_str[kind], name ?: "(anon)");
 
 	if (fmt && *fmt) {
@@ -325,7 +325,7 @@ static int32_t btf_elf__add_float_type(struct btf_elf *btfe,
 
 	id = btf__add_float(btfe->btf, name, BITS_ROUNDUP_BYTES(bt->bit_size));
 	if (id < 0) {
-		btf_elf__log_err(btfe, BTF_KIND_FLOAT, name, true, "Error emitting BTF type");
+		btf__log_err(btfe->btf, BTF_KIND_FLOAT, name, true, "Error emitting BTF type");
 	} else {
 		const struct btf_type *t;
 
@@ -403,7 +403,7 @@ int32_t btf_elf__add_base_type(struct btf_elf *btfe, const struct base_type *bt,
 
 	id = btf__add_int(btf, name, byte_sz, encoding);
 	if (id < 0) {
-		btf_elf__log_err(btfe, BTF_KIND_INT, name, true, "Error emitting BTF type");
+		btf__log_err(btf, BTF_KIND_INT, name, true, "Error emitting BTF type");
 	} else {
 		t = btf__type_by_id(btf, id);
 		btf_elf__log_type(btfe, t, false, true,
@@ -446,7 +446,7 @@ int32_t btf_elf__add_ref_type(struct btf_elf *btfe, uint16_t kind, uint32_t type
 		id = btf__add_func(btf, name, BTF_FUNC_STATIC, type);
 		break;
 	default:
-		btf_elf__log_err(btfe, kind, name, true, "Unexpected kind for reference");
+		btf__log_err(btf, kind, name, true, "Unexpected kind for reference");
 		return -1;
 	}
 
@@ -457,7 +457,7 @@ int32_t btf_elf__add_ref_type(struct btf_elf *btfe, uint16_t kind, uint32_t type
 		else
 			btf_elf__log_type(btfe, t, false, true, "type_id=%u", t->type);
 	} else {
-		btf_elf__log_err(btfe, kind, name, true, "Error emitting BTF type");
+		btf__log_err(btf, kind, name, true, "Error emitting BTF type");
 	}
 	return id;
 }
@@ -477,7 +477,7 @@ int32_t btf_elf__add_array(struct btf_elf *btfe, uint32_t type, uint32_t index_t
 			      "type_id=%u index_type_id=%u nr_elems=%u",
 			      array->type, array->index_type, array->nelems);
 	} else {
-		btf_elf__log_err(btfe, BTF_KIND_ARRAY, NULL, true,
+		btf__log_err(btf, BTF_KIND_ARRAY, NULL, true,
 			      "type_id=%u index_type_id=%u nr_elems=%u Error emitting BTF type",
 			      type, index_type, nelems);
 	}
@@ -520,12 +520,12 @@ int32_t btf_elf__add_struct(struct btf_elf *btfe, uint8_t kind, const char *name
 		id = btf__add_union(btf, name, size);
 		break;
 	default:
-		btf_elf__log_err(btfe, kind, name, true, "Unexpected kind of struct");
+		btf__log_err(btf, kind, name, true, "Unexpected kind of struct");
 		return -1;
 	}
 
 	if (id < 0) {
-		btf_elf__log_err(btfe, kind, name, true, "Error emitting BTF type");
+		btf__log_err(btf, kind, name, true, "Error emitting BTF type");
 	} else {
 		t = btf__type_by_id(btf, id);
 		btf_elf__log_type(btfe, t, false, true, "size=%u", t->size);
@@ -546,7 +546,7 @@ int32_t btf_elf__add_enum(struct btf_elf *btfe, const char *name, uint32_t bit_s
 		t = btf__type_by_id(btf, id);
 		btf_elf__log_type(btfe, t, false, true, "size=%u", t->size);
 	} else {
-		btf_elf__log_err(btfe, BTF_KIND_ENUM, name, true,
+		btf__log_err(btf, BTF_KIND_ENUM, name, true,
 			      "size=%u Error emitting BTF type", size);
 	}
 	return id;
@@ -604,7 +604,7 @@ int32_t btf_elf__add_func_proto(struct btf_elf *btfe, struct cu *cu, struct ftyp
 		btf_elf__log_type(btfe, t, false, false, "return=%u args=(%s",
 			      t->type, !nr_params ? "void)\n" : "");
 	} else {
-		btf_elf__log_err(btfe, BTF_KIND_FUNC_PROTO, NULL, true,
+		btf__log_err(btf, BTF_KIND_FUNC_PROTO, NULL, true,
 			      "return=%u vlen=%u Error emitting BTF type",
 			      type_id, nr_params);
 		return id;
@@ -642,7 +642,7 @@ int32_t btf_elf__add_var_type(struct btf_elf *btfe, uint32_t type, const char *n
 		btf_elf__log_type(btfe, t, false, true, "type=%u linkage=%u",
 				  t->type, btf_var(t)->linkage);
 	} else {
-		btf_elf__log_err(btfe, BTF_KIND_VAR, name, true,
+		btf__log_err(btf, BTF_KIND_VAR, name, true,
 			      "type=%u linkage=%u Error emitting BTF type",
 			      type, linkage);
 	}
@@ -679,7 +679,7 @@ int32_t btf_elf__add_datasec_type(struct btf_elf *btfe, const char *section_name
 
 	id = btf__add_datasec(btf, section_name, datasec_sz);
 	if (id < 0) {
-		btf_elf__log_err(btfe, BTF_KIND_DATASEC, section_name, true,
+		btf__log_err(btf, BTF_KIND_DATASEC, section_name, true,
 				 "size=%u vlen=%u Error emitting BTF type",
 				 datasec_sz, nr_var_secinfo);
 	} else {
