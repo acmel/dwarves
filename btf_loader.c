@@ -284,7 +284,7 @@ static struct enumerator *enumerator__new(strings_t name, uint32_t value)
 	return en;
 }
 
-static int create_new_enumeration(struct btf_elf *btfe, const struct btf_type *tp, uint32_t id)
+static int create_new_enumeration(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct btf_enum *ep = btf_enum(tp);
 	uint16_t i, vlen = btf_vlen(tp);
@@ -306,11 +306,11 @@ static int create_new_enumeration(struct btf_elf *btfe, const struct btf_type *t
 		enumeration__add(enumeration, enumerator);
 	}
 
-	cu__add_tag_with_id(btfe->priv, &enumeration->namespace.tag, id);
+	cu__add_tag_with_id(cu, &enumeration->namespace.tag, id);
 
 	return 0;
 out_free:
-	enumeration__delete(enumeration, btfe->priv);
+	enumeration__delete(enumeration, cu);
 	return -ENOMEM;
 }
 
@@ -421,7 +421,7 @@ static int btf_elf__load_types(struct btf_elf *btfe, struct cu *cu)
 			err = create_new_union(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_ENUM:
-			err = create_new_enumeration(btfe, type_ptr, type_index);
+			err = create_new_enumeration(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_FWD:
 			err = create_new_forward_decl(btfe, type_ptr, type_index);
