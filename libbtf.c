@@ -37,7 +37,6 @@
 #define elf_error(fmt, ...) \
 	fprintf(stderr, "%s: " fmt ": %s.\n", __func__, ##__VA_ARGS__, elf_errmsg(-1))
 
-struct btf *base_btf;
 uint8_t btf_elf__verbose;
 uint8_t btf_elf__force;
 bool btf_gen_floats = false;

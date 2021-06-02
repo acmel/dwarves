@@ -2777,10 +2777,10 @@ int main(int argc, char *argv[])
 	}
 
 	if (base_btf_file) {
-		conf_load.base_btf = base_btf = btf__parse(base_btf_file, NULL);
-		if (libbpf_get_error(base_btf)) {
+		conf_load.base_btf = btf__parse(base_btf_file, NULL);
+		if (libbpf_get_error(conf_load.base_btf)) {
 			fprintf(stderr, "Failed to parse base BTF '%s': %ld\n",
-				base_btf_file, libbpf_get_error(base_btf));
+				base_btf_file, libbpf_get_error(conf_load.base_btf));
 			goto out;
 		}
 		if (!btf_encode && !ctf_encode) {
@@ -2817,10 +2817,10 @@ try_sole_arg_as_class_names:
 		    strstarts(filename, "/sys/kernel/btf/") &&
 		    strstr(filename, "/vmlinux") == NULL) {
 			base_btf_file = "/sys/kernel/btf/vmlinux";
-			conf_load.base_btf = base_btf = btf__parse(base_btf_file, NULL);
-			if (libbpf_get_error(base_btf)) {
+			conf_load.base_btf = btf__parse(base_btf_file, NULL);
+			if (libbpf_get_error(conf_load.base_btf)) {
 				fprintf(stderr, "Failed to parse base BTF '%s': %ld\n",
-					base_btf_file, libbpf_get_error(base_btf));
+					base_btf_file, libbpf_get_error(conf_load.base_btf));
 				goto out;
 			}
 		}
@@ -2894,7 +2894,8 @@ out_cus_delete:
 #ifdef DEBUG_CHECK_LEAKS
 	cus__delete(cus);
 	structures__delete();
-	btf__free(base_btf);
+	btf__free(conf_load.base_btf);
+	conf_load.base_btf = NULL;
 #endif
 out_dwarves_exit:
 #ifdef DEBUG_CHECK_LEAKS

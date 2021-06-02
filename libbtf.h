@@ -28,7 +28,6 @@ struct btf_elf {
 	struct btf	  *base_btf;
 };
 
-extern struct btf *base_btf;
 extern uint8_t btf_elf__verbose;
 extern uint8_t btf_elf__force;
 #define btf_elf__verbose_log(fmt, ...) { if (btf_elf__verbose) printf(fmt, __VA_ARGS__); }
