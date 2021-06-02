@@ -63,7 +63,6 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 	if (btfe->filename == NULL)
 		goto errout;
 
-	btfe->base_btf = base_btf;
 	btfe->btf = btf__new_empty_split(base_btf);
 	if (libbpf_get_error(btfe->btf)) {
 		fprintf(stderr, "%s: failed to create empty BTF.\n", __func__);

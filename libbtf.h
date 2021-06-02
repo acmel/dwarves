@@ -24,7 +24,6 @@ struct btf_elf {
 	uint64_t	  percpu_base_addr;
 	uint64_t	  percpu_sec_sz;
 	struct btf	  *btf;
-	struct btf	  *base_btf;
 };
 
 extern uint8_t btf_elf__verbose;
