@@ -521,9 +521,8 @@ int32_t btf__encode_struct(struct btf *btf, uint8_t kind, const char *name, uint
 	return id;
 }
 
-int32_t btf_elf__add_enum(struct btf_elf *btfe, const char *name, uint32_t bit_size)
+int32_t btf__encode_enum(struct btf *btf, const char *name, uint32_t bit_size)
 {
-	struct btf *btf = btfe->btf;
 	const struct btf_type *t;
 	int32_t id, size;
 
@@ -539,9 +538,8 @@ int32_t btf_elf__add_enum(struct btf_elf *btfe, const char *name, uint32_t bit_s
 	return id;
 }
 
-int btf_elf__add_enum_val(struct btf_elf *btfe, const char *name, int32_t value)
+int btf__encode_enum_val(struct btf *btf, const char *name, int32_t value)
 {
-	struct btf *btf = btfe->btf;
 	int err;
 
 	err = btf__add_enum_value(btf, name, value);

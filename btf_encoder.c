@@ -206,18 +206,19 @@ static uint32_t array_type__nelems(struct tag *tag)
 static int32_t enumeration_type__encode(struct btf_elf *btfe, struct cu *cu, struct tag *tag)
 {
 	struct type *etype = tag__type(tag);
+	struct btf *btf = btfe->btf;
 	struct enumerator *pos;
 	const char *name;
 	int32_t type_id;
 
 	name = dwarves__active_loader->strings__ptr(cu, etype->namespace.name);
-	type_id = btf_elf__add_enum(btfe, name, etype->size);
+	type_id = btf__encode_enum(btf, name, etype->size);
 	if (type_id < 0)
 		return type_id;
 
 	type__for_each_enumerator(etype, pos) {
 		name = dwarves__active_loader->strings__ptr(cu, pos->name);
-		if (btf_elf__add_enum_val(btfe, name, pos->value))
+		if (btf__encode_enum_val(btf, name, pos->value))
 			return -1;
 	}
 
