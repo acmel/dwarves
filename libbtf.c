@@ -408,10 +408,9 @@ int32_t btf__encode_base_type(struct btf *btf, const struct base_type *bt, const
 	return id;
 }
 
-int32_t btf_elf__add_ref_type(struct btf_elf *btfe, uint16_t kind, uint32_t type,
-			      const char *name, bool kind_flag)
+int32_t btf__encode_ref_type(struct btf *btf, uint16_t kind, uint32_t type,
+			     const char *name, bool kind_flag)
 {
-	struct btf *btf = btfe->btf;
 	const struct btf_type *t;
 	int32_t id;
 

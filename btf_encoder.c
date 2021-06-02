@@ -238,22 +238,22 @@ static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, str
 		name = dwarves__active_loader->strings__ptr(cu, tag__base_type(tag)->name);
 		return btf__encode_base_type(btfe->btf, tag__base_type(tag), name);
 	case DW_TAG_const_type:
-		return btf_elf__add_ref_type(btfe, BTF_KIND_CONST, ref_type_id, NULL, false);
+		return btf__encode_ref_type(btfe->btf, BTF_KIND_CONST, ref_type_id, NULL, false);
 	case DW_TAG_pointer_type:
-		return btf_elf__add_ref_type(btfe, BTF_KIND_PTR, ref_type_id, NULL, false);
+		return btf__encode_ref_type(btfe->btf, BTF_KIND_PTR, ref_type_id, NULL, false);
 	case DW_TAG_restrict_type:
-		return btf_elf__add_ref_type(btfe, BTF_KIND_RESTRICT, ref_type_id, NULL, false);
+		return btf__encode_ref_type(btfe->btf, BTF_KIND_RESTRICT, ref_type_id, NULL, false);
 	case DW_TAG_volatile_type:
-		return btf_elf__add_ref_type(btfe, BTF_KIND_VOLATILE, ref_type_id, NULL, false);
+		return btf__encode_ref_type(btfe->btf, BTF_KIND_VOLATILE, ref_type_id, NULL, false);
 	case DW_TAG_typedef:
 		name = dwarves__active_loader->strings__ptr(cu, tag__namespace(tag)->name);
-		return btf_elf__add_ref_type(btfe, BTF_KIND_TYPEDEF, ref_type_id, name, false);
+		return btf__encode_ref_type(btfe->btf, BTF_KIND_TYPEDEF, ref_type_id, name, false);
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
 	case DW_TAG_class_type:
 		name = dwarves__active_loader->strings__ptr(cu, tag__namespace(tag)->name);
 		if (tag__type(tag)->declaration)
-			return btf_elf__add_ref_type(btfe, BTF_KIND_FWD, 0, name, tag->tag == DW_TAG_union_type);
+			return btf__encode_ref_type(btfe->btf, BTF_KIND_FWD, 0, name, tag->tag == DW_TAG_union_type);
 		else
 			return structure_type__encode(btfe, cu, tag, type_id_off);
 	case DW_TAG_array_type:
@@ -574,7 +574,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 
 		btf_fnproto_id = btf_elf__add_func_proto(btfe, cu, &fn->proto, type_id_off);
 		name = dwarves__active_loader->strings__ptr(cu, fn->name);
-		btf_fn_id = btf_elf__add_ref_type(btfe, BTF_KIND_FUNC, btf_fnproto_id, name, false);
+		btf_fn_id = btf__encode_ref_type(btfe->btf, BTF_KIND_FUNC, btf_fnproto_id, name, false);
 		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
 			err = -1;
 			printf("error: failed to encode function '%s'\n", function__name(fn, cu));
