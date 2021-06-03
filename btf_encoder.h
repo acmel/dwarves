@@ -17,6 +17,7 @@ struct btf;
 struct btf_elf;
 struct cu;
 struct elf_symtab;
+struct elf_function;
 
 #define MAX_PERCPU_VAR_CNT 4096
 
@@ -41,6 +42,11 @@ struct btf_encoder {
 		uint64_t	base_addr;
 		uint64_t	sec_sz;
 	} percpu;
+	struct {
+		struct elf_function *entries;
+		int		    allocated;
+		int		    cnt;
+	} functions;
 };
 
 struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool verbose);

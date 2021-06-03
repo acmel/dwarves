@@ -50,23 +50,12 @@ struct elf_function {
 	bool		 generated;
 };
 
-static struct elf_function *functions;
-static int functions_alloc;
-static int functions_cnt;
-
 static int functions_cmp(const void *_a, const void *_b)
 {
 	const struct elf_function *a = _a;
 	const struct elf_function *b = _b;
 
 	return strcmp(a->name, b->name);
-}
-
-static void delete_functions(void)
-{
-	free(functions);
-	functions_alloc = functions_cnt = 0;
-	functions = NULL;
 }
 
 #ifndef max
@@ -84,9 +73,9 @@ static int btf_encoder__collect_function(struct btf_encoder *encoder, GElf_Sym *
 	if (!name)
 		return 0;
 
-	if (functions_cnt == functions_alloc) {
-		functions_alloc = max(1000, functions_alloc * 3 / 2);
-		new = realloc(functions, functions_alloc * sizeof(*functions));
+	if (encoder->functions.cnt == encoder->functions.allocated) {
+		encoder->functions.allocated = max(1000, encoder->functions.allocated * 3 / 2);
+		new = realloc(encoder->functions.entries, encoder->functions.allocated * sizeof(*encoder->functions.entries));
 		if (!new) {
 			/*
 			 * The cleanup - delete_functions is called
@@ -94,22 +83,20 @@ static int btf_encoder__collect_function(struct btf_encoder *encoder, GElf_Sym *
 			 */
 			return -1;
 		}
-		functions = new;
+		encoder->functions.entries = new;
 	}
 
-	functions[functions_cnt].name = name;
-	functions[functions_cnt].generated = false;
-	functions_cnt++;
+	encoder->functions.entries[encoder->functions.cnt].name = name;
+	encoder->functions.entries[encoder->functions.cnt].generated = false;
+	encoder->functions.cnt++;
 	return 0;
 }
 
-static struct elf_function *find_function(const struct btf_elf *btfe,
-					  const char *name)
+static struct elf_function *btf_encoder__find_function(const struct btf_encoder *encoder, const char *name)
 {
 	struct elf_function key = { .name = name };
 
-	return bsearch(&key, functions, functions_cnt, sizeof(functions[0]),
-		       functions_cmp);
+	return bsearch(&key, encoder->functions.entries, encoder->functions.cnt, sizeof(key), functions_cmp);
 }
 
 static bool btf_name_char_ok(char c, bool first)
@@ -338,7 +325,6 @@ int btf_encoder__encode(const char *filename)
 	else
 		err = btf__encode_as_raw_file(encoder->btfe->btf, filename);
 
-	delete_functions();
 	btf_encoder__delete(encoder);
 	encoder = NULL;
 
@@ -436,11 +422,11 @@ static int btf_encoder__collect_symbols(struct btf_encoder *encoder, bool collec
 			printf("Found %d per-CPU variables!\n", encoder->percpu.var_cnt);
 	}
 
-	if (functions_cnt) {
-		qsort(functions, functions_cnt, sizeof(functions[0]),
+	if (encoder->functions.cnt) {
+		qsort(encoder->functions.entries, encoder->functions.cnt, sizeof(encoder->functions.entries[0]),
 		      functions_cmp);
 		if (encoder->verbose)
-			printf("Found %d functions!\n", functions_cnt);
+			printf("Found %d functions!\n", encoder->functions.cnt);
 	}
 
 	return 0;
@@ -528,6 +514,11 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	btf_elf__delete(encoder->btfe);
 	encoder->btfe = NULL;
 	elf_symtab__delete(encoder->symtab);
+
+	encoder->functions.allocated = encoder->functions.cnt = 0;
+	free(encoder->functions.entries);
+	encoder->functions.entries = NULL;
+
 	free(encoder);
 }
 
@@ -615,7 +606,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 			continue;
 		if (!has_arg_names(cu, &fn->proto))
 			continue;
-		if (functions_cnt) {
+		if (encoder->functions.cnt) {
 			struct elf_function *func;
 			const char *name;
 
@@ -623,7 +614,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 			if (!name)
 				continue;
 
-			func = find_function(encoder->btfe, name);
+			func = btf_encoder__find_function(encoder, name);
 			if (!func || func->generated)
 				continue;
 			func->generated = true;
@@ -756,7 +747,6 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 
 out:
 	if (err) {
-		delete_functions();
 		btf_encoder__delete(encoder);
 		encoder = NULL;
 	}
