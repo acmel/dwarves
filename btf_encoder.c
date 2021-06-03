@@ -418,8 +418,9 @@ static int collect_percpu_var(struct btf_elf *btfe, GElf_Sym *sym,
 	return 0;
 }
 
-static int collect_symbols(struct btf_elf *btfe, bool collect_percpu_vars)
+static int btf_encoder__collect_symbols(struct btf_encoder *encoder, bool collect_percpu_vars)
 {
+	struct btf_elf *btfe = encoder->btfe;
 	Elf32_Word sym_sec_idx;
 	uint32_t core_id;
 	GElf_Sym sym;
@@ -524,7 +525,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		if (encoder == NULL)
 			goto out;
 
-		err = collect_symbols(encoder->btfe, !skip_encoding_vars);
+		err = btf_encoder__collect_symbols(encoder, !skip_encoding_vars);
 		if (err)
 			goto out;
 
