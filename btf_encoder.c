@@ -63,14 +63,14 @@ static void delete_functions(void)
 #define max(x, y) ((x) < (y) ? (y) : (x))
 #endif
 
-static int collect_function(struct btf_elf *btfe, GElf_Sym *sym)
+static int btf_encoder__collect_function(struct btf_encoder *encoder, GElf_Sym *sym)
 {
 	struct elf_function *new;
 	const char *name;
 
 	if (elf_sym__type(sym) != STT_FUNC)
 		return 0;
-	name = elf_sym__name(sym, btfe->symtab);
+	name = elf_sym__name(sym, encoder->btfe->symtab);
 	if (!name)
 		return 0;
 
@@ -432,7 +432,7 @@ static int btf_encoder__collect_symbols(struct btf_encoder *encoder, bool collec
 	elf_symtab__for_each_symbol_index(btfe->symtab, core_id, sym, sym_sec_idx) {
 		if (collect_percpu_vars && btf_encoder__collect_percpu_var(encoder, &sym, sym_sec_idx))
 			return -1;
-		if (collect_function(btfe, &sym))
+		if (btf_encoder__collect_function(encoder, &sym))
 			return -1;
 	}
 
