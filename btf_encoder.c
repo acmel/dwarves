@@ -224,8 +224,6 @@ static int32_t btf__encode_enumeration_type(struct btf *btf, struct cu *cu, stru
 	return type_id;
 }
 
-static bool need_index_type;
-
 static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, struct tag *tag,
 				   uint32_t core_id, uint32_t array_index_id,
 				   uint32_t type_id_off)
@@ -260,7 +258,7 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 			return btf__encode_struct_type(btf, cu, tag, type_id_off);
 	case DW_TAG_array_type:
 		/* TODO: Encode one dimension at a time. */
-		need_index_type = true;
+		encoder->need_index_type = true;
 		return btf__encode_array(btf, ref_type_id, array_index_id, array_type__nelems(tag));
 	case DW_TAG_enumeration_type:
 		return btf__encode_enumeration_type(btf, cu, tag);
@@ -478,6 +476,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 			goto out_delete;
 
 		encoder->has_index_type  = false;
+		encoder->need_index_type = false;
 	}
 
 	return encoder;
@@ -529,7 +528,6 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		if (err)
 			goto out;
 
-		need_index_type = false;
 		array_index_id = 0;
 
 		if (verbose)
@@ -560,7 +558,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		}
 	}
 
-	if (need_index_type && !encoder->has_index_type) {
+	if (encoder->need_index_type && !encoder->has_index_type) {
 		struct base_type bt = {};
 
 		bt.name = 0;
