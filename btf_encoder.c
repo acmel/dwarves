@@ -380,13 +380,13 @@ static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym
 	sym_name = elf_sym__name(sym, btfe->symtab);
 	if (!btf_name_valid(sym_name)) {
 		dump_invalid_symbol("Found symbol of invalid name when encoding btf",
-				    sym_name, btf_elf__verbose, btf_elf__force);
+				    sym_name, encoder->verbose, btf_elf__force);
 		if (btf_elf__force)
 			return 0;
 		return -1;
 	}
 
-	if (btf_elf__verbose)
+	if (encoder->verbose)
 		printf("Found per-CPU symbol '%s' at address 0x%" PRIx64 "\n", sym_name, addr);
 
 	if (encoder->percpu.var_cnt == MAX_PERCPU_VAR_CNT) {
@@ -424,14 +424,14 @@ static int btf_encoder__collect_symbols(struct btf_encoder *encoder, bool collec
 		if (encoder->percpu.var_cnt)
 			qsort(encoder->percpu.vars, encoder->percpu.var_cnt, sizeof(encoder->percpu.vars[0]), percpu_var_cmp);
 
-		if (btf_elf__verbose)
+		if (encoder->verbose)
 			printf("Found %d per-CPU variables!\n", encoder->percpu.var_cnt);
 	}
 
 	if (functions_cnt) {
 		qsort(functions, functions_cnt, sizeof(functions[0]),
 		      functions_cmp);
-		if (btf_elf__verbose)
+		if (encoder->verbose)
 			printf("Found %d functions!\n", functions_cnt);
 	}
 
@@ -451,7 +451,7 @@ static bool has_arg_names(struct cu *cu, struct ftype *ftype)
 	return true;
 }
 
-struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars)
+struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool verbose)
 {
 	struct btf_encoder *encoder = zalloc(sizeof(*encoder));
 
@@ -460,6 +460,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		if (encoder->btfe == NULL)
 			goto out_delete;
 
+		encoder->verbose	 = verbose;
 		encoder->has_index_type  = false;
 		encoder->need_index_type = false;
 		encoder->array_index_id  = 0;
@@ -506,7 +507,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 	}
 
 	if (!encoder) {
-		encoder = btf_encoder__new(cu, base_btf, skip_encoding_vars);
+		encoder = btf_encoder__new(cu, base_btf, skip_encoding_vars, verbose);
 		if (encoder == NULL)
 			goto out;
 
@@ -599,7 +600,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 	if (encoder->btfe->percpu_shndx == 0 || !encoder->btfe->symtab)
 		goto out;
 
-	if (verbose)
+	if (encoder->verbose)
 		printf("search cu '%s' for percpu global variables.\n", cu->name);
 
 	cu__for_each_variable(cu, core_id, pos) {
@@ -670,7 +671,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 
 		tag = cu__type(cu, var->ip.tag.type);
 		if (tag__size(tag, cu) == 0) {
-			if (btf_elf__verbose)
+			if (encoder->verbose)
 				fprintf(stderr, "Ignoring zero-sized per-CPU variable '%s'...\n", dwarf_name ?: "<missing name>");
 			continue;
 		}
@@ -678,7 +679,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		type = var->ip.tag.type + type_id_off;
 		linkage = var->external ? BTF_VAR_GLOBAL_ALLOCATED : BTF_VAR_STATIC;
 
-		if (btf_elf__verbose) {
+		if (encoder->verbose) {
 			printf("Variable '%s' from CU '%s' at address 0x%" PRIx64 " encoded\n",
 			       name, cu->name, addr);
 		}
