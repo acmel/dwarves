@@ -366,7 +366,7 @@ static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym
 	uint32_t size;
 
 	/* compare a symbol's shndx to determine if it's a percpu variable */
-	if (sym_sec_idx != btfe->percpu_shndx)
+	if (sym_sec_idx != encoder->percpu.shndx)
 		return 0;
 	if (elf_sym__type(sym) != STT_OBJECT)
 		return 0;
@@ -464,6 +464,20 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		encoder->has_index_type  = false;
 		encoder->need_index_type = false;
 		encoder->array_index_id  = 0;
+
+		/* find percpu section's shndx */
+
+		GElf_Shdr shdr;
+		Elf_Scn *sec = elf_section_by_name(cu->elf, &encoder->btfe->ehdr, &shdr, PERCPU_SECTION, NULL);
+
+		if (!sec) {
+			if (encoder->verbose)
+				printf("%s: '%s' doesn't have '%s' section\n", __func__, encoder->btfe->filename, PERCPU_SECTION);
+		} else {
+			encoder->percpu.shndx	  = elf_ndxscn(sec);
+			encoder->percpu.base_addr = shdr.sh_addr;
+			encoder->percpu.sec_sz	  = shdr.sh_size;
+		}
 	}
 
 	return encoder;
@@ -597,7 +611,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 	if (skip_encoding_vars)
 		goto out;
 
-	if (encoder->btfe->percpu_shndx == 0 || !encoder->btfe->symtab)
+	if (encoder->percpu.shndx == 0 || !encoder->btfe->symtab)
 		goto out;
 
 	if (encoder->verbose)
@@ -628,9 +642,9 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		 * section start), so to match DWARF and ELF symbols we need
 		 * to negate the section base address here.
 		 */
-		if (addr < encoder->btfe->percpu_base_addr || addr >= encoder->btfe->percpu_base_addr + encoder->btfe->percpu_sec_sz)
+		if (addr < encoder->percpu.base_addr || addr >= encoder->percpu.base_addr + encoder->percpu.sec_sz)
 			continue;
-		addr -= encoder->btfe->percpu_base_addr;
+		addr -= encoder->percpu.base_addr;
 
 		if (!btf_encoder__percpu_var_exists(encoder, addr, &size, &name))
 			continue; /* not a per-CPU variable */

@@ -52,8 +52,6 @@ static int btf_var_secinfo_cmp(const void *a, const void *b)
 struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_btf)
 {
 	struct btf_elf *btfe = zalloc(sizeof(*btfe));
-	GElf_Shdr shdr;
-	Elf_Scn *sec;
 
 	if (!btfe)
 		return NULL;
@@ -113,19 +111,6 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 			       btfe->filename);
 		return btfe;
 	}
-
-	/* find percpu section's shndx */
-	sec = elf_section_by_name(btfe->elf, &btfe->ehdr, &shdr, PERCPU_SECTION,
-				  NULL);
-	if (!sec) {
-		if (btf_elf__verbose)
-			printf("%s: '%s' doesn't have '%s' section\n", __func__,
-			       btfe->filename, PERCPU_SECTION);
-		return btfe;
-	}
-	btfe->percpu_shndx = elf_ndxscn(sec);
-	btfe->percpu_base_addr = shdr.sh_addr;
-	btfe->percpu_sec_sz = shdr.sh_size;
 
 	return btfe;
 

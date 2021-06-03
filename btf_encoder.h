@@ -33,6 +33,9 @@ struct btf_encoder {
 	struct {
 		struct var_info vars[MAX_PERCPU_VAR_CNT];
 		int		var_cnt;
+		uint32_t	shndx;
+		uint64_t	base_addr;
+		uint64_t	sec_sz;
 	} percpu;
 };
 
