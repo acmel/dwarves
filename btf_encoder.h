@@ -11,6 +11,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <gelf.h>
 
 struct btf;
 struct btf_elf;
@@ -28,6 +29,7 @@ struct var_info {
 struct btf_encoder {
 	struct btf_elf *btfe;
 	struct elf_symtab *symtab;
+	GElf_Ehdr	  ehdr;
 	bool		  has_index_type,
 			  need_index_type,
 			  verbose;

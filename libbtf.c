@@ -86,24 +86,6 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 		}
 	}
 
-	if (gelf_getehdr(btfe->elf, &btfe->ehdr) == NULL) {
-		if (btf_elf__verbose)
-			elf_error("cannot get ELF header");
-		goto errout;
-	}
-
-	switch (btfe->ehdr.e_ident[EI_DATA]) {
-	case ELFDATA2LSB:
-		btf__set_endianness(btfe->btf, BTF_LITTLE_ENDIAN);
-		break;
-	case ELFDATA2MSB:
-		btf__set_endianness(btfe->btf, BTF_BIG_ENDIAN);
-		break;
-	default:
-		fprintf(stderr, "%s: unknown ELF endianness.\n", __func__);
-		goto errout;
-	}
-
 	return btfe;
 
 errout:

@@ -30,6 +30,16 @@
 #include <errno.h>
 
 /*
+ * This depends on the GNU extension to eliminate the stray comma in the zero
+ * arguments case.
+ *
+ * The difference between elf_errmsg(-1) and elf_errmsg(elf_errno()) is that the
+ * latter clears the current error.
+ */
+#define elf_error(fmt, ...) \
+        fprintf(stderr, "%s: " fmt ": %s.\n", __func__, ##__VA_ARGS__, elf_errmsg(-1))
+
+/*
  * This corresponds to the same macro defined in
  * include/linux/kallsyms.h
  */
@@ -463,7 +473,25 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		encoder->need_index_type = false;
 		encoder->array_index_id  = 0;
 
-		encoder->symtab = elf_symtab__new(NULL, cu->elf, &encoder->btfe->ehdr);
+		if (gelf_getehdr(cu->elf, &encoder->ehdr) == NULL) {
+			if (encoder->verbose)
+				elf_error("cannot get ELF header");
+			goto out_delete;
+		}
+
+		switch (encoder->ehdr.e_ident[EI_DATA]) {
+		case ELFDATA2LSB:
+			btf__set_endianness(encoder->btfe->btf, BTF_LITTLE_ENDIAN);
+			break;
+		case ELFDATA2MSB:
+			btf__set_endianness(encoder->btfe->btf, BTF_BIG_ENDIAN);
+			break;
+		default:
+			fprintf(stderr, "%s: unknown ELF endianness.\n", __func__);
+			goto out_delete;
+		}
+
+		encoder->symtab = elf_symtab__new(NULL, cu->elf, &encoder->ehdr);
 		if (!encoder->symtab) {
 			if (encoder->verbose)
 				printf("%s: '%s' doesn't have symtab.\n", __func__, encoder->btfe->filename);
@@ -473,7 +501,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		/* find percpu section's shndx */
 
 		GElf_Shdr shdr;
-		Elf_Scn *sec = elf_section_by_name(cu->elf, &encoder->btfe->ehdr, &shdr, PERCPU_SECTION, NULL);
+		Elf_Scn *sec = elf_section_by_name(cu->elf, &encoder->ehdr, &shdr, PERCPU_SECTION, NULL);
 
 		if (!sec) {
 			if (encoder->verbose)
