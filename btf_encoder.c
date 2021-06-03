@@ -273,7 +273,6 @@ static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, str
 
 static struct btf_encoder *encoder;
 static uint32_t array_index_id;
-static bool has_index_type;
 
 static int btf__encode_as_raw_file(struct btf *btf, const char *filename)
 {
@@ -475,6 +474,8 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		encoder->btfe = btf_elf__new(cu->filename, cu->elf, base_btf);
 		if (encoder->btfe == NULL)
 			goto out_delete;
+
+		encoder->has_index_type  = false;
 	}
 
 	return encoder;
@@ -526,7 +527,6 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		if (err)
 			goto out;
 
-		has_index_type = false;
 		need_index_type = false;
 		array_index_id = 0;
 
@@ -536,14 +536,14 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 
 	type_id_off = btf__get_nr_types(encoder->btfe->btf);
 
-	if (!has_index_type) {
+	if (!encoder->has_index_type) {
 		/* cu__find_base_type_by_name() takes "type_id_t *id" */
 		type_id_t id;
 		if (cu__find_base_type_by_name(cu, "int", &id)) {
-			has_index_type = true;
+			encoder->has_index_type = true;
 			array_index_id = type_id_off + id;
 		} else {
-			has_index_type = false;
+			encoder->has_index_type = false;
 			array_index_id = type_id_off + cu->types_table.nr_entries;
 		}
 	}
@@ -558,13 +558,13 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		}
 	}
 
-	if (need_index_type && !has_index_type) {
+	if (need_index_type && !encoder->has_index_type) {
 		struct base_type bt = {};
 
 		bt.name = 0;
 		bt.bit_size = 32;
 		btf__encode_base_type(encoder->btfe->btf, &bt, "__ARRAY_SIZE_TYPE__");
-		has_index_type = true;
+		encoder->has_index_type = true;
 	}
 
 	cu__for_each_function(cu, core_id, fn) {

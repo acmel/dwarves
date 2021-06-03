@@ -9,12 +9,15 @@
   Copyright (C) Arnaldo Carvalho de Melo <acme@redhat.com>
  */
 
+#include <stdbool.h>
+
 struct btf;
 struct btf_elf;
 struct cu;
 
 struct btf_encoder {
 	struct btf_elf *btfe;
+	bool has_index_type;
 };
 
 struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars);
