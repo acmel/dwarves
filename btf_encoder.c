@@ -374,9 +374,9 @@ static bool percpu_var_exists(uint64_t addr, uint32_t *sz, const char **name)
 	return true;
 }
 
-static int collect_percpu_var(struct btf_elf *btfe, GElf_Sym *sym,
-			      size_t sym_sec_idx)
+static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym *sym, size_t sym_sec_idx)
 {
+	struct btf_elf *btfe = encoder->btfe;
 	const char *sym_name;
 	uint64_t addr;
 	uint32_t size;
@@ -430,7 +430,7 @@ static int btf_encoder__collect_symbols(struct btf_encoder *encoder, bool collec
 
 	/* search within symtab for percpu variables */
 	elf_symtab__for_each_symbol_index(btfe->symtab, core_id, sym, sym_sec_idx) {
-		if (collect_percpu_vars && collect_percpu_var(btfe, &sym, sym_sec_idx))
+		if (collect_percpu_vars && btf_encoder__collect_percpu_var(encoder, &sym, sym_sec_idx))
 			return -1;
 		if (collect_function(btfe, &sym))
 			return -1;
