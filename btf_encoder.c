@@ -226,11 +226,13 @@ static int32_t btf__encode_enumeration_type(struct btf *btf, struct cu *cu, stru
 
 static bool need_index_type;
 
-static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, struct btf *btf,
-			   uint32_t array_index_id, uint32_t type_id_off)
+static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, struct tag *tag,
+				   uint32_t core_id, uint32_t array_index_id,
+				   uint32_t type_id_off)
 {
 	/* single out type 0 as it represents special type "void" */
 	uint32_t ref_type_id = tag->type == 0 ? 0 : type_id_off + tag->type;
+	struct btf *btf = encoder->btfe->btf;
 	const char *name;
 
 	switch (tag->tag) {
@@ -549,7 +551,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 	}
 
 	cu__for_each_type(cu, core_id, pos) {
-		int32_t btf_type_id = tag__encode_btf(cu, pos, core_id, encoder->btfe->btf, array_index_id, type_id_off);
+		int32_t btf_type_id = btf_encoder__encode_tag(encoder, cu, pos, core_id, array_index_id, type_id_off);
 
 		if (btf_type_id < 0 ||
 		    tag__check_id_drift(pos, core_id, btf_type_id, type_id_off)) {
