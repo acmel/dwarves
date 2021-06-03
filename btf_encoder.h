@@ -10,7 +10,15 @@
  */
 
 struct btf;
+struct btf_elf;
 struct cu;
+
+struct btf_encoder {
+	struct btf_elf *btfe;
+};
+
+struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars);
+void btf_encoder__delete(struct btf_encoder *encoder);
 
 int btf_encoder__encode(const char *filename);
 

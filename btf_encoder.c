@@ -271,7 +271,7 @@ static int tag__encode_btf(struct cu *cu, struct tag *tag, uint32_t core_id, str
 	}
 }
 
-static struct btf_elf *btfe;
+static struct btf_encoder *encoder;
 static uint32_t array_index_id;
 static bool has_index_type;
 
@@ -323,17 +323,17 @@ int btf_encoder__encode(const char *filename)
 {
 	int err;
 
-	if (gobuffer__size(&btfe->percpu_secinfo) != 0)
-		btf__encode_datasec_type(btfe->btf, PERCPU_SECTION, &btfe->percpu_secinfo);
+	if (gobuffer__size(&encoder->btfe->percpu_secinfo) != 0)
+		btf__encode_datasec_type(encoder->btfe->btf, PERCPU_SECTION, &encoder->btfe->percpu_secinfo);
 
 	if (filename == NULL)
-		err = btf_elf__encode(btfe, 0);
+		err = btf_elf__encode(encoder->btfe, 0);
 	else
-		err = btf__encode_as_raw_file(btfe->btf, filename);
+		err = btf__encode_as_raw_file(encoder->btfe->btf, filename);
 
 	delete_functions();
-	btf_elf__delete(btfe);
-	btfe = NULL;
+	btf_encoder__delete(encoder);
+	encoder = NULL;
 
 	return err;
 }
@@ -467,6 +467,33 @@ static bool has_arg_names(struct cu *cu, struct ftype *ftype)
 	return true;
 }
 
+struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars)
+{
+	struct btf_encoder *encoder = zalloc(sizeof(*encoder));
+
+	if (encoder) {
+		encoder->btfe = btf_elf__new(cu->filename, cu->elf, base_btf);
+		if (encoder->btfe == NULL)
+			goto out_delete;
+	}
+
+	return encoder;
+
+out_delete:
+	btf_encoder__delete(encoder);
+	return NULL;
+}
+
+void btf_encoder__delete(struct btf_encoder *encoder)
+{
+	if (encoder == NULL)
+		return;
+
+	btf_elf__delete(encoder->btfe);
+	encoder->btfe = NULL;
+	free(encoder);
+}
+
 int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		   bool skip_encoding_vars, const char *detached_btf_filename)
 {
@@ -480,7 +507,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 	btf_elf__verbose = verbose;
 	btf_elf__force = force;
 
-	if (btfe && strcmp(btfe->filename, cu->filename)) {
+	if (encoder && strcmp(encoder->btfe->filename, cu->filename)) {
 		err = btf_encoder__encode(detached_btf_filename);
 		if (err)
 			goto out;
@@ -490,12 +517,12 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 			printf("\n");
 	}
 
-	if (!btfe) {
-		btfe = btf_elf__new(cu->filename, cu->elf, base_btf);
-		if (!btfe)
-			return -1;
+	if (!encoder) {
+		encoder = btf_encoder__new(cu, base_btf, skip_encoding_vars);
+		if (encoder == NULL)
+			goto out;
 
-		err = collect_symbols(btfe, !skip_encoding_vars);
+		err = collect_symbols(encoder->btfe, !skip_encoding_vars);
 		if (err)
 			goto out;
 
@@ -504,10 +531,10 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		array_index_id = 0;
 
 		if (verbose)
-			printf("File %s:\n", btfe->filename);
+			printf("File %s:\n", encoder->btfe->filename);
 	}
 
-	type_id_off = btf__get_nr_types(btfe->btf);
+	type_id_off = btf__get_nr_types(encoder->btfe->btf);
 
 	if (!has_index_type) {
 		/* cu__find_base_type_by_name() takes "type_id_t *id" */
@@ -522,7 +549,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 	}
 
 	cu__for_each_type(cu, core_id, pos) {
-		int32_t btf_type_id = tag__encode_btf(cu, pos, core_id, btfe->btf, array_index_id, type_id_off);
+		int32_t btf_type_id = tag__encode_btf(cu, pos, core_id, encoder->btfe->btf, array_index_id, type_id_off);
 
 		if (btf_type_id < 0 ||
 		    tag__check_id_drift(pos, core_id, btf_type_id, type_id_off)) {
@@ -536,7 +563,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 
 		bt.name = 0;
 		bt.bit_size = 32;
-		btf__encode_base_type(btfe->btf, &bt, "__ARRAY_SIZE_TYPE__");
+		btf__encode_base_type(encoder->btfe->btf, &bt, "__ARRAY_SIZE_TYPE__");
 		has_index_type = true;
 	}
 
@@ -563,7 +590,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 			if (!name)
 				continue;
 
-			func = find_function(btfe, name);
+			func = find_function(encoder->btfe, name);
 			if (!func || func->generated)
 				continue;
 			func->generated = true;
@@ -572,9 +599,9 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 				continue;
 		}
 
-		btf_fnproto_id = btf__encode_func_proto(btfe->btf, cu, &fn->proto, type_id_off);
+		btf_fnproto_id = btf__encode_func_proto(encoder->btfe->btf, cu, &fn->proto, type_id_off);
 		name = dwarves__active_loader->strings__ptr(cu, fn->name);
-		btf_fn_id = btf__encode_ref_type(btfe->btf, BTF_KIND_FUNC, btf_fnproto_id, name, false);
+		btf_fn_id = btf__encode_ref_type(encoder->btfe->btf, BTF_KIND_FUNC, btf_fnproto_id, name, false);
 		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
 			err = -1;
 			printf("error: failed to encode function '%s'\n", function__name(fn, cu));
@@ -585,7 +612,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 	if (skip_encoding_vars)
 		goto out;
 
-	if (btfe->percpu_shndx == 0 || !btfe->symtab)
+	if (encoder->btfe->percpu_shndx == 0 || !encoder->btfe->symtab)
 		goto out;
 
 	if (verbose)
@@ -616,9 +643,9 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		 * section start), so to match DWARF and ELF symbols we need
 		 * to negate the section base address here.
 		 */
-		if (addr < btfe->percpu_base_addr || addr >= btfe->percpu_base_addr + btfe->percpu_sec_sz)
+		if (addr < encoder->btfe->percpu_base_addr || addr >= encoder->btfe->percpu_base_addr + encoder->btfe->percpu_sec_sz)
 			continue;
-		addr -= btfe->percpu_base_addr;
+		addr -= encoder->btfe->percpu_base_addr;
 
 		if (!percpu_var_exists(addr, &size, &name))
 			continue; /* not a per-CPU variable */
@@ -672,8 +699,8 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 			       name, cu->name, addr);
 		}
 
-		/* add a BTF_KIND_VAR in btfe->types */
-		id = btf__encode_var_type(btfe->btf, type, name, linkage);
+		/* add a BTF_KIND_VAR in encoder->btfe->types */
+		id = btf__encode_var_type(encoder->btfe->btf, type, name, linkage);
 		if (id < 0) {
 			err = -1;
 			fprintf(stderr, "error: failed to encode variable '%s' at addr 0x%" PRIx64 "\n",
@@ -682,10 +709,10 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		}
 
 		/*
-		 * add a BTF_VAR_SECINFO in btfe->percpu_secinfo, which will be added into
-		 * btfe->types later when we add BTF_VAR_DATASEC.
+		 * add a BTF_VAR_SECINFO in encoder->btfe->percpu_secinfo, which will be added into
+		 * encoder->btfe->types later when we add BTF_VAR_DATASEC.
 		 */
-		id = btf__encode_var_secinfo(&btfe->percpu_secinfo, id, addr, size);
+		id = btf__encode_var_secinfo(&encoder->btfe->percpu_secinfo, id, addr, size);
 		if (id < 0) {
 			err = -1;
 			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%" PRIx64 "\n",
@@ -697,8 +724,8 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 out:
 	if (err) {
 		delete_functions();
-		btf_elf__delete(btfe);
-		btfe = NULL;
+		btf_encoder__delete(encoder);
+		encoder = NULL;
 	}
 	return err;
 }
