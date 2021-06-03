@@ -225,8 +225,7 @@ static int32_t btf__encode_enumeration_type(struct btf *btf, struct cu *cu, stru
 }
 
 static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, struct tag *tag,
-				   uint32_t core_id, uint32_t array_index_id,
-				   uint32_t type_id_off)
+				   uint32_t core_id, uint32_t type_id_off)
 {
 	/* single out type 0 as it represents special type "void" */
 	uint32_t ref_type_id = tag->type == 0 ? 0 : type_id_off + tag->type;
@@ -259,7 +258,7 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 	case DW_TAG_array_type:
 		/* TODO: Encode one dimension at a time. */
 		encoder->need_index_type = true;
-		return btf__encode_array(btf, ref_type_id, array_index_id, array_type__nelems(tag));
+		return btf__encode_array(btf, ref_type_id, encoder->array_index_id, array_type__nelems(tag));
 	case DW_TAG_enumeration_type:
 		return btf__encode_enumeration_type(btf, cu, tag);
 	case DW_TAG_subroutine_type:
@@ -272,7 +271,6 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 }
 
 static struct btf_encoder *encoder;
-static uint32_t array_index_id;
 
 static int btf__encode_as_raw_file(struct btf *btf, const char *filename)
 {
@@ -464,6 +462,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 
 		encoder->has_index_type  = false;
 		encoder->need_index_type = false;
+		encoder->array_index_id  = 0;
 	}
 
 	return encoder;
@@ -515,8 +514,6 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		if (err)
 			goto out;
 
-		array_index_id = 0;
-
 		if (verbose)
 			printf("File %s:\n", encoder->btfe->filename);
 	}
@@ -528,15 +525,15 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		type_id_t id;
 		if (cu__find_base_type_by_name(cu, "int", &id)) {
 			encoder->has_index_type = true;
-			array_index_id = type_id_off + id;
+			encoder->array_index_id = type_id_off + id;
 		} else {
 			encoder->has_index_type = false;
-			array_index_id = type_id_off + cu->types_table.nr_entries;
+			encoder->array_index_id = type_id_off + cu->types_table.nr_entries;
 		}
 	}
 
 	cu__for_each_type(cu, core_id, pos) {
-		int32_t btf_type_id = btf_encoder__encode_tag(encoder, cu, pos, core_id, array_index_id, type_id_off);
+		int32_t btf_type_id = btf_encoder__encode_tag(encoder, cu, pos, core_id, type_id_off);
 
 		if (btf_type_id < 0 ||
 		    tag__check_id_drift(pos, core_id, btf_type_id, type_id_off)) {
