@@ -104,14 +104,6 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 		goto errout;
 	}
 
-	btfe->symtab = elf_symtab__new(NULL, btfe->elf, &btfe->ehdr);
-	if (!btfe->symtab) {
-		if (btf_elf__verbose)
-			printf("%s: '%s' doesn't have symtab.\n", __func__,
-			       btfe->filename);
-		return btfe;
-	}
-
 	return btfe;
 
 errout:
@@ -130,7 +122,6 @@ void btf_elf__delete(struct btf_elf *btfe)
 			elf_end(btfe->elf);
 	}
 
-	elf_symtab__delete(btfe->symtab);
 	__gobuffer__delete(&btfe->percpu_secinfo);
 	btf__free(btfe->btf);
 	btfe->btf = NULL;

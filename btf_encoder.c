@@ -70,7 +70,7 @@ static int btf_encoder__collect_function(struct btf_encoder *encoder, GElf_Sym *
 
 	if (elf_sym__type(sym) != STT_FUNC)
 		return 0;
-	name = elf_sym__name(sym, encoder->btfe->symtab);
+	name = elf_sym__name(sym, encoder->symtab);
 	if (!name)
 		return 0;
 
@@ -360,7 +360,6 @@ static bool btf_encoder__percpu_var_exists(struct btf_encoder *encoder, uint64_t
 
 static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym *sym, size_t sym_sec_idx)
 {
-	struct btf_elf *btfe = encoder->btfe;
 	const char *sym_name;
 	uint64_t addr;
 	uint32_t size;
@@ -377,7 +376,7 @@ static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym
 	if (!size)
 		return 0; /* ignore zero-sized symbols */
 
-	sym_name = elf_sym__name(sym, btfe->symtab);
+	sym_name = elf_sym__name(sym, encoder->symtab);
 	if (!btf_name_valid(sym_name)) {
 		dump_invalid_symbol("Found symbol of invalid name when encoding btf",
 				    sym_name, encoder->verbose, btf_elf__force);
@@ -404,7 +403,6 @@ static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym
 
 static int btf_encoder__collect_symbols(struct btf_encoder *encoder, bool collect_percpu_vars)
 {
-	struct btf_elf *btfe = encoder->btfe;
 	Elf32_Word sym_sec_idx;
 	uint32_t core_id;
 	GElf_Sym sym;
@@ -413,7 +411,7 @@ static int btf_encoder__collect_symbols(struct btf_encoder *encoder, bool collec
 	encoder->percpu.var_cnt = 0;
 
 	/* search within symtab for percpu variables */
-	elf_symtab__for_each_symbol_index(btfe->symtab, core_id, sym, sym_sec_idx) {
+	elf_symtab__for_each_symbol_index(encoder->symtab, core_id, sym, sym_sec_idx) {
 		if (collect_percpu_vars && btf_encoder__collect_percpu_var(encoder, &sym, sym_sec_idx))
 			return -1;
 		if (btf_encoder__collect_function(encoder, &sym))
@@ -465,6 +463,13 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		encoder->need_index_type = false;
 		encoder->array_index_id  = 0;
 
+		encoder->symtab = elf_symtab__new(NULL, cu->elf, &encoder->btfe->ehdr);
+		if (!encoder->symtab) {
+			if (encoder->verbose)
+				printf("%s: '%s' doesn't have symtab.\n", __func__, encoder->btfe->filename);
+			goto out;
+		}
+
 		/* find percpu section's shndx */
 
 		GElf_Shdr shdr;
@@ -479,7 +484,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 			encoder->percpu.sec_sz	  = shdr.sh_size;
 		}
 	}
-
+out:
 	return encoder;
 
 out_delete:
@@ -494,6 +499,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 
 	btf_elf__delete(encoder->btfe);
 	encoder->btfe = NULL;
+	elf_symtab__delete(encoder->symtab);
 	free(encoder);
 }
 
@@ -611,7 +617,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 	if (skip_encoding_vars)
 		goto out;
 
-	if (encoder->percpu.shndx == 0 || !encoder->btfe->symtab)
+	if (encoder->percpu.shndx == 0 || !encoder->symtab)
 		goto out;
 
 	if (encoder->verbose)

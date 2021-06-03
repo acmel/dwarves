@@ -15,6 +15,7 @@
 struct btf;
 struct btf_elf;
 struct cu;
+struct elf_symtab;
 
 #define MAX_PERCPU_VAR_CNT 4096
 
@@ -26,10 +27,11 @@ struct var_info {
 
 struct btf_encoder {
 	struct btf_elf *btfe;
-	bool	 has_index_type,
-	         need_index_type,
-		 verbose;
-	uint32_t array_index_id;
+	struct elf_symtab *symtab;
+	bool		  has_index_type,
+			  need_index_type,
+			  verbose;
+	uint32_t	  array_index_id;
 	struct {
 		struct var_info vars[MAX_PERCPU_VAR_CNT];
 		int		var_cnt;
