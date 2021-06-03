@@ -337,17 +337,6 @@ int btf_encoder__encode(const char *filename)
 	return err;
 }
 
-#define MAX_PERCPU_VAR_CNT 4096
-
-struct var_info {
-	uint64_t addr;
-	uint32_t sz;
-	const char *name;
-};
-
-static struct var_info percpu_vars[MAX_PERCPU_VAR_CNT];
-static int percpu_var_cnt;
-
 static int percpu_var_cmp(const void *_a, const void *_b)
 {
 	const struct var_info *a = _a;
@@ -358,14 +347,11 @@ static int percpu_var_cmp(const void *_a, const void *_b)
 	return a->addr < b->addr ? -1 : 1;
 }
 
-static bool percpu_var_exists(uint64_t addr, uint32_t *sz, const char **name)
+static bool btf_encoder__percpu_var_exists(struct btf_encoder *encoder, uint64_t addr, uint32_t *sz, const char **name)
 {
-	const struct var_info *p;
 	struct var_info key = { .addr = addr };
-
-	p = bsearch(&key, percpu_vars, percpu_var_cnt,
-		    sizeof(percpu_vars[0]), percpu_var_cmp);
-
+	const struct var_info *p = bsearch(&key, encoder->percpu.vars, encoder->percpu.var_cnt,
+					   sizeof(encoder->percpu.vars[0]), percpu_var_cmp);
 	if (!p)
 		return false;
 
@@ -405,15 +391,15 @@ static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym
 	if (btf_elf__verbose)
 		printf("Found per-CPU symbol '%s' at address 0x%" PRIx64 "\n", sym_name, addr);
 
-	if (percpu_var_cnt == MAX_PERCPU_VAR_CNT) {
+	if (encoder->percpu.var_cnt == MAX_PERCPU_VAR_CNT) {
 		fprintf(stderr, "Reached the limit of per-CPU variables: %d\n",
 			MAX_PERCPU_VAR_CNT);
 		return -1;
 	}
-	percpu_vars[percpu_var_cnt].addr = addr;
-	percpu_vars[percpu_var_cnt].sz = size;
-	percpu_vars[percpu_var_cnt].name = sym_name;
-	percpu_var_cnt++;
+	encoder->percpu.vars[encoder->percpu.var_cnt].addr = addr;
+	encoder->percpu.vars[encoder->percpu.var_cnt].sz = size;
+	encoder->percpu.vars[encoder->percpu.var_cnt].name = sym_name;
+	encoder->percpu.var_cnt++;
 
 	return 0;
 }
@@ -426,7 +412,7 @@ static int btf_encoder__collect_symbols(struct btf_encoder *encoder, bool collec
 	GElf_Sym sym;
 
 	/* cache variables' addresses, preparing for searching in symtab. */
-	percpu_var_cnt = 0;
+	encoder->percpu.var_cnt = 0;
 
 	/* search within symtab for percpu variables */
 	elf_symtab__for_each_symbol_index(btfe->symtab, core_id, sym, sym_sec_idx) {
@@ -437,11 +423,11 @@ static int btf_encoder__collect_symbols(struct btf_encoder *encoder, bool collec
 	}
 
 	if (collect_percpu_vars) {
-		if (percpu_var_cnt)
-			qsort(percpu_vars, percpu_var_cnt, sizeof(percpu_vars[0]), percpu_var_cmp);
+		if (encoder->percpu.var_cnt)
+			qsort(encoder->percpu.vars, encoder->percpu.var_cnt, sizeof(encoder->percpu.vars[0]), percpu_var_cmp);
 
 		if (btf_elf__verbose)
-			printf("Found %d per-CPU variables!\n", percpu_var_cnt);
+			printf("Found %d per-CPU variables!\n", encoder->percpu.var_cnt);
 	}
 
 	if (functions_cnt) {
@@ -648,7 +634,7 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 			continue;
 		addr -= encoder->btfe->percpu_base_addr;
 
-		if (!percpu_var_exists(addr, &size, &name))
+		if (!btf_encoder__percpu_var_exists(encoder, addr, &size, &name))
 			continue; /* not a per-CPU variable */
 
 		/* A lot of "special" DWARF variables (e.g, __UNIQUE_ID___xxx)

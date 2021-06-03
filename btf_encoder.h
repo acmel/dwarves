@@ -10,15 +10,28 @@
  */
 
 #include <stdbool.h>
+#include <stdint.h>
 
 struct btf;
 struct btf_elf;
 struct cu;
 
+#define MAX_PERCPU_VAR_CNT 4096
+
+struct var_info {
+	uint64_t    addr;
+	const char *name;
+	uint32_t    sz;
+};
+
 struct btf_encoder {
 	struct btf_elf *btfe;
 	bool has_index_type,
 	     need_index_type;
+	struct {
+		struct var_info vars[MAX_PERCPU_VAR_CNT];
+		int		var_cnt;
+	} percpu;
 };
 
 struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars);
