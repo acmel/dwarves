@@ -496,6 +496,12 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 			encoder->percpu.base_addr = shdr.sh_addr;
 			encoder->percpu.sec_sz	  = shdr.sh_size;
 		}
+
+		if (btf_encoder__collect_symbols(encoder, !skip_encoding_vars))
+			goto out_delete;
+
+		if (encoder->verbose)
+			printf("File %s:\n", encoder->btfe->filename);
 	}
 out:
 	return encoder;
@@ -546,15 +552,10 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 
 	if (!encoder) {
 		encoder = btf_encoder__new(cu, base_btf, skip_encoding_vars, verbose);
-		if (encoder == NULL)
+		if (encoder == NULL) {
+			err = -1;
 			goto out;
-
-		err = btf_encoder__collect_symbols(encoder, !skip_encoding_vars);
-		if (err)
-			goto out;
-
-		if (verbose)
-			printf("File %s:\n", encoder->btfe->filename);
+		}
 	}
 
 	type_id_off = btf__get_nr_types(encoder->btfe->btf);
