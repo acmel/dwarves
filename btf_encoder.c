@@ -19,6 +19,7 @@
 #include <ctype.h> /* for isalpha() and isalnum() */
 #include <stdlib.h> /* for qsort() and bsearch() */
 #include <inttypes.h>
+#include <limits.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -312,17 +313,155 @@ static int btf__encode_as_raw_file(struct btf *btf, const char *filename)
 	return err;
 }
 
-int btf_encoder__encode(const char *filename)
+static int btf__write_elf(struct btf *btf, const char *filename)
+{
+	GElf_Shdr shdr_mem, *shdr;
+	GElf_Ehdr ehdr_mem, *ehdr;
+	Elf_Data *btf_data = NULL;
+	Elf_Scn *scn = NULL;
+	Elf *elf = NULL;
+	const void *raw_btf_data;
+	uint32_t raw_btf_size;
+	int fd, err = -1;
+	size_t strndx;
+
+	fd = open(filename, O_RDWR);
+	if (fd < 0) {
+		fprintf(stderr, "Cannot open %s\n", filename);
+		return -1;
+	}
+
+	if (elf_version(EV_CURRENT) == EV_NONE) {
+		elf_error("Cannot set libelf version");
+		goto out;
+	}
+
+	elf = elf_begin(fd, ELF_C_RDWR, NULL);
+	if (elf == NULL) {
+		elf_error("Cannot update ELF file");
+		goto out;
+	}
+
+	elf_flagelf(elf, ELF_C_SET, ELF_F_DIRTY);
+
+	ehdr = gelf_getehdr(elf, &ehdr_mem);
+	if (ehdr == NULL) {
+		elf_error("elf_getehdr failed");
+		goto out;
+	}
+
+	switch (ehdr_mem.e_ident[EI_DATA]) {
+	case ELFDATA2LSB:
+		btf__set_endianness(btf, BTF_LITTLE_ENDIAN);
+		break;
+	case ELFDATA2MSB:
+		btf__set_endianness(btf, BTF_BIG_ENDIAN);
+		break;
+	default:
+		fprintf(stderr, "%s: unknown ELF endianness.\n", __func__);
+		goto out;
+	}
+
+	/*
+	 * First we look if there was already a .BTF section to overwrite.
+	 */
+
+	elf_getshdrstrndx(elf, &strndx);
+	while ((scn = elf_nextscn(elf, scn)) != NULL) {
+		shdr = gelf_getshdr(scn, &shdr_mem);
+		if (shdr == NULL)
+			continue;
+		char *secname = elf_strptr(elf, strndx, shdr->sh_name);
+		if (strcmp(secname, ".BTF") == 0) {
+			btf_data = elf_getdata(scn, btf_data);
+			break;
+		}
+	}
+
+	raw_btf_data = btf__get_raw_data(btf, &raw_btf_size);
+
+	if (btf_data) {
+		/* Existing .BTF section found */
+		btf_data->d_buf = (void *)raw_btf_data;
+		btf_data->d_size = raw_btf_size;
+		elf_flagdata(btf_data, ELF_C_SET, ELF_F_DIRTY);
+
+		if (elf_update(elf, ELF_C_NULL) >= 0 &&
+		    elf_update(elf, ELF_C_WRITE) >= 0)
+			err = 0;
+		else
+			elf_error("elf_update failed");
+	} else {
+		const char *llvm_objcopy;
+		char tmp_fn[PATH_MAX];
+		char cmd[PATH_MAX * 2];
+
+		llvm_objcopy = getenv("LLVM_OBJCOPY");
+		if (!llvm_objcopy)
+			llvm_objcopy = "llvm-objcopy";
+
+		/* Use objcopy to add a .BTF section */
+		snprintf(tmp_fn, sizeof(tmp_fn), "%s.btf", filename);
+		close(fd);
+		fd = creat(tmp_fn, S_IRUSR | S_IWUSR);
+		if (fd == -1) {
+			fprintf(stderr, "%s: open(%s) failed!\n", __func__,
+				tmp_fn);
+			goto out;
+		}
+
+		if (write(fd, raw_btf_data, raw_btf_size) != raw_btf_size) {
+			fprintf(stderr, "%s: write of %d bytes to '%s' failed: %d!\n",
+				__func__, raw_btf_size, tmp_fn, errno);
+			goto unlink;
+		}
+
+		snprintf(cmd, sizeof(cmd), "%s --add-section .BTF=%s %s",
+			 llvm_objcopy, tmp_fn, filename);
+		if (system(cmd)) {
+			fprintf(stderr, "%s: failed to add .BTF section to '%s': %d!\n",
+				__func__, filename, errno);
+			goto unlink;
+		}
+
+		err = 0;
+	unlink:
+		unlink(tmp_fn);
+	}
+
+out:
+	if (fd != -1)
+		close(fd);
+	if (elf)
+		elf_end(elf);
+	return err;
+}
+
+int btf__encode_in_elf(struct btf *btf, const char *filename, uint8_t flags)
+{
+	/* Empty file, nothing to do, so... done! */
+	if (btf__get_nr_types(btf) == 0)
+		return 0;
+
+	if (btf__dedup(btf, NULL, NULL)) {
+		fprintf(stderr, "%s: btf__dedup failed!\n", __func__);
+		return -1;
+	}
+
+	return btf__write_elf(btf, filename);
+}
+
+int btf_encoder__encode(const char *detached_filename)
 {
 	int err;
 
 	if (gobuffer__size(&encoder->btfe->percpu_secinfo) != 0)
 		btf__encode_datasec_type(encoder->btfe->btf, PERCPU_SECTION, &encoder->btfe->percpu_secinfo);
 
-	if (filename == NULL)
-		err = btf_elf__encode(encoder->btfe, 0);
+	if (detached_filename == NULL)
+		err = btf__encode_in_elf(encoder->btfe->btf, encoder->btfe->filename, 0);
 	else
-		err = btf__encode_as_raw_file(encoder->btfe->btf, filename);
+		err = btf__encode_as_raw_file(encoder->btfe->btf, detached_filename);
 
 	btf_encoder__delete(encoder);
 	encoder = NULL;

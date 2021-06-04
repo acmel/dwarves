@@ -46,6 +46,5 @@ int32_t btf__encode_func_proto(struct btf *btf, struct cu *cu, struct ftype *fty
 int32_t btf__encode_var_type(struct btf *btf, uint32_t type, const char *name, uint32_t linkage);
 int32_t btf__encode_var_secinfo(struct gobuffer *buf, uint32_t type, uint32_t offset, uint32_t size);
 int32_t btf__encode_datasec_type(struct btf *btf, const char *section_name, struct gobuffer *var_secinfo_buf);
-int  btf_elf__encode(struct btf_elf *btf, uint8_t flags);
 
 #endif /* _LIBBTF_H */
