@@ -463,9 +463,6 @@ int btf_encoder__encode(const char *detached_filename)
 	else
 		err = btf__encode_as_raw_file(encoder->btfe->btf, detached_filename);
 
-	btf_encoder__delete(encoder);
-	encoder = NULL;
-
 	return err;
 }
 
@@ -678,16 +675,6 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 
 	btf_elf__verbose = verbose;
 	btf_elf__force = force;
-
-	if (encoder && strcmp(encoder->btfe->filename, cu->filename)) {
-		err = btf_encoder__encode(detached_btf_filename);
-		if (err)
-			goto out;
-
-		/* Finished one file, add one empty line */
-		if (verbose)
-			printf("\n");
-	}
 
 	if (!encoder) {
 		encoder = btf_encoder__new(cu, base_btf, skip_encoding_vars, verbose);
