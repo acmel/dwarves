@@ -13,7 +13,6 @@
 #include "libbtf.h"
 #include "lib/bpf/include/uapi/linux/btf.h"
 #include "lib/bpf/src/libbpf.h"
-#include "hash.h"
 #include "elf_symtab.h"
 #include "btf_encoder.h"
 
