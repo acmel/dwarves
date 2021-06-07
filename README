@@ -6,8 +6,17 @@ Build instructions:
 4. cmake -D__LIB=lib ..
 5. make install
 
-Default is to install to /usr/local, use -DCMAKE_INSTALL_PREFIX=
-when invoking cmake to specify another install location.
+cmake Options:
+  -DBUILD_SHARED_LIBS
+    By default SHARED libraries are created and applications are linked to it.
+    Use -DBUILD_SHARED_LIBS=OFF while invoking cmake to create STATIC libraries
+    and link applications to it.
+
+    Ex. cmake -D__LIB=lib -DBUILD_SHARED_LIBS=OFF ..
+
+  -DCMAKE_INSTALL_PREFIX
+    Default is to install to /usr/local, use -DCMAKE_INSTALL_PREFIX=
+    when invoking cmake to specify another install location.
 
 Known to work scenarios:
 
