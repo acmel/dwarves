@@ -47,6 +47,11 @@ endif (NOT CMAKE_BUILD_TYPE)
 set(CMAKE_C_FLAGS_DEBUG "-Wall -Werror -ggdb -O0")
 set(CMAKE_C_FLAGS_RELEASE "-Wall -O2")
 
+if (NOT DEFINED BUILD_SHARED_LIBS)
+	set (BUILD_SHARED_LIBS ON)
+	message(STATUS "Setting BUILD_SHARED_LIBS = ${BUILD_SHARED_LIBS}")
+endif (NOT DEFINED BUILD_SHARED_LIBS)
+
 # Just for grepping, DWARVES_VERSION isn't used anywhere anymore
 # add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.21")
 add_definitions(-D_GNU_SOURCE -DDWARVES_MAJOR_VERSION=1)
@@ -111,18 +116,18 @@ set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer.c strings.c
 if (NOT LIBBPF_FOUND)
 	list(APPEND dwarves_LIB_SRCS $<TARGET_OBJECTS:bpf>)
 endif()
-add_library(dwarves SHARED ${dwarves_LIB_SRCS})
+add_library(dwarves ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 set_target_properties(dwarves PROPERTIES INTERFACE_LINK_LIBRARIES "")
 target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES} ${LIBBPF_LIBRARIES})
 
 set(dwarves_emit_LIB_SRCS dwarves_emit.c)
-add_library(dwarves_emit SHARED ${dwarves_emit_LIB_SRCS})
+add_library(dwarves_emit ${dwarves_emit_LIB_SRCS})
 set_target_properties(dwarves_emit PROPERTIES VERSION 1.0.0 SOVERSION 1)
 target_link_libraries(dwarves_emit dwarves)
 
 set(dwarves_reorganize_LIB_SRCS dwarves_reorganize.c)
-add_library(dwarves_reorganize SHARED ${dwarves_reorganize_LIB_SRCS})
+add_library(dwarves_reorganize ${dwarves_reorganize_LIB_SRCS})
 set_target_properties(dwarves_reorganize PROPERTIES VERSION 1.0.0 SOVERSION 1)
 target_link_libraries(dwarves_reorganize dwarves)
 
@@ -169,8 +174,8 @@ target_link_libraries(syscse dwarves)
 install(TARGETS codiff ctracer dtagnames pahole pdwtags
 		pfunct pglobal prefcnt scncopy syscse RUNTIME DESTINATION
 		${CMAKE_INSTALL_PREFIX}/bin)
-install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR})
-install(TARGETS dwarves dwarves_emit dwarves_reorganize LIBRARY DESTINATION ${LIB_INSTALL_DIR})
+install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR} ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
+install(TARGETS dwarves dwarves_emit dwarves_reorganize LIBRARY DESTINATION ${LIB_INSTALL_DIR} ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
 install(FILES dwarves.h dwarves_emit.h dwarves_reorganize.h
 	      dutil.h gobuffer.h list.h rbtree.h pahole_strings.h
 	      btf_encoder.h config.h ctf_encoder.h ctf.h
