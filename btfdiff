@@ -8,11 +8,17 @@
 # this information is not available when loading from BTF.
 
 if [ $# -eq 0 ] ; then
-	echo "Usage: btfdiff <filename_with_BTF_and_DWARF_info>"
+	echo "Usage: btfdiff <filename_with_DWARF_and_maybe_BTF_info> [<filename_with_BTF_info>]"
 	exit 1
 fi
 
-file=$1
+dwarf_input=$1
+btf_input=$dwarf_input
+
+if [ $# -eq 2 ] ; then
+	btf_input=$2
+fi
+
 btf_output=$(mktemp /tmp/btfdiff.btf.XXXXXX)
 dwarf_output=$(mktemp /tmp/btfdiff.dwarf.XXXXXX)
 pahole_bin=${PAHOLE-"pahole"}
@@ -22,10 +28,10 @@ ${pahole_bin} -F dwarf \
 	      --suppress_aligned_attribute \
 	      --suppress_force_paddings \
 	      --suppress_packed \
-	      --show_private_classes $file > $dwarf_output
+	      --show_private_classes $dwarf_input > $dwarf_output
 ${pahole_bin} -F btf \
 	      --suppress_packed \
-	      $file > $btf_output
+	      $btf_input > $btf_output
 
 diff -up $dwarf_output $btf_output
 
