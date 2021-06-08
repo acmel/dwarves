@@ -668,8 +668,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	free(encoder);
 }
 
-int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
-		   bool skip_encoding_vars, const char *detached_btf_filename)
+int cu__encode_btf(struct cu *cu, int verbose, bool force, bool skip_encoding_vars)
 {
 	uint32_t type_id_off;
 	uint32_t core_id;
@@ -680,14 +679,6 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 
 	btf_elf__verbose = verbose;
 	btf_elf__force = force;
-
-	if (!encoder) {
-		encoder = btf_encoder__new(cu, base_btf, skip_encoding_vars, verbose);
-		if (encoder == NULL) {
-			err = -1;
-			goto out;
-		}
-	}
 
 	type_id_off = btf__get_nr_types(encoder->btfe->btf);
 
@@ -875,11 +866,6 @@ int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 			break;
 		}
 	}
-
 out:
-	if (err) {
-		btf_encoder__delete(encoder);
-		encoder = NULL;
-	}
 	return err;
 }

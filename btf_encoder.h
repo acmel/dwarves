@@ -57,7 +57,6 @@ void btf_encoder__delete(struct btf_encoder *encoder);
 
 int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filename);
 
-int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
-		   bool skip_encoding_vars, const char *detached_btf_filename);
+int cu__encode_btf(struct cu *cu, int verbose, bool force, bool skip_encoding_vars);
 
 #endif /* _BTF_ENCODER_H_ */

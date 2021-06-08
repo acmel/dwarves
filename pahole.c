@@ -2465,8 +2465,19 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto filter_it;
 
 	if (btf_encode) {
-		if (cu__encode_btf(cu, conf_load->base_btf, global_verbose, btf_encode_force,
-				   skip_encoding_btf_vars, detached_btf_filename)) {
+		/*
+		 * FIXME:
+		 *
+		 * This should be really done at main(), but since in the current codebase only at this
+		 * point we'll have cu->elf setup...
+		 */
+		if (!encoder) {
+			encoder = btf_encoder__new(cu, conf_load->base_btf, skip_encoding_btf_vars, global_verbose);
+			if (encoder == NULL)
+				return LSK__STOP_LOADING;
+		}
+
+		if (cu__encode_btf(cu, global_verbose, btf_encode_force, skip_encoding_btf_vars)) {
 			fprintf(stderr, "Encountered error while encoding BTF.\n");
 			exit(1);
 		}
