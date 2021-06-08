@@ -459,7 +459,7 @@ int btf_encoder__encode(const char *detached_filename)
 		btf__encode_datasec_type(encoder->btfe->btf, PERCPU_SECTION, &encoder->btfe->percpu_secinfo);
 
 	if (detached_filename == NULL)
-		err = btf__encode_in_elf(encoder->btfe->btf, encoder->btfe->filename, 0);
+		err = btf__encode_in_elf(encoder->btfe->btf, encoder->filename, 0);
 	else
 		err = btf__encode_as_raw_file(encoder->btfe->btf, detached_filename);
 
@@ -585,6 +585,10 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 	struct btf_encoder *encoder = zalloc(sizeof(*encoder));
 
 	if (encoder) {
+		encoder->filename = strdup(cu->filename);
+		if (encoder->filename == NULL)
+			goto out_delete;
+
 		encoder->btfe = btf_elf__new(cu->filename, cu->elf, base_btf);
 		if (encoder->btfe == NULL)
 			goto out_delete;
@@ -615,7 +619,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		encoder->symtab = elf_symtab__new(NULL, cu->elf, &encoder->ehdr);
 		if (!encoder->symtab) {
 			if (encoder->verbose)
-				printf("%s: '%s' doesn't have symtab.\n", __func__, encoder->btfe->filename);
+				printf("%s: '%s' doesn't have symtab.\n", __func__, encoder->filename);
 			goto out;
 		}
 
@@ -626,7 +630,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 
 		if (!sec) {
 			if (encoder->verbose)
-				printf("%s: '%s' doesn't have '%s' section\n", __func__, encoder->btfe->filename, PERCPU_SECTION);
+				printf("%s: '%s' doesn't have '%s' section\n", __func__, encoder->filename, PERCPU_SECTION);
 		} else {
 			encoder->percpu.shndx	  = elf_ndxscn(sec);
 			encoder->percpu.base_addr = shdr.sh_addr;
@@ -637,7 +641,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 			goto out_delete;
 
 		if (encoder->verbose)
-			printf("File %s:\n", encoder->btfe->filename);
+			printf("File %s:\n", encoder->filename);
 	}
 out:
 	return encoder;
@@ -652,6 +656,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	if (encoder == NULL)
 		return;
 
+	zfree(&encoder->filename);
 	btf_elf__delete(encoder->btfe);
 	encoder->btfe = NULL;
 	elf_symtab__delete(encoder->symtab);

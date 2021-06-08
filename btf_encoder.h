@@ -29,6 +29,7 @@ struct var_info {
 
 struct btf_encoder {
 	struct btf_elf *btfe;
+	const char	  *filename;
 	struct elf_symtab *symtab;
 	GElf_Ehdr	  ehdr;
 	bool		  has_index_type,

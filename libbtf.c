@@ -57,9 +57,6 @@ struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_bt
 		return NULL;
 
 	btfe->in_fd = -1;
-	btfe->filename = strdup(filename);
-	if (btfe->filename == NULL)
-		goto errout;
 
 	btfe->btf = btf__new_empty_split(base_btf);
 	if (libbpf_get_error(btfe->btf)) {
@@ -107,7 +104,6 @@ void btf_elf__delete(struct btf_elf *btfe)
 	__gobuffer__delete(&btfe->percpu_secinfo);
 	btf__free(btfe->btf);
 	btfe->btf = NULL;
-	zfree(&btfe->filename);
 	free(btfe);
 }
 

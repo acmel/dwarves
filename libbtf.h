@@ -16,7 +16,6 @@
 struct btf_elf {
 	Elf		  *elf;
 	struct gobuffer   percpu_secinfo;
-	char		  *filename;
 	int		  in_fd;
 	struct btf	  *btf;
 };
