@@ -26,6 +26,7 @@
 #include "gobuffer.h"
 #include "dwarves.h"
 #include "elf_symtab.h"
+#include "btf_encoder.h"
 
 /*
  * This depends on the GNU extension to eliminate the stray comma in the zero
@@ -37,7 +38,6 @@
 #define elf_error(fmt, ...) \
 	fprintf(stderr, "%s: " fmt ": %s.\n", __func__, ##__VA_ARGS__, elf_errmsg(-1))
 
-uint8_t btf_elf__verbose;
 bool btf_gen_floats = false;
 
 static int btf_var_secinfo_cmp(const void *a, const void *b)
@@ -182,7 +182,7 @@ static void btf__log_type(const struct btf *btf, const struct btf_type *t,
 	uint8_t kind;
 	FILE *out;
 
-	if (!btf_elf__verbose && !err)
+	if (!btf_encoder__verbose && !err)
 		return;
 
 	kind = BTF_INFO_KIND(t->info);
@@ -213,7 +213,7 @@ static void btf__log_member(const struct btf *btf,
 {
 	FILE *out;
 
-	if (!btf_elf__verbose && !err)
+	if (!btf_encoder__verbose && !err)
 		return;
 
 	out = err ? stderr : stdout;
@@ -249,7 +249,7 @@ static void btf__log_func_param(const char *name, uint32_t type,
 {
 	FILE *out;
 
-	if (!btf_elf__verbose && !err)
+	if (!btf_encoder__verbose && !err)
 		return;
 
 	out = err ? stderr : stdout;
@@ -497,7 +497,7 @@ int btf__encode_enum_val(struct btf *btf, const char *name, int32_t value)
 
 	err = btf__add_enum_value(btf, name, value);
 	if (!err) {
-		if (btf_elf__verbose)
+		if (btf_encoder__verbose)
 			printf("\t%s val=%d\n", name, value);
 	} else {
 		fprintf(stderr, "\t%s val=%d Error emitting BTF enum value\n",
@@ -626,7 +626,7 @@ int32_t btf__encode_datasec_type(struct btf *btf, const char *section_name,
 		vsi = (struct btf_var_secinfo *)var_secinfo_buf->entries + i;
 		err = btf__add_datasec_var_info(btf, vsi->type, vsi->offset, vsi->size);
 		if (!err) {
-			if (btf_elf__verbose)
+			if (btf_encoder__verbose)
 				printf("\ttype=%u offset=%u size=%u\n",
 				       vsi->type, vsi->offset, vsi->size);
 		} else {

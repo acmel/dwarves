@@ -20,7 +20,6 @@ struct btf_elf {
 	struct btf	  *btf;
 };
 
-extern uint8_t btf_elf__verbose;
 #define btf_elf__verbose_log(fmt, ...) { if (btf_elf__verbose) printf(fmt, __VA_ARGS__); }
 extern bool btf_gen_floats;
 

@@ -29,6 +29,8 @@
 
 #include <errno.h>
 
+bool btf_encoder__verbose;
+
 /*
  * This depends on the GNU extension to eliminate the stray comma in the zero
  * arguments case.
@@ -678,7 +680,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool skip_encoding_vars)
 	struct tag *pos;
 	int err = 0;
 
-	btf_elf__verbose = verbose;
+	btf_encoder__verbose = verbose;
 
 	type_id_off = btf__get_nr_types(encoder->btfe->btf);
 
