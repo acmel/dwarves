@@ -38,7 +38,6 @@
 	fprintf(stderr, "%s: " fmt ": %s.\n", __func__, ##__VA_ARGS__, elf_errmsg(-1))
 
 uint8_t btf_elf__verbose;
-uint8_t btf_elf__force;
 bool btf_gen_floats = false;
 
 static int btf_var_secinfo_cmp(const void *a, const void *b)

@@ -510,8 +510,8 @@ static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym
 	sym_name = elf_sym__name(sym, encoder->symtab);
 	if (!btf_name_valid(sym_name)) {
 		dump_invalid_symbol("Found symbol of invalid name when encoding btf",
-				    sym_name, encoder->verbose, btf_elf__force);
-		if (btf_elf__force)
+				    sym_name, encoder->verbose, encoder->force);
+		if (encoder->force)
 			return 0;
 		return -1;
 	}
@@ -580,7 +580,7 @@ static bool has_arg_names(struct cu *cu, struct ftype *ftype)
 	return true;
 }
 
-struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool verbose)
+struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool force, bool verbose)
 {
 	struct btf_encoder *encoder = zalloc(sizeof(*encoder));
 
@@ -593,6 +593,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		if (encoder->btfe == NULL)
 			goto out_delete;
 
+		encoder->force		 = force;
 		encoder->verbose	 = verbose;
 		encoder->has_index_type  = false;
 		encoder->need_index_type = false;
@@ -668,7 +669,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	free(encoder);
 }
 
-int cu__encode_btf(struct cu *cu, int verbose, bool force, bool skip_encoding_vars)
+int cu__encode_btf(struct cu *cu, int verbose, bool skip_encoding_vars)
 {
 	uint32_t type_id_off;
 	uint32_t core_id;
@@ -678,7 +679,6 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force, bool skip_encoding_va
 	int err = 0;
 
 	btf_elf__verbose = verbose;
-	btf_elf__force = force;
 
 	type_id_off = btf__get_nr_types(encoder->btfe->btf);
 
@@ -824,7 +824,7 @@ int cu__encode_btf(struct cu *cu, int verbose, bool force, bool skip_encoding_va
 		if (var->ip.tag.type == 0) {
 			fprintf(stderr, "error: found variable '%s' in CU '%s' that has void type\n",
 				name, cu->name);
-			if (force)
+			if (encoder->force)
 				continue;
 			err = -1;
 			break;
