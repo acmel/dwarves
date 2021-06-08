@@ -451,7 +451,7 @@ int btf__encode_in_elf(struct btf *btf, const char *filename, uint8_t flags)
 	return btf__write_elf(btf, filename);
 }
 
-int btf_encoder__encode(const char *detached_filename)
+int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filename)
 {
 	int err;
 

@@ -2880,7 +2880,7 @@ try_sole_arg_as_class_names:
 	header = NULL;
 
 	if (btf_encode) {
-		err = btf_encoder__encode(detached_btf_filename);
+		err = btf_encoder__encode(encoder, detached_btf_filename);
 		if (err) {
 			fputs("Failed to encode BTF\n", stderr);
 			goto out_cus_delete;

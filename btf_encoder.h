@@ -55,7 +55,7 @@ extern struct btf_encoder *encoder;
 struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool verbose);
 void btf_encoder__delete(struct btf_encoder *encoder);
 
-int btf_encoder__encode(const char *filename);
+int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filename);
 
 int cu__encode_btf(struct cu *cu, struct btf *base_btf, int verbose, bool force,
 		   bool skip_encoding_vars, const char *detached_btf_filename);
