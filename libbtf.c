@@ -100,7 +100,6 @@ void btf_elf__delete(struct btf_elf *btfe)
 			elf_end(btfe->elf);
 	}
 
-	__gobuffer__delete(&btfe->percpu_secinfo);
 	btf__free(btfe->btf);
 	btfe->btf = NULL;
 	free(btfe);

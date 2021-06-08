@@ -455,8 +455,8 @@ int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filena
 {
 	int err;
 
-	if (gobuffer__size(&encoder->btfe->percpu_secinfo) != 0)
-		btf__encode_datasec_type(encoder->btfe->btf, PERCPU_SECTION, &encoder->btfe->percpu_secinfo);
+	if (gobuffer__size(&encoder->percpu_secinfo) != 0)
+		btf__encode_datasec_type(encoder->btfe->btf, PERCPU_SECTION, &encoder->percpu_secinfo);
 
 	if (detached_filename == NULL)
 		err = btf__encode_in_elf(encoder->btfe->btf, encoder->filename, 0);
@@ -657,6 +657,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	if (encoder == NULL)
 		return;
 
+	__gobuffer__delete(&encoder->percpu_secinfo);
 	zfree(&encoder->filename);
 	btf_elf__delete(encoder->btfe);
 	encoder->btfe = NULL;
@@ -853,10 +854,10 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip
 		}
 
 		/*
-		 * add a BTF_VAR_SECINFO in encoder->btfe->percpu_secinfo, which will be added into
+		 * add a BTF_VAR_SECINFO in encoder->percpu_secinfo, which will be added into
 		 * encoder->btfe->types later when we add BTF_VAR_DATASEC.
 		 */
-		id = btf__encode_var_secinfo(&encoder->btfe->percpu_secinfo, id, addr, size);
+		id = btf__encode_var_secinfo(&encoder->percpu_secinfo, id, addr, size);
 		if (id < 0) {
 			err = -1;
 			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%" PRIx64 "\n",

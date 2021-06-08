@@ -12,6 +12,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <gelf.h>
+#include <gelf.h>
+#include <gelf.h>
+#include "gobuffer.h"
 
 struct btf;
 struct btf_elf;
@@ -29,6 +32,7 @@ struct var_info {
 
 struct btf_encoder {
 	struct btf_elf *btfe;
+	struct gobuffer   percpu_secinfo;
 	const char	  *filename;
 	struct elf_symtab *symtab;
 	GElf_Ehdr	  ehdr;

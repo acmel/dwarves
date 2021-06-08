@@ -7,7 +7,7 @@
 #ifndef _LIBBTF_H
 #define _LIBBTF_H
 
-#include "gobuffer.h"
+struct gobuffer;
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -15,7 +15,6 @@
 
 struct btf_elf {
 	Elf		  *elf;
-	struct gobuffer   percpu_secinfo;
 	int		  in_fd;
 	struct btf	  *btf;
 };
