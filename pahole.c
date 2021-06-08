@@ -2478,7 +2478,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 				return LSK__STOP_LOADING;
 		}
 
-		if (cu__encode_btf(cu, global_verbose, skip_encoding_btf_vars)) {
+		if (cu__encode_btf(cu, skip_encoding_btf_vars)) {
 			fprintf(stderr, "Encountered error while encoding BTF.\n");
 			exit(1);
 		}
@@ -2800,6 +2800,9 @@ int main(int argc, char *argv[])
 			conf_load.format_path = "btf";
 		}
 	}
+
+	if (btf_encode)
+		btf_encoder__verbose = global_verbose;
 
 	struct cus *cus = cus__new();
 	if (cus == NULL) {

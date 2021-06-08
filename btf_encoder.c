@@ -671,7 +671,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	free(encoder);
 }
 
-int cu__encode_btf(struct cu *cu, int verbose, bool skip_encoding_vars)
+int cu__encode_btf(struct cu *cu, bool skip_encoding_vars)
 {
 	uint32_t type_id_off;
 	uint32_t core_id;
@@ -679,8 +679,6 @@ int cu__encode_btf(struct cu *cu, int verbose, bool skip_encoding_vars)
 	struct function *fn;
 	struct tag *pos;
 	int err = 0;
-
-	btf_encoder__verbose = verbose;
 
 	type_id_off = btf__get_nr_types(encoder->btfe->btf);
 
