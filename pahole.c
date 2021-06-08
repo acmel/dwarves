@@ -26,7 +26,7 @@
 #include "lib/bpf/src/libbpf.h"
 #include "pahole_strings.h"
 
-static struct btf_encoder *encoder;
+static struct btf_encoder *btf_encoder;
 static char *detached_btf_filename;
 static bool btf_encode;
 static bool ctf_encode;
@@ -2472,14 +2472,14 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		 * This should be really done at main(), but since in the current codebase only at this
 		 * point we'll have cu->elf setup...
 		 */
-		if (!encoder) {
-			encoder = btf_encoder__new(cu, conf_load->base_btf, skip_encoding_btf_vars,
-						   btf_encode_force, global_verbose);
-			if (encoder == NULL)
+		if (!btf_encoder) {
+			btf_encoder = btf_encoder__new(cu, conf_load->base_btf, skip_encoding_btf_vars,
+						       btf_encode_force, global_verbose);
+			if (btf_encoder == NULL)
 				return LSK__STOP_LOADING;
 		}
 
-		if (btf_encoder__encode_cu(encoder, cu, skip_encoding_btf_vars)) {
+		if (btf_encoder__encode_cu(btf_encoder, cu, skip_encoding_btf_vars)) {
 			fprintf(stderr, "Encountered error while encoding BTF.\n");
 			exit(1);
 		}
@@ -2896,7 +2896,7 @@ try_sole_arg_as_class_names:
 	header = NULL;
 
 	if (btf_encode) {
-		err = btf_encoder__encode(encoder, detached_btf_filename);
+		err = btf_encoder__encode(btf_encoder, detached_btf_filename);
 		if (err) {
 			fputs("Failed to encode BTF\n", stderr);
 			goto out_cus_delete;
