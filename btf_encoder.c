@@ -81,7 +81,7 @@ static int btf_encoder__collect_function(struct btf_encoder *encoder, GElf_Sym *
 		if (!new) {
 			/*
 			 * The cleanup - delete_functions is called
-			 * in cu__encode_btf error path.
+			 * in btf_encoder__encode_cu error path.
 			 */
 			return -1;
 		}
@@ -671,7 +671,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	free(encoder);
 }
 
-int cu__encode_btf(struct cu *cu, bool skip_encoding_vars)
+int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip_encoding_vars)
 {
 	uint32_t type_id_off;
 	uint32_t core_id;
