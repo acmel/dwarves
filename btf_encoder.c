@@ -269,8 +269,6 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 	}
 }
 
-struct btf_encoder *encoder;
-
 static int btf__encode_as_raw_file(struct btf *btf, const char *filename)
 {
 	uint32_t raw_btf_size;

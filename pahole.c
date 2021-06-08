@@ -26,6 +26,7 @@
 #include "lib/bpf/src/libbpf.h"
 #include "pahole_strings.h"
 
+static struct btf_encoder *encoder;
 static char *detached_btf_filename;
 static bool btf_encode;
 static bool ctf_encode;
