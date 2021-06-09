@@ -510,8 +510,9 @@ int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct cu *cu, 
 	return id;
 }
 
-int32_t btf__encode_var_type(struct btf *btf, uint32_t type, const char *name, uint32_t linkage)
+int32_t btf_encoder__add_var(struct btf_encoder *encoder, uint32_t type, const char *name, uint32_t linkage)
 {
+	struct btf *btf = encoder->btf;
 	const struct btf_type *t;
 	int32_t id;
 

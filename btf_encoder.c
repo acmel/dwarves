@@ -843,7 +843,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip
 		}
 
 		/* add a BTF_KIND_VAR in encoder->types */
-		id = btf__encode_var_type(encoder->btf, type, name, linkage);
+		id = btf_encoder__add_var(encoder, type, name, linkage);
 		if (id < 0) {
 			err = -1;
 			fprintf(stderr, "error: failed to encode variable '%s' at addr 0x%" PRIx64 "\n",
