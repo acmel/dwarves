@@ -261,7 +261,7 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 	case DW_TAG_enumeration_type:
 		return btf__encode_enumeration_type(btf, cu, tag);
 	case DW_TAG_subroutine_type:
-		return btf__encode_func_proto(btf, cu, tag__ftype(tag), type_id_off);
+		return btf_encoder__add_func_proto(encoder, cu, tag__ftype(tag), type_id_off);
 	default:
 		fprintf(stderr, "Unsupported DW_TAG_%s(0x%x)\n",
 			dwarf_tag_name(tag->tag), tag->tag);
@@ -743,7 +743,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip
 				continue;
 		}
 
-		btf_fnproto_id = btf__encode_func_proto(encoder->btf, cu, &fn->proto, type_id_off);
+		btf_fnproto_id = btf_encoder__add_func_proto(encoder, cu, &fn->proto, type_id_off);
 		name = dwarves__active_loader->strings__ptr(cu, fn->name);
 		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id, name, false);
 		if (btf_fnproto_id < 0 || btf_fn_id < 0) {

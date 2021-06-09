@@ -469,8 +469,9 @@ static int32_t btf__encode_func_proto_param(struct btf *btf, const char *name,
 
 extern struct debug_fmt_ops *dwarves__active_loader;
 
-int32_t btf__encode_func_proto(struct btf *btf, struct cu *cu, struct ftype *ftype, uint32_t type_id_off)
+int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct cu *cu, struct ftype *ftype, uint32_t type_id_off)
 {
+	struct btf *btf = encoder->btf;
 	const struct btf_type *t;
 	struct parameter *param;
 	uint16_t nr_params, param_idx;
