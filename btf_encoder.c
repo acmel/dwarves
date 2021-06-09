@@ -455,7 +455,7 @@ int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filena
 	int err;
 
 	if (gobuffer__size(&encoder->percpu_secinfo) != 0)
-		btf_encoder__add_datasec(encoder, PERCPU_SECTION, &encoder->percpu_secinfo);
+		btf_encoder__add_datasec(encoder, PERCPU_SECTION);
 
 	if (detached_filename == NULL)
 		err = btf__encode_in_elf(encoder->btf, encoder->filename, 0);

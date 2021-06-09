@@ -540,9 +540,9 @@ int32_t btf_encoder__add_var_secinfo(struct btf_encoder *encoder, uint32_t type,
 	return gobuffer__add(&encoder->percpu_secinfo, &si, sizeof(si));
 }
 
-int32_t btf_encoder__add_datasec(struct btf_encoder *encoder, const char *section_name,
-				 struct gobuffer *var_secinfo_buf)
+int32_t btf_encoder__add_datasec(struct btf_encoder *encoder, const char *section_name)
 {
+	struct gobuffer *var_secinfo_buf = &encoder->percpu_secinfo;
 	struct btf *btf = encoder->btf;
 	size_t sz = gobuffer__size(var_secinfo_buf);
 	uint16_t nr_var_secinfo = sz / sizeof(struct btf_var_secinfo);
