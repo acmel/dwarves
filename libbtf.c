@@ -302,9 +302,10 @@ int32_t btf_encoder__add_base_type(struct btf_encoder *encoder, const struct bas
 	return id;
 }
 
-int32_t btf__encode_ref_type(struct btf *btf, uint16_t kind, uint32_t type,
-			     const char *name, bool kind_flag)
+int32_t btf_encoder__add_ref_type(struct btf_encoder *encoder, uint16_t kind, uint32_t type,
+				  const char *name, bool kind_flag)
 {
+	struct btf *btf = encoder->btf;
 	const struct btf_type *t;
 	int32_t id;
 
