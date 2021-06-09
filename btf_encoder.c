@@ -589,7 +589,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		if (encoder->filename == NULL)
 			goto out_delete;
 
-		encoder->btfe = btf_elf__new(cu->filename, cu->elf, base_btf);
+		encoder->btfe = btf_elf__new(base_btf);
 		if (encoder->btfe == NULL)
 			goto out_delete;
 

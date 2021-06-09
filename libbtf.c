@@ -5,7 +5,6 @@
  */
 
 #include <fcntl.h>
-#include <gelf.h>
 #include <limits.h>
 #include <malloc.h>
 #include <errno.h>
@@ -48,38 +47,17 @@ static int btf_var_secinfo_cmp(const void *a, const void *b)
 	return av->offset - bv->offset;
 }
 
-struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_btf)
+struct btf_elf *btf_elf__new(struct btf *base_btf)
 {
 	struct btf_elf *btfe = zalloc(sizeof(*btfe));
 
 	if (!btfe)
 		return NULL;
 
-	btfe->in_fd = -1;
-
 	btfe->btf = btf__new_empty_split(base_btf);
 	if (libbpf_get_error(btfe->btf)) {
 		fprintf(stderr, "%s: failed to create empty BTF.\n", __func__);
 		goto errout;
-	}
-
-	if (elf != NULL) {
-		btfe->elf = elf;
-	} else {
-		btfe->in_fd = open(filename, O_RDONLY);
-		if (btfe->in_fd < 0)
-			goto errout;
-
-		if (elf_version(EV_CURRENT) == EV_NONE) {
-			elf_error("cannot set libelf version");
-			goto errout;
-		}
-
-		btfe->elf = elf_begin(btfe->in_fd, ELF_C_READ_MMAP, NULL);
-		if (!btfe->elf) {
-			elf_error("cannot read %s ELF file", filename);
-			goto errout;
-		}
 	}
 
 	return btfe;
@@ -93,12 +71,6 @@ void btf_elf__delete(struct btf_elf *btfe)
 {
 	if (!btfe)
 		return;
-
-	if (btfe->in_fd != -1) {
-		close(btfe->in_fd);
-		if (btfe->elf)
-			elf_end(btfe->elf);
-	}
 
 	btf__free(btfe->btf);
 	btfe->btf = NULL;

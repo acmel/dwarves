@@ -14,9 +14,7 @@ struct gobuffer;
 #include "lib/bpf/src/btf.h"
 
 struct btf_elf {
-	Elf		  *elf;
-	int		  in_fd;
-	struct btf	  *btf;
+	struct btf *btf;
 };
 
 #define btf_elf__verbose_log(fmt, ...) { if (btf_elf__verbose) printf(fmt, __VA_ARGS__); }
@@ -28,7 +26,7 @@ struct cu;
 struct base_type;
 struct ftype;
 
-struct btf_elf *btf_elf__new(const char *filename, Elf *elf, struct btf *base_btf);
+struct btf_elf *btf_elf__new(struct btf *base_btf);
 void btf_elf__delete(struct btf_elf *btf);
 
 int32_t btf__encode_base_type(struct btf *btf, const struct base_type *bt, const char *name);
