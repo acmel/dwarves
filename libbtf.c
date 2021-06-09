@@ -451,12 +451,10 @@ int btf__encode_enum_val(struct btf *btf, const char *name, int32_t value)
 	return err;
 }
 
-static int32_t btf__encode_func_proto_param(struct btf *btf, const char *name,
-					    uint32_t type, bool is_last_param)
+static int32_t btf_encoder__add_func_param(struct btf_encoder *encoder, const char *name, uint32_t type, bool is_last_param)
 {
-	int err;
+	int err = btf__add_func_param(encoder->btf, name, type);
 
-	err = btf__add_func_param(btf, name, type);
 	if (!err) {
 		btf__log_func_param(name, type, false, is_last_param, NULL);
 		return 0;
@@ -500,13 +498,13 @@ int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct cu *cu, 
 
 		type_id = param->tag.type == 0 ? 0 : type_id_off + param->tag.type;
 		++param_idx;
-		if (btf__encode_func_proto_param(btf, name, type_id, param_idx == nr_params))
+		if (btf_encoder__add_func_param(encoder, name, type_id, param_idx == nr_params))
 			return -1;
 	}
 
 	++param_idx;
 	if (ftype->unspec_parms)
-		if (btf__encode_func_proto_param(btf, NULL, 0, param_idx == nr_params))
+		if (btf_encoder__add_func_param(encoder, NULL, 0, param_idx == nr_params))
 			return -1;
 
 	return id;
