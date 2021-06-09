@@ -438,7 +438,7 @@ int btf_encoder__add_enum_val(struct btf_encoder *encoder, const char *name, int
 	int err = btf__add_enum_value(encoder->btf, name, value);
 
 	if (!err) {
-		if (btf_encoder__verbose)
+		if (encoder->verbose)
 			printf("\t%s val=%d\n", name, value);
 	} else {
 		fprintf(stderr, "\t%s val=%d Error emitting BTF enum value\n",
@@ -564,7 +564,7 @@ int32_t btf_encoder__add_datasec(struct btf_encoder *encoder, const char *sectio
 		vsi = (struct btf_var_secinfo *)var_secinfo_buf->entries + i;
 		err = btf__add_datasec_var_info(btf, vsi->type, vsi->offset, vsi->size);
 		if (!err) {
-			if (btf_encoder__verbose)
+			if (encoder->verbose)
 				printf("\ttype=%u offset=%u size=%u\n",
 				       vsi->type, vsi->offset, vsi->size);
 		} else {
