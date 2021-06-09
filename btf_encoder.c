@@ -228,7 +228,7 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 {
 	/* single out type 0 as it represents special type "void" */
 	uint32_t ref_type_id = tag->type == 0 ? 0 : type_id_off + tag->type;
-	struct btf *btf = encoder->btfe->btf;
+	struct btf *btf = encoder->btf;
 	const char *name;
 
 	switch (tag->tag) {
@@ -456,12 +456,12 @@ int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filena
 	int err;
 
 	if (gobuffer__size(&encoder->percpu_secinfo) != 0)
-		btf__encode_datasec_type(encoder->btfe->btf, PERCPU_SECTION, &encoder->percpu_secinfo);
+		btf__encode_datasec_type(encoder->btf, PERCPU_SECTION, &encoder->percpu_secinfo);
 
 	if (detached_filename == NULL)
-		err = btf__encode_in_elf(encoder->btfe->btf, encoder->filename, 0);
+		err = btf__encode_in_elf(encoder->btf, encoder->filename, 0);
 	else
-		err = btf__encode_as_raw_file(encoder->btfe->btf, detached_filename);
+		err = btf__encode_as_raw_file(encoder->btf, detached_filename);
 
 	return err;
 }
@@ -589,8 +589,8 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		if (encoder->filename == NULL)
 			goto out_delete;
 
-		encoder->btfe = btf_elf__new(base_btf);
-		if (encoder->btfe == NULL)
+		encoder->btf = btf__new_empty_split(base_btf);
+		if (encoder->btf == NULL)
 			goto out_delete;
 
 		encoder->force		 = force;
@@ -607,10 +607,10 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 
 		switch (encoder->ehdr.e_ident[EI_DATA]) {
 		case ELFDATA2LSB:
-			btf__set_endianness(encoder->btfe->btf, BTF_LITTLE_ENDIAN);
+			btf__set_endianness(encoder->btf, BTF_LITTLE_ENDIAN);
 			break;
 		case ELFDATA2MSB:
-			btf__set_endianness(encoder->btfe->btf, BTF_BIG_ENDIAN);
+			btf__set_endianness(encoder->btf, BTF_BIG_ENDIAN);
 			break;
 		default:
 			fprintf(stderr, "%s: unknown ELF endianness.\n", __func__);
@@ -659,8 +659,8 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 
 	__gobuffer__delete(&encoder->percpu_secinfo);
 	zfree(&encoder->filename);
-	btf_elf__delete(encoder->btfe);
-	encoder->btfe = NULL;
+	btf__free(encoder->btf);
+	encoder->btf = NULL;
 	elf_symtab__delete(encoder->symtab);
 
 	encoder->functions.allocated = encoder->functions.cnt = 0;
@@ -672,14 +672,13 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 
 int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip_encoding_vars)
 {
-	uint32_t type_id_off;
+	uint32_t type_id_off = btf__get_nr_types(encoder->btf);
 	uint32_t core_id;
 	struct variable *var;
 	struct function *fn;
 	struct tag *pos;
 	int err = 0;
 
-	type_id_off = btf__get_nr_types(encoder->btfe->btf);
 
 	if (!encoder->has_index_type) {
 		/* cu__find_base_type_by_name() takes "type_id_t *id" */
@@ -708,7 +707,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip
 
 		bt.name = 0;
 		bt.bit_size = 32;
-		btf__encode_base_type(encoder->btfe->btf, &bt, "__ARRAY_SIZE_TYPE__");
+		btf__encode_base_type(encoder->btf, &bt, "__ARRAY_SIZE_TYPE__");
 		encoder->has_index_type = true;
 	}
 
@@ -744,9 +743,9 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip
 				continue;
 		}
 
-		btf_fnproto_id = btf__encode_func_proto(encoder->btfe->btf, cu, &fn->proto, type_id_off);
+		btf_fnproto_id = btf__encode_func_proto(encoder->btf, cu, &fn->proto, type_id_off);
 		name = dwarves__active_loader->strings__ptr(cu, fn->name);
-		btf_fn_id = btf__encode_ref_type(encoder->btfe->btf, BTF_KIND_FUNC, btf_fnproto_id, name, false);
+		btf_fn_id = btf__encode_ref_type(encoder->btf, BTF_KIND_FUNC, btf_fnproto_id, name, false);
 		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
 			err = -1;
 			printf("error: failed to encode function '%s'\n", function__name(fn, cu));
@@ -844,8 +843,8 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip
 			       name, cu->name, addr);
 		}
 
-		/* add a BTF_KIND_VAR in encoder->btfe->types */
-		id = btf__encode_var_type(encoder->btfe->btf, type, name, linkage);
+		/* add a BTF_KIND_VAR in encoder->types */
+		id = btf__encode_var_type(encoder->btf, type, name, linkage);
 		if (id < 0) {
 			err = -1;
 			fprintf(stderr, "error: failed to encode variable '%s' at addr 0x%" PRIx64 "\n",
@@ -855,7 +854,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip
 
 		/*
 		 * add a BTF_VAR_SECINFO in encoder->percpu_secinfo, which will be added into
-		 * encoder->btfe->types later when we add BTF_VAR_DATASEC.
+		 * encoder->types later when we add BTF_VAR_DATASEC.
 		 */
 		id = btf__encode_var_secinfo(&encoder->percpu_secinfo, id, addr, size);
 		if (id < 0) {

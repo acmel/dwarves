@@ -17,7 +17,6 @@
 #include "gobuffer.h"
 
 struct btf;
-struct btf_elf;
 struct cu;
 struct elf_symtab;
 struct elf_function;
@@ -31,7 +30,7 @@ struct var_info {
 };
 
 struct btf_encoder {
-	struct btf_elf *btfe;
+	struct btf        *btf;
 	struct gobuffer   percpu_secinfo;
 	const char	  *filename;
 	struct elf_symtab *symtab;
