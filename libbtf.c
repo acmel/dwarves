@@ -210,17 +210,17 @@ static void btf__log_func_param(const char *name, uint32_t type,
 	}
 }
 
-static int32_t btf__encode_float_type(struct btf *btf, const struct base_type *bt, const char *name)
+static int32_t btf_encoder__add_float(struct btf_encoder *encoder, const struct base_type *bt, const char *name)
 {
-	int32_t id = btf__add_float(btf, name, BITS_ROUNDUP_BYTES(bt->bit_size));
+	int32_t id = btf__add_float(encoder->btf, name, BITS_ROUNDUP_BYTES(bt->bit_size));
 
 	if (id < 0) {
-		btf__log_err(btf, BTF_KIND_FLOAT, name, true, "Error emitting BTF type");
+		btf__log_err(encoder->btf, BTF_KIND_FLOAT, name, true, "Error emitting BTF type");
 	} else {
 		const struct btf_type *t;
 
-		t = btf__type_by_id(btf, id);
-		btf__log_type(btf, t, false, true, "size=%u nr_bits=%u", t->size, bt->bit_size);
+		t = btf__type_by_id(encoder->btf, id);
+		btf__log_type(encoder->btf, t, false, true, "size=%u nr_bits=%u", t->size, bt->bit_size);
 	}
 
 	return id;
@@ -246,7 +246,7 @@ int32_t btf_encoder__add_base_type(struct btf_encoder *encoder, const struct bas
 		if (bt->float_type == BT_FP_SINGLE ||
 		    bt->float_type == BT_FP_DOUBLE ||
 		    bt->float_type == BT_FP_LDBL)
-			return btf__encode_float_type(encoder->btf, bt, name);
+			return btf_encoder__add_float(encoder, bt, name);
 		fprintf(stderr, "Complex, interval and imaginary float types are not supported\n");
 		return -1;
 	}
