@@ -29,8 +29,6 @@
 
 #include <errno.h>
 
-bool btf_encoder__verbose;
-
 /*
  * This depends on the GNU extension to eliminate the stray comma in the zero
  * arguments case.

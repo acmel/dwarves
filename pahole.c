@@ -2802,9 +2802,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (btf_encode)
-		btf_encoder__verbose = global_verbose;
-
 	struct cus *cus = cus__new();
 	if (cus == NULL) {
 		fputs("pahole: insufficient memory\n", stderr);
