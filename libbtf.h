@@ -28,7 +28,7 @@ int btf_encoder__add_field(struct btf_encoder *encoder, const char *name, uint32
 int32_t btf_encoder__add_struct(struct btf_encoder *encoder, uint8_t kind, const char *name, uint32_t size);
 int32_t btf_encoder__add_array(struct btf_encoder *encoder, uint32_t type, uint32_t index_type, uint32_t nelems);
 int32_t btf_encoder__add_enum(struct btf_encoder *encoder, const char *name, uint32_t size);
-int btf__encode_enum_val(struct btf *btf, const char *name, int32_t value);
+int btf_encoder__add_enum_val(struct btf_encoder *encoder, const char *name, int32_t value);
 int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct cu *cu, struct ftype *ftype, uint32_t type_id_off);
 int32_t btf__encode_var_type(struct btf *btf, uint32_t type, const char *name, uint32_t linkage);
 int32_t btf__encode_var_secinfo(struct gobuffer *buf, uint32_t type, uint32_t offset, uint32_t size);

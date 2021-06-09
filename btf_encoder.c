@@ -216,7 +216,7 @@ static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct cu
 
 	type__for_each_enumerator(etype, pos) {
 		name = dwarves__active_loader->strings__ptr(cu, pos->name);
-		if (btf__encode_enum_val(encoder->btf, name, pos->value))
+		if (btf_encoder__add_enum_val(encoder, name, pos->value))
 			return -1;
 	}
 

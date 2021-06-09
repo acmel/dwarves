@@ -437,11 +437,10 @@ int32_t btf_encoder__add_enum(struct btf_encoder *encoder, const char *name, uin
 	return id;
 }
 
-int btf__encode_enum_val(struct btf *btf, const char *name, int32_t value)
+int btf_encoder__add_enum_val(struct btf_encoder *encoder, const char *name, int32_t value)
 {
-	int err;
+	int err = btf__add_enum_value(encoder->btf, name, value);
 
-	err = btf__add_enum_value(btf, name, value);
 	if (!err) {
 		if (btf_encoder__verbose)
 			printf("\t%s val=%d\n", name, value);
