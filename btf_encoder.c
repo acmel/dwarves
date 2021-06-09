@@ -855,7 +855,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip
 		 * add a BTF_VAR_SECINFO in encoder->percpu_secinfo, which will be added into
 		 * encoder->types later when we add BTF_VAR_DATASEC.
 		 */
-		id = btf_encoder__add_var_secinfo(&encoder->percpu_secinfo, id, addr, size);
+		id = btf_encoder__add_var_secinfo(encoder, id, addr, size);
 		if (id < 0) {
 			err = -1;
 			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%" PRIx64 "\n",

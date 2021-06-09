@@ -30,7 +30,7 @@ int32_t btf_encoder__add_enum(struct btf_encoder *encoder, const char *name, uin
 int btf_encoder__add_enum_val(struct btf_encoder *encoder, const char *name, int32_t value);
 int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct cu *cu, struct ftype *ftype, uint32_t type_id_off);
 int32_t btf_encoder__add_var(struct btf_encoder *encoder, uint32_t type, const char *name, uint32_t linkage);
-int32_t btf_encoder__add_var_secinfo(struct gobuffer *buf, uint32_t type, uint32_t offset, uint32_t size);
+int32_t btf_encoder__add_var_secinfo(struct btf_encoder *encoder, uint32_t type, uint32_t offset, uint32_t size);
 int32_t btf_encoder__add_datasec(struct btf_encoder *encoder, const char *section_name, struct gobuffer *var_secinfo_buf);
 
 #endif /* _LIBBTF_H */
