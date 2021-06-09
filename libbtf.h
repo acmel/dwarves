@@ -17,11 +17,12 @@ extern bool btf_gen_floats;
 
 #define PERCPU_SECTION ".data..percpu"
 
+struct btf_encoder;
 struct cu;
 struct base_type;
 struct ftype;
 
-int32_t btf__encode_base_type(struct btf *btf, const struct base_type *bt, const char *name);
+int32_t btf_encoder__add_base_type(struct btf_encoder *encoder, const struct base_type *bt, const char *name);
 int32_t btf__encode_ref_type(struct btf *btf, uint16_t kind, uint32_t type, const char *name, bool kind_flag);
 int btf__encode_member(struct btf *btf, const char *name, uint32_t type, uint32_t bitfield_size, uint32_t bit_offset);
 int32_t btf__encode_struct(struct btf *btf, uint8_t kind, const char *name, uint32_t size);
