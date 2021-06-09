@@ -160,7 +160,7 @@ static int tag__check_id_drift(const struct tag *tag,
 	return 0;
 }
 
-static int32_t btf__encode_struct_type(struct btf *btf, struct cu *cu, struct tag *tag, uint32_t type_id_off)
+static int32_t btf_encoder__add_struct_type(struct btf_encoder *encoder, struct cu *cu, struct tag *tag, uint32_t type_id_off)
 {
 	struct type *type = tag__type(tag);
 	struct class_member *pos;
@@ -172,7 +172,7 @@ static int32_t btf__encode_struct_type(struct btf *btf, struct cu *cu, struct ta
 		BTF_KIND_UNION : BTF_KIND_STRUCT;
 
 	name = dwarves__active_loader->strings__ptr(cu, type->namespace.name);
-	type_id = btf__encode_struct(btf, kind, name, type->size);
+	type_id = btf__encode_struct(encoder->btf, kind, name, type->size);
 	if (type_id < 0)
 		return type_id;
 
@@ -183,7 +183,7 @@ static int32_t btf__encode_struct_type(struct btf *btf, struct cu *cu, struct ta
 		 * is required.
 		 */
 		name = dwarves__active_loader->strings__ptr(cu, pos->name);
-		if (btf__encode_member(btf, name, type_id_off + pos->tag.type, pos->bitfield_size, pos->bit_offset))
+		if (btf__encode_member(encoder->btf, name, type_id_off + pos->tag.type, pos->bitfield_size, pos->bit_offset))
 			return -1;
 	}
 
@@ -253,7 +253,7 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 		if (tag__type(tag)->declaration)
 			return btf_encoder__add_ref_type(encoder, BTF_KIND_FWD, 0, name, tag->tag == DW_TAG_union_type);
 		else
-			return btf__encode_struct_type(btf, cu, tag, type_id_off);
+			return btf_encoder__add_struct_type(encoder, cu, tag, type_id_off);
 	case DW_TAG_array_type:
 		/* TODO: Encode one dimension at a time. */
 		encoder->need_index_type = true;
