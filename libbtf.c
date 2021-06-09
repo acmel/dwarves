@@ -183,14 +183,13 @@ static void btf_encoder__log_member(const struct btf_encoder *encoder, const str
 	fprintf(out, "\n");
 }
 
-__attribute ((format (printf, 5, 6)))
-static void btf__log_func_param(const char *name, uint32_t type,
-			       bool err, bool is_last_param,
-			       const char *fmt, ...)
+__attribute ((format (printf, 6, 7)))
+static void btf_encoder__log_func_param(struct btf_encoder *encoder, const char *name, uint32_t type,
+					bool err, bool is_last_param, const char *fmt, ...)
 {
 	FILE *out;
 
-	if (!btf_encoder__verbose && !err)
+	if (!encoder->verbose && !err)
 		return;
 
 	out = err ? stderr : stdout;
@@ -453,11 +452,10 @@ static int32_t btf_encoder__add_func_param(struct btf_encoder *encoder, const ch
 	int err = btf__add_func_param(encoder->btf, name, type);
 
 	if (!err) {
-		btf__log_func_param(name, type, false, is_last_param, NULL);
+		btf_encoder__log_func_param(encoder, name, type, false, is_last_param, NULL);
 		return 0;
 	} else {
-		btf__log_func_param(name, type, true, is_last_param,
-				   "Error adding func param");
+		btf_encoder__log_func_param(encoder, name, type, true, is_last_param, "Error adding func param");
 		return -1;
 	}
 }
