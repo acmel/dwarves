@@ -369,8 +369,9 @@ int32_t btf__encode_array(struct btf *btf, uint32_t type, uint32_t index_type, u
 	return id;
 }
 
-int btf__encode_member(struct btf *btf, const char *name, uint32_t type, uint32_t bitfield_size, uint32_t offset)
+int btf_encoder__add_field(struct btf_encoder *encoder, const char *name, uint32_t type, uint32_t bitfield_size, uint32_t offset)
 {
+	struct btf *btf = encoder->btf;
 	const struct btf_type *t;
 	const struct btf_member *m;
 	int err;

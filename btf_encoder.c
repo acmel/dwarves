@@ -183,7 +183,7 @@ static int32_t btf_encoder__add_struct_type(struct btf_encoder *encoder, struct 
 		 * is required.
 		 */
 		name = dwarves__active_loader->strings__ptr(cu, pos->name);
-		if (btf__encode_member(encoder->btf, name, type_id_off + pos->tag.type, pos->bitfield_size, pos->bit_offset))
+		if (btf_encoder__add_field(encoder, name, type_id_off + pos->tag.type, pos->bitfield_size, pos->bit_offset))
 			return -1;
 	}
 
