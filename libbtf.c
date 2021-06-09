@@ -529,8 +529,8 @@ int32_t btf_encoder__add_var(struct btf_encoder *encoder, uint32_t type, const c
 	return id;
 }
 
-int32_t btf__encode_var_secinfo(struct gobuffer *buf, uint32_t type,
-				uint32_t offset, uint32_t size)
+int32_t btf_encoder__add_var_secinfo(struct gobuffer *buf, uint32_t type,
+				     uint32_t offset, uint32_t size)
 {
 	struct btf_var_secinfo si = {
 		.type = type,
