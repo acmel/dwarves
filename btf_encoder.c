@@ -577,7 +577,7 @@ static bool has_arg_names(struct cu *cu, struct ftype *ftype)
 	return true;
 }
 
-struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool force, bool verbose)
+struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool force, bool gen_floats, bool verbose)
 {
 	struct btf_encoder *encoder = zalloc(sizeof(*encoder));
 
@@ -591,6 +591,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 			goto out_delete;
 
 		encoder->force		 = force;
+		encoder->gen_floats	 = gen_floats;
 		encoder->verbose	 = verbose;
 		encoder->has_index_type  = false;
 		encoder->need_index_type = false;

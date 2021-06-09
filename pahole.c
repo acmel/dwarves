@@ -29,6 +29,7 @@
 static struct btf_encoder *btf_encoder;
 static char *detached_btf_filename;
 static bool btf_encode;
+static bool btf_gen_floats;
 static bool ctf_encode;
 static bool first_obj_only;
 static bool skip_encoding_btf_vars;
@@ -2474,7 +2475,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		 */
 		if (!btf_encoder) {
 			btf_encoder = btf_encoder__new(cu, conf_load->base_btf, skip_encoding_btf_vars,
-						       btf_encode_force, global_verbose);
+						       btf_encode_force, btf_gen_floats, global_verbose);
 			if (btf_encoder == NULL)
 				return LSK__STOP_LOADING;
 		}

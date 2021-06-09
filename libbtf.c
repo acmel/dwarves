@@ -37,8 +37,6 @@
 #define elf_error(fmt, ...) \
 	fprintf(stderr, "%s: " fmt ": %s.\n", __func__, ##__VA_ARGS__, elf_errmsg(-1))
 
-bool btf_gen_floats = false;
-
 static int btf_var_secinfo_cmp(const void *a, const void *b)
 {
 	const struct btf_var_secinfo *av = a;
@@ -236,7 +234,7 @@ int32_t btf_encoder__add_base_type(struct btf_encoder *encoder, const struct bas
 		encoding = BTF_INT_SIGNED;
 	} else if (bt->is_bool) {
 		encoding = BTF_INT_BOOL;
-	} else if (bt->float_type && btf_gen_floats) {
+	} else if (bt->float_type && encoder->gen_floats) {
 		/*
 		 * Encode floats as BTF_KIND_FLOAT if allowed, otherwise (in
 		 * compatibility mode) encode them as BTF_KIND_INT - that's not

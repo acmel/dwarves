@@ -38,7 +38,8 @@ struct btf_encoder {
 	bool		  has_index_type,
 			  need_index_type,
 			  verbose,
-			  force;
+			  force,
+			  gen_floats;
 	uint32_t	  array_index_id;
 	struct {
 		struct var_info vars[MAX_PERCPU_VAR_CNT];
@@ -54,7 +55,7 @@ struct btf_encoder {
 	} functions;
 };
 
-struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool force, bool verbose);
+struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool force, bool gen_floats, bool verbose);
 void btf_encoder__delete(struct btf_encoder *encoder);
 
 int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filename);

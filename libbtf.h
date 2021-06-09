@@ -10,8 +10,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-extern bool btf_gen_floats;
-
 #define PERCPU_SECTION ".data..percpu"
 
 struct btf_encoder;
