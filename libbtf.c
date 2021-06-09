@@ -348,8 +348,9 @@ int32_t btf_encoder__add_ref_type(struct btf_encoder *encoder, uint16_t kind, ui
 	return id;
 }
 
-int32_t btf__encode_array(struct btf *btf, uint32_t type, uint32_t index_type, uint32_t nelems)
+int32_t btf_encoder__add_array(struct btf_encoder *encoder, uint32_t type, uint32_t index_type, uint32_t nelems)
 {
+	struct btf *btf = encoder->btf;
 	const struct btf_type *t;
 	const struct btf_array *array;
 	int32_t id;
