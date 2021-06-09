@@ -390,8 +390,9 @@ int btf_encoder__add_field(struct btf_encoder *encoder, const char *name, uint32
 	return err;
 }
 
-int32_t btf__encode_struct(struct btf *btf, uint8_t kind, const char *name, uint32_t size)
+int32_t btf_encoder__add_struct(struct btf_encoder *encoder, uint8_t kind, const char *name, uint32_t size)
 {
+	struct btf *btf = encoder->btf;
 	const struct btf_type *t;
 	int32_t id;
 
