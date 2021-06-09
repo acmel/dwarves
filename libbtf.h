@@ -10,8 +10,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define PERCPU_SECTION ".data..percpu"
-
 struct btf_encoder;
 struct cu;
 struct base_type;

@@ -29,6 +29,8 @@
 
 #include <errno.h>
 
+#define PERCPU_SECTION ".data..percpu"
+
 /*
  * This depends on the GNU extension to eliminate the stray comma in the zero
  * arguments case.
