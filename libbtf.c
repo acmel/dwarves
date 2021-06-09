@@ -148,14 +148,13 @@ static void btf_encoder__log_type(const struct btf_encoder *encoder, const struc
 }
 
 __attribute ((format (printf, 5, 6)))
-static void btf__log_member(const struct btf *btf,
-			   const struct btf_type *t,
-			   const struct btf_member *member,
-			   bool err, const char *fmt, ...)
+static void btf_encoder__log_member(const struct btf_encoder *encoder, const struct btf_type *t,
+				    const struct btf_member *member, bool err, const char *fmt, ...)
 {
+	const struct btf *btf = encoder->btf;
 	FILE *out;
 
-	if (!btf_encoder__verbose && !err)
+	if (!encoder->verbose && !err)
 		return;
 
 	out = err ? stderr : stdout;
@@ -384,7 +383,7 @@ int btf_encoder__add_field(struct btf_encoder *encoder, const char *name, uint32
 			name, offset, bitfield_size, type);
 	} else {
 		m = &btf_members(t)[btf_vlen(t) - 1];
-		btf__log_member(btf, t, m, false, NULL);
+		btf_encoder__log_member(encoder, t, m, false, NULL);
 	}
 	return err;
 }
