@@ -13,7 +13,6 @@ struct gobuffer;
 #include <stdbool.h>
 #include <stdint.h>
 
-#define btf_elf__verbose_log(fmt, ...) { if (btf_elf__verbose) printf(fmt, __VA_ARGS__); }
 extern bool btf_gen_floats;
 
 #define PERCPU_SECTION ".data..percpu"
