@@ -419,8 +419,9 @@ int32_t btf_encoder__add_struct(struct btf_encoder *encoder, uint8_t kind, const
 	return id;
 }
 
-int32_t btf__encode_enum(struct btf *btf, const char *name, uint32_t bit_size)
+int32_t btf_encoder__add_enum(struct btf_encoder *encoder, const char *name, uint32_t bit_size)
 {
+	struct btf *btf = encoder->btf;
 	const struct btf_type *t;
 	int32_t id, size;
 

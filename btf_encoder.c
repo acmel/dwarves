@@ -210,7 +210,7 @@ static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct cu
 	int32_t type_id;
 
 	name = dwarves__active_loader->strings__ptr(cu, etype->namespace.name);
-	type_id = btf__encode_enum(encoder->btf, name, etype->size);
+	type_id = btf_encoder__add_enum(encoder, name, etype->size);
 	if (type_id < 0)
 		return type_id;
 
