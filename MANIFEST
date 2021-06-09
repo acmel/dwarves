@@ -27,8 +27,6 @@ fullcircle
 gobuffer.c
 gobuffer.h
 hash.h
-libbtf.c
-libbtf.h
 list.h
 MANIFEST
 man-pages/pahole.1

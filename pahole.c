@@ -22,7 +22,6 @@
 #include "dutil.h"
 #include "ctf_encoder.h"
 #include "btf_encoder.h"
-#include "libbtf.h"
 #include "lib/bpf/src/libbpf.h"
 #include "pahole_strings.h"
 

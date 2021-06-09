@@ -89,7 +89,7 @@ target_include_directories(bpf PRIVATE
 			   ${CMAKE_CURRENT_SOURCE_DIR}/lib/bpf/include/uapi)
 
 set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer.c strings.c
-		     ctf_encoder.c ctf_loader.c libctf.c btf_encoder.c btf_loader.c libbtf.c
+		     ctf_encoder.c ctf_loader.c libctf.c btf_encoder.c btf_loader.c
 		     dwarf_loader.c dutil.c elf_symtab.c rbtree.c)
 add_library(dwarves SHARED ${dwarves_LIB_SRCS} $<TARGET_OBJECTS:bpf>)
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
@@ -156,7 +156,7 @@ install(TARGETS dwarves dwarves_emit dwarves_reorganize LIBRARY DESTINATION ${LI
 install(FILES dwarves.h dwarves_emit.h dwarves_reorganize.h
 	      dutil.h gobuffer.h list.h rbtree.h pahole_strings.h
 	      btf_encoder.h config.h ctf_encoder.h ctf.h
-	      elfcreator.h elf_symtab.h hash.h libbtf.h libctf.h
+	      elfcreator.h elf_symtab.h hash.h libctf.h
 	DESTINATION ${CMAKE_INSTALL_PREFIX}/include/dwarves/)
 install(FILES man-pages/pahole.1 DESTINATION ${CMAKE_INSTALL_PREFIX}/share/man/man1/)
 install(PROGRAMS ostra/ostra-cg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
