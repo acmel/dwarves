@@ -7,15 +7,11 @@
 #ifndef _LIBBTF_H
 #define _LIBBTF_H
 
+struct btf;
 struct gobuffer;
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "lib/bpf/src/btf.h"
-
-struct btf_elf {
-	struct btf *btf;
-};
 
 #define btf_elf__verbose_log(fmt, ...) { if (btf_elf__verbose) printf(fmt, __VA_ARGS__); }
 extern bool btf_gen_floats;
@@ -25,9 +21,6 @@ extern bool btf_gen_floats;
 struct cu;
 struct base_type;
 struct ftype;
-
-struct btf_elf *btf_elf__new(struct btf *base_btf);
-void btf_elf__delete(struct btf_elf *btf);
 
 int32_t btf__encode_base_type(struct btf *btf, const struct base_type *bt, const char *name);
 int32_t btf__encode_ref_type(struct btf *btf, uint16_t kind, uint32_t type, const char *name, bool kind_flag);

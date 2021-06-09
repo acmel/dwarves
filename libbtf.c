@@ -47,36 +47,6 @@ static int btf_var_secinfo_cmp(const void *a, const void *b)
 	return av->offset - bv->offset;
 }
 
-struct btf_elf *btf_elf__new(struct btf *base_btf)
-{
-	struct btf_elf *btfe = zalloc(sizeof(*btfe));
-
-	if (!btfe)
-		return NULL;
-
-	btfe->btf = btf__new_empty_split(base_btf);
-	if (libbpf_get_error(btfe->btf)) {
-		fprintf(stderr, "%s: failed to create empty BTF.\n", __func__);
-		goto errout;
-	}
-
-	return btfe;
-
-errout:
-	btf_elf__delete(btfe);
-	return NULL;
-}
-
-void btf_elf__delete(struct btf_elf *btfe)
-{
-	if (!btfe)
-		return;
-
-	btf__free(btfe->btf);
-	btfe->btf = NULL;
-	free(btfe);
-}
-
 #define BITS_PER_BYTE 8
 #define BITS_PER_BYTE_MASK (BITS_PER_BYTE - 1)
 #define BITS_PER_BYTE_MASKED(bits) ((bits) & BITS_PER_BYTE_MASK)
