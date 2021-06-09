@@ -202,7 +202,7 @@ static uint32_t array_type__nelems(struct tag *tag)
 	return nelem;
 }
 
-static int32_t btf__encode_enumeration_type(struct btf *btf, struct cu *cu, struct tag *tag)
+static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct cu *cu, struct tag *tag)
 {
 	struct type *etype = tag__type(tag);
 	struct enumerator *pos;
@@ -210,13 +210,13 @@ static int32_t btf__encode_enumeration_type(struct btf *btf, struct cu *cu, stru
 	int32_t type_id;
 
 	name = dwarves__active_loader->strings__ptr(cu, etype->namespace.name);
-	type_id = btf__encode_enum(btf, name, etype->size);
+	type_id = btf__encode_enum(encoder->btf, name, etype->size);
 	if (type_id < 0)
 		return type_id;
 
 	type__for_each_enumerator(etype, pos) {
 		name = dwarves__active_loader->strings__ptr(cu, pos->name);
-		if (btf__encode_enum_val(btf, name, pos->value))
+		if (btf__encode_enum_val(encoder->btf, name, pos->value))
 			return -1;
 	}
 
@@ -228,7 +228,6 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 {
 	/* single out type 0 as it represents special type "void" */
 	uint32_t ref_type_id = tag->type == 0 ? 0 : type_id_off + tag->type;
-	struct btf *btf = encoder->btf;
 	const char *name;
 
 	switch (tag->tag) {
@@ -259,7 +258,7 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 		encoder->need_index_type = true;
 		return btf_encoder__add_array(encoder, ref_type_id, encoder->array_index_id, array_type__nelems(tag));
 	case DW_TAG_enumeration_type:
-		return btf__encode_enumeration_type(btf, cu, tag);
+		return btf_encoder__add_enum_type(encoder, cu, tag);
 	case DW_TAG_subroutine_type:
 		return btf_encoder__add_func_proto(encoder, cu, tag__ftype(tag), type_id_off);
 	default:
