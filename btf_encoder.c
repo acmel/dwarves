@@ -12,6 +12,7 @@
 #include "dwarves.h"
 #include "elf_symtab.h"
 #include "btf_encoder.h"
+#include "gobuffer.h"
 
 #include <linux/btf.h>
 #include <bpf/libbpf.h>
@@ -27,6 +28,46 @@
 #include <unistd.h>
 
 #include <errno.h>
+#include <stdint.h>
+
+struct elf_function {
+	const char	*name;
+	bool		 generated;
+};
+
+#define MAX_PERCPU_VAR_CNT 4096
+
+struct var_info {
+	uint64_t    addr;
+	const char *name;
+	uint32_t    sz;
+};
+
+struct btf_encoder {
+	struct btf        *btf;
+	struct gobuffer   percpu_secinfo;
+	const char	  *filename;
+	struct elf_symtab *symtab;
+	GElf_Ehdr	  ehdr;
+	bool		  has_index_type,
+			  need_index_type,
+			  verbose,
+			  force,
+			  gen_floats;
+	uint32_t	  array_index_id;
+	struct {
+		struct var_info vars[MAX_PERCPU_VAR_CNT];
+		int		var_cnt;
+		uint32_t	shndx;
+		uint64_t	base_addr;
+		uint64_t	sec_sz;
+	} percpu;
+	struct {
+		struct elf_function *entries;
+		int		    allocated;
+		int		    cnt;
+	} functions;
+};
 
 #define PERCPU_SECTION ".data..percpu"
 
@@ -592,11 +633,6 @@ static int32_t btf_encoder__add_datasec(struct btf_encoder *encoder, const char 
  * include/linux/kallsyms.h
  */
 #define KSYM_NAME_LEN 128
-
-struct elf_function {
-	const char	*name;
-	bool		 generated;
-};
 
 static int functions_cmp(const void *_a, const void *_b)
 {
