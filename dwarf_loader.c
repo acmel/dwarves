@@ -324,7 +324,7 @@ static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 	return 0;
 }
 
-static uint64_t dwarf_expr(const uint8_t *expr, uint32_t len __unused)
+static uint64_t dwarf_expr(const uint8_t *expr, uint32_t len __maybe_unused)
 {
 	/* Common case: offset from start of the class */
 	if (expr[0] == DW_OP_plus_uconst ||
@@ -2283,7 +2283,7 @@ static unsigned long long dwarf_tag__orig_id(const struct tag *tag,
 	return cu->extra_dbg_info ? dtag->id : 0;
 }
 
-static const char *dwarf__strings_ptr(const struct cu *cu __unused,
+static const char *dwarf__strings_ptr(const struct cu *cu __maybe_unused,
 				      strings_t s)
 {
 	return s ? strings__ptr(strings, s) : NULL;
@@ -2800,9 +2800,9 @@ struct process_dwflmod_parms {
 };
 
 static int cus__process_dwflmod(Dwfl_Module *dwflmod,
-				void **userdata __unused,
-				const char *name __unused,
-				Dwarf_Addr base __unused,
+				void **userdata __maybe_unused,
+				const char *name __maybe_unused,
+				Dwarf_Addr base __maybe_unused,
 				void *arg)
 {
 	struct process_dwflmod_parms *parms = arg;

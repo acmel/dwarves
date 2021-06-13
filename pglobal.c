@@ -124,7 +124,7 @@ static void extfun__add(struct function *fun, const struct cu *cu)
 	}
 }
 
-static int cu_extvar_iterator(struct cu *cu, void *cookie __unused)
+static int cu_extvar_iterator(struct cu *cu, void *cookie __maybe_unused)
 {
 	struct tag *pos;
 	uint32_t id;
@@ -137,7 +137,7 @@ static int cu_extvar_iterator(struct cu *cu, void *cookie __unused)
 	return 0;
 }
 
-static int cu_extfun_iterator(struct cu *cu, void *cookie __unused)
+static int cu_extfun_iterator(struct cu *cu, void *cookie __maybe_unused)
 {
 	struct function *pos;
 	uint32_t id;
@@ -169,7 +169,7 @@ static inline struct tag *extfun__tag(const struct extfun *gfun)
 }
 
 static void declaration_action__walk(const void *nodep, const VISIT which,
-				     const int depth __unused)
+				     const int depth __maybe_unused)
 {
 	uint32_t count = 0;
 	struct tag *tag;
@@ -202,7 +202,7 @@ static void declaration_action__walk(const void *nodep, const VISIT which,
 }
 
 static void function_action__walk(const void *nodep, const VISIT which,
-				  const int depth __unused)
+				  const int depth __maybe_unused)
 {
 	struct tag *tag;
 	const struct extfun *gfun = NULL;
@@ -268,7 +268,7 @@ static const struct argp_option pglobal__options[] = {
 
 static int walk_var, walk_fun;
 
-static error_t pglobal__options_parser(int key, char *arg __unused,
+static error_t pglobal__options_parser(int key, char *arg __maybe_unused,
 				      struct argp_state *state)
 {
 	switch (key) {

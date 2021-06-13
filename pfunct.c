@@ -195,7 +195,7 @@ static void print_total_inline_stats(void)
 
 static void fn_stats__dupmsg(struct function *func,
 			     const struct cu *func_cu,
-			     struct function *dup __unused,
+			     struct function *dup __maybe_unused,
 			     const struct cu *dup_cu,
 			     char *hdr, const char *fmt, ...)
 {
@@ -282,7 +282,7 @@ static bool function__filter(struct function *function, struct cu *cu)
 	return false;
 }
 
-static int cu_unique_iterator(struct cu *cu, void *cookie __unused)
+static int cu_unique_iterator(struct cu *cu, void *cookie __maybe_unused)
 {
 	cu__account_inline_expansions(cu);
 
@@ -496,7 +496,7 @@ int elf_symtabs__show(char *filenames[])
 	return EXIT_SUCCESS;
 }
 
-static enum load_steal_kind pfunct_stealer(struct cu *cu, struct conf_load *conf_load __unused)
+static enum load_steal_kind pfunct_stealer(struct cu *cu, struct conf_load *conf_load __maybe_unused)
 {
 
 	if (function_name) {

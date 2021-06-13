@@ -73,7 +73,7 @@ static int cu__emit_tags(struct cu *cu)
 }
 
 static enum load_steal_kind pdwtags_stealer(struct cu *cu,
-					    struct conf_load *conf_load __unused)
+					    struct conf_load *conf_load __maybe_unused)
 {
 	cu__emit_tags(cu);
 	return LSK__DELETE;
@@ -104,7 +104,7 @@ static const struct argp_option pdwtags__options[] = {
 	}
 };
 
-static error_t pdwtags__options_parser(int key, char *arg __unused,
+static error_t pdwtags__options_parser(int key, char *arg __maybe_unused,
 				      struct argp_state *state)
 {
 	switch (key) {

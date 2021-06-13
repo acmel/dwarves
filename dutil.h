@@ -20,8 +20,8 @@
 
 #define BITS_PER_LONG __BITS_PER_LONG
 
-#ifndef __unused
-#define __unused __attribute__ ((unused))
+#ifndef __maybe_unused
+#define __maybe_unused __attribute__((__unused__))
 #endif
 
 #ifndef __pure

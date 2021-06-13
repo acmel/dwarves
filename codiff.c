@@ -672,7 +672,7 @@ static int cu_show_diffs_iterator(struct cu *cu, void *cookie)
 	return 0;
 }
 
-static int cu_delete_priv(struct cu *cu, void *cookie __unused)
+static int cu_delete_priv(struct cu *cu, void *cookie __maybe_unused)
 {
 	struct class *c;
 	struct function *f;
@@ -746,8 +746,8 @@ static const struct argp_option codiff__options[] = {
 	}
 };
 
-static error_t codiff__options_parser(int key, char *arg __unused,
-				      struct argp_state *state __unused)
+static error_t codiff__options_parser(int key, char *arg __maybe_unused,
+				      struct argp_state *state __maybe_unused)
 {
 	switch (key) {
 	case 'f': show_function_diffs = 1;	break;

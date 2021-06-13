@@ -175,7 +175,7 @@ static void nr_definitions_formatter(struct structure *st)
 }
 
 static void nr_members_formatter(struct class *class,
-				 struct cu *cu, uint32_t id __unused)
+				 struct cu *cu, uint32_t id __maybe_unused)
 {
 	printf("%s%c%u\n", class__name(class, cu), separator,
 	       class__nr_members(class));
@@ -187,21 +187,21 @@ static void nr_methods_formatter(struct structure *st)
 }
 
 static void size_formatter(struct class *class,
-			   struct cu *cu, uint32_t id __unused)
+			   struct cu *cu, uint32_t id __maybe_unused)
 {
 	printf("%s%c%d%c%u\n", class__name(class, cu), separator,
 	       class__size(class), separator, tag__is_union(class__tag(class)) ? 0 : class->nr_holes);
 }
 
 static void class_name_len_formatter(struct class *class, struct cu *cu,
-				     uint32_t id __unused)
+				     uint32_t id __maybe_unused)
 {
 	const char *name = class__name(class, cu);
 	printf("%s%c%zd\n", name, separator, strlen(name));
 }
 
 static void class_name_formatter(struct class *class,
-				 struct cu *cu, uint32_t id __unused)
+				 struct cu *cu, uint32_t id __maybe_unused)
 {
 	puts(class__name(class, cu));
 }

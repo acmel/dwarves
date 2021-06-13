@@ -88,7 +88,7 @@ static void emit_wrapper(struct function *f, struct cu *cu)
 		printf("\tj\t%s\n\n", name);
 }
 
-static int cu__emit_wrapper(struct cu *cu, void *cookie __unused)
+static int cu__emit_wrapper(struct cu *cu, void *cookie __maybe_unused)
 {
 	struct function *pos;
 	uint32_t id;

@@ -11,14 +11,14 @@
 #include "dwarves.h"
 #include "dutil.h"
 
-static int class__tag_name(struct tag *tag, struct cu *cu __unused,
-			   void *cookie __unused)
+static int class__tag_name(struct tag *tag, struct cu *cu __maybe_unused,
+			   void *cookie __maybe_unused)
 {
 	puts(dwarf_tag_name(tag->tag));
 	return 0;
 }
 
-static int cu__dump_class_tag_names(struct cu *cu, void *cookie __unused)
+static int cu__dump_class_tag_names(struct cu *cu, void *cookie __maybe_unused)
 {
 	cu__for_all_tags(cu, class__tag_name, NULL);
 	return 0;
@@ -29,7 +29,7 @@ static void cus__dump_class_tag_names(struct cus *cus)
 	cus__for_each_cu(cus, cu__dump_class_tag_names, NULL, NULL);
 }
 
-int main(int argc __unused, char *argv[])
+int main(int argc __maybe_unused, char *argv[])
 {
 	int err, rc = EXIT_FAILURE;
 	struct cus *cus = cus__new();

@@ -920,7 +920,7 @@ static const char *dirname, *glob;
 static int recursive;
 
 static error_t ctracer__options_parser(int key, char *arg,
-				      struct argp_state *state __unused)
+				      struct argp_state *state __maybe_unused)
 {
 	switch (key) {
 	case 'd': src_dir = arg;		break;
