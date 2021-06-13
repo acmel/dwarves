@@ -6,7 +6,7 @@ option(LIBBPF_EMBEDDED "Use the embedded version of libbpf instead of searching 
 if (NOT LIBBPF_EMBEDDED)
 	find_package(PkgConfig REQUIRED)
 	if(PKGCONFIG_FOUND)
-		pkg_check_modules(LIBBPF REQUIRED libbpf>=0.3.0)
+		pkg_check_modules(LIBBPF REQUIRED libbpf>=0.4.0)
 	endif()
 endif()
 
