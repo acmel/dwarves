@@ -4,9 +4,9 @@ cmake_policy(SET CMP0005 NEW)
 
 option(LIBBPF_EMBEDDED "Use the embedded version of libbpf instead of searching it via pkg-config" ON)
 if (NOT LIBBPF_EMBEDDED)
-	find_package(PkgConfig)
+	find_package(PkgConfig REQUIRED)
 	if(PKGCONFIG_FOUND)
-		pkg_check_modules(LIBBPF libbpf>=0.3.0)
+		pkg_check_modules(LIBBPF REQUIRED libbpf>=0.3.0)
 	endif()
 endif()
 
