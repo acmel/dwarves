@@ -51,6 +51,7 @@ struct btf_encoder {
 	GElf_Ehdr	  ehdr;
 	bool		  has_index_type,
 			  need_index_type,
+			  skip_encoding_vars,
 			  verbose,
 			  force,
 			  gen_floats;
@@ -1176,6 +1177,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 
 		encoder->force		 = force;
 		encoder->gen_floats	 = gen_floats;
+		encoder->skip_encoding_vars = skip_encoding_vars;
 		encoder->verbose	 = verbose;
 		encoder->has_index_type  = false;
 		encoder->need_index_type = false;
@@ -1220,7 +1222,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 			encoder->percpu.sec_sz	  = shdr.sh_size;
 		}
 
-		if (btf_encoder__collect_symbols(encoder, !skip_encoding_vars))
+		if (btf_encoder__collect_symbols(encoder, !encoder->skip_encoding_vars))
 			goto out_delete;
 
 		if (encoder->verbose)
@@ -1252,7 +1254,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	free(encoder);
 }
 
-int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip_encoding_vars)
+int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 {
 	uint32_t type_id_off = btf__get_nr_types(encoder->btf);
 	uint32_t core_id;
@@ -1335,7 +1337,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, bool skip
 		}
 	}
 
-	if (skip_encoding_vars)
+	if (encoder->skip_encoding_vars)
 		goto out;
 
 	if (encoder->percpu.shndx == 0 || !encoder->symtab)
