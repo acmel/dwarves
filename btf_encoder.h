@@ -15,10 +15,10 @@ struct btf_encoder;
 struct btf;
 struct cu;
 
-struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool force, bool gen_floats, bool verbose);
+struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filename, struct btf *base_btf, bool skip_encoding_vars, bool force, bool gen_floats, bool verbose);
 void btf_encoder__delete(struct btf_encoder *encoder);
 
-int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filename);
+int btf_encoder__encode(struct btf_encoder *encoder);
 
 int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu);
 

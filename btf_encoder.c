@@ -52,6 +52,7 @@ struct btf_encoder {
 	bool		  has_index_type,
 			  need_index_type,
 			  skip_encoding_vars,
+			  raw_output,
 			  verbose,
 			  force,
 			  gen_floats;
@@ -851,8 +852,9 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 	}
 }
 
-static int btf_encoder__write_raw_file(struct btf_encoder *encoder, const char *filename)
+static int btf_encoder__write_raw_file(struct btf_encoder *encoder)
 {
+	const char *filename = encoder->filename;
 	uint32_t raw_btf_size;
 	const void *raw_btf_data;
 	int fd, err;
@@ -1012,7 +1014,7 @@ out:
 	return err;
 }
 
-int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filename)
+int btf_encoder__encode(struct btf_encoder *encoder)
 {
 	int err;
 
@@ -1028,10 +1030,10 @@ int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filena
 		return -1;
 	}
 
-	if (detached_filename == NULL)
-		err = btf_encoder__write_elf(encoder);
+	if (encoder->raw_output)
+		err = btf_encoder__write_raw_file(encoder);
 	else
-		err = btf_encoder__write_raw_file(encoder, detached_filename);
+		err = btf_encoder__write_elf(encoder);
 
 	return err;
 }
@@ -1150,12 +1152,13 @@ static bool has_arg_names(struct cu *cu, struct ftype *ftype)
 	return true;
 }
 
-struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool skip_encoding_vars, bool force, bool gen_floats, bool verbose)
+struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filename, struct btf *base_btf, bool skip_encoding_vars, bool force, bool gen_floats, bool verbose)
 {
 	struct btf_encoder *encoder = zalloc(sizeof(*encoder));
 
 	if (encoder) {
-		encoder->filename = strdup(cu->filename);
+		encoder->raw_output = detached_filename != NULL;
+		encoder->filename = strdup(encoder->raw_output ? detached_filename : cu->filename);
 		if (encoder->filename == NULL)
 			goto out_delete;
 
@@ -1192,7 +1195,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 		encoder->symtab = elf_symtab__new(NULL, cu->elf, &encoder->ehdr);
 		if (!encoder->symtab) {
 			if (encoder->verbose)
-				printf("%s: '%s' doesn't have symtab.\n", __func__, encoder->filename);
+				printf("%s: '%s' doesn't have symtab.\n", __func__, cu->filename);
 			goto out;
 		}
 
@@ -1203,7 +1206,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 
 		if (!sec) {
 			if (encoder->verbose)
-				printf("%s: '%s' doesn't have '%s' section\n", __func__, encoder->filename, PERCPU_SECTION);
+				printf("%s: '%s' doesn't have '%s' section\n", __func__, cu->filename, PERCPU_SECTION);
 		} else {
 			encoder->percpu.shndx	  = elf_ndxscn(sec);
 			encoder->percpu.base_addr = shdr.sh_addr;
@@ -1214,7 +1217,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, struct btf *base_btf, bool s
 			goto out_delete;
 
 		if (encoder->verbose)
-			printf("File %s:\n", encoder->filename);
+			printf("File %s:\n", cu->filename);
 	}
 out:
 	return encoder;

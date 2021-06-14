@@ -2473,7 +2473,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		 * point we'll have cu->elf setup...
 		 */
 		if (!btf_encoder) {
-			btf_encoder = btf_encoder__new(cu, conf_load->base_btf, skip_encoding_btf_vars,
+			btf_encoder = btf_encoder__new(cu, detached_btf_filename, conf_load->base_btf, skip_encoding_btf_vars,
 						       btf_encode_force, btf_gen_floats, global_verbose);
 			if (btf_encoder == NULL)
 				return LSK__STOP_LOADING;
@@ -2893,7 +2893,7 @@ try_sole_arg_as_class_names:
 	header = NULL;
 
 	if (btf_encode) {
-		err = btf_encoder__encode(btf_encoder, detached_btf_filename);
+		err = btf_encoder__encode(btf_encoder);
 		if (err) {
 			fputs("Failed to encode BTF\n", stderr);
 			goto out_cus_delete;
