@@ -857,15 +857,6 @@ static int btf__encode_as_raw_file(struct btf *btf, const char *filename)
 	const void *raw_btf_data;
 	int fd, err;
 
-	/* Empty file, nothing to do, so... done! */
-	if (btf__get_nr_types(btf) == 0)
-		return 0;
-
-	if (btf__dedup(btf, NULL, NULL)) {
-		fprintf(stderr, "%s: btf__dedup failed!\n", __func__);
-		return -1;
-	}
-
 	raw_btf_data = btf__get_raw_data(btf, &raw_btf_size);
 	if (raw_btf_data == NULL) {
 		fprintf(stderr, "%s: btf__get_raw_data failed!\n", __func__);
@@ -1021,15 +1012,6 @@ out:
 
 int btf__encode_in_elf(struct btf *btf, const char *filename, uint8_t flags)
 {
-	/* Empty file, nothing to do, so... done! */
-	if (btf__get_nr_types(btf) == 0)
-		return 0;
-
-	if (btf__dedup(btf, NULL, NULL)) {
-		fprintf(stderr, "%s: btf__dedup failed!\n", __func__);
-		return -1;
-	}
-
 	return btf__write_elf(btf, filename);
 }
 
@@ -1039,6 +1021,15 @@ int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filena
 
 	if (gobuffer__size(&encoder->percpu_secinfo) != 0)
 		btf_encoder__add_datasec(encoder, PERCPU_SECTION);
+
+	/* Empty file, nothing to do, so... done! */
+	if (btf__get_nr_types(encoder->btf) == 0)
+		return 0;
+
+	if (btf__dedup(encoder->btf, NULL, NULL)) {
+		fprintf(stderr, "%s: btf__dedup failed!\n", __func__);
+		return -1;
+	}
 
 	if (detached_filename == NULL)
 		err = btf__encode_in_elf(encoder->btf, encoder->filename, 0);
