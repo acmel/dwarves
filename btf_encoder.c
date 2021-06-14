@@ -927,18 +927,6 @@ static int btf_encoder__write_elf(struct btf_encoder *encoder)
 		goto out;
 	}
 
-	switch (ehdr_mem.e_ident[EI_DATA]) {
-	case ELFDATA2LSB:
-		btf__set_endianness(btf, BTF_LITTLE_ENDIAN);
-		break;
-	case ELFDATA2MSB:
-		btf__set_endianness(btf, BTF_BIG_ENDIAN);
-		break;
-	default:
-		fprintf(stderr, "%s: unknown ELF endianness.\n", __func__);
-		goto out;
-	}
-
 	/*
 	 * First we look if there was already a .BTF section to overwrite.
 	 */
