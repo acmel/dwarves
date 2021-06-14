@@ -886,8 +886,10 @@ static int btf__encode_as_raw_file(struct btf *btf, const char *filename)
 	return err;
 }
 
-static int btf__encode_in_elf(struct btf *btf, const char *filename, uint8_t flags)
+static int btf_encoder__write_elf(struct btf_encoder *encoder)
 {
+	struct btf *btf = encoder->btf;
+	const char *filename = encoder->filename;
 	GElf_Shdr shdr_mem, *shdr;
 	GElf_Ehdr ehdr_mem, *ehdr;
 	Elf_Data *btf_data = NULL;
@@ -1027,7 +1029,7 @@ int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filena
 	}
 
 	if (detached_filename == NULL)
-		err = btf__encode_in_elf(encoder->btf, encoder->filename, 0);
+		err = btf_encoder__write_elf(encoder);
 	else
 		err = btf__encode_as_raw_file(encoder->btf, detached_filename);
 
