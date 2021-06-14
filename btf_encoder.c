@@ -851,13 +851,13 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 	}
 }
 
-static int btf__encode_as_raw_file(struct btf *btf, const char *filename)
+static int btf_encoder__write_raw_file(struct btf_encoder *encoder, const char *filename)
 {
 	uint32_t raw_btf_size;
 	const void *raw_btf_data;
 	int fd, err;
 
-	raw_btf_data = btf__get_raw_data(btf, &raw_btf_size);
+	raw_btf_data = btf__get_raw_data(encoder->btf, &raw_btf_size);
 	if (raw_btf_data == NULL) {
 		fprintf(stderr, "%s: btf__get_raw_data failed!\n", __func__);
 		return -1;
@@ -1031,7 +1031,7 @@ int btf_encoder__encode(struct btf_encoder *encoder, const char *detached_filena
 	if (detached_filename == NULL)
 		err = btf_encoder__write_elf(encoder);
 	else
-		err = btf__encode_as_raw_file(encoder->btf, detached_filename);
+		err = btf_encoder__write_raw_file(encoder, detached_filename);
 
 	return err;
 }
