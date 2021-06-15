@@ -1140,6 +1140,125 @@ static bool has_arg_names(struct cu *cu, struct ftype *ftype)
 	return true;
 }
 
+static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder, struct cu *cu, uint32_t type_id_off)
+{
+	uint32_t core_id;
+	struct tag *pos;
+	int err = -1;
+
+	if (encoder->percpu.shndx == 0 || !encoder->symtab)
+		return 0;
+
+	if (encoder->verbose)
+		printf("search cu '%s' for percpu global variables.\n", cu->name);
+
+	cu__for_each_variable(cu, core_id, pos) {
+		struct variable *var = tag__variable(pos);
+		uint32_t size, type, linkage;
+		const char *name, *dwarf_name;
+		const struct tag *tag;
+		uint64_t addr;
+		int id;
+
+		if (var->declaration && !var->spec)
+			continue;
+
+		/* percpu variables are allocated in global space */
+		if (variable__scope(var) != VSCOPE_GLOBAL && !var->spec)
+			continue;
+
+		/* addr has to be recorded before we follow spec */
+		addr = var->ip.addr;
+		dwarf_name = variable__name(var, cu);
+
+		/* DWARF takes into account .data..percpu section offset
+		 * within its segment, which for vmlinux is 0, but for kernel
+		 * modules is >0. ELF symbols, on the other hand, don't take
+		 * into account these offsets (as they are relative to the
+		 * section start), so to match DWARF and ELF symbols we need
+		 * to negate the section base address here.
+		 */
+		if (addr < encoder->percpu.base_addr || addr >= encoder->percpu.base_addr + encoder->percpu.sec_sz)
+			continue;
+		addr -= encoder->percpu.base_addr;
+
+		if (!btf_encoder__percpu_var_exists(encoder, addr, &size, &name))
+			continue; /* not a per-CPU variable */
+
+		/* A lot of "special" DWARF variables (e.g, __UNIQUE_ID___xxx)
+		 * have addr == 0, which is the same as, say, valid
+		 * fixed_percpu_data per-CPU variable. To distinguish between
+		 * them, additionally compare DWARF and ELF symbol names. If
+		 * DWARF doesn't provide proper name, pessimistically assume
+		 * bad variable.
+		 *
+		 * Examples of such special variables are:
+		 *
+		 *  1. __ADDRESSABLE(sym), which are forcely emitted as symbols.
+		 *  2. __UNIQUE_ID(prefix), which are introduced to generate unique ids.
+		 *  3. __exitcall(fn), functions which are labeled as exit calls.
+		 *
+		 *  This is relevant only for vmlinux image, as for kernel
+		 *  modules per-CPU data section has non-zero offset so all
+		 *  per-CPU symbols have non-zero values.
+		 */
+		if (var->ip.addr == 0) {
+			if (!dwarf_name || strcmp(dwarf_name, name))
+				continue;
+		}
+
+		if (var->spec)
+			var = var->spec;
+
+		if (var->ip.tag.type == 0) {
+			fprintf(stderr, "error: found variable '%s' in CU '%s' that has void type\n",
+				name, cu->name);
+			if (encoder->force)
+				continue;
+			err = -1;
+			break;
+		}
+
+		tag = cu__type(cu, var->ip.tag.type);
+		if (tag__size(tag, cu) == 0) {
+			if (encoder->verbose)
+				fprintf(stderr, "Ignoring zero-sized per-CPU variable '%s'...\n", dwarf_name ?: "<missing name>");
+			continue;
+		}
+
+		type = var->ip.tag.type + type_id_off;
+		linkage = var->external ? BTF_VAR_GLOBAL_ALLOCATED : BTF_VAR_STATIC;
+
+		if (encoder->verbose) {
+			printf("Variable '%s' from CU '%s' at address 0x%" PRIx64 " encoded\n",
+			       name, cu->name, addr);
+		}
+
+		/* add a BTF_KIND_VAR in encoder->types */
+		id = btf_encoder__add_var(encoder, type, name, linkage);
+		if (id < 0) {
+			fprintf(stderr, "error: failed to encode variable '%s' at addr 0x%" PRIx64 "\n",
+			        name, addr);
+			goto out;
+		}
+
+		/*
+		 * add a BTF_VAR_SECINFO in encoder->percpu_secinfo, which will be added into
+		 * encoder->types later when we add BTF_VAR_DATASEC.
+		 */
+		id = btf_encoder__add_var_secinfo(encoder, id, addr, size);
+		if (id < 0) {
+			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%" PRIx64 "\n",
+			        name, addr);
+			goto out;
+		}
+	}
+
+	err = 0;
+out:
+	return err;
+}
+
 struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filename, struct btf *base_btf, bool skip_encoding_vars, bool force, bool gen_floats, bool verbose)
 {
 	struct btf_encoder *encoder = zalloc(sizeof(*encoder));
@@ -1237,7 +1356,6 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 {
 	uint32_t type_id_off = btf__get_nr_types(encoder->btf);
 	uint32_t core_id;
-	struct variable *var;
 	struct function *fn;
 	struct tag *pos;
 	int err = 0;
@@ -1316,117 +1434,8 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 		}
 	}
 
-	if (encoder->skip_encoding_vars)
-		goto out;
-
-	if (encoder->percpu.shndx == 0 || !encoder->symtab)
-		goto out;
-
-	if (encoder->verbose)
-		printf("search cu '%s' for percpu global variables.\n", cu->name);
-
-	cu__for_each_variable(cu, core_id, pos) {
-		uint32_t size, type, linkage;
-		const char *name, *dwarf_name;
-		const struct tag *tag;
-		uint64_t addr;
-		int id;
-
-		var = tag__variable(pos);
-		if (var->declaration && !var->spec)
-			continue;
-		/* percpu variables are allocated in global space */
-		if (variable__scope(var) != VSCOPE_GLOBAL && !var->spec)
-			continue;
-
-		/* addr has to be recorded before we follow spec */
-		addr = var->ip.addr;
-		dwarf_name = variable__name(var, cu);
-
-		/* DWARF takes into account .data..percpu section offset
-		 * within its segment, which for vmlinux is 0, but for kernel
-		 * modules is >0. ELF symbols, on the other hand, don't take
-		 * into account these offsets (as they are relative to the
-		 * section start), so to match DWARF and ELF symbols we need
-		 * to negate the section base address here.
-		 */
-		if (addr < encoder->percpu.base_addr || addr >= encoder->percpu.base_addr + encoder->percpu.sec_sz)
-			continue;
-		addr -= encoder->percpu.base_addr;
-
-		if (!btf_encoder__percpu_var_exists(encoder, addr, &size, &name))
-			continue; /* not a per-CPU variable */
-
-		/* A lot of "special" DWARF variables (e.g, __UNIQUE_ID___xxx)
-		 * have addr == 0, which is the same as, say, valid
-		 * fixed_percpu_data per-CPU variable. To distinguish between
-		 * them, additionally compare DWARF and ELF symbol names. If
-		 * DWARF doesn't provide proper name, pessimistically assume
-		 * bad variable.
-		 *
-		 * Examples of such special variables are:
-		 *
-		 *  1. __ADDRESSABLE(sym), which are forcely emitted as symbols.
-		 *  2. __UNIQUE_ID(prefix), which are introduced to generate unique ids.
-		 *  3. __exitcall(fn), functions which are labeled as exit calls.
-		 *
-		 *  This is relevant only for vmlinux image, as for kernel
-		 *  modules per-CPU data section has non-zero offset so all
-		 *  per-CPU symbols have non-zero values.
-		 */
-		if (var->ip.addr == 0) {
-			if (!dwarf_name || strcmp(dwarf_name, name))
-				continue;
-		}
-
-		if (var->spec)
-			var = var->spec;
-
-		if (var->ip.tag.type == 0) {
-			fprintf(stderr, "error: found variable '%s' in CU '%s' that has void type\n",
-				name, cu->name);
-			if (encoder->force)
-				continue;
-			err = -1;
-			break;
-		}
-
-		tag = cu__type(cu, var->ip.tag.type);
-		if (tag__size(tag, cu) == 0) {
-			if (encoder->verbose)
-				fprintf(stderr, "Ignoring zero-sized per-CPU variable '%s'...\n", dwarf_name ?: "<missing name>");
-			continue;
-		}
-
-		type = var->ip.tag.type + type_id_off;
-		linkage = var->external ? BTF_VAR_GLOBAL_ALLOCATED : BTF_VAR_STATIC;
-
-		if (encoder->verbose) {
-			printf("Variable '%s' from CU '%s' at address 0x%" PRIx64 " encoded\n",
-			       name, cu->name, addr);
-		}
-
-		/* add a BTF_KIND_VAR in encoder->types */
-		id = btf_encoder__add_var(encoder, type, name, linkage);
-		if (id < 0) {
-			err = -1;
-			fprintf(stderr, "error: failed to encode variable '%s' at addr 0x%" PRIx64 "\n",
-			        name, addr);
-			break;
-		}
-
-		/*
-		 * add a BTF_VAR_SECINFO in encoder->percpu_secinfo, which will be added into
-		 * encoder->types later when we add BTF_VAR_DATASEC.
-		 */
-		id = btf_encoder__add_var_secinfo(encoder, id, addr, size);
-		if (id < 0) {
-			err = -1;
-			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%" PRIx64 "\n",
-			        name, addr);
-			break;
-		}
-	}
+	if (!encoder->skip_encoding_vars)
+		err = btf_encoder__encode_cu_variables(encoder, cu, type_id_off);
 out:
 	return err;
 }
