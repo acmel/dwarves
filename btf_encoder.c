@@ -1140,55 +1140,6 @@ static bool has_arg_names(struct cu *cu, struct ftype *ftype)
 	return true;
 }
 
-static int btf_encoder__encode_cu_functions(struct btf_encoder *encoder, struct cu *cu, uint32_t type_id_off)
-{
-	struct function *fn;
-	uint32_t core_id;
-
-	cu__for_each_function(cu, core_id, fn) {
-		int btf_fnproto_id, btf_fn_id;
-		const char *name;
-
-		/*
-		 * Skip functions that:
-		 *   - are marked as declarations
-		 *   - do not have full argument names
-		 *   - are not in ftrace list (if it's available)
-		 *   - are not external (in case ftrace filter is not available)
-		 */
-		if (fn->declaration)
-			continue;
-		if (!has_arg_names(cu, &fn->proto))
-			continue;
-		if (encoder->functions.cnt) {
-			struct elf_function *func;
-			const char *name;
-
-			name = function__name(fn, cu);
-			if (!name)
-				continue;
-
-			func = btf_encoder__find_function(encoder, name);
-			if (!func || func->generated)
-				continue;
-			func->generated = true;
-		} else {
-			if (!fn->external)
-				continue;
-		}
-
-		btf_fnproto_id = btf_encoder__add_func_proto(encoder, cu, &fn->proto, type_id_off);
-		name = dwarves__active_loader->strings__ptr(cu, fn->name);
-		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id, name, false);
-		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
-			printf("error: failed to encode function '%s'\n", function__name(fn, cu));
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
 static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder, struct cu *cu, uint32_t type_id_off)
 {
 	uint32_t core_id;
@@ -1405,6 +1356,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 {
 	uint32_t type_id_off = btf__get_nr_types(encoder->btf);
 	uint32_t core_id;
+	struct function *fn;
 	struct tag *pos;
 	int err = 0;
 
@@ -1440,9 +1392,49 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 		encoder->has_index_type = true;
 	}
 
-	err = btf_encoder__encode_cu_functions(encoder, cu, type_id_off);
+	cu__for_each_function(cu, core_id, fn) {
+		int btf_fnproto_id, btf_fn_id;
+		const char *name;
 
-	if (err != 0 && !encoder->skip_encoding_vars)
+		/*
+		 * Skip functions that:
+		 *   - are marked as declarations
+		 *   - do not have full argument names
+		 *   - are not in ftrace list (if it's available)
+		 *   - are not external (in case ftrace filter is not available)
+		 */
+		if (fn->declaration)
+			continue;
+		if (!has_arg_names(cu, &fn->proto))
+			continue;
+		if (encoder->functions.cnt) {
+			struct elf_function *func;
+			const char *name;
+
+			name = function__name(fn, cu);
+			if (!name)
+				continue;
+
+			func = btf_encoder__find_function(encoder, name);
+			if (!func || func->generated)
+				continue;
+			func->generated = true;
+		} else {
+			if (!fn->external)
+				continue;
+		}
+
+		btf_fnproto_id = btf_encoder__add_func_proto(encoder, cu, &fn->proto, type_id_off);
+		name = dwarves__active_loader->strings__ptr(cu, fn->name);
+		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id, name, false);
+		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
+			err = -1;
+			printf("error: failed to encode function '%s'\n", function__name(fn, cu));
+			goto out;
+		}
+	}
+
+	if (!encoder->skip_encoding_vars)
 		err = btf_encoder__encode_cu_variables(encoder, cu, type_id_off);
 out:
 	return err;
