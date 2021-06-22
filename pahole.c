@@ -858,7 +858,8 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_btf_gen_floats	   322
 #define ARGP_btf_gen_all	   323
 #define ARGP_with_flexible_array   324
-#define ARGP_kabi_prefix   325
+#define ARGP_kabi_prefix	   325
+#define ARGP_btf_encode_detached   326
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1156,7 +1157,7 @@ static const struct argp_option pahole__options[] = {
 	},
 	{
 		.name = "btf_encode_detached",
-		.key  = 'j',
+		.key  = ARGP_btf_encode_detached,
 		.arg  = "FILENAME",
 		.doc  = "Encode as BTF in a detached file",
 	},
@@ -1231,7 +1232,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		  conf_load.extra_dbg_info = 1;		break;
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
-	case 'j': detached_btf_filename = arg; // fallthru
+	case ARGP_btf_encode_detached:
+		  detached_btf_filename = arg; // fallthru
 	case 'J': btf_encode = 1;
 		  conf_load.get_addr_info = true;
 		  no_bitfield_type_recode = true;	break;
