@@ -1949,7 +1949,7 @@ size_t tag__fprintf(struct tag *tag, const struct cu *cu,
 void cus__print_error_msg(const char *progname, const struct cus *cus,
 			  const char *filename, const int err)
 {
-	if (err == -EINVAL || (cus != NULL && list_empty(&cus->cus)))
+	if (err == -EINVAL || (cus != NULL && cus__empty(cus)))
 		fprintf(stderr, "%s: couldn't load debugging info from %s\n",
 		       progname, filename);
 	else
