@@ -962,18 +962,20 @@ struct function *cu__find_function_at_addr(const struct cu *cu,
 struct function *cus__find_function_at_addr(const struct cus *cus,
 					    uint64_t addr, struct cu **cu)
 {
+	struct function *f = NULL;
 	struct cu *pos;
 
 	list_for_each_entry(pos, &cus->cus, node) {
-		struct function *f = cu__find_function_at_addr(pos, addr);
+		f = cu__find_function_at_addr(pos, addr);
 
 		if (f != NULL) {
 			if (cu != NULL)
 				*cu = pos;
-			return f;
+			break;
 		}
 	}
-	return NULL;
+
+	return f;
 }
 
 struct cu *cus__find_cu_by_name(const struct cus *cus, const char *name)
