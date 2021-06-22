@@ -984,9 +984,11 @@ struct cu *cus__find_cu_by_name(const struct cus *cus, const char *name)
 
 	list_for_each_entry(pos, &cus->cus, node)
 		if (pos->name && strcmp(pos->name, name) == 0)
-			return pos;
+			goto out;
 
-	return NULL;
+	pos = NULL;
+out:
+	return pos;
 }
 
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name)
