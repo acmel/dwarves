@@ -144,6 +144,7 @@ void cus__for_each_cu(struct cus *cus, int (*iterator)(struct cu *cu, void *cook
 		      void *cookie,
 		      struct cu *(*filter)(struct cu *cu));
 bool cus__empty(const struct cus *cus);
+uint32_t cus__nr_entries(const struct cus *cus);
 
 struct ptr_table {
 	void	 **entries;

@@ -422,6 +422,11 @@ bool cus__empty(const struct cus *cus)
 	return list_empty(&cus->cus);
 }
 
+uint32_t cus__nr_entries(const struct cus *cus)
+{
+	return cus->nr_entries;
+}
+
 void cus__add(struct cus *cus, struct cu *cu)
 {
 	cus->nr_entries++;
