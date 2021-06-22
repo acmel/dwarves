@@ -142,6 +142,7 @@ struct function *cus__find_function_at_addr(const struct cus *cus,
 void cus__for_each_cu(struct cus *cus, int (*iterator)(struct cu *cu, void *cookie),
 		      void *cookie,
 		      struct cu *(*filter)(struct cu *cu));
+bool cus__empty(const struct cus *cus);
 
 struct ptr_table {
 	void	 **entries;

@@ -417,6 +417,11 @@ static void cu__find_class_holes(struct cu *cu)
 		class__find_holes(pos);
 }
 
+bool cus__empty(const struct cus *cus)
+{
+	return list_empty(&cus->cus);
+}
+
 void cus__add(struct cus *cus, struct cu *cu)
 {
 	cus->nr_entries++;
