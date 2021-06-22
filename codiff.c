@@ -829,7 +829,7 @@ failure:
 	cus__for_each_cu(old_cus, cu_diff_iterator, new_cus, NULL);
 	cus__for_each_cu(new_cus, cu_find_new_tags_iterator, old_cus, NULL);
 	cus__for_each_cu(old_cus, cu_show_diffs_iterator, NULL, NULL);
-	if (new_cus->nr_entries > 1)
+	if (cus__nr_entries(new_cus) > 1)
 		cus__for_each_cu(new_cus, cu_show_diffs_iterator, (void *)1, NULL);
 
 	if (total_cus_changed > 1) {
