@@ -845,17 +845,18 @@ struct tag *cus__find_type_by_name(const struct cus *cus, struct cu **cu, const 
 				   const int include_decls, type_id_t *id)
 {
 	struct cu *pos;
+	struct tag *tag = NULL;
 
 	list_for_each_entry(pos, &cus->cus, node) {
-		struct tag *tag = cu__find_type_by_name(pos, name, include_decls, id);
+		tag = cu__find_type_by_name(pos, name, include_decls, id);
 		if (tag != NULL) {
 			if (cu != NULL)
 				*cu = pos;
-			return tag;
+			break;
 		}
 	}
 
-	return NULL;
+	return tag;
 }
 
 static struct tag *__cu__find_struct_by_name(const struct cu *cu, const char *name,
