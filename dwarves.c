@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <libelf.h>
+#include <pthread.h>
 #include <search.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -420,7 +421,18 @@ static void cu__find_class_holes(struct cu *cu)
 struct cus {
 	uint32_t	 nr_entries;
 	struct list_head cus;
+	pthread_mutex_t  mutex;
 };
+
+void cus__lock(struct cus *cus)
+{
+	pthread_mutex_lock(&cus->mutex);
+}
+
+void cus__unlock(struct cus *cus)
+{
+	pthread_mutex_unlock(&cus->mutex);
+}
 
 bool cus__empty(const struct cus *cus)
 {
@@ -434,8 +446,13 @@ uint32_t cus__nr_entries(const struct cus *cus)
 
 void cus__add(struct cus *cus, struct cu *cu)
 {
+	cus__lock(cus);
+
 	cus->nr_entries++;
 	list_add_tail(&cu->node, &cus->cus);
+
+	cus__unlock(cus);
+
 	cu__find_class_holes(cu);
 }
 
@@ -856,11 +873,13 @@ found:
 	return pos;
 }
 
-struct tag *cus__find_type_by_name(const struct cus *cus, struct cu **cu, const char *name,
+struct tag *cus__find_type_by_name(struct cus *cus, struct cu **cu, const char *name,
 				   const int include_decls, type_id_t *id)
 {
 	struct cu *pos;
 	struct tag *tag = NULL;
+
+	cus__lock(cus);
 
 	list_for_each_entry(pos, &cus->cus, node) {
 		tag = cu__find_type_by_name(pos, name, include_decls, id);
@@ -870,6 +889,8 @@ struct tag *cus__find_type_by_name(const struct cus *cus, struct cu **cu, const 
 			break;
 		}
 	}
+
+	cus__unlock(cus);
 
 	return tag;
 }
@@ -918,12 +939,13 @@ struct tag *cu__find_struct_or_union_by_name(const struct cu *cu, const char *na
 	return __cu__find_struct_by_name(cu, name, include_decls, true, idp);
 }
 
-static struct tag *__cus__find_struct_by_name(const struct cus *cus,
-					      struct cu **cu, const char *name,
+static struct tag *__cus__find_struct_by_name(struct cus *cus, struct cu **cu, const char *name,
 					      const int include_decls, bool unions, type_id_t *id)
 {
 	struct tag *tag = NULL;
 	struct cu *pos;
+
+	cus__lock(cus);
 
 	list_for_each_entry(pos, &cus->cus, node) {
 		struct tag *tag = __cu__find_struct_by_name(pos, name, include_decls, unions, id);
@@ -934,17 +956,19 @@ static struct tag *__cus__find_struct_by_name(const struct cus *cus,
 		}
 	}
 
+	cus__unlock(cus);
+
 	return tag;
 }
 
-struct tag *cus__find_struct_by_name(const struct cus *cus, struct cu **cu, const char *name,
+struct tag *cus__find_struct_by_name(struct cus *cus, struct cu **cu, const char *name,
 				     const int include_decls, type_id_t *idp)
 {
 	return __cus__find_struct_by_name(cus, cu, name, include_decls, false, idp);
 }
 
-struct tag *cus__find_struct_or_union_by_name(const struct cus *cus, struct cu **cu, const char *name,
-						     const int include_decls, type_id_t *idp)
+struct tag *cus__find_struct_or_union_by_name(struct cus *cus, struct cu **cu, const char *name,
+					      const int include_decls, type_id_t *idp)
 {
 	return __cus__find_struct_by_name(cus, cu, name, include_decls, true, idp);
 }
@@ -974,11 +998,12 @@ struct function *cu__find_function_at_addr(const struct cu *cu,
 
 }
 
-struct function *cus__find_function_at_addr(const struct cus *cus,
-					    uint64_t addr, struct cu **cu)
+struct function *cus__find_function_at_addr(struct cus *cus, uint64_t addr, struct cu **cu)
 {
 	struct function *f = NULL;
 	struct cu *pos;
+
+	cus__lock(cus);
 
 	list_for_each_entry(pos, &cus->cus, node) {
 		f = cu__find_function_at_addr(pos, addr);
@@ -990,10 +1015,12 @@ struct function *cus__find_function_at_addr(const struct cus *cus,
 		}
 	}
 
+	cus__unlock(cus);
+
 	return f;
 }
 
-struct cu *cus__find_cu_by_name(const struct cus *cus, const char *name)
+static struct cu *__cus__find_cu_by_name(struct cus *cus, const char *name)
 {
 	struct cu *pos;
 
@@ -1006,12 +1033,33 @@ out:
 	return pos;
 }
 
+struct cu *cus__find_cu_by_name(struct cus *cus, const char *name)
+{
+	struct cu *pos;
+
+	cus__lock(cus);
+
+	pos = __cus__find_cu_by_name(cus, name);
+
+	cus__unlock(cus);
+
+	return pos;
+}
+
 struct cu *cus__find_pair(struct cus *cus, const char *name)
 {
-	if (cus->nr_entries == 1)
-		return list_first_entry(&cus->cus, struct cu, node);
+	struct cu *cu;
 
-	return cus__find_cu_by_name(cus, name);
+	cus__lock(cus);
+
+	if (cus->nr_entries == 1)
+		cu = list_first_entry(&cus->cus, struct cu, node);
+	else
+		cu = __cus__find_cu_by_name(cus, name);
+
+	cus__unlock(cus);
+
+	return cu;
 }
 
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name)
@@ -1888,6 +1936,8 @@ void cus__for_each_cu(struct cus *cus,
 {
 	struct cu *pos;
 
+	cus__lock(cus);
+
 	list_for_each_entry(pos, &cus->cus, node) {
 		struct cu *cu = pos;
 		if (filter != NULL) {
@@ -1898,6 +1948,8 @@ void cus__for_each_cu(struct cus *cus,
 		if (iterator(cu, cookie))
 			break;
 	}
+
+	cus__unlock(cus);
 }
 
 int cus__load_dir(struct cus *cus, struct conf_load *conf,
@@ -2401,6 +2453,7 @@ struct cus *cus__new(void)
 	if (cus != NULL) {
 		cus->nr_entries = 0;
 		INIT_LIST_HEAD(&cus->cus);
+		pthread_mutex_init(&cus->mutex, NULL);
 	}
 
 	return cus;
@@ -2413,10 +2466,14 @@ void cus__delete(struct cus *cus)
 	if (cus == NULL)
 		return;
 
+	cus__lock(cus);
+
 	list_for_each_entry_safe(pos, n, &cus->cus, node) {
 		list_del_init(&pos->node);
 		cu__delete(pos);
 	}
+
+	cus__unlock(cus);
 
 	free(cus);
 }
