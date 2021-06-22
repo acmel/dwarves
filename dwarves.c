@@ -996,6 +996,14 @@ out:
 	return pos;
 }
 
+struct cu *cus__find_pair(struct cus *cus, const char *name)
+{
+	if (cus->nr_entries == 1)
+		return list_first_entry(&cus->cus, struct cu, node);
+
+	return cus__find_cu_by_name(cus, name);
+}
+
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name)
 {
 	if (cu == NULL || name == NULL)
