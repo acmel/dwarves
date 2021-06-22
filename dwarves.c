@@ -907,6 +907,7 @@ static struct tag *__cus__find_struct_by_name(const struct cus *cus,
 					      struct cu **cu, const char *name,
 					      const int include_decls, bool unions, type_id_t *id)
 {
+	struct tag *tag = NULL;
 	struct cu *pos;
 
 	list_for_each_entry(pos, &cus->cus, node) {
@@ -914,11 +915,11 @@ static struct tag *__cus__find_struct_by_name(const struct cus *cus,
 		if (tag != NULL) {
 			if (cu != NULL)
 				*cu = pos;
-			return tag;
+			break;
 		}
 	}
 
-	return NULL;
+	return tag;
 }
 
 struct tag *cus__find_struct_by_name(const struct cus *cus, struct cu **cu, const char *name,
