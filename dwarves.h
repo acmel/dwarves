@@ -128,6 +128,7 @@ int cus__load_dir(struct cus *cus, struct conf_load *conf,
 void cus__add(struct cus *cus, struct cu *cu);
 void cus__print_error_msg(const char *progname, const struct cus *cus,
 			  const char *filename, const int err);
+struct cu *cus__find_pair(struct cus *cus, const char *name);
 struct cu *cus__find_cu_by_name(const struct cus *cus, const char *name);
 struct tag *cus__find_struct_by_name(const struct cus *cus, struct cu **cu,
 				     const char *name, const int include_decls,

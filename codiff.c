@@ -305,14 +305,6 @@ static void diff_struct(const struct cu *new_cu, struct class *structure,
 					 new_cu, diff);
 }
 
-static struct cu *cus__find_pair(struct cus *cus, const char *name)
-{
-	if (cus->nr_entries == 1)
-		return list_first_entry(&cus->cus, struct cu, node);
-
-	return cus__find_cu_by_name(cus, name);
-}
-
 static int cu_find_new_tags_iterator(struct cu *new_cu, void *old_cus)
 {
 	struct cu *old_cu = cus__find_pair(old_cus, new_cu->name);
