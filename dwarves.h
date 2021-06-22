@@ -108,10 +108,7 @@ struct conf_fprintf {
 	uint8_t	   strip_inline:1;
 };
 
-struct cus {
-	uint32_t	      nr_entries;
-	struct list_head      cus;
-};
+struct cus;
 
 struct cus *cus__new(void);
 void cus__delete(struct cus *cus);
