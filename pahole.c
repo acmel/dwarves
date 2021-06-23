@@ -1151,6 +1151,13 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "When the prefix of the string is STRING, treat the string as STRING.",
 	},
 	{
+		.name  = "jobs",
+		.key   = 'j',
+		.arg   = "NR_JOBS",
+		.flags = OPTION_ARG_OPTIONAL, // Use sysconf(_SC_NPROCESSORS_ONLN) * 1.1 by default
+		.doc   = "run N jobs in parallel [default to number of online processors + 10%]",
+	},
+	{
 		.name = "btf_encode",
 		.key  = 'J',
 		.doc  = "Encode as BTF",
@@ -1232,6 +1239,10 @@ static error_t pahole__options_parser(int key, char *arg,
 		  conf_load.extra_dbg_info = 1;		break;
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
+	case 'j':
+		  conf_load.nr_jobs = arg ? atoi(arg) :
+					    sysconf(_SC_NPROCESSORS_ONLN) * 1.1;
+							break;
 	case ARGP_btf_encode_detached:
 		  detached_btf_filename = arg; // fallthru
 	case 'J': btf_encode = 1;

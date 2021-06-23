@@ -182,6 +182,11 @@ the debugging information.
 Do not encode VARs in BTF.
 
 .TP
+.B \-j, \-\-jobs=N
+Run N jobs in parallel. Defaults to number of online processors + 10% (like
+the 'ninja' build system) if no argument is specified.
+
+.TP
 .B \-J, \-\-btf_encode
 Encode BTF information from DWARF, used in the Linux kernel build process when
 CONFIG_DEBUG_INFO_BTF=y is present, introduced in Linux v5.2. Used to implement
