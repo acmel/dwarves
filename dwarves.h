@@ -41,6 +41,7 @@ struct conf_fprintf;
  *		     (e.g. DWARF's decl_{line,file}, id, etc)
  * @fixup_silly_bitfields - Fixup silly things such as "int foo:32;"
  * @get_addr_info - wheter to load DW_AT_location and other addr info
+ * @nr_jobs - -j argument, number of threads to use
  */
 struct conf_load {
 	enum load_steal_kind	(*steal)(struct cu *cu,
@@ -50,6 +51,7 @@ struct conf_load {
 	bool			extra_dbg_info;
 	bool			fixup_silly_bitfields;
 	bool			get_addr_info;
+	int			nr_jobs;
 	struct btf		*base_btf;
 	struct conf_fprintf	*conf_fprintf;
 };
