@@ -27,8 +27,7 @@ int ftype__emit_definitions(struct ftype *ftype, struct cu *cu,
 			    struct type_emissions *emissions, FILE *fp);
 int type__emit_definitions(struct tag *tag, struct cu *cu,
 			   struct type_emissions *emissions, FILE *fp);
-int type__emit_fwd_decl(struct type *ctype, const struct cu *cu,
-			struct type_emissions *emissions, FILE *fp);
+int type__emit_fwd_decl(struct type *ctype, struct type_emissions *emissions, FILE *fp);
 void type__emit(struct tag *tag_type, struct cu *cu,
 		const char *prefix, const char *suffix, FILE *fp);
 struct type *type_emissions__find_definition(const struct type_emissions *temissions,
