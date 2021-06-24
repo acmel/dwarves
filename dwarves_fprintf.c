@@ -567,7 +567,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 	}
 		break;
 	case DW_TAG_member:
-		snprintf(bf, len, "%s", class_member__name(tag__class_member(tag), cu));
+		snprintf(bf, len, "%s", class_member__name(tag__class_member(tag)));
 		break;
 	case DW_TAG_variable:
 		snprintf(bf, len, "%s", variable__name(tag__variable(tag), cu));
@@ -856,7 +856,7 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 	struct conf_fprintf sconf = *conf;
 	uint32_t offset = member->byte_offset;
 	size_t printed = 0, printed_cacheline = 0;
-	const char *cm_name = class_member__name(member, cu),
+	const char *cm_name = class_member__name(member),
 		   *name = cm_name;
 
 	if (!sconf.rel_offset) {
@@ -1767,7 +1767,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 
 		printed += fprintf(fp, "%.*s/* first biggest size base type member: %s %u %zd */\n",
 				   cconf.indent, tabs,
-				   class_member__name(m, cu), m->byte_offset,
+				   class_member__name(m), m->byte_offset,
 				   m->byte_size);
 	}
 

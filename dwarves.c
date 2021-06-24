@@ -1678,16 +1678,14 @@ int class__has_hole_ge(const struct class *class, const uint16_t size)
 	return 0;
 }
 
-struct class_member *type__find_member_by_name(const struct type *type,
-					       const struct cu *cu,
-					       const char *name)
+struct class_member *type__find_member_by_name(const struct type *type, const char *name)
 {
 	if (name == NULL)
 		return NULL;
 
 	struct class_member *pos;
 	type__for_each_data_member(type, pos) {
-		const char *curr_name = class_member__name(pos, cu);
+		const char *curr_name = class_member__name(pos);
 		if (curr_name && strcmp(curr_name, name) == 0)
 			return pos;
 	}

@@ -859,7 +859,7 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
 
 	if (member != NULL) {
 		tag__init(&member->tag, cu, die);
-		member->name = strings__add(strings, attr_string(die, DW_AT_name));
+		member->name = strdup_attr_string(die, DW_AT_name);
 		member->const_value = attr_numeric(die, DW_AT_const_value);
 		member->alignment = attr_numeric(die, DW_AT_alignment);
 

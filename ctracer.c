@@ -317,7 +317,7 @@ static size_t class__find_biggest_member_name(const struct class *class,
 
 	type__for_each_data_member(&class->type, pos) {
 		const size_t len = pos->name ?
-					strlen(class_member__name(pos, cu)) : 0;
+					strlen(class_member__name(pos)) : 0;
 
 		if (len > biggest_name_len)
 			biggest_name_len = len;
@@ -341,8 +341,8 @@ static void class__emit_class_state_collector(struct class *class,
 		class__name(class, cu), class__name(clone, cu));
 	type__for_each_data_member(&clone->type, pos)
 		fprintf(fp_collector, "\tmini_obj->%-*s = obj->%s;\n", len,
-			class_member__name(pos, cu),
-			class_member__name(pos, cu));
+			class_member__name(pos),
+			class_member__name(pos));
 	fputs("}\n\n", fp_collector);
 }
 
@@ -461,10 +461,10 @@ static int class__emit_ostra_converter(struct tag *tag,
 			plen -= n; p += n;
 		}
 		fprintf(fp_converter, "%%u");
-		n = snprintf(p, plen, "obj.%s", class_member__name(pos, cu));
+		n = snprintf(p, plen, "obj.%s", class_member__name(pos));
 		plen -= n; p += n;
 		emit_struct_member_table_entry(fp_fields, field++,
-					       class_member__name(pos, cu),
+					       class_member__name(pos),
 					       1, "entry,exit");
 	}
 	fprintf(fp_converter,
@@ -780,9 +780,9 @@ static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 			continue;
 
 		function__emit_probes(pos_tag, function_id, cu, target_type_id, 0,
-				      class_member__name(pos_member, cu)); /* entry */
+				      class_member__name(pos_member)); /* entry */
 		function__emit_probes(pos_tag, function_id, cu, target_type_id, 1,
-				      class_member__name(pos_member, cu)); /* exit */
+				      class_member__name(pos_member)); /* exit */
 	}
 
 	return 0;
