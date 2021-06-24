@@ -892,7 +892,7 @@ static inline int function__inlined(const struct function *func)
  */
 struct class_member {
 	struct tag	 tag;
-	strings_t	 name;
+	const char	 *name;
 	uint32_t	 bit_offset;
 	uint32_t	 bit_size;
 	uint32_t	 byte_offset;
@@ -918,10 +918,9 @@ static inline struct class_member *tag__class_member(const struct tag *tag)
 	return (struct class_member *)tag;
 }
 
-static inline const char *class_member__name(const struct class_member *member,
-					     const struct cu *cu)
+static inline const char *class_member__name(const struct class_member *member)
 {
-	return cu__string(cu, member->name);
+	return member->name;
 }
 
 static __pure inline int tag__is_class_member(const struct tag *tag)
@@ -1084,9 +1083,7 @@ struct class_member *
 	type__find_first_biggest_size_base_type_member(struct type *type,
 						       const struct cu *cu);
 
-struct class_member *type__find_member_by_name(const struct type *type,
-					       const struct cu *cu,
-					       const char *name);
+struct class_member *type__find_member_by_name(const struct type *type, const char *name);
 uint32_t type__nr_members_of_type(const struct type *type, const type_id_t oftype);
 struct class_member *type__last_member(struct type *type);
 
@@ -1178,7 +1175,7 @@ static inline struct class_member *
 	class__find_member_by_name(const struct class *cls,
 				   const struct cu *cu, const char *name)
 {
-	return type__find_member_by_name(&cls->type, cu, name);
+	return type__find_member_by_name(&cls->type, name);
 }
 
 static inline uint16_t class__nr_members(const struct class *cls)

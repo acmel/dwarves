@@ -292,7 +292,7 @@ static int create_full_members(struct ctf *ctf, void *ptr,
 
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(ctf, &mp[i].ctf_member_type);
-		member->name = ctf__get32(ctf, &mp[i].ctf_member_name);
+		member->name = ctf__string(ctf, ctf__get32(ctf, &mp[i].ctf_member_name));
 		member->bit_offset = (ctf__get32(ctf, &mp[i].ctf_member_offset_high) << 16) |
 				      ctf__get32(ctf, &mp[i].ctf_member_offset_low);
 		/* sizes and offsets will be corrected at class__fixup_ctf_bitfields */
@@ -316,7 +316,7 @@ static int create_short_members(struct ctf *ctf, void *ptr,
 
 		member->tag.tag = DW_TAG_member;
 		member->tag.type = ctf__get16(ctf, &mp[i].ctf_member_type);
-		member->name = ctf__get32(ctf, &mp[i].ctf_member_name);
+		member->name = ctf__string(ctf, ctf__get32(ctf, &mp[i].ctf_member_name));
 		member->bit_offset = ctf__get16(ctf, &mp[i].ctf_member_offset);
 		/* sizes and offsets will be corrected at class__fixup_ctf_bitfields */
 

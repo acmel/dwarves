@@ -768,7 +768,7 @@ static void print_structs_with_pointer_to(struct cu *cu, uint32_t type)
 				looked = true;
 			}
 			printf("%s: %s\n", str->name,
-			       class_member__name(pos_member, cu));
+			       class_member__name(pos_member));
 		}
 	}
 }
@@ -1618,7 +1618,7 @@ static int __class__fprintf_value(struct tag *tag, struct cu *cu, void *instance
 	type__for_each_member(type, member) {
 		void *member_contents = instance + member->byte_offset;
 		struct tag *member_type = cu__type(cu, member->tag.type);
-		const char *name = class_member__name(member, cu);
+		const char *name = class_member__name(member);
 
 		if (name)
 			printed += fprintf(fp, "\n%.*s\t.%s = ", indent, tabs, name);
@@ -1803,7 +1803,7 @@ static void type_instance__delete(struct type_instance *instance)
 static int64_t type_instance__int_value(struct type_instance *instance, const char *member_name_orig)
 {
 	struct cu *cu = instance->cu;
-	struct class_member *member = type__find_member_by_name(instance->type, cu, member_name_orig);
+	struct class_member *member = type__find_member_by_name(instance->type, member_name_orig);
 	int byte_offset = 0;
 
 	if (!member) {
@@ -1824,7 +1824,7 @@ static int64_t type_instance__int_value(struct type_instance *instance, const ch
 		*sep = 0;
 
 		while (1) {
-			member = type__find_member_by_name(type, cu, member_name);
+			member = type__find_member_by_name(type, member_name);
 			if (!member) {
 out_free_member_name:
 				free(member_name_alloc);
@@ -1841,7 +1841,7 @@ out_free_member_name:
 
 		}
 
-		member = type__find_member_by_name(type, cu, member_name);
+		member = type__find_member_by_name(type, member_name);
 		free(member_name_alloc);
 		if (member == NULL)
 			return -1;
@@ -2196,7 +2196,7 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 	char before = s[1];
 	s[1] = '\0';
 
-	filter->left = type__find_member_by_name(type, cu, member_name);
+	filter->left = type__find_member_by_name(type, member_name);
 
 	if (!filter->left) {
 		if (global_verbose)
@@ -2235,7 +2235,7 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 	if (enumerator_value < 0) {
 		if (global_verbose)
 			fprintf(stderr, "Couldn't resolve right operand ('%s') in '%s' with the specified 'type=%s' and type_enum' \n",
-				value, sfilter, class_member__name(type->type_member, cu));
+				value, sfilter, class_member__name(type->type_member));
 		return -1;
 	}
 
@@ -2556,7 +2556,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		struct type *type = tag__type(class);
 
 		if (prototype->size) {
-			type->sizeof_member = type__find_member_by_name(type, cu, prototype->size);
+			type->sizeof_member = type__find_member_by_name(type, prototype->size);
 			if (type->sizeof_member == NULL) {
 				fprintf(stderr, "pahole: the sizeof member '%s' wasn't found in the '%s' type\n",
 					prototype->size, prototype->name);
@@ -2565,7 +2565,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		}
 
 		if (prototype->type) {
-			type->type_member = type__find_member_by_name(type, cu, prototype->type);
+			type->type_member = type__find_member_by_name(type, prototype->type);
 			if (type->type_member == NULL) {
 				fprintf(stderr, "pahole: the type member '%s' wasn't found in the '%s' type\n",
 					prototype->type, prototype->name);
