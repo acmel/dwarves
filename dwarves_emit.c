@@ -53,7 +53,6 @@ struct type *type_emissions__find_definition(const struct type_emissions *emissi
 }
 
 static struct type *type_emissions__find_fwd_decl(const struct type_emissions *emissions,
-						  const struct cu *cu,
 						  const char *name)
 {
 	struct type *pos;
@@ -194,8 +193,7 @@ out:
 	return 1;
 }
 
-int type__emit_fwd_decl(struct type *ctype, const struct cu *cu,
-			struct type_emissions *emissions, FILE *fp)
+int type__emit_fwd_decl(struct type *ctype, struct type_emissions *emissions, FILE *fp)
 {
 	/* Have we already emitted this in this CU? */
 	if (ctype->fwd_decl_emitted)
@@ -206,7 +204,7 @@ int type__emit_fwd_decl(struct type *ctype, const struct cu *cu,
 		return 0;
 
 	/* Ok, lets look at the previous CUs: */
-	if (type_emissions__find_fwd_decl(emissions, cu, name) != NULL) {
+	if (type_emissions__find_fwd_decl(emissions, name) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
@@ -264,8 +262,7 @@ next_indirection:
 			if (type__name(tag__type(type)) == NULL)
 				type__emit_definitions(type, cu, emissions, fp);
 
-			return type__emit_fwd_decl(tag__type(type), cu,
-						   emissions, fp);
+			return type__emit_fwd_decl(tag__type(type), emissions, fp);
 		}
 		if (type__emit_definitions(type, cu, emissions, fp))
 			type__emit(type, cu, NULL, NULL, fp);
