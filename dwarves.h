@@ -666,7 +666,7 @@ struct location {
 
 struct variable {
 	struct ip_tag	 ip;
-	strings_t	 name;
+	const char	 *name;
 	uint8_t		 external:1;
 	uint8_t		 declaration:1;
 	enum vscope	 scope;

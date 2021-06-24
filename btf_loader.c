@@ -150,7 +150,7 @@ static struct class *class__new(const char *name, size_t size, bool is_union)
 	return class;
 }
 
-static struct variable *variable__new(strings_t name, uint32_t linkage)
+static struct variable *variable__new(const char *name, uint32_t linkage)
 {
 	struct variable *var = tag__alloc(sizeof(*var));
 
@@ -355,7 +355,7 @@ static int create_new_typedef(struct cu *cu, const struct btf_type *tp, uint32_t
 static int create_new_variable(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct btf_var *bvar = btf_var(tp);
-	struct variable *var = variable__new(tp->name_off, bvar->linkage);
+	struct variable *var = variable__new(cu__btf_str(cu, tp->name_off), bvar->linkage);
 
 	if (var == NULL)
 		return -ENOMEM;

@@ -691,7 +691,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
 
 	if (var != NULL) {
 		tag__init(&var->ip.tag, cu, die);
-		var->name = strings__add(strings, attr_string(die, DW_AT_name));
+		var->name = strdup_attr_string(die, DW_AT_name);
 		/* variable is visible outside of its enclosing cu */
 		var->external = dwarf_hasattr(die, DW_AT_external);
 		/* non-defining declaration of an object */

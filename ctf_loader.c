@@ -557,7 +557,7 @@ static struct variable *variable__new(uint16_t type, GElf_Sym *sym,
 	if (var != NULL) {
 		var->scope = VSCOPE_GLOBAL;
 		var->ip.addr = elf_sym__value(sym);
-		var->name = sym->st_name;
+		var->name = ctf->symtab->symstrs->d_buf + sym->st_name;
 		var->external = elf_sym__bind(sym) == STB_GLOBAL;
 		var->ip.tag.tag = DW_TAG_variable;
 		var->ip.tag.type = type;
@@ -691,9 +691,7 @@ static int cu__fixup_ctf_bitfields(struct cu *cu)
 static const char *ctf__variable_name(const struct variable *var,
 				      const struct cu *cu)
 {
-	struct ctf *ctf = cu->priv;
-
-	return ctf->symtab->symstrs->d_buf + var->name;
+	return var->name;
 }
 
 static void ctf__cu_delete(struct cu *cu)
