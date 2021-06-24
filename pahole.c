@@ -21,7 +21,7 @@
 #include "dwarves_reorganize.h"
 #include "dwarves.h"
 #include "dutil.h"
-#include "ctf_encoder.h"
+//#include "ctf_encoder.h" FIXME: disabled, probably its better to move to Oracle's libctf
 #include "btf_encoder.h"
 #include "pahole_strings.h"
 
@@ -1091,7 +1091,7 @@ static const struct argp_option pahole__options[] = {
 	{
 		.name = "ctf_encode",
 		.key  = 'Z',
-		.doc  = "Encode as CTF",
+		.doc  = "Encode as CTF: DISABLED, consider helping porting to libctf",
 	},
 	{
 		.name = "flat_arrays",
@@ -1283,7 +1283,7 @@ static error_t pahole__options_parser(int key, char *arg,
 		if (!global_verbose)
 			formatter = class_name_formatter;
 		break;
-	case 'Z': ctf_encode = 1;			break;
+	// case 'Z': ctf_encode = 1;			break; // FIXME: Disabled
 	case ARGP_flat_arrays: conf.flat_arrays = 1;	break;
 	case ARGP_suppress_aligned_attribute:
 		conf.suppress_aligned_attribute = 1;	break;
@@ -2498,17 +2498,19 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		}
 		return LSK__DELETE;
 	}
-
+#if 0
 	if (ctf_encode) {
 		cu__encode_ctf(cu, global_verbose);
 		/*
 		 * We still have to get the type signature code merged to eliminate
 		 * dups, reference another CTF file, etc, so for now just encode the
 		 * first cu that is let thru by cu__filter.
+		 *
+		 * FIXME: Disabled, should use Oracle's libctf
 		 */
 		goto dump_and_stop;
 	}
-
+#endif
 	if (class_name == NULL) {
 		if (stats_formatter == nr_methods_formatter) {
 			cu__account_nr_methods(cu);

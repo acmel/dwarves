@@ -112,7 +112,7 @@ if (NOT LIBBPF_FOUND)
 endif()
 
 set(dwarves_LIB_SRCS dwarves.c dwarves_fprintf.c gobuffer.c strings.c
-		     ctf_encoder.c ctf_loader.c libctf.c btf_encoder.c btf_loader.c
+		     ctf_loader.c libctf.c btf_encoder.c btf_loader.c
 		     dwarf_loader.c dutil.c elf_symtab.c rbtree.c)
 if (NOT LIBBPF_FOUND)
 	list(APPEND dwarves_LIB_SRCS $<TARGET_OBJECTS:bpf>)
@@ -179,7 +179,7 @@ install(TARGETS dwarves LIBRARY DESTINATION ${LIB_INSTALL_DIR} ARCHIVE DESTINATI
 install(TARGETS dwarves dwarves_emit dwarves_reorganize LIBRARY DESTINATION ${LIB_INSTALL_DIR} ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
 install(FILES dwarves.h dwarves_emit.h dwarves_reorganize.h
 	      dutil.h gobuffer.h list.h rbtree.h pahole_strings.h
-	      btf_encoder.h config.h ctf_encoder.h ctf.h
+	      btf_encoder.h config.h ctf.h
 	      elfcreator.h elf_symtab.h hash.h libctf.h
 	DESTINATION ${CMAKE_INSTALL_PREFIX}/include/dwarves/)
 install(FILES man-pages/pahole.1 DESTINATION ${CMAKE_INSTALL_PREFIX}/share/man/man1/)
