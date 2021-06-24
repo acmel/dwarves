@@ -506,8 +506,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 
 		type = cu__type(cu, id);
 		if (type != NULL)
-			snprintf(suffix, sizeof(suffix), "%s::*",
-				 class__name(tag__class(type), cu));
+			snprintf(suffix, sizeof(suffix), "%s::*", class__name(tag__class(type)));
 		else {
 			size_t l = tag__id_not_found_snprintf(suffix,
 							      sizeof(suffix),
