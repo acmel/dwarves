@@ -731,23 +731,22 @@ struct tag *cu__find_base_type_by_name(const struct cu *cu,
 	return NULL;
 }
 
-struct tag *cu__find_base_type_by_sname_and_size(const struct cu *cu,
-						 strings_t sname,
-						 uint16_t bit_size,
-						 type_id_t *idp)
+struct tag *cu__find_base_type_by_name_and_size(const struct cu *cu, const char *name,
+						uint16_t bit_size, type_id_t *idp)
 {
 	uint32_t id;
 	struct tag *pos;
 
-	if (sname == 0)
+	if (name == NULL)
 		return NULL;
 
 	cu__for_each_type(cu, id, pos) {
 		if (pos->tag == DW_TAG_base_type) {
 			const struct base_type *bt = tag__base_type(pos);
+			char bf[64];
 
 			if (bt->bit_size == bit_size &&
-			    bt->name == sname) {
+			    strcmp(base_type__name(bt, cu, bf, sizeof(bf)), name) == 0) {
 				if (idp != NULL)
 					*idp = id;
 				return pos;
