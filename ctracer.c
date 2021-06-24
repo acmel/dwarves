@@ -130,7 +130,7 @@ static LIST_HEAD(pointers);
 
 static const char *structure__name(const struct structure *st)
 {
-	return class__name(tag__class(st->class), st->cu);
+	return class__name(tag__class(st->class));
 }
 
 static struct structure *structures__find(struct list_head *list, const char *name)
@@ -338,7 +338,7 @@ static void class__emit_class_state_collector(struct class *class,
 	        "{\n"
 		"\tconst struct %s *obj = from;\n"
 		"\tstruct %s *mini_obj = to;\n\n",
-		class__name(class, cu), class__name(clone, cu));
+		class__name(class), class__name(clone));
 	type__for_each_data_member(&clone->type, pos)
 		fprintf(fp_collector, "\tmini_obj->%-*s = obj->%s;\n", len,
 			class_member__name(pos),
@@ -403,7 +403,7 @@ static int class__emit_ostra_converter(struct tag *tag,
 	size_t n;
 	size_t plen = sizeof(parm_list);
 	FILE *fp_fields, *fp_converter;
-	const char *name = class__name(class, cu);
+	const char *name = class__name(class);
 
 	snprintf(filename, sizeof(filename), "%s/%s.fields", src_dir, name);
 	fp_fields = fopen(filename, "w");
@@ -495,7 +495,7 @@ static struct tag *pointer_filter(struct tag *tag, struct cu *cu,
 	if (type->nr_members == 0)
 		return NULL;
 
-	class_name = class__name(tag__class(tag), cu);
+	class_name = class__name(tag__class(tag));
 	if (class_name == NULL || structures__find(&pointers, class_name))
 		return NULL;
 
@@ -539,8 +539,7 @@ static void class__find_pointers(const char *class_name)
  * We want just the DW_TAG_structure_type tags that have as its first member
  * a struct of type target.
  */
-static struct tag *alias_filter(struct tag *tag, const struct cu *cu,
-				type_id_t target_type_id)
+static struct tag *alias_filter(struct tag *tag, type_id_t target_type_id)
 {
 	struct type *type;
 	struct class_member *first_member;
@@ -557,7 +556,7 @@ static struct tag *alias_filter(struct tag *tag, const struct cu *cu,
 	if (first_member->tag.type != target_type_id)
 		return NULL;
 
-	if (structures__find(&aliases, class__name(tag__class(tag), cu)))
+	if (structures__find(&aliases, class__name(tag__class(tag))))
 		return NULL;
 
 	return tag;
@@ -578,8 +577,8 @@ static int cu_find_aliases_iterator(struct cu *cu, void *class_name)
 		return 0;
 
 	cu__for_each_type(cu, id, pos) {
-		if (alias_filter(pos, cu, target_type_id)) {
-			const char *alias_name = class__name(tag__class(pos), cu);
+		if (alias_filter(pos, target_type_id)) {
+			const char *alias_name = class__name(tag__class(pos));
 
 			structures__add(&aliases, pos, cu);
 
@@ -638,7 +637,7 @@ static int class__emit_classes(struct tag *tag, struct cu *cu)
 	char mini_class_name[128];
 
 	snprintf(mini_class_name, sizeof(mini_class_name), "ctracer__mini_%s",
-		 class__name(class, cu));
+		 class__name(class));
 
 	mini_class = class__clone_base_types(tag, cu, mini_class_name);
 	if (mini_class == NULL)
@@ -1027,7 +1026,7 @@ failure:
 	}
 
 	snprintf(functions_filename, sizeof(functions_filename),
-		 "%s/%s.functions", src_dir, class__name(tag__class(class), cu));
+		 "%s/%s.functions", src_dir, class__name(tag__class(class)));
 	fp_functions = fopen(functions_filename, "w");
 	if (fp_functions == NULL) {
 		fprintf(stderr, "ctracer: couldn't create %s\n",

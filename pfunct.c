@@ -385,7 +385,7 @@ static void function__show(struct function *func, struct cu *cu)
 			if (tag__is_pointer(type))
 				fprintf(stdout, "\n\treturn (void *)0;");
 			else if (tag__is_struct(type))
-				fprintf(stdout, "\n\treturn *(struct %s *)1;", class__name(tag__class(type), cu));
+				fprintf(stdout, "\n\treturn *(struct %s *)1;", class__name(tag__class(type)));
 			else if (tag__is_union(type))
 				fprintf(stdout, "\n\treturn *(union %s *)1;", type__name(tag__type(type)));
 			else if (tag__is_typedef(type))
