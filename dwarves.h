@@ -356,10 +356,8 @@ struct tag *cu__find_base_type_by_sname_and_size(const struct cu *cu,
 						 uint16_t bit_size,
 						 type_id_t *idp);
 struct tag *cu__find_enumeration_by_name(const struct cu *cu, const char *name, type_id_t *idp);
-struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *cu,
-						   strings_t sname,
-						   uint16_t bit_size,
-						   type_id_t *idp);
+struct tag *cu__find_enumeration_by_name_and_size(const struct cu *cu, const char* name,
+						  uint16_t bit_size, type_id_t *idp);
 struct tag *cu__find_first_typedef_of_type(const struct cu *cu,
 					   const type_id_t type);
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name);
