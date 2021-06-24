@@ -150,7 +150,7 @@ static int ctf__load_funcs(struct ctf *ctf)
 	return 0;
 }
 
-static struct base_type *base_type__new(strings_t name, uint32_t attrs,
+static struct base_type *base_type__new(const char *name, uint32_t attrs,
 					uint8_t float_type, size_t size)
 {
         struct base_type *bt = tag__alloc(sizeof(*bt));
@@ -207,7 +207,7 @@ static int create_new_base_type(struct ctf *ctf, void *ptr,
 	uint32_t eval = ctf__get32(ctf, enc);
 	uint32_t attrs = CTF_TYPE_INT_ATTRS(eval);
 	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
-	struct base_type *base = base_type__new(name, attrs, 0,
+	struct base_type *base = base_type__new(ctf__string(ctf, name), attrs, 0,
 						CTF_TYPE_INT_BITS(eval));
 	if (base == NULL)
 		return -ENOMEM;
@@ -224,7 +224,7 @@ static int create_new_base_type_float(struct ctf *ctf, void *ptr,
 {
 	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
 	uint32_t *enc = ptr, eval = ctf__get32(ctf, enc);
-	struct base_type *base = base_type__new(name, 0, eval,
+	struct base_type *base = base_type__new(ctf__string(ctf, name), 0, eval,
 						CTF_TYPE_FP_BITS(eval));
 	if (base == NULL)
 		return -ENOMEM;

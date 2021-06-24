@@ -184,7 +184,7 @@ size_t __tag__id_not_found_fprintf(FILE *fp, type_id_t id,
 	return fprintf(fp, "<ERROR(%s:%d): %d not found!>\n", fn, line, id);
 }
 
-static struct base_type_name_to_size {
+static struct ase_type_name_to_size {
 	const char *name;
 	strings_t  sname;
 	size_t	   size;
@@ -227,19 +227,6 @@ static struct base_type_name_to_size {
 	{ .name = NULL },
 };
 
-void base_type_name_to_size_table__init(struct strings *strings)
-{
-	int i = 0;
-
-	while (base_type_name_to_size_table[i].name != NULL) {
-		if (base_type_name_to_size_table[i].sname == 0)
-			base_type_name_to_size_table[i].sname =
-			  strings__find(strings,
-					base_type_name_to_size_table[i].name);
-		++i;
-	}
-}
-
 size_t base_type__name_to_size(struct base_type *bt, struct cu *cu)
 {
 	int i = 0;
@@ -247,22 +234,21 @@ size_t base_type__name_to_size(struct base_type *bt, struct cu *cu)
 	const char *name, *orig_name;
 
 	if (bt->name_has_encoding)
-		name = s(cu, bt->name);
+		name = bt->name;
 	else
 		name = base_type__name(bt, cu, bf, sizeof(bf));
 	orig_name = name;
 try_again:
 	while (base_type_name_to_size_table[i].name != NULL) {
 		if (bt->name_has_encoding) {
-			if (base_type_name_to_size_table[i].sname == bt->name) {
+			if (strcmp(base_type_name_to_size_table[i].name, bt->name) == 0) {
 				size_t size;
 found:
 				size = base_type_name_to_size_table[i].size;
 
 				return size ?: ((size_t)cu->addr_size * 8);
 			}
-		} else if (strcmp(base_type_name_to_size_table[i].name,
-				  name) == 0)
+		} else if (strcmp(base_type_name_to_size_table[i].name, name) == 0)
 			goto found;
 		++i;
 	}
@@ -293,21 +279,21 @@ static const char *base_type_fp_type_str[] = {
 	[BT_FP_IMGRY_LDBL] = "imaginary long double",
 };
 
+const char *__base_type__name(const struct base_type *bt)
+{
+	return bt->name;
+}
+
 const char *base_type__name(const struct base_type *bt, const struct cu *cu,
 			    char *bf, size_t len)
 {
 	if (bt->name_has_encoding)
-		return s(cu, bt->name);
+		return __base_type__name(bt);
 
 	if (bt->float_type)
-		snprintf(bf, len, "%s %s",
-			 base_type_fp_type_str[bt->float_type],
-			 s(cu, bt->name));
+		snprintf(bf, len, "%s %s", base_type_fp_type_str[bt->float_type], bt->name);
 	else
-		snprintf(bf, len, "%s%s%s",
-			 bt->is_bool ? "bool " : "",
-			 bt->is_varargs ? "... " : "",
-			 s(cu, bt->name));
+		snprintf(bf, len, "%s%s%s", bt->is_bool ? "bool " : "", bt->is_varargs ? "... " : "", bt->name);
 	return bf;
 }
 

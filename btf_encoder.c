@@ -812,12 +812,14 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 {
 	/* single out type 0 as it represents special type "void" */
 	uint32_t ref_type_id = tag->type == 0 ? 0 : type_id_off + tag->type;
+	struct base_type *bt;
 	const char *name;
 
 	switch (tag->tag) {
 	case DW_TAG_base_type:
-		name = dwarves__active_loader->strings__ptr(cu, tag__base_type(tag)->name);
-		return btf_encoder__add_base_type(encoder, tag__base_type(tag), name);
+		bt   = tag__base_type(tag);
+		name = __base_type__name(bt);
+		return btf_encoder__add_base_type(encoder, bt, name);
 	case DW_TAG_const_type:
 		return btf_encoder__add_ref_type(encoder, BTF_KIND_CONST, ref_type_id, NULL, false);
 	case DW_TAG_pointer_type:
