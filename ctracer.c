@@ -606,7 +606,7 @@ static void class__find_aliases(const char *class_name)
 	cus__for_each_cu(methods_cus, cu_find_aliases_iterator, (void *)class_name, cu_filter);
 }
 
-static void emit_list_of_types(struct list_head *list, const struct cu *cu)
+static void emit_list_of_types(struct list_head *list)
 {
 	struct structure *pos;
 
@@ -616,8 +616,7 @@ static void emit_list_of_types(struct list_head *list, const struct cu *cu)
 		 * Lets look at the other CUs, perhaps we have already
 		 * emmited this one
 		 */
-		if (type_emissions__find_definition(&emissions, cu,
-						    structure__name(pos))) {
+		if (type_emissions__find_definition(&emissions, structure__name(pos))) {
 			type->definition_emitted = 1;
 			continue;
 		}
@@ -648,11 +647,11 @@ static int class__emit_classes(struct tag *tag, struct cu *cu)
 	type__emit(tag, cu, NULL, NULL, fp_classes);
 	fputs("\n/* class aliases */\n\n", fp_classes);
 
-	emit_list_of_types(&aliases, cu);
+	emit_list_of_types(&aliases);
 
 	fputs("\n/* class with pointers */\n\n", fp_classes);
 
-	emit_list_of_types(&pointers, cu);
+	emit_list_of_types(&pointers);
 
 	class__fprintf(mini_class, cu, fp_classes);
 	fputs(";\n\n", fp_classes);
