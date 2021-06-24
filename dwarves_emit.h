@@ -32,7 +32,6 @@ int type__emit_fwd_decl(struct type *ctype, const struct cu *cu,
 void type__emit(struct tag *tag_type, struct cu *cu,
 		const char *prefix, const char *suffix, FILE *fp);
 struct type *type_emissions__find_definition(const struct type_emissions *temissions,
-					     const struct cu *cu,
 					     const char *name);
 
 #endif /* _DWARVES_EMIT_H_ */

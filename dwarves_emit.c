@@ -37,7 +37,6 @@ static void type_emissions__add_fwd_decl(struct type_emissions *emissions,
 }
 
 struct type *type_emissions__find_definition(const struct type_emissions *emissions,
-					     const struct cu *cu,
 					     const char *name)
 {
 	struct type *pos;
@@ -84,7 +83,7 @@ static int enumeration__emit_definitions(struct tag *tag, struct cu *cu,
 		return 0;
 
 	/* Ok, lets look at the previous CUs: */
-	if (type_emissions__find_definition(emissions, cu, type__name(etype)) != NULL) {
+	if (type_emissions__find_definition(emissions, type__name(etype)) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
@@ -113,7 +112,7 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 		return 0;
 
 	/* Ok, lets look at the previous CUs: */
-	if (type_emissions__find_definition(emissions, cu, type__name(def)) != NULL) {
+	if (type_emissions__find_definition(emissions, type__name(def)) != NULL) {
 		/*
 		 * Yes, so lets mark it visited on this CU too,
 		 * to speed up the lookup.
@@ -306,7 +305,7 @@ int type__emit_definitions(struct tag *tag, struct cu *cu,
 		return 0;
 
 	/* Ok, lets look at the previous CUs: */
-	if (type_emissions__find_definition(emissions, cu, type__name(ctype)) != NULL) {
+	if (type_emissions__find_definition(emissions, type__name(ctype)) != NULL) {
 		ctype->definition_emitted = 1;
 		return 0;
 	}
