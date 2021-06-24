@@ -758,15 +758,13 @@ struct tag *cu__find_base_type_by_sname_and_size(const struct cu *cu,
 	return NULL;
 }
 
-struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *cu,
-						   strings_t sname,
-						   uint16_t bit_size,
-						   type_id_t *idp)
+struct tag *cu__find_enumeration_by_name_and_size(const struct cu *cu, const char *name,
+						  uint16_t bit_size, type_id_t *idp)
 {
 	uint32_t id;
 	struct tag *pos;
 
-	if (sname == 0)
+	if (name == NULL)
 		return NULL;
 
 	cu__for_each_type(cu, id, pos) {
@@ -774,7 +772,7 @@ struct tag *cu__find_enumeration_by_sname_and_size(const struct cu *cu,
 			const struct type *t = tag__type(pos);
 
 			if (t->size == bit_size &&
-			    t->namespace.name == sname) {
+			    strcmp(type__name(t, cu), name) == 0) {
 				if (idp != NULL)
 					*idp = id;
 				return pos;
