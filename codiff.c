@@ -173,7 +173,7 @@ static int check_print_change(const struct class_member *old,
 		printf("    %s\n"
 		       "     from:    %-21s /* %5u(%2u) %5zd(%2d) */\n"
 		       "     to:      %-21s /* %5u(%2u) %5zd(%2u) */\n",
-		       class_member__name(old, old_cu),
+		       class_member__name(old),
 		       old_type_name, old->byte_offset, old->bitfield_offset,
 		       old_size, old->bitfield_size,
 		       new_type_name, new->byte_offset, new->bitfield_offset,
@@ -186,7 +186,7 @@ static struct class_member *class__find_pair_member(const struct class *structur
 						    const struct class_member *pair_member, const struct cu *pair_cu,
 						    int *nr_anonymousp)
 {
-	const char *member_name = class_member__name(pair_member, pair_cu);
+	const char *member_name = class_member__name(pair_member);
 	struct class_member *member;
 
 	if (member_name)
@@ -198,7 +198,7 @@ static struct class_member *class__find_pair_member(const struct class *structur
 
 	type__for_each_member(&structure->type, member) {
 		if (member->tag.tag == pair_member->tag.tag && /* Both are class/union/struct (unnamed) */
-		    class_member__name(member, cu) == member_name && /* Both are NULL? */
+		    class_member__name(member) == member_name && /* Both are NULL? */
 		    --nr_anonymous == 0)
 			return member;
 	}
@@ -231,7 +231,7 @@ static int check_print_members_changes(const struct class *structure,
 				type = cu__type(cu, member->tag.type);
 				printf("    %s\n"
 				       "     removed: %-21s /* %5u(%2u) %5zd(%2d) */\n",
-				       class_member__name(member, cu),
+				       class_member__name(member),
 				       tag__name(type, cu, name, sizeof(name), NULL),
 				       member->byte_offset, member->bitfield_offset,
 				       member->byte_size, member->bitfield_size);
@@ -254,7 +254,7 @@ static int check_print_members_changes(const struct class *structure,
 			type = cu__type(new_cu, member->tag.type);
 			printf("    %s\n"
 			       "     added:   %-21s /* %5u(%2u) %5zd(%2d) */\n",
-			       class_member__name(member, new_cu),
+			       class_member__name(member),
 			       tag__name(type, new_cu, name, sizeof(name), NULL),
 			       member->byte_offset, member->bitfield_offset,
 			       member->byte_size, member->bitfield_size);
@@ -438,7 +438,7 @@ static void show_changed_member(char change, const struct class_member *member,
 	tag__assert_search_result(type);
 	printf("    %c%-26s %-21s /* %5u %5zd */\n",
 	       change, tag__name(type, cu, bf, sizeof(bf), NULL),
-	       class_member__name(member, cu),
+	       class_member__name(member),
 	       member->byte_offset, member->byte_size);
 }
 
