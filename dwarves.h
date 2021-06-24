@@ -720,8 +720,8 @@ size_t lexblock__fprintf(const struct lexblock *lexblock, const struct cu *cu,
 			 const struct conf_fprintf *conf, FILE *fp);
 
 struct parameter {
-	struct tag	 tag;
-	strings_t	 name;
+	struct tag tag;
+	const char *name;
 };
 
 static inline struct parameter *tag__parameter(const struct tag *tag)
@@ -729,10 +729,9 @@ static inline struct parameter *tag__parameter(const struct tag *tag)
 	return (struct parameter *)tag;
 }
 
-static inline const char *parameter__name(const struct parameter *parm,
-					  const struct cu *cu)
+static inline const char *parameter__name(const struct parameter *parm)
 {
-	return cu__string(cu, parm->name);
+	return parm->name;
 }
 
 /*

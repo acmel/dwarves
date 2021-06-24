@@ -913,7 +913,7 @@ static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu)
 
 	if (parm != NULL) {
 		tag__init(&parm->tag, cu, die);
-		parm->name = strings__add(strings, attr_string(die, DW_AT_name));
+		parm->name = strdup_attr_string(die, DW_AT_name);
 	}
 
 	return parm;

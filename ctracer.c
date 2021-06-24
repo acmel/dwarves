@@ -698,14 +698,13 @@ static int function__emit_probes(struct function *func, uint32_t function_id,
 			continue;
 
 		if (member != NULL)
-			fprintf(fp_methods, "\tif ($%s)\n\t",
-				parameter__name(pos, cu));
+			fprintf(fp_methods, "\tif ($%s)\n\t", parameter__name(pos));
 
 		fprintf(fp_methods,
 			"\tctracer__method_hook(%d, %d, $%s%s%s, %d);\n",
 			probe_type,
 			function_id,
-			parameter__name(pos, cu),
+			parameter__name(pos),
 			member ? "->" : "", member ?: "",
 			class__size(mini_class));
 		break;

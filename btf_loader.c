@@ -69,7 +69,7 @@ static int cu__load_ftype(struct cu *cu, struct ftype *proto, uint32_t tag, cons
 				goto out_free_parameters;
 			p->tag.tag  = DW_TAG_formal_parameter;
 			p->tag.type = param->type;
-			p->name	    = param->name_off;
+			p->name	    = cu__btf_str(cu, param->name_off);
 			ftype__add_parameter(proto, p);
 		}
 	}
