@@ -77,8 +77,7 @@ static void emit_wrapper(struct function *f, struct cu *cu)
 					printf("wrap_%s:\n", name);
 					needs_wrapper = 1;
 				}
-				zero_extend(regparm, bt, cu,
-					    parameter__name(parm, cu));
+				zero_extend(regparm, bt, cu, parameter__name(parm));
 			}
 		}
 		++regparm;

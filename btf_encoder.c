@@ -541,7 +541,7 @@ static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct c
 	/* add parameters */
 	param_idx = 0;
 	ftype__for_each_parameter(ftype, param) {
-		const char *name = dwarves__active_loader->strings__ptr(cu, param->name);
+		const char *name = parameter__name(param);
 
 		type_id = param->tag.type == 0 ? 0 : type_id_off + param->tag.type;
 		++param_idx;
@@ -1135,7 +1135,7 @@ static bool has_arg_names(struct cu *cu, struct ftype *ftype)
 	const char *name;
 
 	ftype__for_each_parameter(ftype, param) {
-		name = dwarves__active_loader->strings__ptr(cu, param->name);
+		name = parameter__name(param);
 		if (name == NULL)
 			return false;
 	}
