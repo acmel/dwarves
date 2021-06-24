@@ -97,8 +97,8 @@ struct dwarf_tag {
 	};
 	struct tag	 *tag;
 	uint32_t         small_id;
-	strings_t        decl_file;
 	uint16_t         decl_line;
+	const char	 *decl_file;
 };
 
 static dwarf_off_ref dwarf_tag__spec(struct dwarf_tag *dtag)
@@ -383,6 +383,13 @@ static const char *attr_string(Dwarf_Die *die, uint32_t name)
 	return NULL;
 }
 
+static const char *strdup_attr_string(Dwarf_Die *die, uint32_t name)
+{
+	const char *s = attr_string(die, name);
+
+	return s ? strdup(s) : NULL;
+}
+
 static struct dwarf_off_ref attr_type(Dwarf_Die *die, uint32_t attr_name)
 {
 	Dwarf_Attribute attr;
@@ -471,15 +478,14 @@ static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 	if (cu->extra_dbg_info) {
 		int32_t decl_line;
 		const char *decl_file = dwarf_decl_file(die);
-		static const char *last_decl_file;
-		static uint32_t last_decl_file_idx;
+		static const char *last_decl_file, *last_decl_file_ptr;
 
-		if (decl_file != last_decl_file) {
-			last_decl_file_idx = strings__add(strings, decl_file);
-			last_decl_file = decl_file;
+		if (decl_file != last_decl_file_ptr) {
+			last_decl_file = decl_file ? strdup(decl_file) : NULL;
+			last_decl_file_ptr = decl_file;
 		}
 
-		dtag->decl_file = last_decl_file_idx;
+		dtag->decl_file = last_decl_file;
 		dwarf_decl_line(die, &decl_line);
 		dtag->decl_line = decl_line;
 	}
@@ -921,8 +927,7 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die,
 		struct dwarf_tag *dtag = exp->ip.tag.priv;
 
 		tag__init(&exp->ip.tag, cu, die);
-		dtag->decl_file =
-			strings__add(strings, attr_string(die, DW_AT_call_file));
+		dtag->decl_file = strdup_attr_string(die, DW_AT_call_file);
 		dtag->decl_line = attr_numeric(die, DW_AT_call_line);
 		dtag->type = attr_type(die, DW_AT_abstract_origin);
 		exp->ip.addr = 0;
@@ -2265,8 +2270,7 @@ static const char *dwarf_tag__decl_file(const struct tag *tag,
 					const struct cu *cu)
 {
 	struct dwarf_tag *dtag = tag->priv;
-	return cu->extra_dbg_info ?
-			strings__ptr(strings, dtag->decl_file) : NULL;
+	return cu->extra_dbg_info ? dtag->decl_file : NULL;
 }
 
 static uint32_t dwarf_tag__decl_line(const struct tag *tag,
