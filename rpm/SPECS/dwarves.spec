@@ -114,7 +114,6 @@ rm -Rf %{buildroot}
 %doc MANIFEST README
 %{_includedir}/dwarves/btf_encoder.h
 %{_includedir}/dwarves/config.h
-%{_includedir}/dwarves/ctf_encoder.h
 %{_includedir}/dwarves/ctf.h
 %{_includedir}/dwarves/dutil.h
 %{_includedir}/dwarves/dwarves.h
