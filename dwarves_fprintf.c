@@ -1173,7 +1173,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		fputc('\n', fp);
 		++printed;
-		c = fprintf(fp, "%s:", label__name(label, cu));
+		c = fprintf(fp, "%s:", label__name(label));
 		printed += c;
 	}
 		break;
