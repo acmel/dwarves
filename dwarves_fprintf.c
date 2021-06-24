@@ -1349,7 +1349,7 @@ static size_t class__vtable_fprintf(struct class *class, const struct cu *cu,
 		printed += fprintf(fp, "%.*s   [%d] = %s(%s), \n",
 				   conf->indent, tabs, pos->vtable_entry,
 				   function__name(pos, cu),
-				   function__linkage_name(pos, cu));
+				   function__linkage_name(pos));
 	}
 
 	printed += fprintf(fp, "%.*s} */", conf->indent, tabs);
@@ -1936,8 +1936,7 @@ size_t tag__fprintf(struct tag *tag, const struct cu *cu,
 		const struct function *func = tag__function(tag);
 
 		if (func->linkage_name)
-			printed += fprintf(fp, " /* linkage=%s */",
-					   function__linkage_name(func, cu));
+			printed += fprintf(fp, " /* linkage=%s */", function__linkage_name(func));
 	}
 
 	if (pconf->expand_types)
