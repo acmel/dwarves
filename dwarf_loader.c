@@ -969,7 +969,7 @@ static struct label *label__new(Dwarf_Die *die, struct cu *cu)
 
 	if (label != NULL) {
 		tag__init(&label->ip.tag, cu, die);
-		label->name = strings__add(strings, attr_string(die, DW_AT_name));
+		label->name = strdup_attr_string(die, DW_AT_name);
 		if (!cu->has_addr_info || dwarf_lowpc(die, &label->ip.addr))
 			label->ip.addr = 0;
 	}
