@@ -94,7 +94,7 @@ static struct function *function__new(uint16_t **ptr, GElf_Sym *sym,
 	if (func != NULL) {
 		func->lexblock.ip.addr = elf_sym__value(sym);
 		func->lexblock.size = elf_sym__size(sym);
-		func->name = sym->st_name;
+		func->name = elf_sym__name(sym, ctf->symtab);
 		func->vtable_entry = -1;
 		func->external = elf_sym__bind(sym) == STB_GLOBAL;
 		INIT_LIST_HEAD(&func->vtable_node);
@@ -691,14 +691,6 @@ static int cu__fixup_ctf_bitfields(struct cu *cu)
 	return err;
 }
 
-static const char *ctf__function_name(struct function *func,
-				      const struct cu *cu)
-{
-	struct ctf *ctf = cu->priv;
-
-	return ctf->symtab->symstrs->d_buf + func->name;
-}
-
 static const char *ctf__variable_name(const struct variable *var,
 				      const struct cu *cu)
 {
@@ -763,7 +755,6 @@ int ctf__load_file(struct cus *cus, struct conf_load *conf,
 
 struct debug_fmt_ops ctf__ops = {
 	.name		= "ctf",
-	.function__name = ctf__function_name,
 	.load_file	= ctf__load_file,
 	.variable__name = ctf__variable_name,
 	.strings__ptr	= ctf__strings_ptr,

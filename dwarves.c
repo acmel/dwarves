@@ -1306,9 +1306,7 @@ void lexblock__add_lexblock(struct lexblock *block, struct lexblock *child)
 
 const char *function__name(struct function *func, const struct cu *cu)
 {
-	if (cu->dfops && cu->dfops->function__name)
-		return cu->dfops->function__name(func, cu);
-	return s(cu, func->name);
+	return func->name;
 }
 
 static void parameter__delete(struct parameter *parm, struct cu *cu)
