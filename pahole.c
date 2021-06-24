@@ -118,13 +118,12 @@ static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
 
 static struct structure *structures__add(struct class *class,
-					 const struct cu *cu,
 					 bool *existing_entry)
 {
         struct rb_node **p = &structures__tree.rb_node;
         struct rb_node *parent = NULL;
 	struct structure *str;
-	const char *new_class_name = class__name(class, cu);
+	const char *new_class_name = class__name(class);
 
         while (*p != NULL) {
 		int rc;
@@ -174,11 +173,9 @@ static void nr_definitions_formatter(struct structure *st)
 	printf("%s%c%u\n", st->name, separator, st->nr_files);
 }
 
-static void nr_members_formatter(struct class *class,
-				 struct cu *cu, uint32_t id __maybe_unused)
+static void nr_members_formatter(struct class *class, struct cu *cu __maybe_unused, uint32_t id __maybe_unused)
 {
-	printf("%s%c%u\n", class__name(class, cu), separator,
-	       class__nr_members(class));
+	printf("%s%c%u\n", class__name(class), separator, class__nr_members(class));
 }
 
 static void nr_methods_formatter(struct structure *st)
@@ -186,31 +183,28 @@ static void nr_methods_formatter(struct structure *st)
 	printf("%s%c%u\n", st->name, separator, st->nr_methods);
 }
 
-static void size_formatter(struct class *class,
-			   struct cu *cu, uint32_t id __maybe_unused)
+static void size_formatter(struct class *class, struct cu *cu __maybe_unused, uint32_t id __maybe_unused)
 {
-	printf("%s%c%d%c%u\n", class__name(class, cu), separator,
+	printf("%s%c%d%c%u\n", class__name(class), separator,
 	       class__size(class), separator, tag__is_union(class__tag(class)) ? 0 : class->nr_holes);
 }
 
-static void class_name_len_formatter(struct class *class, struct cu *cu,
-				     uint32_t id __maybe_unused)
+static void class_name_len_formatter(struct class *class, struct cu *cu __maybe_unused, uint32_t id __maybe_unused)
 {
-	const char *name = class__name(class, cu);
+	const char *name = class__name(class);
 	printf("%s%c%zd\n", name, separator, strlen(name));
 }
 
-static void class_name_formatter(struct class *class,
-				 struct cu *cu, uint32_t id __maybe_unused)
+static void class_name_formatter(struct class *class, struct cu *cu __maybe_unused, uint32_t id __maybe_unused)
 {
-	puts(class__name(class, cu));
+	puts(class__name(class));
 }
 
 static void class_formatter(struct class *class, struct cu *cu, uint32_t id)
 {
 	struct tag *typedef_alias = NULL;
 	struct tag *tag = class__tag(class);
-	const char *name = class__name(class, cu);
+	const char *name = class__name(class);
 
 	if (name == NULL) {
 		/*
@@ -249,7 +243,7 @@ static void print_packable_info(struct class *c, struct cu *cu, uint32_t id)
 	const size_t orig_size = class__size(c);
 	const size_t new_size = class__size(c->priv);
 	const size_t savings = orig_size - new_size;
-	const char *name = class__name(c, cu);
+	const char *name = class__name(c);
 
 	/* Anonymous struct? Try finding a typedef */
 	if (name == NULL) {
@@ -257,7 +251,7 @@ static void print_packable_info(struct class *c, struct cu *cu, uint32_t id)
 		      cu__find_first_typedef_of_type(cu, id);
 
 		if (tdef != NULL)
-			name = class__name(tag__class(tdef), cu);
+			name = class__name(tag__class(tdef));
 	}
 	if (name != NULL)
 		printf("%s%c%zd%c%zd%c%zd\n",
@@ -316,7 +310,7 @@ static void print_classes(struct cu *cu)
 		 * and I'm sleepy, will leave for later...
 		 */
 		if (pos->type.namespace.name != 0) {
-			str = structures__add(pos, cu, &existing_entry);
+			str = structures__add(pos, &existing_entry);
 			if (str == NULL) {
 				fprintf(stderr, "pahole: insufficient memory for "
 					"processing %s, skipping it...\n", cu->name);
@@ -415,7 +409,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 			return NULL;
 	}
 
-	name = class__name(class, cu);
+	name = class__name(class);
 
 	if (class__is_declaration(class))
 		return NULL;
@@ -430,7 +424,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 			if (tdef != NULL) {
 				struct class *c = tag__class(tdef);
 
-				name = class__name(c, cu);
+				name = class__name(c);
 			}
 		}
 		if (name != NULL && strncmp(class__exclude_prefix, name,
@@ -445,7 +439,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 			if (tdef != NULL) {
 				struct class *c = tag__class(tdef);
 
-				name = class__name(c, cu);
+				name = class__name(c);
 			}
 		}
 		if (name != NULL && strncmp(class__include_prefix, name,
@@ -704,7 +698,7 @@ static void cu__account_nr_methods(struct cu *cu)
 				continue;
 
 			bool existing_entry;
-			str = structures__add(class, cu, &existing_entry);
+			str = structures__add(class, &existing_entry);
 			if (str == NULL) {
 				fprintf(stderr, "pahole: insufficient memory "
 					"for processing %s, skipping it...\n",
@@ -753,7 +747,7 @@ static void print_structs_with_pointer_to(struct cu *cu, uint32_t type)
 			if (!looked) {
 				bool existing_entry;
 
-				str = structures__add(pos, cu, &existing_entry);
+				str = structures__add(pos, &existing_entry);
 				if (str == NULL) {
 					fprintf(stderr, "pahole: insufficient memory for "
 						"processing %s, skipping it...\n",
@@ -781,7 +775,7 @@ static int type__print_containers(struct type *type, struct cu *cu, uint32_t con
 
 	if (ident == 0) {
 		bool existing_entry;
-		struct structure *str = structures__add(type__class(type), cu, &existing_entry);
+		struct structure *str = structures__add(type__class(type), &existing_entry);
 		if (str == NULL) {
 			fprintf(stderr, "pahole: insufficient memory for "
 				"processing %s, skipping it...\n",
