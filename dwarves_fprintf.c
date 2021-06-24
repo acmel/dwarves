@@ -365,7 +365,7 @@ static size_t imported_module__fprintf(const struct tag *tag,
 	const char *name = "<IMPORTED MODULE ERROR!>";
 
 	if (tag__is_namespace(module))
-		name = namespace__name(tag__namespace(module), cu);
+		name = namespace__name(tag__namespace(module));
 
 	return fprintf(fp, "using namespace %s", name);
 }
@@ -1830,8 +1830,7 @@ static size_t namespace__fprintf(const struct tag *tag, const struct cu *cu,
 {
 	struct namespace *space = tag__namespace(tag);
 	struct conf_fprintf cconf = *conf;
-	size_t printed = fprintf(fp, "namespace %s {\n",
-				 namespace__name(space, cu));
+	size_t printed = fprintf(fp, "namespace %s {\n", namespace__name(space));
 	struct tag *pos;
 
 	++cconf.indent;

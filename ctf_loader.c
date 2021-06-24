@@ -167,8 +167,7 @@ static struct base_type *base_type__new(const char *name, uint32_t attrs,
 	return bt;
 }
 
-static void type__init(struct type *type, uint16_t tag,
-		       strings_t name, size_t size)
+static void type__init(struct type *type, uint16_t tag, const char *name, size_t size)
 {
 	__type__init(type);
 	INIT_LIST_HEAD(&type->namespace.tags);
@@ -178,7 +177,7 @@ static void type__init(struct type *type, uint16_t tag,
 	type->namespace.sname = 0;
 }
 
-static struct type *type__new(uint16_t tag, strings_t name, size_t size)
+static struct type *type__new(uint16_t tag, const char *name, size_t size)
 {
         struct type *type = tag__alloc(sizeof(*type));
 
@@ -188,7 +187,7 @@ static struct type *type__new(uint16_t tag, strings_t name, size_t size)
 	return type;
 }
 
-static struct class *class__new(strings_t name, size_t size)
+static struct class *class__new(const char *name, size_t size)
 {
 	struct class *class = tag__alloc(sizeof(*class));
 
@@ -331,7 +330,7 @@ static int create_new_class(struct ctf *ctf, void *ptr,
 			    uint64_t size, uint32_t id)
 {
 	int member_size;
-	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
+	const char *name = ctf__string(ctf, ctf__get32(ctf, &tp->base.ctf_name));
 	struct class *class = class__new(name, size);
 
 	if (size >= CTF_SHORT_MEMBER_LIMIT) {
@@ -356,7 +355,7 @@ static int create_new_union(struct ctf *ctf, void *ptr,
 			    uint64_t size, uint32_t id)
 {
 	int member_size;
-	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
+	const char *name = ctf__string(ctf, ctf__get32(ctf, &tp->base.ctf_name));
 	struct type *un = type__new(DW_TAG_union_type, name, size);
 
 	if (size >= CTF_SHORT_MEMBER_LIMIT) {
@@ -395,10 +394,8 @@ static int create_new_enumeration(struct ctf *ctf, void *ptr,
 {
 	struct ctf_enum *ep = ptr;
 	uint16_t i;
-	struct type *enumeration = type__new(DW_TAG_enumeration_type,
-					     ctf__get32(ctf,
-							&tp->base.ctf_name),
-					     size ?: (sizeof(int) * 8));
+	const char *name = ctf__string(ctf, ctf__get32(ctf, &tp->base.ctf_name));
+	struct type *enumeration = type__new(DW_TAG_enumeration_type, name, size ?: (sizeof(int) * 8));
 
 	if (enumeration == NULL)
 		return -ENOMEM;
@@ -425,7 +422,7 @@ out_free:
 static int create_new_forward_decl(struct ctf *ctf, struct ctf_full_type *tp,
 				   uint64_t size, uint32_t id)
 {
-	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
+	const char *name = ctf__string(ctf, ctf__get32(ctf, &tp->base.ctf_name));
 	struct class *fwd = class__new(name, size);
 
 	if (fwd == NULL)
@@ -438,7 +435,7 @@ static int create_new_forward_decl(struct ctf *ctf, struct ctf_full_type *tp,
 static int create_new_typedef(struct ctf *ctf, struct ctf_full_type *tp,
 			      uint64_t size, uint32_t id)
 {
-	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
+	const char *name = ctf__string(ctf, ctf__get32(ctf, &tp->base.ctf_name));
 	unsigned int type_id = ctf__get16(ctf, &tp->base.ctf_type);
 	struct type *type = type__new(DW_TAG_typedef, name, size);
 

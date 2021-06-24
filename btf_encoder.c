@@ -748,14 +748,13 @@ static int32_t btf_encoder__add_struct_type(struct btf_encoder *encoder, struct 
 {
 	struct type *type = tag__type(tag);
 	struct class_member *pos;
-	const char *name;
+	const char *name = type__name(type, cu);
 	int32_t type_id;
 	uint8_t kind;
 
 	kind = (tag->tag == DW_TAG_union_type) ?
 		BTF_KIND_UNION : BTF_KIND_STRUCT;
 
-	name = dwarves__active_loader->strings__ptr(cu, type->namespace.name);
 	type_id = btf_encoder__add_struct(encoder, kind, name, type->size);
 	if (type_id < 0)
 		return type_id;
@@ -790,10 +789,9 @@ static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct cu
 {
 	struct type *etype = tag__type(tag);
 	struct enumerator *pos;
-	const char *name;
+	const char *name = type__name(etype, cu);
 	int32_t type_id;
 
-	name = dwarves__active_loader->strings__ptr(cu, etype->namespace.name);
 	type_id = btf_encoder__add_enum(encoder, name, etype->size);
 	if (type_id < 0)
 		return type_id;
@@ -829,12 +827,12 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 	case DW_TAG_volatile_type:
 		return btf_encoder__add_ref_type(encoder, BTF_KIND_VOLATILE, ref_type_id, NULL, false);
 	case DW_TAG_typedef:
-		name = dwarves__active_loader->strings__ptr(cu, tag__namespace(tag)->name);
+		name = namespace__name(tag__namespace(tag));
 		return btf_encoder__add_ref_type(encoder, BTF_KIND_TYPEDEF, ref_type_id, name, false);
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
 	case DW_TAG_class_type:
-		name = dwarves__active_loader->strings__ptr(cu, tag__namespace(tag)->name);
+		name = namespace__name(tag__namespace(tag));
 		if (tag__type(tag)->declaration)
 			return btf_encoder__add_ref_type(encoder, BTF_KIND_FWD, 0, name, tag->tag == DW_TAG_union_type);
 		else

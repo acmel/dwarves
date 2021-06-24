@@ -580,7 +580,7 @@ static void namespace__init(struct namespace *namespace, Dwarf_Die *die,
 	tag__init(&namespace->tag, cu, die);
 	INIT_LIST_HEAD(&namespace->tags);
 	namespace->sname = 0;
-	namespace->name  = strings__add(strings, attr_string(die, DW_AT_name));
+	namespace->name  = strdup_attr_string(die, DW_AT_name);
 	namespace->nr_tags = 0;
 	namespace->shared_tags = 0;
 }
@@ -715,8 +715,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 	type_id_t short_id;
 	struct tag *recoded;
 	/* in all the cases the name is at the same offset */
-	strings_t sname = tag__namespace(tag)->name;
-	const char *name = strings__ptr(strings, sname);
+	const char *name = namespace__name(tag__namespace(tag));
 
 	switch (tag->tag) {
 	case DW_TAG_typedef: {
@@ -816,7 +815,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		 */
 		new_enum->namespace.tags.next = &alias->namespace.tags;
 		new_enum->namespace.shared_tags = 1;
-		new_enum->namespace.name = sname;
+		new_enum->namespace.name = strdup(name);
 		new_enum->size = bit_size;
 		break;
 	default:

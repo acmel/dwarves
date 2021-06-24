@@ -117,8 +117,7 @@ static struct base_type *base_type__new(const char *name, uint32_t attrs,
 	return bt;
 }
 
-static void type__init(struct type *type, uint32_t tag,
-		       strings_t name, size_t size)
+static void type__init(struct type *type, uint32_t tag, const char *name, size_t size)
 {
 	__type__init(type);
 	INIT_LIST_HEAD(&type->namespace.tags);
@@ -128,7 +127,7 @@ static void type__init(struct type *type, uint32_t tag,
 	type->namespace.sname = 0;
 }
 
-static struct type *type__new(uint16_t tag, strings_t name, size_t size)
+static struct type *type__new(uint16_t tag, const char *name, size_t size)
 {
         struct type *type = tag__alloc(sizeof(*type));
 
@@ -138,7 +137,7 @@ static struct type *type__new(uint16_t tag, strings_t name, size_t size)
 	return type;
 }
 
-static struct class *class__new(strings_t name, size_t size, bool is_union)
+static struct class *class__new(const char *name, size_t size, bool is_union)
 {
 	struct class *class = tag__alloc(sizeof(*class));
 	uint32_t tag = is_union ? DW_TAG_union_type : DW_TAG_structure_type;
@@ -246,7 +245,7 @@ static int create_members(struct cu *cu, const struct btf_type *tp, struct type 
 
 static int create_new_class(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
-	struct class *class = class__new(tp->name_off, tp->size, false);
+	struct class *class = class__new(cu__btf_str(cu, tp->name_off), tp->size, false);
 	int member_size = create_members(cu, tp, &class->type);
 
 	if (member_size < 0)
@@ -262,7 +261,7 @@ out_free:
 
 static int create_new_union(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
-	struct type *un = type__new(DW_TAG_union_type, tp->name_off, tp->size);
+	struct type *un = type__new(DW_TAG_union_type, cu__btf_str(cu, tp->name_off), tp->size);
 	int member_size = create_members(cu, tp, un);
 
 	if (member_size < 0)
@@ -294,7 +293,7 @@ static int create_new_enumeration(struct cu *cu, const struct btf_type *tp, uint
 	struct btf_enum *ep = btf_enum(tp);
 	uint16_t i, vlen = btf_vlen(tp);
 	struct type *enumeration = type__new(DW_TAG_enumeration_type,
-					     tp->name_off,
+					     cu__btf_str(cu, tp->name_off),
 					     tp->size ? tp->size * 8 : (sizeof(int) * 8));
 
 	if (enumeration == NULL)
@@ -331,7 +330,7 @@ static int create_new_subroutine_type(struct cu *cu, const struct btf_type *tp, 
 
 static int create_new_forward_decl(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
-	struct class *fwd = class__new(tp->name_off, 0, btf_kflag(tp));
+	struct class *fwd = class__new(cu__btf_str(cu, tp->name_off), 0, btf_kflag(tp));
 
 	if (fwd == NULL)
 		return -ENOMEM;
@@ -342,7 +341,7 @@ static int create_new_forward_decl(struct cu *cu, const struct btf_type *tp, uin
 
 static int create_new_typedef(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
-	struct type *type = type__new(DW_TAG_typedef, tp->name_off, 0);
+	struct type *type = type__new(DW_TAG_typedef, cu__btf_str(cu, tp->name_off), 0);
 
 	if (type == NULL)
 		return -ENOMEM;

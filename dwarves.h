@@ -586,7 +586,7 @@ static inline struct ptr_to_member_type *
  */
 struct namespace {
 	struct tag	 tag;
-	strings_t	 name;
+	const char	 *name;
 	uint16_t	 nr_tags;
 	uint8_t		 shared_tags;
 	char *		 sname;
@@ -1136,16 +1136,15 @@ static inline struct list_head *class__tags(struct class *cls)
 	return &cls->type.namespace.tags;
 }
 
-static __pure inline const char *namespace__name(const struct namespace *nspace,
-						 const struct cu *cu)
+static __pure inline const char *namespace__name(const struct namespace *nspace)
 {
-	return nspace->sname ?: cu__string(cu, nspace->name);
+	return nspace->name;
 }
 
 static __pure inline const char *type__name(const struct type *type,
 					    const struct cu *cu)
 {
-	return namespace__name(&type->namespace, cu);
+	return namespace__name(&type->namespace);
 }
 
 static __pure inline const char *class__name(struct class *cls,
