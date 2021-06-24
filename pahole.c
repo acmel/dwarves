@@ -234,7 +234,7 @@ static void class_formatter(struct class *class, struct cu *cu, uint32_t id)
 		struct type *tdef = tag__type(typedef_alias);
 
 		conf.prefix = "typedef";
-		conf.suffix = type__name(tdef, cu);
+		conf.suffix = type__name(tdef);
 	} else
 		conf.prefix = conf.suffix = NULL;
 
@@ -795,7 +795,7 @@ static int type__print_containers(struct type *type, struct cu *cu, uint32_t con
 			return 0;
 	}
 
-	printf("%.*s%s", ident * 2, tab, type__name(type, cu));
+	printf("%.*s%s", ident * 2, tab, type__name(type));
 	if (global_verbose)
 		printf(": %u", n);
 	putchar('\n');
@@ -2150,7 +2150,7 @@ do_read:
 			real_type = type;
 
 		if (global_verbose) {
-			printed += fprintf(fp, "// type=%s, offset=%#" PRIx64 ", sizeof=%d", type__name(tag__type(type), cu), record_offset, _sizeof);
+			printed += fprintf(fp, "// type=%s, offset=%#" PRIx64 ", sizeof=%d", type__name(tag__type(type)), record_offset, _sizeof);
 			if (real_sizeof != _sizeof)
 				printed += fprintf(fp, ", real_sizeof=%d\n", real_sizeof);
 			else
@@ -2200,7 +2200,7 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 
 	if (!filter->left) {
 		if (global_verbose)
-			fprintf(stderr, "The '%s' member wasn't found in '%s'\n", member_name, type__name(type, cu));
+			fprintf(stderr, "The '%s' member wasn't found in '%s'\n", member_name, type__name(type));
 		s[1] = before;
 		return -1;
 	}
@@ -2210,7 +2210,7 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 	while (isspace(*value))
 		if (*++value == '\0') {
 			if (global_verbose)
-				fprintf(stderr, "The '%s' member was asked without a value to filter '%s'\n", member_name, type__name(type, cu));
+				fprintf(stderr, "The '%s' member was asked without a value to filter '%s'\n", member_name, type__name(type));
 			return -1; // no value
 		}
 

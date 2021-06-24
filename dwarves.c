@@ -756,7 +756,7 @@ struct tag *cu__find_enumeration_by_name_and_size(const struct cu *cu, const cha
 			const struct type *t = tag__type(pos);
 
 			if (t->size == bit_size &&
-			    strcmp(type__name(t, cu), name) == 0) {
+			    strcmp(type__name(t), name) == 0) {
 				if (idp != NULL)
 					*idp = id;
 				return pos;
@@ -778,7 +778,7 @@ struct tag *cu__find_enumeration_by_name(const struct cu *cu, const char *name, 
 	cu__for_each_type(cu, id, pos) {
 		if (pos->tag == DW_TAG_enumeration_type) {
 			const struct type *type = tag__type(pos);
-			const char *tname = type__name(type, cu);
+			const char *tname = type__name(type);
 
 			if (tname && strcmp(tname, name) == 0) {
 				if (idp != NULL)
@@ -805,7 +805,7 @@ struct tag *cu__find_type_by_name(const struct cu *cu, const char *name, const i
 			continue;
 
 		type = tag__type(pos);
-		const char *tname = type__name(type, cu);
+		const char *tname = type__name(type);
 		if (tname && strcmp(tname, name) == 0) {
 			if (!type->declaration)
 				goto found;
@@ -859,7 +859,7 @@ static struct tag *__cu__find_struct_by_name(const struct cu *cu, const char *na
 			continue;
 
 		type = tag__type(pos);
-		const char *tname = type__name(type, cu);
+		const char *tname = type__name(type);
 		if (tname && strcmp(tname, name) == 0) {
 			if (!type->declaration)
 				goto found;

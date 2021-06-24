@@ -1141,8 +1141,7 @@ static __pure inline const char *namespace__name(const struct namespace *nspace)
 	return nspace->name;
 }
 
-static __pure inline const char *type__name(const struct type *type,
-					    const struct cu *cu)
+static __pure inline const char *type__name(const struct type *type)
 {
 	return namespace__name(&type->namespace);
 }
@@ -1150,7 +1149,7 @@ static __pure inline const char *type__name(const struct type *type,
 static __pure inline const char *class__name(struct class *cls,
 					     const struct cu *cu)
 {
-	return type__name(&cls->type, cu);
+	return type__name(&cls->type);
 }
 
 static inline int class__is_struct(const struct class *cls)

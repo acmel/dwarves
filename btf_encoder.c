@@ -748,7 +748,7 @@ static int32_t btf_encoder__add_struct_type(struct btf_encoder *encoder, struct 
 {
 	struct type *type = tag__type(tag);
 	struct class_member *pos;
-	const char *name = type__name(type, cu);
+	const char *name = type__name(type);
 	int32_t type_id;
 	uint8_t kind;
 
@@ -789,7 +789,7 @@ static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct cu
 {
 	struct type *etype = tag__type(tag);
 	struct enumerator *pos;
-	const char *name = type__name(etype, cu);
+	const char *name = type__name(etype);
 	int32_t type_id;
 
 	type_id = btf_encoder__add_enum(encoder, name, etype->size);
