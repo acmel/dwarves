@@ -638,7 +638,7 @@ static inline struct inline_expansion *
 
 struct label {
 	struct ip_tag	 ip;
-	strings_t	 name;
+	const char	 *name;
 };
 
 static inline struct label *tag__label(const struct tag *tag)
@@ -646,10 +646,9 @@ static inline struct label *tag__label(const struct tag *tag)
 	return (struct label *)tag;
 }
 
-static inline const char *label__name(const struct label *label,
-				      const struct cu *cu)
+static inline const char *label__name(const struct label *label)
 {
-	return cu__string(cu, label->name);
+	return label->name;
 }
 
 enum vscope {
