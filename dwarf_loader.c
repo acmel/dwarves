@@ -533,7 +533,7 @@ static struct base_type *base_type__new(Dwarf_Die *die, struct cu *cu)
 
 	if (bt != NULL) {
 		tag__init(&bt->tag, cu, die);
-		bt->name = strings__add(strings, attr_string(die, DW_AT_name));
+		bt->name = strdup_attr_string(die, DW_AT_name);
 		bt->bit_size = attr_numeric(die, DW_AT_byte_size) * 8;
 		uint64_t encoding = attr_numeric(die, DW_AT_encoding);
 		bt->is_bool = encoding == DW_ATE_boolean;
@@ -788,7 +788,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		recoded = (struct tag *)new_bt;
 		recoded->tag = DW_TAG_base_type;
 		recoded->top_level = 1;
-		new_bt->name = sname;
+		new_bt->name = strdup(name);
 		new_bt->bit_size = bit_size;
 		break;
 
@@ -2449,7 +2449,6 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 static int finalize_cu(struct cus *cus, struct cu *cu, struct dwarf_cu *dcu,
 		       struct conf_load *conf)
 {
-	base_type_name_to_size_table__init(strings);
 	cu__for_all_tags(cu, class_member__cache_byte_size, conf);
 	if (conf && conf->steal) {
 		return conf->steal(cu, conf);
