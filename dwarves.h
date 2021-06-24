@@ -807,7 +807,7 @@ struct function {
 	struct lexblock	 lexblock;
 	struct rb_node	 rb_node;
 	strings_t	 name;
-	strings_t	 linkage_name;
+	const char	 *linkage_name;
 	uint32_t	 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;
 	uint8_t		 inlined:2;
@@ -854,10 +854,9 @@ static __pure inline int tag__is_function(const struct tag *tag)
 
 const char *function__name(struct function *func, const struct cu *cu);
 
-static inline const char *function__linkage_name(const struct function *func,
-						 const struct cu *cu)
+static inline const char *function__linkage_name(const struct function *func)
 {
-	return cu__string(cu, func->linkage_name);
+	return func->linkage_name;
 }
 
 size_t function__fprintf_stats(const struct tag *tag_func,
