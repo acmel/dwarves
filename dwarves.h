@@ -359,8 +359,6 @@ struct tag *cu__find_enumeration_by_name_and_size(const struct cu *cu, const cha
 struct tag *cu__find_first_typedef_of_type(const struct cu *cu,
 					   const type_id_t type);
 struct tag *cu__find_function_by_name(const struct cu *cu, const char *name);
-struct tag *cu__find_struct_by_sname(const struct cu *cu, strings_t sname,
-				     const int include_decls, type_id_t *idp);
 struct function *cu__find_function_at_addr(const struct cu *cu,
 					   uint64_t addr);
 struct tag *cu__function(const struct cu *cu, const uint32_t id);
