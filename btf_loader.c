@@ -35,6 +35,11 @@
  */
 extern struct strings *strings;
 
+static const char *cu__btf_str(struct cu *cu, uint32_t offset)
+{
+	return offset ? btf__str_by_offset(cu->priv, offset) : NULL;
+}
+
 static void *tag__alloc(const size_t size)
 {
 	struct tag *tag = zalloc(size);
@@ -89,7 +94,7 @@ static int create_new_function(struct cu *cu, const struct btf_type *tp, uint32_
 	func->btf = 1;
 	func->proto.tag.tag = DW_TAG_subprogram;
 	func->proto.tag.type = tp->type;
-	func->name = tp->name_off;
+	func->name = cu__btf_str(cu, tp->name_off);
 	INIT_LIST_HEAD(&func->lexblock.tags);
 	cu__add_tag_with_id(cu, &func->proto.tag, id);
 

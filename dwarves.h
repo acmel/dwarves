@@ -183,15 +183,10 @@ enum dwarf_languages {
 
 /** struct debug_fmt_ops - specific to the underlying debug file format
  *
- * @function__name - will be called by function__name(), giving a chance to
- *		     formats such as CTF to get this from some other place
- *		     than the global strings table. CTF does this by storing
- * 		     GElf_Sym->st_name in function->name, and by using
- *		     function->name as an index into the .strtab ELF section.
- * @variable__name - will be called by variable__name(), see @function_name
+ * @variable__name - will be called by variable__name()
  * cu__delete - called at cu__delete(), to give a chance to formats such as
  *		CTF to keep the .strstab ELF section available till the cu is
- *		deleted. See @function__name
+ *		deleted.
  */
 struct debug_fmt_ops {
 	const char	   *name;
@@ -208,8 +203,6 @@ struct debug_fmt_ops {
 					   const struct cu *cu);
 	void		   (*tag__free_orig_info)(struct tag *tag,
 						  struct cu *cu);
-	const char	   *(*function__name)(struct function *tag,
-					      const struct cu *cu);
 	const char	   *(*variable__name)(const struct variable *var,
 					      const struct cu *cu);
 	const char	   *(*strings__ptr)(const struct cu *cu, strings_t s);
@@ -806,7 +799,7 @@ struct function {
 	struct ftype	 proto;
 	struct lexblock	 lexblock;
 	struct rb_node	 rb_node;
-	strings_t	 name;
+	const char	 *name;
 	const char	 *linkage_name;
 	uint32_t	 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;

@@ -1425,7 +1425,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 		}
 
 		btf_fnproto_id = btf_encoder__add_func_proto(encoder, cu, &fn->proto, type_id_off);
-		name = dwarves__active_loader->strings__ptr(cu, fn->name);
+		name = function__name(fn, cu);
 		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id, name, false);
 		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
 			err = -1;

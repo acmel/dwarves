@@ -1058,7 +1058,7 @@ static struct function *function__new(Dwarf_Die *die, struct cu *cu)
 	if (func != NULL) {
 		ftype__init(&func->proto, die, cu);
 		lexblock__init(&func->lexblock, cu, die);
-		func->name	      = strings__add(strings, attr_string(die, DW_AT_name));
+		func->name	      = strdup_attr_string(die, DW_AT_name);
 		func->linkage_name    = strdup_attr_string(die, DW_AT_MIPS_linkage_name);
 		func->inlined	      = attr_numeric(die, DW_AT_inline);
 		func->declaration     = dwarf_hasattr(die, DW_AT_declaration);
