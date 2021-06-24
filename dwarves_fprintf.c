@@ -1084,7 +1084,7 @@ size_t ftype__fprintf_parms(const struct ftype *ftype,
 						   indent, tabs);
 		} else
 			first_parm = 0;
-		name = conf->no_parm_names ? NULL : parameter__name(pos, cu);
+		name = conf->no_parm_names ? NULL : parameter__name(pos);
 		type = cu__type(cu, pos->tag.type);
 		if (type == NULL) {
 			snprintf(sbf, sizeof(sbf),
