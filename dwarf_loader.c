@@ -627,7 +627,7 @@ static struct enumerator *enumerator__new(Dwarf_Die *die, struct cu *cu)
 
 	if (enumerator != NULL) {
 		tag__init(&enumerator->tag, cu, die);
-		enumerator->name = strings__add(strings, attr_string(die, DW_AT_name));
+		enumerator->name = strdup_attr_string(die, DW_AT_name);
 		enumerator->value = attr_numeric(die, DW_AT_const_value);
 	}
 
