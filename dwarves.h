@@ -351,10 +351,8 @@ int cu__table_add_tag_with_id(struct cu *cu, struct tag *tag, uint32_t id);
 int cu__table_nullify_type_entry(struct cu *cu, uint32_t id);
 struct tag *cu__find_base_type_by_name(const struct cu *cu, const char *name,
 				       type_id_t *id);
-struct tag *cu__find_base_type_by_sname_and_size(const struct cu *cu,
-						 strings_t name,
-						 uint16_t bit_size,
-						 type_id_t *idp);
+struct tag *cu__find_base_type_by_name_and_size(const struct cu *cu, const char* name,
+						uint16_t bit_size, type_id_t *idp);
 struct tag *cu__find_enumeration_by_name(const struct cu *cu, const char *name, type_id_t *idp);
 struct tag *cu__find_enumeration_by_name_and_size(const struct cu *cu, const char* name,
 						  uint16_t bit_size, type_id_t *idp);

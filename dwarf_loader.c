@@ -777,7 +777,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		 * the dwarf_cu as in dwarf there are no such things
 		 * as base_types of less than 8 bits, etc.
 		 */
-		recoded = cu__find_base_type_by_sname_and_size(cu, sname, bit_size, &short_id);
+		recoded = cu__find_base_type_by_name_and_size(cu, name, bit_size, &short_id);
 		if (recoded != NULL)
 			return short_id;
 
