@@ -1091,7 +1091,7 @@ const char *variable__name(const struct variable *var, const struct cu *cu)
 {
 	if (cu->dfops && cu->dfops->variable__name)
 		return cu->dfops->variable__name(var, cu);
-	return s(cu, var->name);
+	return var->name;
 }
 
 const char *variable__type_name(const struct variable *var,
