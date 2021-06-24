@@ -375,7 +375,7 @@ out_free:
 	return -ENOMEM;
 }
 
-static struct enumerator *enumerator__new(strings_t name, uint32_t value)
+static struct enumerator *enumerator__new(const char *name, uint32_t value)
 {
 	struct enumerator *en = tag__alloc(sizeof(*en));
 
@@ -401,7 +401,7 @@ static int create_new_enumeration(struct ctf *ctf, void *ptr,
 		return -ENOMEM;
 
 	for (i = 0; i < vlen; i++) {
-		strings_t name = ctf__get32(ctf, &ep[i].ctf_enum_name);
+		const char *name = ctf__string(ctf, ctf__get32(ctf, &ep[i].ctf_enum_name));
 		uint32_t value = ctf__get32(ctf, &ep[i].ctf_enum_val);
 		struct enumerator *enumerator = enumerator__new(name, value);
 
