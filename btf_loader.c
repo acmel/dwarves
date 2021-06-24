@@ -101,7 +101,7 @@ static int create_new_function(struct cu *cu, const struct btf_type *tp, uint32_
 	return 0;
 }
 
-static struct base_type *base_type__new(strings_t name, uint32_t attrs,
+static struct base_type *base_type__new(const char *name, uint32_t attrs,
 					uint8_t float_type, size_t size)
 {
         struct base_type *bt = tag__alloc(sizeof(*bt));
@@ -167,7 +167,7 @@ static struct variable *variable__new(strings_t name, uint32_t linkage)
 static int create_new_int_type(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	uint32_t attrs = btf_int_encoding(tp);
-	strings_t name = tp->name_off;
+	const char *name = cu__btf_str(cu, tp->name_off);
 	struct base_type *base = base_type__new(name, attrs, 0, btf_int_bits(tp));
 
 	if (base == NULL)
@@ -181,7 +181,7 @@ static int create_new_int_type(struct cu *cu, const struct btf_type *tp, uint32_
 
 static int create_new_float_type(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
-	strings_t name = tp->name_off;
+	const char *name = cu__btf_str(cu, tp->name_off);
 	struct base_type *base = base_type__new(name, 0, BT_FP_SINGLE, tp->size * 8);
 
 	if (base == NULL)

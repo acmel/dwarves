@@ -1245,7 +1245,7 @@ enum base_type_float_type {
 
 struct base_type {
 	struct tag	tag;
-	strings_t	name;
+	const char	*name;
 	uint16_t	bit_size;
 	uint8_t		name_has_encoding:1;
 	uint8_t		is_signed:1;
@@ -1264,10 +1264,11 @@ static inline uint16_t base_type__size(const struct tag *tag)
 	return tag__base_type(tag)->bit_size / 8;
 }
 
+const char *__base_type__name(const struct base_type *bt);
+
 const char *base_type__name(const struct base_type *btype, const struct cu *cu,
 			    char *bf, size_t len);
 
-void base_type_name_to_size_table__init(struct strings *strings);
 size_t base_type__name_to_size(struct base_type *btype, struct cu *cu);
 
 struct array_type {
