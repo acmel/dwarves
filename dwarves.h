@@ -837,7 +837,7 @@ static __pure inline int tag__is_function(const struct tag *tag)
 #define function__for_each_parameter(func, cu, pos) \
 	ftype__for_each_parameter(func->btf ? tag__ftype(cu__type(cu, func->proto.tag.type)) : &func->proto, pos)
 
-const char *function__name(struct function *func, const struct cu *cu);
+const char *function__name(struct function *func);
 
 static inline const char *function__linkage_name(const struct function *func)
 {

@@ -80,8 +80,7 @@ static struct fn_stats *fn_stats__find(const char *name)
 	struct fn_stats *pos;
 
 	list_for_each_entry(pos, &fn_stats__list, node)
-		if (strcmp(function__name(tag__function(pos->tag), pos->cu),
-			   name) == 0)
+		if (strcmp(function__name(tag__function(pos->tag)), name) == 0)
 			return pos;
 	return NULL;
 }
@@ -107,7 +106,7 @@ static void fn_stats_inline_exps_fmtr(const struct fn_stats *stats)
 {
 	struct function *fn = tag__function(stats->tag);
 	if (fn->lexblock.nr_inline_expansions > 0)
-		printf("%s: %u %d\n", function__name(fn, stats->cu),
+		printf("%s: %u %d\n", function__name(fn),
 		       fn->lexblock.nr_inline_expansions,
 		       fn->lexblock.size_inline_expansions);
 }
@@ -116,29 +115,26 @@ static void fn_stats_labels_fmtr(const struct fn_stats *stats)
 {
 	struct function *fn = tag__function(stats->tag);
 	if (fn->lexblock.nr_labels > 0)
-		printf("%s: %u\n", function__name(fn, stats->cu),
-		       fn->lexblock.nr_labels);
+		printf("%s: %u\n", function__name(fn), fn->lexblock.nr_labels);
 }
 
 static void fn_stats_variables_fmtr(const struct fn_stats *stats)
 {
 	struct function *fn = tag__function(stats->tag);
 	if (fn->lexblock.nr_variables > 0)
-		printf("%s: %u\n", function__name(fn, stats->cu),
-		       fn->lexblock.nr_variables);
+		printf("%s: %u\n", function__name(fn), fn->lexblock.nr_variables);
 }
 
 static void fn_stats_nr_parms_fmtr(const struct fn_stats *stats)
 {
 	struct function *fn = tag__function(stats->tag);
-	printf("%s: %u\n", function__name(fn, stats->cu),
-	       fn->proto.nr_parms);
+	printf("%s: %u\n", function__name(fn), fn->proto.nr_parms);
 }
 
 static void fn_stats_name_len_fmtr(const struct fn_stats *stats)
 {
 	struct function *fn = tag__function(stats->tag);
-	const char *name = function__name(fn, stats->cu);
+	const char *name = function__name(fn);
 	printf("%s: %zd\n", name, strlen(name));
 }
 
@@ -148,7 +144,7 @@ static void fn_stats_size_fmtr(const struct fn_stats *stats)
 	const size_t size = function__size(fn);
 
 	if (size != 0)
-		printf("%s: %zd\n", function__name(fn, stats->cu), size);
+		printf("%s: %zd\n", function__name(fn), size);
 }
 
 static void fn_stats_fmtr(const struct fn_stats *stats)
@@ -164,7 +160,7 @@ static void fn_stats_fmtr(const struct fn_stats *stats)
 		putchar('\n');
 	} else {
 		struct function *fn = tag__function(stats->tag);
-		puts(function__name(fn, stats->cu));
+		puts(function__name(fn));
 	}
 }
 
@@ -180,7 +176,7 @@ static void fn_stats_inline_stats_fmtr(const struct fn_stats *stats)
 {
 	if (stats->nr_expansions > 1)
 		printf("%-31.31s %6u %7u  %6u %6u\n",
-		       function__name(tag__function(stats->tag), stats->cu),
+		       function__name(tag__function(stats->tag)),
 		       stats->size_expansions, stats->nr_expansions,
 		       stats->size_expansions / stats->nr_expansions,
 		       stats->nr_files);
@@ -202,10 +198,7 @@ static void fn_stats__dupmsg(struct function *func,
 	va_list args;
 
 	if (!*hdr)
-		printf("function: %s\nfirst: %s\ncurrent: %s\n",
-		       function__name(func, func_cu),
-		       func_cu->name,
-		       dup_cu->name);
+		printf("function: %s\nfirst: %s\ncurrent: %s\n", function__name(func), func_cu->name, dup_cu->name);
 
 	va_start(args, fmt);
 	vprintf(fmt, args);
@@ -253,7 +246,7 @@ static bool function__filter(struct function *function, struct cu *cu)
 	if (!function->name)
 		return true;
 
-	name = function__name(function, cu);
+	name = function__name(function);
 	if (show_externals && !function->external)
 		return true;
 
@@ -314,7 +307,7 @@ static int cu_class_iterator(struct cu *cu, void *cookie)
 		if (verbose)
 			tag__fprintf(function__tag(pos), cu, &conf, stdout);
 		else
-			fputs(function__name(pos, cu), stdout);
+			fputs(function__name(pos), stdout);
 		putchar('\n');
 	}
 
@@ -406,7 +399,7 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 	uint32_t id;
 
 	cu__for_each_function(cu, id, function) {
-		if (cookie && strcmp(function__name(function, cu), cookie) != 0)
+		if (cookie && strcmp(function__name(function), cookie) != 0)
 			continue;
 		function__show(function, cu);
 		if (!expand_types)

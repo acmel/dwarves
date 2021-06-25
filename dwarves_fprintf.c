@@ -493,7 +493,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 	}
 		break;
 	case DW_TAG_subprogram:
-		strncpy(bf, function__name(tag__function(tag), cu), len);
+		strncpy(bf, function__name(tag__function(tag)), len);
 		break;
 	case DW_TAG_pointer_type:
 		return tag__ptr_name(tag, cu, bf, len, "*");
@@ -1140,7 +1140,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 			break;
 		}
 		printed = fprintf(fp, "%.*s", indent, tabs);
-		name = function__name(alias, cu);
+		name = function__name(alias);
 		n = fprintf(fp, "%s", name);
 		size_t namelen = 0;
 		if (name != NULL)
@@ -1152,7 +1152,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 			     exp->size, (unsigned long long)exp->ip.addr);
 #if 0
 		n = fprintf(fp, "%s(); /* size=%zd, low_pc=%#llx */",
-			    function__name(alias, cu), exp->size,
+			    function__name(alias), exp->size,
 			    (unsigned long long)exp->ip.addr);
 #endif
 		c = 69;
@@ -1212,7 +1212,7 @@ size_t lexblock__fprintf(const struct lexblock *block, const struct cu *cu,
 					   (unsigned long long)block->ip.addr);
 		else
 			printed += fprintf(fp, " /* %s+%#llx */",
-					   function__name(function, cu),
+					   function__name(function),
 					   (unsigned long long)offset);
 	}
 	printed += fprintf(fp, "\n");
@@ -1257,7 +1257,7 @@ static size_t function__fprintf(const struct tag *tag, const struct cu *cu,
 	    func->virtuality == DW_VIRTUALITY_pure_virtual)
 		printed += fprintf(fp, "virtual ");
 
-	printed += ftype__fprintf(ftype, cu, function__name(func, cu),
+	printed += ftype__fprintf(ftype, cu, function__name(func),
 				  inlined, 0, 0, false, conf, fp);
 
 	if (func->virtuality == DW_VIRTUALITY_pure_virtual)
@@ -1330,7 +1330,7 @@ static size_t class__vtable_fprintf(struct class *class, const struct cu *cu,
 	list_for_each_entry(pos, &class->vtable, vtable_node) {
 		printed += fprintf(fp, "%.*s   [%d] = %s(%s), \n",
 				   conf->indent, tabs, pos->vtable_entry,
-				   function__name(pos, cu),
+				   function__name(pos),
 				   function__linkage_name(pos));
 	}
 

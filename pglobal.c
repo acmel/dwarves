@@ -71,7 +71,7 @@ static struct extfun *extfun__new(struct function *fun,
 		gfun->next = NULL;
 		gfun->fun  = fun;
 		gfun->cu   = cu;
-		gfun->name = function__name(fun, cu);
+		gfun->name = function__name(fun);
 	}
 
 	return gfun;

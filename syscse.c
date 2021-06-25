@@ -18,10 +18,10 @@
 static const char *prefix = "sys_";
 static size_t prefix_len = 4;
 
-static bool filter(struct function *f, struct cu *cu)
+static bool filter(struct function *f)
 {
 	if (f->proto.nr_parms != 0) {
-		const char *name = function__name(f, cu);
+		const char *name = function__name(f);
 
 		if (strlen(name) > prefix_len &&
 		    memcmp(name, prefix, prefix_len) == 0)
@@ -58,7 +58,7 @@ static void zero_extend(const int regparm, const struct base_type *bt,
 static void emit_wrapper(struct function *f, struct cu *cu)
 {
 	struct parameter *parm;
-	const char *name = function__name(f, cu);
+	const char *name = function__name(f);
 	int regparm = 0, needs_wrapper = 0;
 
 	function__for_each_parameter(f, cu, parm) {
@@ -93,7 +93,7 @@ static int cu__emit_wrapper(struct cu *cu, void *cookie __maybe_unused)
 	uint32_t id;
 
 	cu__for_each_function(cu, id, pos)
-		if (!filter(pos, cu))
+		if (!filter(pos))
 			emit_wrapper(pos, cu);
 	return 0;
 }
