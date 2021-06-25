@@ -326,7 +326,7 @@ size_t typedef__fprintf(const struct tag *tag, const struct cu *cu,
 		struct conf_fprintf tconf = *pconf;
 
 		tconf.suffix = type__name(type);
-		return fprintf(fp, "typedef ") + enumeration__fprintf(tag_type, cu, &tconf, fp);
+		return fprintf(fp, "typedef ") + enumeration__fprintf(tag_type, &tconf, fp);
 	}
 	}
 
@@ -379,8 +379,7 @@ out:
 	return type->max_tag_name_len;
 }
 
-size_t enumeration__fprintf(const struct tag *tag, const struct cu *cu,
-			    const struct conf_fprintf *conf, FILE *fp)
+size_t enumeration__fprintf(const struct tag *tag, const struct conf_fprintf *conf, FILE *fp)
 {
 	struct type *type = tag__type(tag);
 	struct enumerator *pos;
@@ -813,7 +812,7 @@ print_default:
 		if (type__name(ctype) != NULL)
 			printed += fprintf(fp, "enum %-*s %s", tconf.type_spacing - 5, type__name(ctype), name);
 		else
-			printed += enumeration__fprintf(type, cu, &tconf, fp);
+			printed += enumeration__fprintf(type, &tconf, fp);
 		break;
 	}
 out:
@@ -1872,7 +1871,7 @@ size_t tag__fprintf(struct tag *tag, const struct cu *cu,
 		printed += array_type__fprintf(tag, cu, "array", pconf, fp);
 		break;
 	case DW_TAG_enumeration_type:
-		printed += enumeration__fprintf(tag, cu, pconf, fp);
+		printed += enumeration__fprintf(tag, pconf, fp);
 		break;
 	case DW_TAG_typedef:
 		printed += typedef__fprintf(tag, cu, pconf, fp);
