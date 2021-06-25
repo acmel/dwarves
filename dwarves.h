@@ -1087,7 +1087,7 @@ struct class_member *type__find_member_by_name(const struct type *type, const ch
 uint32_t type__nr_members_of_type(const struct type *type, const type_id_t oftype);
 struct class_member *type__last_member(struct type *type);
 
-void enumeration__calc_prefix(struct type *type, const struct cu *cu);
+void enumeration__calc_prefix(struct type *type);
 const char *enumeration__prefix(struct type *type, const struct cu *cu);
 uint16_t enumeration__prefix_len(struct type *type, const struct cu *cu);
 int enumeration__max_entry_name_len(struct type *type, const struct cu *cu);
