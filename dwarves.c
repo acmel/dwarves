@@ -1706,7 +1706,7 @@ static int strcommon(const char *a, const char *b)
 	return i;
 }
 
-void enumeration__calc_prefix(struct type *enumeration, const struct cu *cu)
+void enumeration__calc_prefix(struct type *enumeration)
 {
 	if (enumeration->member_prefix)
 		return;
@@ -1743,13 +1743,13 @@ void enumerations__calc_prefix(struct list_head *enumerations)
 	struct tag_cu_node *pos;
 
 	list_for_each_entry(pos, enumerations, node)
-		enumeration__calc_prefix(tag__type(pos->tc.tag), pos->tc.cu);
+		enumeration__calc_prefix(tag__type(pos->tc.tag));
 }
 
 const char *enumeration__prefix(struct type *enumeration, const struct cu *cu)
 {
 	if (!enumeration->member_prefix)
-		enumeration__calc_prefix(enumeration, cu);
+		enumeration__calc_prefix(enumeration);
 
 	return enumeration->member_prefix;
 }
@@ -1757,7 +1757,7 @@ const char *enumeration__prefix(struct type *enumeration, const struct cu *cu)
 uint16_t enumeration__prefix_len(struct type *enumeration, const struct cu *cu)
 {
 	if (!enumeration->member_prefix)
-		enumeration__calc_prefix(enumeration, cu);
+		enumeration__calc_prefix(enumeration);
 
 	return enumeration->member_prefix_len;
 }
