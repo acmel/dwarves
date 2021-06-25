@@ -87,7 +87,7 @@ static void diff_function(const struct cu *new_cu, struct function *function,
 	if (function->inlined || function->abstract_origin != 0)
 		return;
 
-	name = function__name(function, cu);
+	name = function__name(function);
 	new_tag = cu__find_function_by_name(new_cu, name);
 	if (new_tag != NULL) {
 		struct function *new_function = tag__function(new_tag);
@@ -320,7 +320,7 @@ static int cu_find_new_tags_iterator(struct cu *new_cu, void *old_cus)
 		if (function->abstract_origin || function->inlined)
 			continue;
 
-		const char *name = function__name(function, new_cu);
+		const char *name = function__name(function);
 		struct tag *old_function = cu__find_function_by_name(old_cu,
 								     name);
 		if (old_function != NULL && !tag__function(old_function)->inlined)
@@ -376,7 +376,7 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 
 	printf("  %-*.*s | %+4d",
 	       (int)cu->max_len_changed_item, (int)cu->max_len_changed_item,
-	       function__name(function, cu), di->diff);
+	       function__name(function), di->diff);
 
 	if (!verbose) {
 		putchar('\n');
@@ -390,12 +390,12 @@ static void show_diffs_function(struct function *function, const struct cu *cu,
 
 		if (twin->inlined)
 			puts(cookie ? " (uninlined)" : " (inlined)");
-		else if (strcmp(function__name(function, cu),
-				function__name(twin, di->cu)) != 0)
+		else if (strcmp(function__name(function),
+				function__name(twin)) != 0)
 			printf("%s: BRAIN FART ALERT: comparing %s to %s, "
 			       "should be the same name\n", __FUNCTION__,
-			       function__name(function, cu),
-			       function__name(twin, di->cu));
+			       function__name(function),
+			       function__name(twin));
 		else {
 			char proto[1024], twin_proto[1024];
 

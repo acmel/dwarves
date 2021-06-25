@@ -1020,7 +1020,7 @@ struct tag *cu__find_function_by_name(const struct cu *cu, const char *name)
 	uint32_t id;
 	struct function *pos;
 	cu__for_each_function(cu, id, pos) {
-		const char *fname = function__name(pos, cu);
+		const char *fname = function__name(pos);
 		if (fname && strcmp(fname, name) == 0)
 			return function__tag(pos);
 	}
@@ -1254,7 +1254,7 @@ void lexblock__add_lexblock(struct lexblock *block, struct lexblock *child)
 	list_add_tail(&child->ip.tag.node, &block->tags);
 }
 
-const char *function__name(struct function *func, const struct cu *cu)
+const char *function__name(struct function *func)
 {
 	return func->name;
 }

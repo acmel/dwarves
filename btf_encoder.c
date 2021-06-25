@@ -1407,7 +1407,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 			struct elf_function *func;
 			const char *name;
 
-			name = function__name(fn, cu);
+			name = function__name(fn);
 			if (!name)
 				continue;
 
@@ -1421,11 +1421,11 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 		}
 
 		btf_fnproto_id = btf_encoder__add_func_proto(encoder, cu, &fn->proto, type_id_off);
-		name = function__name(fn, cu);
+		name = function__name(fn);
 		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id, name, false);
 		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
 			err = -1;
-			printf("error: failed to encode function '%s'\n", function__name(fn, cu));
+			printf("error: failed to encode function '%s'\n", function__name(fn));
 			goto out;
 		}
 	}

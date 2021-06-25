@@ -198,7 +198,7 @@ static struct function *function__filter(struct function *function,
 	    function->abstract_origin != 0 ||
 	    !list_empty(&function->tool_node) ||
 	    !ftype__has_parm_of_type(&function->proto, target_type_id, cu) ||
-	    strlist__has_entry(init_blacklist, function__name(function, cu))) {
+	    strlist__has_entry(init_blacklist, function__name(function))) {
 		return NULL;
 	}
 
@@ -674,7 +674,7 @@ static int function__emit_probes(struct function *func, uint32_t function_id,
 				 const char *member)
 {
 	struct parameter *pos;
-	const char *name = function__name(func, cu);
+	const char *name = function__name(func);
 
 	fprintf(fp_methods, "probe %s%s = kernel.function(\"%s@%s\")%s\n"
 			    "{\n"
@@ -731,7 +731,7 @@ static int cu_emit_probes_iterator(struct cu *cu, void *cookie)
 	list_for_each_entry(pos, &cu->tool_list, tool_node) {
 		uint32_t function_id = (long)pos->priv;
 
-		if (methods__add(&probes_emitted, function__name(pos, cu)) != 0)
+		if (methods__add(&probes_emitted, function__name(pos)) != 0)
 			continue;
 		function__emit_probes(pos, function_id, cu, target_type_id, 0, NULL); /* entry */
 		function__emit_probes(pos, function_id, cu, target_type_id, 1, NULL); /* exit */
@@ -774,7 +774,7 @@ static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 	list_for_each_entry(pos_tag, &cu->tool_list, tool_node) {
 		uint32_t function_id = (long)pos_tag->priv;
 
-		if (methods__add(&probes_emitted, function__name(pos_tag, cu)) != 0)
+		if (methods__add(&probes_emitted, function__name(pos_tag)) != 0)
 			continue;
 
 		function__emit_probes(pos_tag, function_id, cu, target_type_id, 0,
@@ -798,8 +798,7 @@ static int cu_emit_functions_table(struct cu *cu, void *fp)
        list_for_each_entry(pos, &cu->tool_list, tool_node)
                if (pos->priv != NULL) {
 			uint32_t function_id = (long)pos->priv;
-                       fprintf(fp, "%d:%s\n", function_id,
-			       function__name(pos, cu));
+			fprintf(fp, "%d:%s\n", function_id, function__name(pos));
 			pos->priv = NULL;
 		}
 
