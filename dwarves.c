@@ -1746,15 +1746,6 @@ void enumerations__calc_prefix(struct list_head *enumerations)
 		enumeration__calc_prefix(tag__type(pos->tc.tag));
 }
 
-uint16_t enumeration__prefix_len(struct type *enumeration, const struct cu *cu)
-{
-	if (!enumeration->member_prefix)
-		enumeration__calc_prefix(enumeration);
-
-	return enumeration->member_prefix_len;
-}
-
-
 uint32_t type__nr_members_of_type(const struct type *type, const type_id_t type_id)
 {
 	struct class_member *pos;
