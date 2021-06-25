@@ -1382,7 +1382,7 @@ static void do_reorg(struct tag *class, struct cu *cu)
 	 class__delete(clone, cu);
 }
 
-static int tag__fprintf_hexdump_value(struct tag *type, struct cu *cu, void *instance, int _sizeof, FILE *fp)
+static int instance__fprintf_hexdump_value(void *instance, int _sizeof, FILE *fp)
 {
 	uint8_t *contents = instance;
 	int i, printed = 0;
@@ -1559,7 +1559,7 @@ static int array__fprintf_base_type_value(struct tag *tag, struct cu *cu, void *
 
 	if (array->dimensions != 1) {
 		// Support multi dimensional arrays later
-		return tag__fprintf_hexdump_value(tag, cu, instance, _sizeof, fp);
+		return instance__fprintf_hexdump_value(instance, _sizeof, fp);
 	}
 
 	if (tag__is_typedef(array_type))
@@ -1596,7 +1596,7 @@ static int array__fprintf_value(struct tag *tag, struct cu *cu, void *instance, 
 	if (tag__is_base_type(array_type, cu))
 		return array__fprintf_base_type_value(tag, cu, instance, _sizeof, fp);
 
-	return tag__fprintf_hexdump_value(tag, cu, instance, _sizeof, fp);
+	return instance__fprintf_hexdump_value(instance, _sizeof, fp);
 }
 
 static int __class__fprintf_value(struct tag *tag, struct cu *cu, void *instance, int _sizeof, int indent, bool brackets, FILE *fp)
@@ -1636,7 +1636,7 @@ static int __class__fprintf_value(struct tag *tag, struct cu *cu, void *instance
 			if (!name)
 				continue;
 		} else {
-			printed += tag__fprintf_hexdump_value(member_type, cu, member_contents, member->byte_size, fp);
+			printed += instance__fprintf_hexdump_value(member_contents, member->byte_size, fp);
 		}
 
 		fputc(',', fp);
@@ -1658,7 +1658,7 @@ static int tag__fprintf_value(struct tag *type, struct cu *cu, void *instance, i
 	if (tag__is_struct(type))
 		return class__fprintf_value(type, cu, instance, _sizeof, 0, fp);
 
-	return tag__fprintf_hexdump_value(type, cu, instance, _sizeof, fp);
+	return instance__fprintf_hexdump_value(instance, _sizeof, fp);
 }
 
 static int pipe_seek(FILE *fp, off_t offset)
