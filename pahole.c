@@ -2236,7 +2236,7 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 	return 0;
 }
 
-static struct class_member_filter *class_member_filter__new(struct type *type, struct cu *cu, char *sfilter)
+static struct class_member_filter *class_member_filter__new(struct type *type, char *sfilter)
 {
 	struct class_member_filter *filter = malloc(sizeof(*filter));
 
@@ -2570,7 +2570,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		}
 
 		if (prototype->filter) {
-			type->filter = class_member_filter__new(type, cu, prototype->filter);
+			type->filter = class_member_filter__new(type, prototype->filter);
 			if (type->filter == NULL) {
 				fprintf(stderr, "pahole: invalid filter '%s' for '%s'\n",
 					prototype->filter, prototype->name);
