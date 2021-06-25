@@ -1477,7 +1477,7 @@ static const char *enumerations__lookup_value(struct list_head *enumerations, ui
 	return NULL;
 }
 
-static struct enumerator *enumeration__lookup_entry_from_value(struct type *enumeration, struct cu *cu, uint64_t value)
+static struct enumerator *enumeration__lookup_entry_from_value(struct type *enumeration, uint64_t value)
 {
 	struct enumerator *entry;
 
@@ -1494,7 +1494,7 @@ static struct enumerator *enumerations__lookup_entry_from_value(struct list_head
 	struct tag_cu_node *pos;
 
 	list_for_each_entry(pos, enumerations, node) {
-		struct enumerator *enumerator = enumeration__lookup_entry_from_value(tag__type(pos->tc.tag), pos->tc.cu, value);
+		struct enumerator *enumerator = enumeration__lookup_entry_from_value(tag__type(pos->tc.tag), value);
 		if (enumerator) {
 			*cup = pos->tc.cu;
 			return enumerator;
