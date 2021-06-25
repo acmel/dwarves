@@ -781,7 +781,7 @@ static uint32_t array_type__nelems(struct tag *tag)
 	return nelem;
 }
 
-static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct cu *cu, struct tag *tag)
+static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct tag *tag)
 {
 	struct type *etype = tag__type(tag);
 	struct enumerator *pos;
@@ -838,7 +838,7 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 		encoder->need_index_type = true;
 		return btf_encoder__add_array(encoder, ref_type_id, encoder->array_index_id, array_type__nelems(tag));
 	case DW_TAG_enumeration_type:
-		return btf_encoder__add_enum_type(encoder, cu, tag);
+		return btf_encoder__add_enum_type(encoder, tag);
 	case DW_TAG_subroutine_type:
 		return btf_encoder__add_func_proto(encoder, cu, tag__ftype(tag), type_id_off);
 	default:
