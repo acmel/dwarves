@@ -1680,7 +1680,7 @@ static int pipe_seek(FILE *fp, off_t offset)
 	return offset == 0 ? 0 : -1;
 }
 
-static uint64_t tag__real_sizeof(struct tag *tag, struct cu *cu, int _sizeof, void *instance)
+static uint64_t tag__real_sizeof(struct tag *tag, int _sizeof, void *instance)
 {
 	if (tag__is_struct(tag)) {
 		struct type *type = tag__type(tag);
@@ -2062,7 +2062,7 @@ do_read:
 
 	while (fread(instance, _sizeof, 1, stdin) == 1) {
 		// Read it from each record/instance
-		int real_sizeof = tag__real_sizeof(type, cu, _sizeof, instance);
+		int real_sizeof = tag__real_sizeof(type, _sizeof, instance);
 
 		if (real_sizeof > _sizeof) {
 			if (real_sizeof > max_sizeof) {
