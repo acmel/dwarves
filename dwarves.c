@@ -1706,7 +1706,7 @@ static int strcommon(const char *a, const char *b)
 	return i;
 }
 
-void enumeration__calc_prefix(struct type *enumeration)
+static void enumeration__calc_prefix(struct type *enumeration)
 {
 	if (enumeration->member_prefix)
 		return;
