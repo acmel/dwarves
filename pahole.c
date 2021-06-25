@@ -1489,14 +1489,13 @@ static struct enumerator *enumeration__lookup_entry_from_value(struct type *enum
 	return NULL;
 }
 
-static struct enumerator *enumerations__lookup_entry_from_value(struct list_head *enumerations, struct cu **cup, uint64_t value)
+static struct enumerator *enumerations__lookup_entry_from_value(struct list_head *enumerations, uint64_t value)
 {
 	struct tag_cu_node *pos;
 
 	list_for_each_entry(pos, enumerations, node) {
 		struct enumerator *enumerator = enumeration__lookup_entry_from_value(tag__type(pos->tc.tag), value);
 		if (enumerator) {
-			*cup = pos->tc.cu;
 			return enumerator;
 		}
 	}
@@ -1732,8 +1731,7 @@ static struct tag *tag__real_type(struct tag *tag, struct cu **cup, void *instan
 		if (!list_empty(&type->type_enum) && type->type_member) {
 			struct class_member *member = type->type_member;
 			uint64_t value = base_type__value(instance + member->byte_offset, member->byte_size);
-			struct cu *cu_enumerator;
-			struct enumerator *enumerator = enumerations__lookup_entry_from_value(&type->type_enum, &cu_enumerator, value);
+			struct enumerator *enumerator = enumerations__lookup_entry_from_value(&type->type_enum, value);
 			char name[1024];
 
 			if (!enumerator)
