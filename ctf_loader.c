@@ -688,12 +688,6 @@ static int cu__fixup_ctf_bitfields(struct cu *cu)
 	return err;
 }
 
-static const char *ctf__variable_name(const struct variable *var,
-				      const struct cu *cu)
-{
-	return var->name;
-}
-
 static void ctf__cu_delete(struct cu *cu)
 {
 	ctf__delete(cu->priv);
@@ -751,7 +745,6 @@ int ctf__load_file(struct cus *cus, struct conf_load *conf,
 struct debug_fmt_ops ctf__ops = {
 	.name		= "ctf",
 	.load_file	= ctf__load_file,
-	.variable__name = ctf__variable_name,
 	.strings__ptr	= ctf__strings_ptr,
 	.cu__delete	= ctf__cu_delete,
 };
