@@ -1089,8 +1089,6 @@ size_t tag__size(const struct tag *tag, const struct cu *cu)
 
 const char *variable__name(const struct variable *var, const struct cu *cu)
 {
-	if (cu->dfops && cu->dfops->variable__name)
-		return cu->dfops->variable__name(var, cu);
 	return var->name;
 }
 
