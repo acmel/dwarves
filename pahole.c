@@ -2165,7 +2165,7 @@ out:
 	return printed;
 }
 
-static int class_member_filter__parse(struct class_member_filter *filter, struct type *type, struct cu *cu, char *sfilter)
+static int class_member_filter__parse(struct class_member_filter *filter, struct type *type, char *sfilter)
 {
 	const char *member_name = sfilter;
 	char *sep = strstr(sfilter, "==");
@@ -2240,7 +2240,7 @@ static struct class_member_filter *class_member_filter__new(struct type *type, s
 {
 	struct class_member_filter *filter = malloc(sizeof(*filter));
 
-	if (filter && class_member_filter__parse(filter, type, cu, sfilter)) {
+	if (filter && class_member_filter__parse(filter, type, sfilter)) {
 		free(filter);
 		filter = NULL;
 	}
