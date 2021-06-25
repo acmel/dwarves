@@ -193,7 +193,7 @@ out:
 	return 1;
 }
 
-int type__emit_fwd_decl(struct type *ctype, struct type_emissions *emissions, FILE *fp)
+static int type__emit_fwd_decl(struct type *ctype, struct type_emissions *emissions, FILE *fp)
 {
 	/* Have we already emitted this in this CU? */
 	if (ctype->fwd_decl_emitted)
