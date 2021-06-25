@@ -1458,7 +1458,7 @@ static const char *enumeration__lookup_value(struct type *enumeration, struct cu
 
 	type__for_each_enumerator(enumeration, entry) {
 		if (entry->value == value)
-			return enumerator__name(entry, cu);
+			return enumerator__name(entry);
 	}
 
 	return NULL;
@@ -1509,7 +1509,7 @@ static int64_t enumeration__lookup_enumerator(struct type *enumeration, struct c
 	struct enumerator *entry;
 
 	type__for_each_enumerator(enumeration, entry) {
-		const char *entry_name = enumerator__name(entry, cu);
+		const char *entry_name = enumerator__name(entry);
 
 		if (!strcmp(entry_name, enumerator))
 			return entry->value;
@@ -1744,7 +1744,7 @@ static struct tag *tag__real_type(struct tag *tag, struct cu **cup, void *instan
 				return enumerator->type_enum.tag;
 			}
 
-			snprintf(name, sizeof(name), "%s", enumerator__name(enumerator, cu_enumerator));
+			snprintf(name, sizeof(name), "%s", enumerator__name(enumerator));
 			strlwr(name);
 
 			struct tag *real_type = cu__find_type_by_name(*cup, name, false, NULL);
