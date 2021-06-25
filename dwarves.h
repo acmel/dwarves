@@ -1293,8 +1293,7 @@ struct enumerator {
 	struct tag_cu	 type_enum; // To cache the type_enum searches
 };
 
-static inline const char *enumerator__name(const struct enumerator *enumerator,
-					   const struct cu *cu)
+static inline const char *enumerator__name(const struct enumerator *enumerator)
 {
 	return enumerator->name;
 }

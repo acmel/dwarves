@@ -370,7 +370,7 @@ int enumeration__max_entry_name_len(struct type *type, const struct cu *cu)
 	struct enumerator *pos;
 
 	type__for_each_enumerator(type, pos) {
-		int len = strlen(enumerator__name(pos, cu));
+		int len = strlen(enumerator__name(pos));
 
 		if (type->max_tag_name_len < len)
 			type->max_tag_name_len = len;
@@ -393,7 +393,7 @@ size_t enumeration__fprintf(const struct tag *tag, const struct cu *cu,
 
 	type__for_each_enumerator(type, pos) {
 		printed += fprintf(fp, "%.*s\t%-*s = ", indent, tabs,
-				   max_entry_name_len, enumerator__name(pos, cu));
+				   max_entry_name_len, enumerator__name(pos));
 		printed += fprintf(fp, conf->hex_fmt ?  "%#x" : "%u", pos->value);
 		printed += fprintf(fp, ",\n");
 	}

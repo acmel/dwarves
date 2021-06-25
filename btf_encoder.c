@@ -793,7 +793,7 @@ static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct cu
 		return type_id;
 
 	type__for_each_enumerator(etype, pos) {
-		name = enumerator__name(pos, cu);
+		name = enumerator__name(pos);
 		if (btf_encoder__add_enum_val(encoder, name, pos->value))
 			return -1;
 	}
