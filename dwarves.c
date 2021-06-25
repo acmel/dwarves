@@ -1716,7 +1716,7 @@ void enumeration__calc_prefix(struct type *enumeration, const struct cu *cu)
 	struct enumerator *entry;
 
 	type__for_each_enumerator(enumeration, entry) {
-		const char *curr_name = enumerator__name(entry, cu);
+		const char *curr_name = enumerator__name(entry);
 
 		if (previous_name) {
 			int curr_common_part = strcommon(curr_name, previous_name);
