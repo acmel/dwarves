@@ -183,7 +183,6 @@ enum dwarf_languages {
 
 /** struct debug_fmt_ops - specific to the underlying debug file format
  *
- * @variable__name - will be called by variable__name()
  * cu__delete - called at cu__delete(), to give a chance to formats such as
  *		CTF to keep the .strstab ELF section available till the cu is
  *		deleted.
@@ -203,8 +202,6 @@ struct debug_fmt_ops {
 					   const struct cu *cu);
 	void		   (*tag__free_orig_info)(struct tag *tag,
 						  struct cu *cu);
-	const char	   *(*variable__name)(const struct variable *var,
-					      const struct cu *cu);
 	const char	   *(*strings__ptr)(const struct cu *cu, strings_t s);
 	void		   (*cu__delete)(struct cu *cu);
 	bool		   has_alignment_info;
