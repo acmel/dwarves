@@ -513,8 +513,6 @@ static int32_t btf_encoder__add_func_param(struct btf_encoder *encoder, const ch
 	}
 }
 
-extern struct debug_fmt_ops *dwarves__active_loader;
-
 static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct cu *cu, struct ftype *ftype, uint32_t type_id_off)
 {
 	struct btf *btf = encoder->btf;
@@ -726,8 +724,6 @@ static void dump_invalid_symbol(const char *msg, const char *sym,
 	fprintf(stderr, "PAHOLE: Error: %s (sym: '%s').\n", msg, sym);
 	fprintf(stderr, "PAHOLE: Error: Use '--btf_encode_force' to ignore such symbols and force emit the btf.\n");
 }
-
-extern struct debug_fmt_ops *dwarves__active_loader;
 
 static int tag__check_id_drift(const struct tag *tag,
 			       uint32_t core_id, uint32_t btf_type_id,
