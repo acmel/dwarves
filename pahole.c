@@ -1452,7 +1452,7 @@ static int class_member__fprintf_bitfield_value(struct class_member *member, voi
 	return fprintf(fp, format, class_member__bitfield_value(member, instance));
 }
 
-static const char *enumeration__lookup_value(struct type *enumeration, struct cu *cu, uint64_t value)
+static const char *enumeration__lookup_value(struct type *enumeration, uint64_t value)
 {
 	struct enumerator *entry;
 
@@ -1469,7 +1469,7 @@ static const char *enumerations__lookup_value(struct list_head *enumerations, ui
 	struct tag_cu_node *pos;
 
 	list_for_each_entry(pos, enumerations, node) {
-		const char *s = enumeration__lookup_value(tag__type(pos->tc.tag), pos->tc.cu, value);
+		const char *s = enumeration__lookup_value(tag__type(pos->tc.tag), value);
 		if (s)
 			return s;
 	}
