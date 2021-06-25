@@ -605,6 +605,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		cu->build_id_len	   = build_id_len;
 		if (build_id_len > 0)
 			memcpy(cu->build_id, build_id, build_id_len);
+		cu->priv = NULL;
 	}
 
 	return cu;
