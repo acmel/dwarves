@@ -1089,7 +1089,6 @@ struct class_member *type__last_member(struct type *type);
 
 const char *enumeration__prefix(struct type *type, const struct cu *cu);
 uint16_t enumeration__prefix_len(struct type *type, const struct cu *cu);
-int enumeration__max_entry_name_len(struct type *type);
 
 void enumerations__calc_prefix(struct list_head *enumerations);
 
