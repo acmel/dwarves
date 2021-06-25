@@ -362,7 +362,7 @@ static size_t imported_module__fprintf(const struct tag *tag,
 	return fprintf(fp, "using namespace %s", name);
 }
 
-int enumeration__max_entry_name_len(struct type *type, const struct cu *cu)
+int enumeration__max_entry_name_len(struct type *type)
 {
 	if (type->max_tag_name_len)
 		goto out;
@@ -384,7 +384,7 @@ size_t enumeration__fprintf(const struct tag *tag, const struct cu *cu,
 {
 	struct type *type = tag__type(tag);
 	struct enumerator *pos;
-	int max_entry_name_len = enumeration__max_entry_name_len(type, cu);
+	int max_entry_name_len = enumeration__max_entry_name_len(type);
 	size_t printed = fprintf(fp, "enum%s%s {\n", type__name(type) ? " " : "", type__name(type) ?: "");
 	int indent = conf->indent;
 
