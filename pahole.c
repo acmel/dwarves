@@ -1504,7 +1504,7 @@ static struct enumerator *enumerations__lookup_entry_from_value(struct list_head
 	return NULL;
 }
 
-static int64_t enumeration__lookup_enumerator(struct type *enumeration, struct cu *cu, const char *enumerator)
+static int64_t enumeration__lookup_enumerator(struct type *enumeration, const char *enumerator)
 {
 	struct enumerator *entry;
 
@@ -1527,7 +1527,7 @@ static int64_t enumerations__lookup_enumerator(struct list_head *enumerations, c
 	struct tag_cu_node *pos;
 
 	list_for_each_entry(pos, enumerations, node) {
-		int64_t value = enumeration__lookup_enumerator(tag__type(pos->tc.tag), pos->tc.cu, enumerator);
+		int64_t value = enumeration__lookup_enumerator(tag__type(pos->tc.tag), enumerator);
 		if (value != -1)
 			return value;
 	}
