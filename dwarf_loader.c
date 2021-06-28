@@ -383,13 +383,6 @@ static const char *attr_string(Dwarf_Die *die, uint32_t name)
 	return NULL;
 }
 
-static const char *strdup_attr_string(Dwarf_Die *die, uint32_t name)
-{
-	const char *s = attr_string(die, name);
-
-	return s ? strdup(s) : NULL;
-}
-
 static struct dwarf_off_ref attr_type(Dwarf_Die *die, uint32_t attr_name)
 {
 	Dwarf_Attribute attr;
@@ -533,7 +526,7 @@ static struct base_type *base_type__new(Dwarf_Die *die, struct cu *cu)
 
 	if (bt != NULL) {
 		tag__init(&bt->tag, cu, die);
-		bt->name = strdup_attr_string(die, DW_AT_name);
+		bt->name = attr_string(die, DW_AT_name);
 		bt->bit_size = attr_numeric(die, DW_AT_byte_size) * 8;
 		uint64_t encoding = attr_numeric(die, DW_AT_encoding);
 		bt->is_bool = encoding == DW_ATE_boolean;
@@ -580,7 +573,7 @@ static void namespace__init(struct namespace *namespace, Dwarf_Die *die,
 	tag__init(&namespace->tag, cu, die);
 	INIT_LIST_HEAD(&namespace->tags);
 	namespace->sname = 0;
-	namespace->name  = strdup_attr_string(die, DW_AT_name);
+	namespace->name  = attr_string(die, DW_AT_name);
 	namespace->nr_tags = 0;
 	namespace->shared_tags = 0;
 }
@@ -627,7 +620,7 @@ static struct enumerator *enumerator__new(Dwarf_Die *die, struct cu *cu)
 
 	if (enumerator != NULL) {
 		tag__init(&enumerator->tag, cu, die);
-		enumerator->name = strdup_attr_string(die, DW_AT_name);
+		enumerator->name = attr_string(die, DW_AT_name);
 		enumerator->value = attr_numeric(die, DW_AT_const_value);
 	}
 
@@ -691,7 +684,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu)
 
 	if (var != NULL) {
 		tag__init(&var->ip.tag, cu, die);
-		var->name = strdup_attr_string(die, DW_AT_name);
+		var->name = attr_string(die, DW_AT_name);
 		/* variable is visible outside of its enclosing cu */
 		var->external = dwarf_hasattr(die, DW_AT_external);
 		/* non-defining declaration of an object */
@@ -858,7 +851,7 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
 
 	if (member != NULL) {
 		tag__init(&member->tag, cu, die);
-		member->name = strdup_attr_string(die, DW_AT_name);
+		member->name = attr_string(die, DW_AT_name);
 		member->const_value = attr_numeric(die, DW_AT_const_value);
 		member->alignment = attr_numeric(die, DW_AT_alignment);
 
@@ -912,7 +905,7 @@ static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu)
 
 	if (parm != NULL) {
 		tag__init(&parm->tag, cu, die);
-		parm->name = strdup_attr_string(die, DW_AT_name);
+		parm->name = attr_string(die, DW_AT_name);
 	}
 
 	return parm;
@@ -927,7 +920,7 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die,
 		struct dwarf_tag *dtag = exp->ip.tag.priv;
 
 		tag__init(&exp->ip.tag, cu, die);
-		dtag->decl_file = strdup_attr_string(die, DW_AT_call_file);
+		dtag->decl_file = attr_string(die, DW_AT_call_file);
 		dtag->decl_line = attr_numeric(die, DW_AT_call_line);
 		dtag->type = attr_type(die, DW_AT_abstract_origin);
 		exp->ip.addr = 0;
@@ -969,7 +962,7 @@ static struct label *label__new(Dwarf_Die *die, struct cu *cu)
 
 	if (label != NULL) {
 		tag__init(&label->ip.tag, cu, die);
-		label->name = strdup_attr_string(die, DW_AT_name);
+		label->name = attr_string(die, DW_AT_name);
 		if (!cu->has_addr_info || dwarf_lowpc(die, &label->ip.addr))
 			label->ip.addr = 0;
 	}
@@ -1058,8 +1051,8 @@ static struct function *function__new(Dwarf_Die *die, struct cu *cu)
 	if (func != NULL) {
 		ftype__init(&func->proto, die, cu);
 		lexblock__init(&func->lexblock, cu, die);
-		func->name	      = strdup_attr_string(die, DW_AT_name);
-		func->linkage_name    = strdup_attr_string(die, DW_AT_MIPS_linkage_name);
+		func->name	      = attr_string(die, DW_AT_name);
+		func->linkage_name    = attr_string(die, DW_AT_MIPS_linkage_name);
 		func->inlined	      = attr_numeric(die, DW_AT_inline);
 		func->declaration     = dwarf_hasattr(die, DW_AT_declaration);
 		func->external	      = dwarf_hasattr(die, DW_AT_external);
