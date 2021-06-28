@@ -202,7 +202,6 @@ struct debug_fmt_ops {
 					   const struct cu *cu);
 	void		   (*tag__free_orig_info)(struct tag *tag,
 						  struct cu *cu);
-	const char	   *(*strings__ptr)(const struct cu *cu, strings_t s);
 	void		   (*cu__delete)(struct cu *cu);
 	bool		   has_alignment_info;
 };

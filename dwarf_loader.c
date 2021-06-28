@@ -2280,12 +2280,6 @@ static unsigned long long dwarf_tag__orig_id(const struct tag *tag,
 	return cu->extra_dbg_info ? dtag->id : 0;
 }
 
-static const char *dwarf__strings_ptr(const struct cu *cu __maybe_unused,
-				      strings_t s)
-{
-	return s ? strings__ptr(strings, s) : NULL;
-}
-
 struct debug_fmt_ops dwarf__ops;
 
 static int die__process(Dwarf_Die *die, struct cu *cu)
@@ -2923,7 +2917,6 @@ struct debug_fmt_ops dwarf__ops = {
 	.init		     = dwarf__init,
 	.exit		     = dwarf__exit,
 	.load_file	     = dwarf__load_file,
-	.strings__ptr	     = dwarf__strings_ptr,
 	.tag__decl_file	     = dwarf_tag__decl_file,
 	.tag__decl_line	     = dwarf_tag__decl_line,
 	.tag__orig_id	     = dwarf_tag__orig_id,
