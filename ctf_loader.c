@@ -694,11 +694,6 @@ static void ctf__cu_delete(struct cu *cu)
 	cu->priv = NULL;
 }
 
-static const char *ctf__strings_ptr(const struct cu *cu, strings_t s)
-{
-	return ctf__string(cu->priv, s);
-}
-
 struct debug_fmt_ops ctf__ops;
 
 int ctf__load_file(struct cus *cus, struct conf_load *conf,
@@ -745,6 +740,5 @@ int ctf__load_file(struct cus *cus, struct conf_load *conf,
 struct debug_fmt_ops ctf__ops = {
 	.name		= "ctf",
 	.load_file	= ctf__load_file,
-	.strings__ptr	= ctf__strings_ptr,
 	.cu__delete	= ctf__cu_delete,
 };
