@@ -22,10 +22,7 @@
 #include "list.h"
 #include "dwarves.h"
 #include "dutil.h"
-#include "pahole_strings.h"
 #include "hash.h"
-
-struct strings *strings;
 
 #ifndef DW_AT_alignment
 #define DW_AT_alignment 0x88
@@ -235,8 +232,6 @@ static struct dwarf_tag *dwarf_cu__find_type_by_ref(const struct dwarf_cu *dcu,
 	}
 	return hashtags__find(dcu->hash_types, ref->off);
 }
-
-extern struct strings *strings;
 
 static void *memdup(const void *src, size_t len, struct cu *cu)
 {
@@ -2900,22 +2895,8 @@ static int dwarf__load_file(struct cus *cus, struct conf_load *conf,
 	return err;
 }
 
-static int dwarf__init(void)
-{
-	strings = strings__new();
-	return strings != NULL ? 0 : -ENOMEM;
-}
-
-static void dwarf__exit(void)
-{
-	strings__delete(strings);
-	strings = NULL;
-}
-
 struct debug_fmt_ops dwarf__ops = {
 	.name		     = "dwarf",
-	.init		     = dwarf__init,
-	.exit		     = dwarf__exit,
 	.load_file	     = dwarf__load_file,
 	.tag__decl_file	     = dwarf_tag__decl_file,
 	.tag__decl_line	     = dwarf_tag__decl_line,
