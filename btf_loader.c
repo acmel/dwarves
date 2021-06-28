@@ -21,6 +21,7 @@
 #include <limits.h>
 #include <libgen.h>
 #include <linux/btf.h>
+#include <bpf/btf.h>
 #include <bpf/libbpf.h>
 #include <zlib.h>
 
