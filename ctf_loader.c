@@ -24,12 +24,6 @@
 #include "dutil.h"
 #include "dwarves.h"
 
-/*
- * FIXME: We should just get the table from the CTF ELF section
- * and use it directly
- */
-extern struct strings *strings;
-
 static void *tag__alloc(const size_t size)
 {
 	struct tag *tag = zalloc(size);
