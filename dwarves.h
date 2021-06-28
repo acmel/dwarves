@@ -246,8 +246,6 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const char *filename);
 void cu__delete(struct cu *cu);
 
-const char *cu__string(const struct cu *cu, strings_t s);
-
 static inline int cu__cache_symtab(struct cu *cu)
 {
 	int err = dwfl_module_getsymtab(cu->dwfl);
