@@ -1117,8 +1117,6 @@ void class__delete(struct class *class, struct cu *cu)
 	if (class == NULL)
 		return;
 
-	if (class->type.namespace.sname != NULL)
-		zfree(&class->type.namespace.sname);
 	type__delete_class_members(&class->type, cu);
 	free(class);
 }
@@ -1210,9 +1208,8 @@ struct class *class__clone(const struct class *from,
 	 if (class != NULL) {
 		memcpy(class, from, sizeof(*class));
 		if (new_class_name != NULL) {
-			class->type.namespace.name = 0;
-			class->type.namespace.sname = strdup(new_class_name);
-			if (class->type.namespace.sname == NULL) {
+			class->type.namespace.name = strdup(new_class_name);
+			if (class->type.namespace.name == NULL) {
 				free(class);
 				return NULL;
 			}
