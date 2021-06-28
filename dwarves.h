@@ -575,7 +575,6 @@ static inline struct ptr_to_member_type *
 
 /** struct namespace - base class for enums, structs, unions, typedefs, etc
  *
- * @sname - for clones, for instance, where we can't always add a new string
  * @tags - class_member, enumerators, etc
  * @shared_tags: if this bit is set, don't free the entries in @tags
  */
@@ -584,7 +583,6 @@ struct namespace {
 	const char	 *name;
 	uint16_t	 nr_tags;
 	uint8_t		 shared_tags;
-	char *		 sname;
 	struct list_head tags;
 };
 
