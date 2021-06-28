@@ -174,7 +174,6 @@ size_t __tag__id_not_found_fprintf(FILE *fp, type_id_t id,
 
 static struct ase_type_name_to_size {
 	const char *name;
-	strings_t  sname;
 	size_t	   size;
 } base_type_name_to_size_table[] = {
 	{ .name = "unsigned",		    .size = 32, },
