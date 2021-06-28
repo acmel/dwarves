@@ -15,6 +15,7 @@
 #include "gobuffer.h"
 
 #include <linux/btf.h>
+#include <bpf/btf.h>
 #include <bpf/libbpf.h>
 #include <ctype.h> /* for isalpha() and isalnum() */
 #include <stdlib.h> /* for qsort() and bsearch() */
