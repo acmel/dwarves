@@ -48,10 +48,12 @@ struct conf_load {
 					 struct conf_load *conf);
 	void			*cookie;
 	char			*format_path;
+	int			nr_jobs;
 	bool			extra_dbg_info;
 	bool			fixup_silly_bitfields;
 	bool			get_addr_info;
-	int			nr_jobs;
+	uint16_t		kabi_prefix_len;
+	const char		*kabi_prefix;
 	struct btf		*base_btf;
 	struct conf_fprintf	*conf_fprintf;
 };
