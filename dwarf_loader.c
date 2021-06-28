@@ -372,10 +372,17 @@ static Dwarf_Off attr_offset(Dwarf_Die *die, const uint32_t name)
 
 static const char *attr_string(Dwarf_Die *die, uint32_t name, struct conf_load *conf __maybe_unused)
 {
+	const char *str = NULL;
 	Dwarf_Attribute attr;
-	if (dwarf_attr(die, name, &attr) != NULL)
-		return dwarf_formstring(&attr);
-	return NULL;
+
+	if (dwarf_attr(die, name, &attr) != NULL) {
+		str = dwarf_formstring(&attr);
+
+		if (conf && conf->kabi_prefix && str && strncmp(str, conf->kabi_prefix, conf->kabi_prefix_len) == 0)
+			return conf->kabi_prefix;
+	}
+
+	return str;
 }
 
 static struct dwarf_off_ref attr_type(Dwarf_Die *die, uint32_t attr_name)
