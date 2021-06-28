@@ -541,13 +541,6 @@ static void btf__cu_delete(struct cu *cu)
 	cu->priv = NULL;
 }
 
-static const char *btf__strings_ptr(const struct cu *cu, strings_t s)
-{
-        const char *str = btf__str_by_offset(cu->priv, s);
-
-        return str && str[0] == '\0' ? NULL : str;
-}
-
 static int libbpf_log(enum libbpf_print_level level, const char *format, va_list args)
 {
 	return vfprintf(stderr, format, args);
@@ -603,6 +596,5 @@ out_free:
 struct debug_fmt_ops btf__ops = {
 	.name		= "btf",
 	.load_file	= cus__load_btf,
-	.strings__ptr	= btf__strings_ptr,
 	.cu__delete	= btf__cu_delete,
 };
