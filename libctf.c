@@ -505,6 +505,7 @@ int ctf__add_object(struct ctf *ctf, uint16_t type)
 			     sizeof(type)) >= 0 ? 0 : -ENOMEM;
 }
 
+#if 0
 static const void *ctf__compress(void *orig_buf, unsigned int *size)
 {
 	z_stream z = {
@@ -770,3 +771,4 @@ out_close:
 	close(fd);
 	return err;
 }
+#endif
