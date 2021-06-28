@@ -28,7 +28,6 @@
 #include "list.h"
 #include "dwarves.h"
 #include "dutil.h"
-#include "pahole_strings.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 

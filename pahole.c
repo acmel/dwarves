@@ -24,7 +24,6 @@
 #include "dutil.h"
 //#include "ctf_encoder.h" FIXME: disabled, probably its better to move to Oracle's libctf
 #include "btf_encoder.h"
-#include "pahole_strings.h"
 
 static struct btf_encoder *btf_encoder;
 static char *detached_btf_filename;

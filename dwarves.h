@@ -17,7 +17,6 @@
 #include "dutil.h"
 #include "list.h"
 #include "rbtree.h"
-#include "pahole_strings.h"
 
 struct cu;
 

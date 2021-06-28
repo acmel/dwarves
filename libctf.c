@@ -19,7 +19,6 @@
 #include "ctf.h"
 #include "dutil.h"
 #include "gobuffer.h"
-#include "pahole_strings.h"
 
 bool ctf__ignore_symtab_function(const GElf_Sym *sym, const char *sym_name)
 {
