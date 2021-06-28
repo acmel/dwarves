@@ -17,8 +17,6 @@
 
 #include "dutil.h"
 
-const char *kabi_prefix;
-
 struct strings *strings__new(void)
 {
 	struct strings *strs = malloc(sizeof(*strs));
@@ -50,10 +48,7 @@ strings_t strings__add(struct strings *strs, const char *str)
 	if (str == NULL)
 		return 0;
 
-	if (kabi_prefix && strncmp(str, kabi_prefix, strlen(kabi_prefix)) == 0)
-		index = btf__add_str(strs->btf, kabi_prefix);
-	else
-		index = btf__add_str(strs->btf, str);
+	index = btf__add_str(strs->btf, str);
 
 	if (index < 0)
 		return 0;

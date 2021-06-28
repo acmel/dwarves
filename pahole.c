@@ -1322,7 +1322,8 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_btf_base:
 		base_btf_file = arg;			break;
 	case ARGP_kabi_prefix:
-		kabi_prefix = arg;		break;
+		conf_load.kabi_prefix = arg;
+		conf_load.kabi_prefix_len = strlen(arg); break;
 	case ARGP_numeric_version:
 		print_numeric_version = true;		break;
 	case ARGP_btf_gen_floats:
