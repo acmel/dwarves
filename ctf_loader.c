@@ -199,7 +199,7 @@ static int create_new_base_type(struct ctf *ctf, void *ptr,
 	uint32_t *enc = ptr;
 	uint32_t eval = ctf__get32(ctf, enc);
 	uint32_t attrs = CTF_TYPE_INT_ATTRS(eval);
-	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
+	uint32_t name = ctf__get32(ctf, &tp->base.ctf_name);
 	struct base_type *base = base_type__new(ctf__string(ctf, name), attrs, 0,
 						CTF_TYPE_INT_BITS(eval));
 	if (base == NULL)
@@ -215,7 +215,7 @@ static int create_new_base_type_float(struct ctf *ctf, void *ptr,
 				      struct ctf_full_type *tp,
 				      uint32_t id)
 {
-	strings_t name = ctf__get32(ctf, &tp->base.ctf_name);
+	uint32_t name = ctf__get32(ctf, &tp->base.ctf_name);
 	uint32_t *enc = ptr, eval = ctf__get32(ctf, enc);
 	struct base_type *base = base_type__new(ctf__string(ctf, name), 0, eval,
 						CTF_TYPE_FP_BITS(eval));
