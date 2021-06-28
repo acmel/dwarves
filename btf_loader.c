@@ -119,7 +119,6 @@ static void type__init(struct type *type, uint32_t tag, const char *name, size_t
 	type->size = size;
 	type->namespace.tag.tag = tag;
 	type->namespace.name = name;
-	type->namespace.sname = 0;
 }
 
 static struct type *type__new(uint16_t tag, const char *name, size_t size)

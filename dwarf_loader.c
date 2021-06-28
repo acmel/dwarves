@@ -574,7 +574,6 @@ static void namespace__init(struct namespace *namespace, Dwarf_Die *die,
 {
 	tag__init(&namespace->tag, cu, die);
 	INIT_LIST_HEAD(&namespace->tags);
-	namespace->sname = 0;
 	namespace->name  = attr_string(die, DW_AT_name, conf);
 	namespace->nr_tags = 0;
 	namespace->shared_tags = 0;
