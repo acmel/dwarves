@@ -127,7 +127,6 @@ rm -Rf %{buildroot}
 %{_includedir}/dwarves/libctf.h
 %{_includedir}/dwarves/list.h
 %{_includedir}/dwarves/rbtree.h
-%{_includedir}/dwarves/pahole_strings.h
 %{_libdir}/%{libname}.so
 %{_libdir}/%{libname}_emit.so
 %{_libdir}/%{libname}_reorganize.so
