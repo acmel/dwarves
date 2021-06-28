@@ -67,18 +67,6 @@ bool tag__is_array(const struct tag *tag, const struct cu *cu)
 	return 0;
 }
 
-const char *cu__string(const struct cu *cu, strings_t s)
-{
-	if (cu->dfops && cu->dfops->strings__ptr)
-		return cu->dfops->strings__ptr(cu, s);
-	return NULL;
-}
-
-static inline const char *s(const struct cu *cu, strings_t i)
-{
-	return cu__string(cu, i);
-}
-
 int __tag__has_type_loop(const struct tag *tag, const struct tag *type,
 			 char *bf, size_t len, FILE *fp,
 			 const char *fn, int line)
