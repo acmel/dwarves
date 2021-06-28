@@ -29,12 +29,6 @@
 #include "dutil.h"
 #include "dwarves.h"
 
-/*
- * FIXME: We should just get the table from the BTF ELF section
- * and use it directly
- */
-extern struct strings *strings;
-
 static const char *cu__btf_str(struct cu *cu, uint32_t offset)
 {
 	return offset ? btf__str_by_offset(cu->priv, offset) : NULL;
