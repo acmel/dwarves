@@ -1886,7 +1886,7 @@ struct prototype {
 
 };
 
-static int prototype__stdio_fprintf_value(struct prototype *prototype, struct type_instance *header, FILE *fp)
+static int prototype__stdio_fprintf_value(struct prototype *prototype, struct type_instance *header, FILE *output)
 {
 	struct tag *type = prototype->class;
 	struct cu *cu = prototype->cu;
@@ -1948,7 +1948,7 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 		}
 
 		if (global_verbose) {
-			fprintf(fp, "pahole: range.seek_bytes evaluated from range=%s is %#" PRIx64 " \n",
+			fprintf(output, "pahole: range.seek_bytes evaluated from range=%s is %#" PRIx64 " \n",
 				range, seek_bytes);
 		}
 
@@ -1970,7 +1970,7 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 
 		size_bytes = value;
 		if (global_verbose) {
-			fprintf(fp, "pahole: range.size_bytes evaluated from range=%s is %#" PRIx64 " \n",
+			fprintf(output, "pahole: range.size_bytes evaluated from range=%s is %#" PRIx64 " \n",
 				range, size_bytes);
 		}
 
@@ -2143,14 +2143,14 @@ do_read:
 			real_type = type;
 
 		if (global_verbose) {
-			printed += fprintf(fp, "// type=%s, offset=%#" PRIx64 ", sizeof=%d", type__name(tag__type(type)), record_offset, _sizeof);
+			printed += fprintf(output, "// type=%s, offset=%#" PRIx64 ", sizeof=%d", type__name(tag__type(type)), record_offset, _sizeof);
 			if (real_sizeof != _sizeof)
-				printed += fprintf(fp, ", real_sizeof=%d\n", real_sizeof);
+				printed += fprintf(output, ", real_sizeof=%d\n", real_sizeof);
 			else
-				printed += fprintf(fp, "\n");
+				printed += fprintf(output, "\n");
 		}
-		printed += tag__fprintf_value(real_type, real_type_cu, instance, real_sizeof, fp);
-		printed += fprintf(fp, ",\n");
+		printed += tag__fprintf_value(real_type, real_type_cu, instance, real_sizeof, output);
+		printed += fprintf(output, ",\n");
 
 		if (conf.count && ++count == conf.count)
 			break;
