@@ -1670,7 +1670,7 @@ static int pipe_seek(FILE *fp, off_t offset)
 	if (chunk > offset)
 		chunk = offset;
 
-	while (fread(bf, chunk, 1, stdin) == 1) {
+	while (fread(bf, chunk, 1, fp) == 1) {
 		offset -= chunk;
 		if (offset == 0)
 			return 0;
