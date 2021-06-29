@@ -1886,7 +1886,7 @@ struct prototype {
 
 };
 
-static int prototype__stdio_fprintf_value(struct prototype *prototype, struct type_instance *header, FILE *output)
+static int prototype__stdio_fprintf_value(struct prototype *prototype, struct type_instance *header, FILE *input, FILE *output)
 {
 	struct tag *type = prototype->class;
 	struct cu *cu = prototype->cu;
@@ -1900,7 +1900,7 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 	if (instance == NULL)
 		return -ENOMEM;
 
-	if (type__instance_read_once(header, stdin) < 0) {
+	if (type__instance_read_once(header, input) < 0) {
 		int err = --errno;
 		fprintf(stderr, "pahole: --header (%s) type couldn't be read\n", conf.header_type);
 		return err;
@@ -1938,11 +1938,12 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 
 		free(member_name);
 
-		off_t total_read_bytes = ftell(stdin);
+		off_t total_read_bytes = ftell(input);
 
-		// Since we're reading stdin, we need to account for what we already read
+		// Since we're reading input, we need to account for what we already read
+		// FIXME: we now have a FILE pointer that _may_ be stdin, but not necessarily
 		if (seek_bytes < total_read_bytes) {
-			fprintf(stderr, "pahole: can't go back in stdin, already read %" PRIu64 " bytes, can't go to position %#" PRIx64 "\n",
+			fprintf(stderr, "pahole: can't go back in input, already read %" PRIu64 " bytes, can't go to position %#" PRIx64 "\n",
 					total_read_bytes, seek_bytes);
 			return -ENOMEM;
 		}
@@ -1976,7 +1977,7 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 
 		free(member_name);
 
-		if (pipe_seek(stdin, seek_bytes) < 0) {
+		if (pipe_seek(input, seek_bytes) < 0) {
 			int err = --errno;
 			fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 "\n", conf.seek_bytes, seek_bytes);
 			return err;
@@ -2020,11 +2021,11 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 
 
 		if (header) {
-			// Since we're reading stdin, we need to account for already read header:
-			seek_bytes -= ftell(stdin);
+			// Since we're reading input, we need to account for already read header:
+			seek_bytes -= ftell(input);
 		}
 
-		if (pipe_seek(stdin, seek_bytes) < 0) {
+		if (pipe_seek(input, seek_bytes) < 0) {
 			int err = --errno;
 			fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 "\n", conf.seek_bytes, seek_bytes);
 			return err;
@@ -2059,9 +2060,9 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 do_read:
 {
 	uint64_t read_bytes = 0;
-	off_t record_offset = ftell(stdin);
+	off_t record_offset = ftell(input);
 
-	while (fread(instance, _sizeof, 1, stdin) == 1) {
+	while (fread(instance, _sizeof, 1, input) == 1) {
 		// Read it from each record/instance
 		int real_sizeof = tag__real_sizeof(type, _sizeof, instance);
 
@@ -2076,7 +2077,7 @@ do_read:
 				instance = new_instance;
 				max_sizeof = real_sizeof;
 			}
-			if (fread(instance + _sizeof, real_sizeof - _sizeof, 1, stdin) != 1) {
+			if (fread(instance + _sizeof, real_sizeof - _sizeof, 1, input) != 1) {
 				fprintf(stderr, "Couldn't read record: %d bytes\n", real_sizeof);
 				printed = -1;
 				goto out;
@@ -2158,7 +2159,7 @@ next_record:
 		if (read_bytes >= size_bytes)
 			break;
 
-		record_offset = ftell(stdin);
+		record_offset = ftell(input);
 	}
 }
 out:
@@ -2633,7 +2634,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		// All set, pretty print it!
 		list_for_each_entry_safe(prototype, n, &class_names, node) {
 			list_del_init(&prototype->node);
-			if (prototype__stdio_fprintf_value(prototype, header, stdout) < 0)
+			if (prototype__stdio_fprintf_value(prototype, header, stdin, stdout) < 0)
 				break;
 		}
 
