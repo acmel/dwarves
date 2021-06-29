@@ -2622,10 +2622,13 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		}
 	}
 
-	// If we got here with pretty printing is because we have everything solved except for type_enum
+	// If we got here with pretty printing is because we have everything solved except for type_enum or --header
 
 	if (!isatty(0)) {
-		// Check if we need to continue loading CUs to get those type_enum= resolved
+		// Check if we need to continue loading CUs to get those type_enum= and --header resolved
+		if (header == NULL && conf.header_type)
+			return LSK__KEEPIT;
+
 		list_for_each_entry(prototype, &class_names, node) {
 			if (prototype->type_enum && !prototype->type_enum_resolved)
 				return LSK__KEEPIT;
