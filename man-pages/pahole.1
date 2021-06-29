@@ -21,7 +21,7 @@ It also uses these structure layouts to pretty print data feed to its standard
 input, e.g.:
 .PP
 .nf
-$ pahole --header elf64_hdr < /lib/modules/5.8.0-rc6+/build/vmlinux
+$ pahole --header elf64_hdr --prettify /lib/modules/5.8.0-rc6+/build/vmlinux
 {
 	.e_ident = { 127, 69, 76, 70, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 	.e_type = 2,
@@ -566,8 +566,8 @@ $
 
 .SH PRETTY PRINTING
 .P
-pahole can also use the data structure types to pretty print raw data coming
-from its standard input.
+pahole can also use the data structure types to pretty print raw data specified via --prettify.
+To consume raw data from the standard input, just use '--prettify -'
 .P
 It can also pretty print raw data from stdin according to the type specified:
 .PP
@@ -585,7 +585,7 @@ $
 $ ls -la versions
 -rw-rw-r--. 1 acme acme 7616 Jun 25 11:33 versions
 $
-$ pahole --count 3 -C modversion_info drivers/scsi/sg.ko < versions
+$ pahole --count 3 -C modversion_info drivers/scsi/sg.ko --prettify versions
 {
       .crc = 0x8dabd84,
       .name = "module_layout",
@@ -599,7 +599,7 @@ $ pahole --count 3 -C modversion_info drivers/scsi/sg.ko < versions
       .name = "param_ops_int",
 },
 $
-$ pahole --skip 1 --count 2 -C modversion_info drivers/scsi/sg.ko < versions
+$ pahole --skip 1 --count 2 -C modversion_info drivers/scsi/sg.ko --prettify - < versions
 {
       .crc = 0x45e4617b,
       .name = "no_llseek",
@@ -611,7 +611,7 @@ $ pahole --skip 1 --count 2 -C modversion_info drivers/scsi/sg.ko < versions
 $
 This is equivalent to:
 
-$ pahole --seek_bytes 64 --count 1 -C modversion_info drivers/scsi/sg.ko < versions
+$ pahole --seek_bytes 64 --count 1 -C modversion_info drivers/scsi/sg.ko --prettify versions
 {
 	.crc = 0x45e4617b,
 	.name = "no_llseek",
@@ -662,7 +662,7 @@ $
 Now we can use this to show the first record from offset zero:
 .PP
 .nf
-$ pahole -C elf64_hdr --count 1 < /lib/modules/5.8.0-rc3+/build/vmlinux
+$ pahole -C elf64_hdr --count 1 --prettify /lib/modules/5.8.0-rc3+/build/vmlinux
 {
 	.e_ident = { 127, 69, 76, 70, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 	.e_type = 2,
@@ -685,7 +685,7 @@ $
 This is equivalent to:
 .PP
 .nf
-$ pahole --header elf64_hdr < /lib/modules/5.8.0-rc3+/build/vmlinux
+$ pahole --header elf64_hdr --prettify /lib/modules/5.8.0-rc3+/build/vmlinux
 .fi
 .P
 The --header option also allows reference in other command line options to fields in the header.
@@ -693,7 +693,7 @@ This is useful when one wants to show multiple records in a file and the range w
 are located is specified in header fields, such as for perf.data files:
 .PP
 .nf
-$ pahole --hex ~/bin/perf --header perf_file_header < perf.data
+$ pahole --hex ~/bin/perf --header perf_file_header --prettify perf.data
 {
 	.magic = 0x32454c4946524550,
 	.size = 0x68,
@@ -718,7 +718,7 @@ $
 So to display the cgroups records in the perf_file_header.data section we can use:
 .PP
 .nf
-$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,type_enum=perf_event_type,filter=type==PERF_RECORD_CGROUP)' < perf.data
+$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,type_enum=perf_event_type,filter=type==PERF_RECORD_CGROUP)' --prettify perf.data
 {
 	.header = {
 		.type = PERF_RECORD_CGROUP,
@@ -770,7 +770,7 @@ $
 For the common case of the header having a member that has the 'offset' and 'size' members, it is possible to use this more compact form:
 .PP
 .nf
-$ pahole ~/bin/perf --header=perf_file_header --range=data -C 'perf_event_header(sizeof,type,type_enum=perf_event_type,filter=type==PERF_RECORD_CGROUP)' < perf.data
+$ pahole ~/bin/perf --header=perf_file_header --range=data -C 'perf_event_header(sizeof,type,type_enum=perf_event_type,filter=type==PERF_RECORD_CGROUP)' --prettify perf.data
 .fi
 .P
 This uses ~/bin/perf to get the type definitions, the defines 'struct perf_file_header' as the header,
@@ -844,7 +844,7 @@ If we remove that type_enum=perf_event_type, we will lose the conversion of 'str
 more descriptive 'struct perf_record_cgroup', and also the beautification of the header.type field:
 .PP
 .nf
-$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,filter=type==19)' < perf.data
+$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,filter=type==19)' --prettify perf.data
 {
 	.type = 19,
 	.misc = 0,
@@ -876,7 +876,7 @@ $
 Some of the records are not found in 'type_enum=perf_event_type' so some of the records don't get converted to a type that fully shows its contents. For perf we know that those are in another enumeration, 'enum perf_user_event_type', so, for these cases, we can create a 'virtual enum', i.e. the sum of two enums and then get all those entries decoded and properly casted, first few records with just 'enum perf_event_type':
 .PP
 .nf
-$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,type_enum=perf_event_type)' --count 4 < perf.data
+$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,type_enum=perf_event_type)' --count 4 --prettify perf.data
 {
 	.type = 79,
 	.misc = 0,
@@ -907,7 +907,7 @@ $
 Now with both enumerations, i.e. with 'type_enum=perf_event_type+perf_user_event_type':
 .PP
 .nf
-$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,type_enum=perf_event_type+perf_user_event_type)' --count 5 < perf.data
+$ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset' --size_bytes='$header.data.size' -C 'perf_event_header(sizeof,type,type_enum=perf_event_type+perf_user_event_type)' --count 5 --prettify perf.data
 {
 	.header = {
 		.type = PERF_RECORD_TIME_CONV,
@@ -966,7 +966,7 @@ data range with the following command:
 .PP
 .nf
 pahole ~/bin/perf --header=perf_file_header \
-         -C 'perf_file_attr(range=attrs),perf_event_header(range=data,sizeof,type,type_enum=perf_event_type+perf_user_event_type)' < perf.data
+         -C 'perf_file_attr(range=attrs),perf_event_header(range=data,sizeof,type,type_enum=perf_event_type+perf_user_event_type)' --prettify perf.data
 .fi
 
 .SH SEE ALSO

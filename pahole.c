@@ -35,6 +35,9 @@ static bool skip_encoding_btf_vars;
 static bool btf_encode_force;
 static const char *base_btf_file;
 
+static const char *prettify_input_filename;
+static FILE *prettify_input;
+
 static uint8_t class__include_anonymous;
 static uint8_t class__include_nested_anonymous;
 static uint8_t word_size, original_word_size;
@@ -854,6 +857,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_with_flexible_array   324
 #define ARGP_kabi_prefix	   325
 #define ARGP_btf_encode_detached   326
+#define ARGP_prettify_input_filename 327
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1203,6 +1207,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Print a numeric version, i.e. 119 instead of v1.19"
 	},
 	{
+		.name = "prettify",
+		.key  = ARGP_prettify_input_filename,
+		.arg  = "PATH",
+		.doc  = "Path to the raw data to pretty print",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1332,6 +1342,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		btf_gen_floats = true;			break;
 	case ARGP_with_flexible_array:
 		show_with_flexible_array = true;	break;
+	case ARGP_prettify_input_filename:
+		prettify_input_filename = arg;		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -2586,7 +2598,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			class_id = 0;
 		}
 
-		if (!isatty(0)) {
+		if (prettify_input) {
 			prototype->class = class;
 			prototype->cu	 = cu;
 			continue;
@@ -2624,7 +2636,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	// If we got here with pretty printing is because we have everything solved except for type_enum or --header
 
-	if (!isatty(0)) {
+	if (prettify_input) {
 		// Check if we need to continue loading CUs to get those type_enum= and --header resolved
 		if (header == NULL && conf.header_type)
 			return LSK__KEEPIT;
@@ -2637,7 +2649,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		// All set, pretty print it!
 		list_for_each_entry_safe(prototype, n, &class_names, node) {
 			list_del_init(&prototype->node);
-			if (prototype__stdio_fprintf_value(prototype, header, stdin, stdout) < 0)
+			if (prototype__stdio_fprintf_value(prototype, header, prettify_input, stdout) < 0)
 				break;
 		}
 
@@ -2783,9 +2795,6 @@ int main(int argc, char *argv[])
 {
 	int err, remaining, rc = EXIT_FAILURE;
 
-	if (!isatty(0))
-		conf.hex_fmt = 0;
-
 	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL)) {
 		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, argv[0]);
 		goto out;
@@ -2799,6 +2808,19 @@ int main(int argc, char *argv[])
 	if (dwarves__init(cacheline_size)) {
 		fputs("pahole: insufficient memory\n", stderr);
 		goto out;
+	}
+
+	if (prettify_input_filename) {
+		if (strcmp(prettify_input_filename, "-") == 0) {
+			prettify_input = stdin;
+		} else {
+			prettify_input = fopen(prettify_input_filename, "r");
+			if (prettify_input == NULL) {
+				fprintf(stderr, "Failed to read input '%s': %s\n",
+					prettify_input_filename, strerror(errno));
+				goto out_dwarves_exit;
+			}
+		}
 	}
 
 	if (base_btf_file) {
@@ -2825,7 +2847,7 @@ int main(int argc, char *argv[])
 	conf_load.steal = pahole_stealer;
 
 	// Make 'pahole --header type < file' a shorter form of 'pahole -C type --count 1 < file'
-	if (conf.header_type && !class_name && !isatty(0)) {
+	if (conf.header_type && !class_name && prettify_input) {
 		conf.count = 1;
 		class_name = conf.header_type;
 		conf.header_type = 0; // so that we don't read it and then try to read the -C type
@@ -2923,6 +2945,10 @@ out_cus_delete:
 	conf_load.base_btf = NULL;
 #endif
 out_dwarves_exit:
+	if (prettify_input && prettify_input != stdin) {
+		fclose(prettify_input);
+		prettify_input = NULL;
+	}
 #ifdef DEBUG_CHECK_LEAKS
 	dwarves__exit();
 #endif
