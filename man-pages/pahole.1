@@ -563,6 +563,11 @@ $ pahole rcu_state | grep raw_spinlock_t -B1 -A5
 };
 $
 .fi
+
+.SH PRETTY PRINTING
+.P
+pahole can also use the data structure types to pretty print raw data coming
+from its standard input.
 .P
 It can also pretty print raw data from stdin according to the type specified:
 .PP
@@ -614,11 +619,6 @@ $ pahole --seek_bytes 64 --count 1 -C modversion_info drivers/scsi/sg.ko < versi
 $
 .fi
 .P
-
-.SH PRETTY PRINTING
-.P
-pahole can also use the data structure types to pretty print raw data coming
-from its standard input.
 
 .TP
 .B \-C, \-\-class_name=CLASS_NAME
