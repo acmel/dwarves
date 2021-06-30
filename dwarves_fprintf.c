@@ -1313,8 +1313,7 @@ static size_t class__fprintf_cacheline_boundary(struct conf_fprintf *conf,
 	return printed;
 }
 
-static size_t class__vtable_fprintf(struct class *class, const struct cu *cu,
-				    const struct conf_fprintf *conf, FILE *fp)
+static size_t class__vtable_fprintf(struct class *class, const struct conf_fprintf *conf, FILE *fp)
 {
 	struct function *pos;
 	size_t printed = 0;
@@ -1685,7 +1684,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 	}
 
 	if (!cconf.show_only_data_members)
-		class__vtable_fprintf(class, cu, &cconf, fp);
+		class__vtable_fprintf(class, &cconf, fp);
 
 	if (!cconf.emit_stats)
 		goto out;
