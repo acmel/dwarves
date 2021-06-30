@@ -536,8 +536,7 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		case DW_TAG_base_type: {
 			struct base_type *bt = tag__base_type(type);
 			char bf[64];
-			const char *name = base_type__name(bt, cu, bf,
-							   sizeof(bf));
+			const char *name = base_type__name(bt, bf, sizeof(bf));
 			if (strcmp(name, "long int") != 0 &&
 			    strcmp(name, "long unsigned int") != 0)
 				break;
@@ -643,7 +642,7 @@ static void tag__fixup_word_size(struct tag *tag, struct cu *cu)
 		if (!bt->name)
 			return;
 		char bf[64];
-		const char *name = base_type__name(bt, cu, bf, sizeof(bf));
+		const char *name = base_type__name(bt, bf, sizeof(bf));
 
 		if (strcmp(name, "long int") == 0 ||
 		    strcmp(name, "long unsigned int") == 0)

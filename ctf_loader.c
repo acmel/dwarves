@@ -632,8 +632,7 @@ static int class__fixup_ctf_bitfields(struct tag *tag, struct cu *cu)
 			integral_bit_size = base_type__name_to_size(bt, cu);
 			if (integral_bit_size == 0)
 				fprintf(stderr, "%s: unknown base type name \"%s\"!\n",
-					__func__, base_type__name(bt, cu, name,
-								  sizeof(name)));
+					__func__, base_type__name(bt, name, sizeof(name)));
 		}
 			break;
 		default:
