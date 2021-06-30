@@ -1086,7 +1086,7 @@ const char *variable__type_name(const struct variable *var,
 	return tag != NULL ? tag__name(tag, cu, bf, len, NULL) : NULL;
 }
 
-void class_member__delete(struct class_member *member, struct cu *cu)
+void class_member__delete(struct class_member *member)
 {
 	free(member);
 }
@@ -1107,7 +1107,7 @@ static void type__delete_class_members(struct type *type, struct cu *cu)
 
 	type__for_each_tag_safe_reverse(type, pos, next) {
 		list_del_init(&pos->tag.node);
-		class_member__delete(pos, cu);
+		class_member__delete(pos);
 	}
 }
 

@@ -903,7 +903,7 @@ struct class_member {
 	uint16_t	 hole;
 };
 
-void class_member__delete(struct class_member *member, struct cu *cu);
+void class_member__delete(struct class_member *member);
 
 static inline struct class_member *tag__class_member(const struct tag *tag)
 {
