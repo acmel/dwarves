@@ -1091,8 +1091,7 @@ void class_member__delete(struct class_member *member, struct cu *cu)
 	free(member);
 }
 
-static struct class_member *class_member__clone(const struct class_member *from,
-						struct cu *cu)
+static struct class_member *class_member__clone(const struct class_member *from)
 {
 	struct class_member *member = malloc(sizeof(*member));
 
@@ -1190,7 +1189,7 @@ static int type__clone_members(struct type *type, const struct type *from,
 	INIT_LIST_HEAD(&type->namespace.tags);
 
 	type__for_each_member(from, pos) {
-		struct class_member *clone = class_member__clone(pos, cu);
+		struct class_member *clone = class_member__clone(pos);
 
 		if (clone == NULL)
 			return -1;
