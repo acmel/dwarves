@@ -408,7 +408,7 @@ static int create_new_enumeration(struct ctf *ctf, void *ptr,
 
 	return (vlen * sizeof(*ep));
 out_free:
-	enumeration__delete(enumeration, ctf->priv);
+	enumeration__delete(enumeration);
 	return -ENOMEM;
 }
 
