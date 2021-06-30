@@ -121,7 +121,7 @@ void tag__delete(struct tag *tag, struct cu *cu)
 
 	switch (tag->tag) {
 	case DW_TAG_union_type:
-		type__delete(tag__type(tag), cu);		break;
+		type__delete(tag__type(tag));		break;
 	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
 		class__delete(tag__class(tag));		break;
@@ -1120,7 +1120,7 @@ void class__delete(struct class *class)
 	free(class);
 }
 
-void type__delete(struct type *type, struct cu *cu)
+void type__delete(struct type *type)
 {
 	if (type == NULL)
 		return;

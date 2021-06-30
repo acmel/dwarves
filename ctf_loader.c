@@ -364,7 +364,7 @@ static int create_new_union(struct ctf *ctf, void *ptr,
 
 	return (vlen * member_size);
 out_free:
-	type__delete(un, ctf->priv);
+	type__delete(un);
 	return -ENOMEM;
 }
 
