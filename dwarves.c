@@ -283,7 +283,7 @@ const char *base_type__name(const struct base_type *bt, const struct cu *cu,
 	return bf;
 }
 
-void namespace__delete(struct namespace *space, struct cu *cu)
+void namespace__delete(struct namespace *space)
 {
 	struct tag *pos, *n;
 
@@ -295,7 +295,7 @@ void namespace__delete(struct namespace *space, struct cu *cu)
 
 		/* Look for nested namespaces */
 		if (tag__has_namespace(pos))
-			namespace__delete(tag__namespace(pos), cu);
+			namespace__delete(tag__namespace(pos));
 		tag__delete(pos);
 	}
 
