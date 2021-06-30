@@ -126,7 +126,7 @@ void tag__delete(struct tag *tag, struct cu *cu)
 	case DW_TAG_structure_type:
 		class__delete(tag__class(tag));		break;
 	case DW_TAG_enumeration_type:
-		enumeration__delete(tag__type(tag), cu);	break;
+		enumeration__delete(tag__type(tag));	break;
 	case DW_TAG_subroutine_type:
 		ftype__delete(tag__ftype(tag), cu);		break;
 	case DW_TAG_subprogram:
@@ -1129,12 +1129,12 @@ void type__delete(struct type *type)
 	free(type);
 }
 
-static void enumerator__delete(struct enumerator *enumerator, struct cu *cu)
+static void enumerator__delete(struct enumerator *enumerator)
 {
 	free(enumerator);
 }
 
-void enumeration__delete(struct type *type, struct cu *cu)
+void enumeration__delete(struct type *type)
 {
 	struct enumerator *pos, *n;
 
@@ -1143,7 +1143,7 @@ void enumeration__delete(struct type *type, struct cu *cu)
 
 	type__for_each_enumerator_safe_reverse(type, pos, n) {
 		list_del_init(&pos->tag.node);
-		enumerator__delete(pos, cu);
+		enumerator__delete(pos);
 	}
 
 	free(type);
