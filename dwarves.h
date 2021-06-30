@@ -1116,7 +1116,7 @@ static inline struct tag *class__tag(const struct class *cls)
 
 struct class *class__clone(const struct class *from,
 			   const char *new_class_name, struct cu *cu);
-void class__delete(struct class *cls, struct cu *cu);
+void class__delete(struct class *cls);
 
 static inline struct list_head *class__tags(struct class *cls)
 {
