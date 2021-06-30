@@ -1180,8 +1180,7 @@ struct class_member *type__last_member(struct type *type)
 	return NULL;
 }
 
-static int type__clone_members(struct type *type, const struct type *from,
-			       struct cu *cu)
+static int type__clone_members(struct type *type, const struct type *from)
 {
 	struct class_member *pos;
 
@@ -1213,7 +1212,7 @@ struct class *class__clone(const struct class *from,
 				return NULL;
 			}
 		}
-		if (type__clone_members(&class->type, &from->type, cu) != 0) {
+		if (type__clone_members(&class->type, &from->type) != 0) {
 			class__delete(class, cu);
 			class = NULL;
 		}
