@@ -56,7 +56,7 @@ static struct extvar *extvar__new(const struct variable *var,
 		gvar->next = NULL;
 		gvar->var  = var;
 		gvar->cu   = cu;
-		gvar->name = variable__name(var, cu);
+		gvar->name = variable__name(var);
 	}
 
 	return gvar;

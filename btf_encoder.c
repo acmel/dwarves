@@ -1166,7 +1166,7 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder, struct 
 
 		/* addr has to be recorded before we follow spec */
 		addr = var->ip.addr;
-		dwarf_name = variable__name(var, cu);
+		dwarf_name = variable__name(var);
 
 		/* DWARF takes into account .data..percpu section offset
 		 * within its segment, which for vmlinux is 0, but for kernel
