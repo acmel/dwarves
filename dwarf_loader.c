@@ -1167,7 +1167,7 @@ static struct tag *die__create_new_namespace(Dwarf_Die *die, struct cu *cu, stru
 	    dwarf_haschildren(die) != 0 &&
 	    dwarf_child(die, &child) == 0) {
 		if (die__process_namespace(&child, namespace, cu, conf) != 0) {
-			namespace__delete(namespace, cu);
+			namespace__delete(namespace);
 			namespace = NULL;
 		}
 	}

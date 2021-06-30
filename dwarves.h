@@ -591,7 +591,7 @@ static inline struct namespace *tag__namespace(const struct tag *tag)
 	return (struct namespace *)tag;
 }
 
-void namespace__delete(struct namespace *nspace, struct cu *cu);
+void namespace__delete(struct namespace *nspace);
 
 /**
  * namespace__for_each_tag - iterate thru all the tags
