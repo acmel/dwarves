@@ -363,7 +363,7 @@ static struct class *class__clone_base_types(const struct tag *tag,
 		tag__assert_search_result(member_type);
 		if (!tag__is_base_type(member_type, cu)) {
 			next = class__remove_member(clone, cu, pos);
-			class_member__delete(pos, cu);
+			class_member__delete(pos);
 		}
 	}
 	class__fixup_alignment(clone, cu);

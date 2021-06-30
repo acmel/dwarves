@@ -1457,7 +1457,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 				uint32_t id;
 
 				if (cu__table_add_tag(cu, &member->tag, &id) < 0) {
-					class_member__delete(member, cu);
+					class_member__delete(member);
 					return -ENOMEM;
 				}
 
