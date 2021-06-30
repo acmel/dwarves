@@ -248,8 +248,7 @@ static size_t array_type__fprintf(const struct tag *tag,
 	return printed;
 }
 
-static size_t string_type__fprintf(const struct tag *tag,
-				   const struct cu *cu, const char *name,
+static size_t string_type__fprintf(const struct tag *tag, const char *name,
 				   const struct conf_fprintf *conf,
 				   FILE *fp)
 {
@@ -773,7 +772,7 @@ print_default:
 		printed += array_type__fprintf(type, cu, name, &tconf, fp);
 		break;
 	case DW_TAG_string_type:
-		printed += string_type__fprintf(type, cu, name, &tconf, fp);
+		printed += string_type__fprintf(type, name, &tconf, fp);
 		break;
 	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
