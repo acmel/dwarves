@@ -308,7 +308,7 @@ static int create_new_enumeration(struct cu *cu, const struct btf_type *tp, uint
 
 	return 0;
 out_free:
-	enumeration__delete(enumeration, cu);
+	enumeration__delete(enumeration);
 	return -ENOMEM;
 }
 

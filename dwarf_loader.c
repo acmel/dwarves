@@ -1417,7 +1417,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die, struct cu *cu, st
 out:
 	return &enumeration->namespace.tag;
 out_delete:
-	enumeration__delete(enumeration, cu);
+	enumeration__delete(enumeration);
 	return NULL;
 }
 
