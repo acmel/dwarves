@@ -557,7 +557,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 		snprintf(bf, len, "%s", class_member__name(tag__class_member(tag)));
 		break;
 	case DW_TAG_variable:
-		snprintf(bf, len, "%s", variable__name(tag__variable(tag), cu));
+		snprintf(bf, len, "%s", variable__name(tag__variable(tag)));
 		break;
 	default:
 		snprintf(bf, len, "%s%s", tag__prefix(cu, tag->tag, pconf),
@@ -1162,7 +1162,7 @@ static size_t function__tag_fprintf(const struct tag *tag, const struct cu *cu,
 		printed = fprintf(fp, "%.*s", indent, tabs);
 		n = fprintf(fp, "%s %s; /* scope: %s */",
 			    variable__type_name(vtag, cu, bf, sizeof(bf)),
-			    variable__name(vtag, cu),
+			    variable__name(vtag),
 			    variable__scope_str(vtag));
 		c += n;
 		printed += n;
@@ -1790,7 +1790,7 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 				const struct conf_fprintf *conf, FILE *fp)
 {
 	const struct variable *var = tag__variable(tag);
-	const char *name = variable__name(var, cu);
+	const char *name = variable__name(var);
 	size_t printed = 0;
 
 	if (name != NULL) {
