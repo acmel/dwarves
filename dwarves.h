@@ -201,8 +201,6 @@ struct debug_fmt_ops {
 					     const struct cu *cu);
 	unsigned long long (*tag__orig_id)(const struct tag *tag,
 					   const struct cu *cu);
-	void		   (*tag__free_orig_info)(struct tag *tag,
-						  struct cu *cu);
 	void		   (*cu__delete)(struct cu *cu);
 	bool		   has_alignment_info;
 };
@@ -525,12 +523,6 @@ static inline unsigned long long tag__orig_id(const struct tag *tag,
 	if (cu->dfops && cu->dfops->tag__orig_id)
 		return cu->dfops->tag__orig_id(tag, cu);
 	return 0;
-}
-
-static inline void tag__free_orig_info(struct tag *tag, struct cu *cu)
-{
-	if (cu->dfops && cu->dfops->tag__free_orig_info)
-		cu->dfops->tag__free_orig_info(tag, cu);
 }
 
 size_t tag__fprintf_decl_info(const struct tag *tag,
