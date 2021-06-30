@@ -1198,8 +1198,7 @@ static int type__clone_members(struct type *type, const struct type *from)
 	return 0;
 }
 
-struct class *class__clone(const struct class *from,
-			   const char *new_class_name, struct cu *cu)
+struct class *class__clone(const struct class *from, const char *new_class_name)
 {
 	struct class *class = malloc(sizeof(*class));
 
