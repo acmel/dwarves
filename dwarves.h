@@ -390,7 +390,7 @@ struct tag_cu {
 	struct cu	 *cu;
 };
 
-void tag__delete(struct tag *tag, struct cu *cu);
+void tag__delete(struct tag *tag);
 
 static inline int tag__is_enumeration(const struct tag *tag)
 {
@@ -697,7 +697,7 @@ static inline struct lexblock *tag__lexblock(const struct tag *tag)
 	return (struct lexblock *)tag;
 }
 
-void lexblock__delete(struct lexblock *lexblock, struct cu *cu);
+void lexblock__delete(struct lexblock *lexblock);
 
 struct function;
 
@@ -815,7 +815,7 @@ static inline struct tag *function__tag(const struct function *func)
 	return (struct tag *)func;
 }
 
-void function__delete(struct function *func, struct cu *cu);
+void function__delete(struct function *func);
 
 static __pure inline int tag__is_function(const struct tag *tag)
 {

@@ -92,27 +92,27 @@ int __tag__has_type_loop(const struct tag *tag, const struct tag *type,
 	return 0;
 }
 
-static void lexblock__delete_tags(struct tag *tag, struct cu *cu)
+static void lexblock__delete_tags(struct tag *tag)
 {
 	struct lexblock *block = tag__lexblock(tag);
 	struct tag *pos, *n;
 
 	list_for_each_entry_safe_reverse(pos, n, &block->tags, node) {
 		list_del_init(&pos->node);
-		tag__delete(pos, cu);
+		tag__delete(pos);
 	}
 }
 
-void lexblock__delete(struct lexblock *block, struct cu *cu)
+void lexblock__delete(struct lexblock *block)
 {
 	if (block == NULL)
 		return;
 
-	lexblock__delete_tags(&block->ip.tag, cu);
+	lexblock__delete_tags(&block->ip.tag);
 	free(block);
 }
 
-void tag__delete(struct tag *tag, struct cu *cu)
+void tag__delete(struct tag *tag)
 {
 	if (tag == NULL)
 		return;
@@ -130,9 +130,9 @@ void tag__delete(struct tag *tag, struct cu *cu)
 	case DW_TAG_subroutine_type:
 		ftype__delete(tag__ftype(tag));		break;
 	case DW_TAG_subprogram:
-		function__delete(tag__function(tag), cu);	break;
+		function__delete(tag__function(tag));	break;
 	case DW_TAG_lexical_block:
-		lexblock__delete(tag__lexblock(tag), cu);	break;
+		lexblock__delete(tag__lexblock(tag));	break;
 	default:
 		free(tag);
 	}
@@ -296,10 +296,10 @@ void namespace__delete(struct namespace *space, struct cu *cu)
 		/* Look for nested namespaces */
 		if (tag__has_namespace(pos))
 			namespace__delete(tag__namespace(pos), cu);
-		tag__delete(pos, cu);
+		tag__delete(pos);
 	}
 
-	tag__delete(&space->tag, cu);
+	tag__delete(&space->tag);
 }
 
 void __type__init(struct type *type)
@@ -1256,12 +1256,12 @@ void ftype__delete(struct ftype *type)
 	free(type);
 }
 
-void function__delete(struct function *func, struct cu *cu)
+void function__delete(struct function *func)
 {
 	if (func == NULL)
 		return;
 
-	lexblock__delete_tags(&func->lexblock.ip.tag, cu);
+	lexblock__delete_tags(&func->lexblock.ip.tag);
 	ftype__delete(&func->proto);
 }
 
