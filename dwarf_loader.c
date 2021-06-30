@@ -1184,7 +1184,7 @@ static struct tag *die__create_new_union(Dwarf_Die *die, struct cu *cu, struct c
 	    dwarf_haschildren(die) != 0 &&
 	    dwarf_child(die, &child) == 0) {
 		if (die__process_class(&child, utype, cu, conf) != 0) {
-			type__delete(utype, cu);
+			type__delete(utype);
 			utype = NULL;
 		}
 	}
