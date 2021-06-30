@@ -352,7 +352,7 @@ static struct class *class__clone_base_types(const struct tag *tag,
 {
 	struct class *class = tag__class(tag);
 	struct class_member *pos, *next;
-	struct class *clone = class__clone(class, new_class_name, cu);
+	struct class *clone = class__clone(class, new_class_name);
 
 	if (clone == NULL)
 		return NULL;
