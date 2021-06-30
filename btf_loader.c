@@ -249,7 +249,7 @@ static int create_new_class(struct cu *cu, const struct btf_type *tp, uint32_t i
 
 	return 0;
 out_free:
-	class__delete(class, cu);
+	class__delete(class);
 	return -ENOMEM;
 }
 

@@ -360,7 +360,7 @@ static int class__packable(struct class *class, struct cu *cu)
 		class->priv = clone;
 		return 1;
 	}
-	class__delete(clone, cu);
+	class__delete(clone);
 	return 0;
 }
 
@@ -1392,7 +1392,7 @@ static void do_reorg(struct tag *class, struct cu *cu)
 	} else
 		putchar('\n');
 
-	 class__delete(clone, cu);
+	 class__delete(clone);
 }
 
 static int instance__fprintf_hexdump_value(void *instance, int _sizeof, FILE *fp)
