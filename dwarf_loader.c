@@ -1377,7 +1377,7 @@ out:
 out_delete_tag:
 	tag__delete(tag, cu);
 out_delete:
-	ftype__delete(ftype, cu);
+	ftype__delete(ftype);
 	return NULL;
 }
 
