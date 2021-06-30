@@ -676,7 +676,7 @@ static inline struct variable *tag__variable(const struct tag *tag)
 enum vscope variable__scope(const struct variable *var);
 const char *variable__scope_str(const struct variable *var);
 
-const char *variable__name(const struct variable *var, const struct cu *cu);
+const char *variable__name(const struct variable *var);
 
 const char *variable__type_name(const struct variable *var,
 				const struct cu *cu, char *bf, size_t len);

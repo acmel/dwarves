@@ -1072,7 +1072,7 @@ size_t tag__size(const struct tag *tag, const struct cu *cu)
 	return size;
 }
 
-const char *variable__name(const struct variable *var, const struct cu *cu)
+const char *variable__name(const struct variable *var)
 {
 	return var->name;
 }
