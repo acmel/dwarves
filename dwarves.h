@@ -741,7 +741,7 @@ static inline struct ftype *tag__ftype(const struct tag *tag)
 	return (struct ftype *)tag;
 }
 
-void ftype__delete(struct ftype *ftype, struct cu *cu);
+void ftype__delete(struct ftype *ftype);
 
 /**
  * ftype__for_each_parameter - iterate thru all the parameters

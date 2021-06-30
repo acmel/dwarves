@@ -128,7 +128,7 @@ void tag__delete(struct tag *tag, struct cu *cu)
 	case DW_TAG_enumeration_type:
 		enumeration__delete(tag__type(tag));	break;
 	case DW_TAG_subroutine_type:
-		ftype__delete(tag__ftype(tag), cu);		break;
+		ftype__delete(tag__ftype(tag));		break;
 	case DW_TAG_subprogram:
 		function__delete(tag__function(tag), cu);	break;
 	case DW_TAG_lexical_block:
@@ -1237,12 +1237,12 @@ const char *function__name(struct function *func)
 	return func->name;
 }
 
-static void parameter__delete(struct parameter *parm, struct cu *cu)
+static void parameter__delete(struct parameter *parm)
 {
 	free(parm);
 }
 
-void ftype__delete(struct ftype *type, struct cu *cu)
+void ftype__delete(struct ftype *type)
 {
 	struct parameter *pos, *n;
 
@@ -1251,7 +1251,7 @@ void ftype__delete(struct ftype *type, struct cu *cu)
 
 	ftype__for_each_parameter_safe_reverse(type, pos, n) {
 		list_del_init(&pos->tag.node);
-		parameter__delete(pos, cu);
+		parameter__delete(pos);
 	}
 	free(type);
 }
@@ -1262,7 +1262,7 @@ void function__delete(struct function *func, struct cu *cu)
 		return;
 
 	lexblock__delete_tags(&func->lexblock.ip.tag, cu);
-	ftype__delete(&func->proto, cu);
+	ftype__delete(&func->proto);
 }
 
 int ftype__has_parm_of_type(const struct ftype *ftype, const type_id_t target,

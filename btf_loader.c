@@ -73,7 +73,7 @@ static int cu__load_ftype(struct cu *cu, struct ftype *proto, uint32_t tag, cons
 
 	return 0;
 out_free_parameters:
-	ftype__delete(proto, cu);
+	ftype__delete(proto);
 	return -ENOMEM;
 }
 

@@ -76,7 +76,7 @@ static int ctf__load_ftype(struct ctf *ctf, struct ftype *proto, uint16_t tag,
 
 	return vlen;
 out_free_parameters:
-	ftype__delete(proto, ctf->priv);
+	ftype__delete(proto);
 	return -ENOMEM;
 }
 
