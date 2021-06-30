@@ -1375,7 +1375,7 @@ hash:
 out:
 	return &ftype->tag;
 out_delete_tag:
-	tag__delete(tag, cu);
+	tag__delete(tag);
 out_delete:
 	ftype__delete(ftype);
 	return NULL;
@@ -1483,7 +1483,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			uint32_t id;
 
 			if (cu__table_add_tag(cu, tag, &id) < 0) {
-				tag__delete(tag, cu);
+				tag__delete(tag);
 				return -ENOMEM;
 			}
 
@@ -1533,7 +1533,7 @@ static int die__process_namespace(Dwarf_Die *die, struct namespace *namespace,
 
 	return 0;
 out_delete_tag:
-	tag__delete(tag, cu);
+	tag__delete(tag);
 out_enomem:
 	return -ENOMEM;
 }
@@ -1554,7 +1554,7 @@ static int die__create_new_lexblock(Dwarf_Die *die,
 		lexblock__add_lexblock(father, lexblock);
 	return 0;
 out_delete:
-	lexblock__delete(lexblock, cu);
+	lexblock__delete(lexblock);
 	return -ENOMEM;
 }
 
@@ -1640,7 +1640,7 @@ hash:
 
 	return 0;
 out_delete_tag:
-	tag__delete(tag, cu);
+	tag__delete(tag);
 out_enomem:
 	return -ENOMEM;
 }
@@ -1762,7 +1762,7 @@ hash:
 
 	return 0;
 out_delete_tag:
-	tag__delete(tag, cu);
+	tag__delete(tag);
 out_enomem:
 	return -ENOMEM;
 }
@@ -1773,7 +1773,7 @@ static struct tag *die__create_new_function(Dwarf_Die *die, struct cu *cu, struc
 
 	if (function != NULL &&
 	    die__process_function(die, &function->proto, &function->lexblock, cu, conf) != 0) {
-		function__delete(function, cu);
+		function__delete(function);
 		function = NULL;
 	}
 
