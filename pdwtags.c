@@ -25,8 +25,7 @@ static void emit_tag(struct tag *tag, uint32_t tag_id, struct cu *cu)
 
 	if (tag->tag == DW_TAG_base_type) {
 		char bf[64];
-		const char *name = base_type__name(tag__base_type(tag), cu,
-						   bf, sizeof(bf));
+		const char *name = base_type__name(tag__base_type(tag), bf, sizeof(bf));
 
 		if (name == NULL)
 			printf("anonymous base_type\n");
