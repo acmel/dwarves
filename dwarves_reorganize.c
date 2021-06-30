@@ -515,9 +515,9 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 				class_member__name(bitfield_head),
 				class_member__name(member),
 				base_type__name(tag__base_type(old_type_tag),
-						cu, old_bf, sizeof(old_bf)),
+						old_bf, sizeof(old_bf)),
 				base_type__name(tag__base_type(new_type_tag),
-						cu, new_bf, sizeof(new_bf)));
+						new_bf, sizeof(new_bf)));
 		}
 
 		class__demote_bitfield_members(class,
@@ -559,9 +559,9 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 					"from '%s' to '%s' */\n",
 					class_member__name(member),
 					base_type__name(tag__base_type(old_type_tag),
-							cu, old_bf, sizeof(old_bf)),
+							old_bf, sizeof(old_bf)),
 					base_type__name(tag__base_type(new_type_tag),
-							cu, new_bf, sizeof(new_bf)));
+							new_bf, sizeof(new_bf)));
 			}
 			class__demote_bitfield_members(class,
 						       member, member,

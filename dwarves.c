@@ -222,7 +222,7 @@ size_t base_type__name_to_size(struct base_type *bt, struct cu *cu)
 	if (bt->name_has_encoding)
 		name = bt->name;
 	else
-		name = base_type__name(bt, cu, bf, sizeof(bf));
+		name = base_type__name(bt, bf, sizeof(bf));
 	orig_name = name;
 try_again:
 	while (base_type_name_to_size_table[i].name != NULL) {
@@ -270,8 +270,7 @@ const char *__base_type__name(const struct base_type *bt)
 	return bt->name;
 }
 
-const char *base_type__name(const struct base_type *bt, const struct cu *cu,
-			    char *bf, size_t len)
+const char *base_type__name(const struct base_type *bt, char *bf, size_t len)
 {
 	if (bt->name_has_encoding)
 		return __base_type__name(bt);
@@ -691,7 +690,7 @@ struct tag *cu__find_base_type_by_name(const struct cu *cu,
 
 		const struct base_type *bt = tag__base_type(pos);
 		char bf[64];
-		const char *bname = base_type__name(bt, cu, bf, sizeof(bf));
+		const char *bname = base_type__name(bt, bf, sizeof(bf));
 		if (!bname || strcmp(bname, name) != 0)
 			continue;
 
@@ -718,7 +717,7 @@ struct tag *cu__find_base_type_by_name_and_size(const struct cu *cu, const char 
 			char bf[64];
 
 			if (bt->bit_size == bit_size &&
-			    strcmp(base_type__name(bt, cu, bf, sizeof(bf)), name) == 0) {
+			    strcmp(base_type__name(bt, bf, sizeof(bf)), name) == 0) {
 				if (idp != NULL)
 					*idp = id;
 				return pos;

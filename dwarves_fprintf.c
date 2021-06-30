@@ -486,8 +486,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 		char bf2[64];
 
 		if (bt->name)
-			name = base_type__name(tag__base_type(tag), cu,
-					       bf2, sizeof(bf2));
+			name = base_type__name(tag__base_type(tag), bf2, sizeof(bf2));
 
 		strncpy(bf, name, len);
 	}
