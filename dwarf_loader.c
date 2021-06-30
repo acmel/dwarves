@@ -1147,7 +1147,7 @@ static struct tag *die__create_new_class(Dwarf_Die *die, struct cu *cu, struct c
 	    dwarf_haschildren(die) != 0 &&
 	    dwarf_child(die, &child) == 0) {
 		if (die__process_class(&child, &class->type, cu, conf) != 0) {
-			class__delete(class, cu);
+			class__delete(class);
 			class = NULL;
 		}
 	}

@@ -339,7 +339,7 @@ static int create_new_class(struct ctf *ctf, void *ptr,
 
 	return (vlen * member_size);
 out_free:
-	class__delete(class, ctf->priv);
+	class__delete(class);
 	return -ENOMEM;
 }
 

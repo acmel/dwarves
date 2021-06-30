@@ -124,7 +124,7 @@ void tag__delete(struct tag *tag, struct cu *cu)
 		type__delete(tag__type(tag), cu);		break;
 	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
-		class__delete(tag__class(tag), cu);		break;
+		class__delete(tag__class(tag));		break;
 	case DW_TAG_enumeration_type:
 		enumeration__delete(tag__type(tag), cu);	break;
 	case DW_TAG_subroutine_type:
@@ -1111,7 +1111,7 @@ static void type__delete_class_members(struct type *type)
 	}
 }
 
-void class__delete(struct class *class, struct cu *cu)
+void class__delete(struct class *class)
 {
 	if (class == NULL)
 		return;
@@ -1213,7 +1213,7 @@ struct class *class__clone(const struct class *from,
 			}
 		}
 		if (type__clone_members(&class->type, &from->type) != 0) {
-			class__delete(class, cu);
+			class__delete(class);
 			class = NULL;
 		}
 	}
