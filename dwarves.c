@@ -1101,7 +1101,7 @@ static struct class_member *class_member__clone(const struct class_member *from)
 	return member;
 }
 
-static void type__delete_class_members(struct type *type, struct cu *cu)
+static void type__delete_class_members(struct type *type)
 {
 	struct class_member *pos, *next;
 
@@ -1116,7 +1116,7 @@ void class__delete(struct class *class, struct cu *cu)
 	if (class == NULL)
 		return;
 
-	type__delete_class_members(&class->type, cu);
+	type__delete_class_members(&class->type);
 	free(class);
 }
 
@@ -1125,7 +1125,7 @@ void type__delete(struct type *type, struct cu *cu)
 	if (type == NULL)
 		return;
 
-	type__delete_class_members(type, cu);
+	type__delete_class_members(type);
 	free(type);
 }
 
