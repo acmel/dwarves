@@ -265,7 +265,7 @@ static int create_new_union(struct cu *cu, const struct btf_type *tp, uint32_t i
 
 	return 0;
 out_free:
-	type__delete(un, cu);
+	type__delete(un);
 	return -ENOMEM;
 }
 

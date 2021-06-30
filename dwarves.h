@@ -980,7 +980,7 @@ static inline struct tag *type__tag(const struct type *type)
 	return (struct tag *)type;
 }
 
-void type__delete(struct type *type, struct cu *cu);
+void type__delete(struct type *type);
 
 /**
  * type__for_each_tag - iterate thru all the tags
