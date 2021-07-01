@@ -2604,6 +2604,40 @@ static bool cus__merging_cu(Dwarf *dw, Elf *elf)
 	return false;
 }
 
+
+static int cus__create_and_process_cu(struct cus *cus, struct dwarf_cu *type_dcu,
+				      Dwarf_Die *cu_die, Dwfl_Module *mod, Elf *elf, uint8_t pointer_size,
+				      const char *filename, const unsigned char *build_id, int build_id_len,
+				      struct conf_load *conf)
+{
+	/*
+	 * DW_AT_name in DW_TAG_compile_unit can be NULL, first seen in:
+	 *
+	 * /usr/libexec/gcc/x86_64-redhat-linux/4.3.2/ecj1.debug
+	 */
+	const char *name = attr_string(cu_die, DW_AT_name, conf);
+	struct cu *cu = cu__new(name ?: "", pointer_size, build_id, build_id_len, filename);
+	if (cu == NULL || cu__set_common(cu, conf, mod, elf) != 0)
+		return DWARF_CB_ABORT;
+
+	struct dwarf_cu *dcu = dwarf_cu__new();
+
+	if (dcu == NULL)
+		return DWARF_CB_ABORT;
+
+	dcu->cu = cu;
+	dcu->type_unit = type_dcu;
+	cu->priv = dcu;
+	cu->dfops = &dwarf__ops;
+
+	if (die__process_and_recode(cu_die, cu, conf) != 0 ||
+	    finalize_cu_immediately(cus, cu, dcu, conf) == LSK__STOP_LOADING)
+		return DWARF_CB_ABORT;
+
+       return DWARF_CB_OK;
+}
+
+
 static int cus__process_cus(struct cus *cus, struct conf_load *conf, Dwfl_Module *mod,
 			    Dwarf *dw, Elf *elf, const char *filename,
 			    const unsigned char *build_id, int build_id_len,
@@ -2621,31 +2655,8 @@ static int cus__process_cus(struct cus *cus, struct conf_load *conf, Dwfl_Module
 		if (cu_die == NULL)
 			break;
 
-		/*
-		 * DW_AT_name in DW_TAG_compile_unit can be NULL, first
-		 * seen in:
-		 * /usr/libexec/gcc/x86_64-redhat-linux/4.3.2/ecj1.debug
-		 */
-		const char *name = attr_string(cu_die, DW_AT_name, conf);
-		struct cu *cu = cu__new(name ?: "", pointer_size,
-					build_id, build_id_len, filename);
-		if (cu == NULL || cu__set_common(cu, conf, mod, elf) != 0)
-			return DWARF_CB_ABORT;
-
-		struct dwarf_cu *dcu = dwarf_cu__new();
-
-		if (dcu == NULL)
-			return DWARF_CB_ABORT;
-
-		dcu->cu = cu;
-		dcu->type_unit = type_dcu;
-		cu->priv = dcu;
-		cu->dfops = &dwarf__ops;
-
-		if (die__process_and_recode(cu_die, cu, conf) != 0)
-			return DWARF_CB_ABORT;
-
-		if (finalize_cu_immediately(cus, cu, dcu, conf) == LSK__STOP_LOADING)
+		if (cus__create_and_process_cu(cus, type_dcu, cu_die, mod, elf, pointer_size, filename,
+					       build_id, build_id_len, conf) == DWARF_CB_ABORT)
 			return DWARF_CB_ABORT;
 
 		off = noff;
