@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <libelf.h>
+#include <pthread.h>
 #include <search.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -2647,8 +2648,77 @@ static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *c
        return DWARF_CB_OK;
 }
 
+static int dwarf_cus__nextcu(struct dwarf_cus *dcus, Dwarf_Die *die_mem, Dwarf_Die **cu_die, uint8_t *pointer_size, uint8_t *offset_size)
+{
+	Dwarf_Off noff;
+	size_t cuhl;
+	int ret;
 
-static int dwarf_cus__process_cus(struct dwarf_cus *dcus)
+	cus__lock(dcus->cus);
+
+	if (dcus->error) {
+		ret = dcus->error;
+		goto out_unlock;
+	}
+
+	ret = dwarf_nextcu(dcus->dw, dcus->off, &noff, &cuhl, NULL, pointer_size, offset_size);
+	if (ret == 0) {
+		*cu_die = dwarf_offdie(dcus->dw, dcus->off + cuhl, die_mem);
+		if (*cu_die != NULL)
+			dcus->off = noff;
+	}
+
+out_unlock:
+	cus__unlock(dcus->cus);
+
+	return ret;
+}
+
+static void *dwarf_cus__process_cu_thread(void *arg)
+{
+	struct dwarf_cus *dcus = arg;
+	uint8_t pointer_size, offset_size;
+	Dwarf_Die die_mem, *cu_die;
+
+	while (dwarf_cus__nextcu(dcus, &die_mem, &cu_die, &pointer_size, &offset_size) == 0) {
+		if (cu_die == NULL)
+			break;
+
+		if (dwarf_cus__create_and_process_cu(dcus, cu_die, pointer_size) == DWARF_CB_ABORT)
+			goto out_abort;
+	}
+
+	return (void *)DWARF_CB_OK;
+out_abort:
+	return (void *)DWARF_CB_ABORT;
+}
+
+static int dwarf_cus__threaded_process_cus(struct dwarf_cus *dcus)
+{
+	pthread_t threads[dcus->conf->nr_jobs];
+	int i;
+
+	for (i = 0; i < dcus->conf->nr_jobs; ++i) {
+		dcus->error = pthread_create(&threads[i], NULL, dwarf_cus__process_cu_thread, dcus);
+		if (dcus->error)
+			goto out_join;
+	}
+
+	dcus->error = 0;
+
+out_join:
+	while (--i >= 0) {
+		void *res;
+		int err = pthread_join(threads[i], &res);
+
+		if (err == 0 && res != NULL)
+			dcus->error = (long)res;
+	}
+
+	return dcus->error;
+}
+
+static int __dwarf_cus__process_cus(struct dwarf_cus *dcus)
 {
 	uint8_t pointer_size, offset_size;
 	Dwarf_Off noff;
@@ -2668,6 +2738,14 @@ static int dwarf_cus__process_cus(struct dwarf_cus *dcus)
 	}
 
 	return 0;
+}
+
+static int dwarf_cus__process_cus(struct dwarf_cus *dcus)
+{
+	if (dcus->conf->nr_jobs > 1)
+		return dwarf_cus__threaded_process_cus(dcus);
+
+	return __dwarf_cus__process_cus(dcus);
 }
 
 static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
