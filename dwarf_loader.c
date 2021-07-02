@@ -2604,20 +2604,30 @@ static bool cus__merging_cu(Dwarf *dw, Elf *elf)
 	return false;
 }
 
+struct dwarf_cus {
+	struct cus	    *cus;
+	struct conf_load    *conf;
+	Dwfl_Module	    *mod;
+	Dwarf		    *dw;
+	Elf		    *elf;
+	const char	    *filename;
+	Dwarf_Off	    off;
+	const unsigned char *build_id;
+	int		    build_id_len;
+	int		    error;
+	struct dwarf_cu	    *type_dcu;
+};
 
-static int cus__create_and_process_cu(struct cus *cus, struct dwarf_cu *type_dcu,
-				      Dwarf_Die *cu_die, Dwfl_Module *mod, Elf *elf, uint8_t pointer_size,
-				      const char *filename, const unsigned char *build_id, int build_id_len,
-				      struct conf_load *conf)
+static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *cu_die, uint8_t pointer_size)
 {
 	/*
 	 * DW_AT_name in DW_TAG_compile_unit can be NULL, first seen in:
 	 *
 	 * /usr/libexec/gcc/x86_64-redhat-linux/4.3.2/ecj1.debug
 	 */
-	const char *name = attr_string(cu_die, DW_AT_name, conf);
-	struct cu *cu = cu__new(name ?: "", pointer_size, build_id, build_id_len, filename);
-	if (cu == NULL || cu__set_common(cu, conf, mod, elf) != 0)
+	const char *name = attr_string(cu_die, DW_AT_name, dcus->conf);
+	struct cu *cu = cu__new(name ?: "", pointer_size, dcus->build_id, dcus->build_id_len, dcus->filename);
+	if (cu == NULL || cu__set_common(cu, dcus->conf, dcus->mod, dcus->elf) != 0)
 		return DWARF_CB_ABORT;
 
 	struct dwarf_cu *dcu = dwarf_cu__new();
@@ -2626,40 +2636,35 @@ static int cus__create_and_process_cu(struct cus *cus, struct dwarf_cu *type_dcu
 		return DWARF_CB_ABORT;
 
 	dcu->cu = cu;
-	dcu->type_unit = type_dcu;
+	dcu->type_unit = dcus->type_dcu;
 	cu->priv = dcu;
 	cu->dfops = &dwarf__ops;
 
-	if (die__process_and_recode(cu_die, cu, conf) != 0 ||
-	    finalize_cu_immediately(cus, cu, dcu, conf) == LSK__STOP_LOADING)
+	if (die__process_and_recode(cu_die, cu, dcus->conf) != 0 ||
+	    finalize_cu_immediately(dcus->cus, cu, dcu, dcus->conf) == LSK__STOP_LOADING)
 		return DWARF_CB_ABORT;
 
        return DWARF_CB_OK;
 }
 
 
-static int cus__process_cus(struct cus *cus, struct conf_load *conf, Dwfl_Module *mod,
-			    Dwarf *dw, Elf *elf, const char *filename,
-			    const unsigned char *build_id, int build_id_len,
-			    struct dwarf_cu *type_dcu)
+static int dwarf_cus__process_cus(struct dwarf_cus *dcus)
 {
 	uint8_t pointer_size, offset_size;
-	Dwarf_Off off = 0, noff;
+	Dwarf_Off noff;
 	size_t cuhl;
 
-	while (dwarf_nextcu(dw, off, &noff, &cuhl, NULL, &pointer_size,
-			    &offset_size) == 0) {
+	while (dwarf_nextcu(dcus->dw, dcus->off, &noff, &cuhl, NULL, &pointer_size, &offset_size) == 0) {
 		Dwarf_Die die_mem;
-		Dwarf_Die *cu_die = dwarf_offdie(dw, off + cuhl, &die_mem);
+		Dwarf_Die *cu_die = dwarf_offdie(dcus->dw, dcus->off + cuhl, &die_mem);
 
 		if (cu_die == NULL)
 			break;
 
-		if (cus__create_and_process_cu(cus, type_dcu, cu_die, mod, elf, pointer_size, filename,
-					       build_id, build_id_len, conf) == DWARF_CB_ABORT)
+		if (dwarf_cus__create_and_process_cu(dcus, cu_die, pointer_size) == DWARF_CB_ABORT)
 			return DWARF_CB_ABORT;
 
-		off = noff;
+		dcus->off = noff;
 	}
 
 	return 0;
@@ -2788,9 +2793,19 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 						build_id, build_id_len,
 						type_cu ? &type_dcu : NULL);
 	} else {
-		res = cus__process_cus(cus, conf, mod, dw, elf, filename,
-				       build_id, build_id_len,
-				       type_cu ? &type_dcu : NULL);
+		struct dwarf_cus dcus = {
+			.off      = 0,
+			.cus      = cus,
+			.conf     = conf,
+			.mod      = mod,
+			.dw       = dw,
+			.elf      = elf,
+			.filename = filename,
+			.type_dcu = type_cu ? &type_dcu : NULL,
+			.build_id = build_id,
+			.build_id_len = build_id_len,
+		};
+		res = dwarf_cus__process_cus(&dcus);
 	}
 
 	if (res)
