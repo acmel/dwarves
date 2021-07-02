@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <dwarf.h>
 #include <inttypes.h>
+#include <pthread.h>
 #include <search.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -119,9 +120,9 @@ static void structure__delete(struct structure *st)
 
 static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
+static pthread_mutex_t structures_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static struct structure *structures__add(struct class *class,
-					 bool *existing_entry)
+static struct structure *__structures__add(struct class *class, bool *existing_entry)
 {
         struct rb_node **p = &structures__tree.rb_node;
         struct rb_node *parent = NULL;
@@ -159,7 +160,18 @@ static struct structure *structures__add(struct class *class,
 	return str;
 }
 
-void structures__delete(void)
+static struct structure *structures__add(struct class *class, bool *existing_entry)
+{
+	struct structure *str;
+
+	pthread_mutex_lock(&structures_lock);
+	str = __structures__add(class, existing_entry);
+	pthread_mutex_unlock(&structures_lock);
+
+	return str;
+}
+
+static void __structures__delete(void)
 {
 	struct rb_node *next = rb_first(&structures__tree);
 
@@ -169,6 +181,13 @@ void structures__delete(void)
 		rb_erase(&pos->rb_node, &structures__tree);
 		structure__delete(pos);
 	}
+}
+
+void structures__delete(void)
+{
+	pthread_mutex_lock(&structures_lock);
+	__structures__delete();
+	pthread_mutex_unlock(&structures_lock);
 }
 
 static void nr_definitions_formatter(struct structure *st)
