@@ -2828,6 +2828,11 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
+	if (btf_encode && conf_load.nr_jobs > 1) {
+		fputs("pahole: parallel BTF encoding isn't supported yet, drop -j/--jobs\n", stderr);
+		goto out;
+	}
+
 	if (prettify_input_filename) {
 		if (strcmp(prettify_input_filename, "-") == 0) {
 			prettify_input = stdin;
