@@ -88,11 +88,13 @@ struct structure {
 	struct list_head  node;
 	struct rb_node	  rb_node;
 	char		  *name;
+	struct class	  *class;
+	struct cu	  *cu;
 	uint32_t	  nr_files;
 	uint32_t	  nr_methods;
 };
 
-static struct structure *structure__new(const char *name)
+static struct structure *structure__new(const char *name, struct class *class, struct cu *cu)
 {
 	struct structure *st = malloc(sizeof(*st));
 
@@ -104,6 +106,8 @@ static struct structure *structure__new(const char *name)
 		}
 		st->nr_files   = 1;
 		st->nr_methods = 0;
+		st->class      = class;
+		st->cu	       = cu;
 	}
 
 	return st;
@@ -122,7 +126,7 @@ static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
 static pthread_mutex_t structures_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static struct structure *__structures__add(struct class *class, bool *existing_entry)
+static struct structure *__structures__add(struct class *class, struct cu *cu, bool *existing_entry)
 {
         struct rb_node **p = &structures__tree.rb_node;
         struct rb_node *parent = NULL;
@@ -146,7 +150,7 @@ static struct structure *__structures__add(struct class *class, bool *existing_e
 		}
         }
 
-	str = structure__new(new_class_name);
+	str = structure__new(new_class_name, class, cu);
 	if (str == NULL)
 		return NULL;
 
@@ -160,12 +164,12 @@ static struct structure *__structures__add(struct class *class, bool *existing_e
 	return str;
 }
 
-static struct structure *structures__add(struct class *class, bool *existing_entry)
+static struct structure *structures__add(struct class *class, struct cu *cu, bool *existing_entry)
 {
 	struct structure *str;
 
 	pthread_mutex_lock(&structures_lock);
-	str = __structures__add(class, existing_entry);
+	str = __structures__add(class, cu, existing_entry);
 	pthread_mutex_unlock(&structures_lock);
 
 	return str;
@@ -332,7 +336,7 @@ static void print_classes(struct cu *cu)
 		 * and I'm sleepy, will leave for later...
 		 */
 		if (pos->type.namespace.name != 0) {
-			str = structures__add(pos, &existing_entry);
+			str = structures__add(pos, cu, &existing_entry);
 			if (str == NULL) {
 				fprintf(stderr, "pahole: insufficient memory for "
 					"processing %s, skipping it...\n", cu->name);
@@ -719,7 +723,7 @@ static void cu__account_nr_methods(struct cu *cu)
 				continue;
 
 			bool existing_entry;
-			str = structures__add(class, &existing_entry);
+			str = structures__add(class, cu, &existing_entry);
 			if (str == NULL) {
 				fprintf(stderr, "pahole: insufficient memory "
 					"for processing %s, skipping it...\n",
@@ -768,7 +772,7 @@ static void print_structs_with_pointer_to(struct cu *cu, uint32_t type)
 			if (!looked) {
 				bool existing_entry;
 
-				str = structures__add(pos, &existing_entry);
+				str = structures__add(pos, cu, &existing_entry);
 				if (str == NULL) {
 					fprintf(stderr, "pahole: insufficient memory for "
 						"processing %s, skipping it...\n",
@@ -796,7 +800,7 @@ static int type__print_containers(struct type *type, struct cu *cu, uint32_t con
 
 	if (ident == 0) {
 		bool existing_entry;
-		struct structure *str = structures__add(type__class(type), &existing_entry);
+		struct structure *str = structures__add(type__class(type), cu, &existing_entry);
 		if (str == NULL) {
 			fprintf(stderr, "pahole: insufficient memory for "
 				"processing %s, skipping it...\n",
