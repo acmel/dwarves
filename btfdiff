@@ -26,6 +26,7 @@ pahole_bin=${PAHOLE-"pahole"}
 ${pahole_bin} -F dwarf \
 	      --flat_arrays \
 	      --sort \
+	      --jobs \
 	      --suppress_aligned_attribute \
 	      --suppress_force_paddings \
 	      --suppress_packed \
