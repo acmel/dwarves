@@ -393,6 +393,8 @@ struct cus {
 	uint32_t	 nr_entries;
 	struct list_head cus;
 	pthread_mutex_t  mutex;
+	void		 (*loader_exit)(struct cus *cus);
+	void		 *priv; // Used in dwarf_loader__exit()
 };
 
 void cus__lock(struct cus *cus)
@@ -2349,7 +2351,9 @@ struct cus *cus__new(void)
 	struct cus *cus = malloc(sizeof(*cus));
 
 	if (cus != NULL) {
-		cus->nr_entries = 0;
+		cus->nr_entries  = 0;
+		cus->priv	 = NULL;
+		cus->loader_exit = NULL;
 		INIT_LIST_HEAD(&cus->cus);
 		pthread_mutex_init(&cus->mutex, NULL);
 	}
@@ -2371,9 +2375,27 @@ void cus__delete(struct cus *cus)
 		cu__delete(pos);
 	}
 
+	if (cus->loader_exit)
+		cus->loader_exit(cus);
+
 	cus__unlock(cus);
 
 	free(cus);
+}
+
+void cus__set_priv(struct cus *cus, void *priv)
+{
+	cus->priv = priv;
+}
+
+void *cus__priv(struct cus *cus)
+{
+	return cus->priv;
+}
+
+void cus__set_loader_exit(struct cus *cus, void (*loader_exit)(struct cus *cus))
+{
+	cus->loader_exit = loader_exit;
 }
 
 void dwarves__fprintf_init(uint16_t user_cacheline_size);

@@ -148,6 +148,11 @@ uint32_t cus__nr_entries(const struct cus *cus);
 void cus__lock(struct cus *cus);
 void cus__unlock(struct cus *cus);
 
+void *cus__priv(struct cus *cus);
+void cus__set_priv(struct cus *cus, void *priv);
+
+void cus__set_loader_exit(struct cus *cus, void (*loader_exit)(struct cus *cus));
+
 struct ptr_table {
 	void	 **entries;
 	uint32_t nr_entries;
