@@ -31,6 +31,7 @@ static char *detached_btf_filename;
 static bool btf_encode;
 static bool btf_gen_floats;
 static bool ctf_encode;
+static bool sort_output;
 static bool first_obj_only;
 static bool skip_encoding_btf_vars;
 static bool btf_encode_force;
@@ -354,9 +355,25 @@ static void print_classes(struct cu *cu)
 
 		if (show_packable && !global_verbose)
 			print_packable_info(pos, cu, id);
+		else if (sort_output && formatter == class_formatter)
+			continue; // we'll print it at the end, in order, out of structures__tree
 		else if (formatter != NULL)
 			formatter(pos, cu, id);
 	}
+}
+
+static void print_ordered_classes(void)
+{
+	struct rb_node *next = rb_first(&structures__tree);
+
+	while (next) {
+		struct structure *st = rb_entry(next, struct structure, rb_node);
+
+		class_formatter(st->class, st->cu, st->id);
+
+		next = rb_next(&st->rb_node);
+	}
+
 }
 
 static struct cu *cu__filter(struct cu *cu)
@@ -882,6 +899,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_kabi_prefix	   325
 #define ARGP_btf_encode_detached   326
 #define ARGP_prettify_input_filename 327
+#define ARGP_sort_output	   328
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1231,6 +1249,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Print a numeric version, i.e. 119 instead of v1.19"
 	},
 	{
+		.name = "sort",
+		.key  = ARGP_sort_output,
+		.doc  = "Sort types by name",
+	},
+	{
 		.name = "prettify",
 		.key  = ARGP_prettify_input_filename,
 		.arg  = "PATH",
@@ -1368,6 +1391,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		show_with_flexible_array = true;	break;
 	case ARGP_prettify_input_filename:
 		prettify_input_filename = arg;		break;
+	case ARGP_sort_output:
+		sort_output = true;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -2551,6 +2576,10 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			cu_fixup_word_size_iterator(cu);
 
 		print_classes(cu);
+
+		if (sort_output && formatter == class_formatter)
+			ret = LSK__KEEPIT;
+
 		goto dump_it;
 	}
 
@@ -2918,6 +2947,11 @@ try_sole_arg_as_class_names:
 		goto out_cus_delete;
 	}
 
+	if (sort_output && formatter == class_formatter) {
+		print_ordered_classes();
+		goto out_ok;
+	}
+
 	if (!list_empty(&class_names)) {
 		struct prototype *prototype;
 
@@ -2962,9 +2996,10 @@ try_sole_arg_as_class_names:
 			goto out_cus_delete;
 		}
 	}
-
+out_ok:
 	if (stats_formatter != NULL)
 		print_stats();
+
 	rc = EXIT_SUCCESS;
 out_cus_delete:
 #ifdef DEBUG_CHECK_LEAKS
