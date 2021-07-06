@@ -2943,6 +2943,16 @@ static int cus__process_dwflmod(Dwfl_Module *dwflmod,
 	return err;
 }
 
+static void dwarf_loader__exit(struct cus *cus)
+{
+	Dwfl *dwfl = cus__priv(cus);
+
+	if (dwfl) {
+		dwfl_end(dwfl);
+		cus__set_priv(cus, NULL);
+	}
+}
+
 static int cus__process_file(struct cus *cus, struct conf_load *conf, int fd,
 			     const char *filename)
 {
@@ -2967,6 +2977,9 @@ static int cus__process_file(struct cus *cus, struct conf_load *conf, int fd,
 
 	Dwfl *dwfl = dwfl_begin(&callbacks);
 
+	cus__set_priv(cus, dwfl);
+	cus__set_loader_exit(cus, dwarf_loader__exit);
+
 	if (dwfl_report_offline(dwfl, filename, filename, dwfl_fd) == NULL)
 		return -1;
 
@@ -2981,7 +2994,10 @@ static int cus__process_file(struct cus *cus, struct conf_load *conf, int fd,
 
 	/* Process the one or more modules gleaned from this file. */
 	dwfl_getmodules(dwfl, cus__process_dwflmod, &parms, 0);
-	dwfl_end(dwfl);
+
+	// We can't call dwfl_end(dwfl) here, as we keep pointers to strings
+	// allocated by libdw that will be freed at dwfl_end(), so leave this for
+	// cus__delete().
 	return parms.nr_dwarf_sections_found ? 0 : -1;
 }
 
