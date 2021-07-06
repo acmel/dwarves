@@ -100,6 +100,14 @@ or file URLs (e.g.: file://class_list.txt)
 .B \-c, \-\-cacheline_size=SIZE
 Set cacheline size to SIZE bytes.
 
+.TP \-\-sort
+Sort the output by type name, maybe this will grow to allow sorting by other
+criteria.
+
+This is mostly needed so that pretty printing from BTF and DWARF can be
+comparable when using using multiple threads to load DWARF data, when the order
+that the types in the compile units is processed is not deterministic.
+
 .TP
 .B \-\-count=COUNT
 Pretty print the first COUNT records from input.
