@@ -51,6 +51,8 @@
 #define DW_OP_addrx 0xa1
 #endif
 
+static pthread_mutex_t libdw__lock = PTHREAD_MUTEX_INITIALIZER;
+
 static uint32_t hashtags__bits = 15;
 static uint32_t max_hashtags__bits = 21;
 
@@ -472,6 +474,8 @@ static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 	tag->recursivity_level = 0;
 
 	if (cu->extra_dbg_info) {
+		pthread_mutex_lock(&libdw__lock);
+
 		int32_t decl_line;
 		const char *decl_file = dwarf_decl_file(die);
 		static const char *last_decl_file, *last_decl_file_ptr;
@@ -484,6 +488,8 @@ static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 		dtag->decl_file = last_decl_file;
 		dwarf_decl_line(die, &decl_line);
 		dtag->decl_line = decl_line;
+
+		pthread_mutex_unlock(&libdw__lock);
 	}
 
 	INIT_LIST_HEAD(&tag->node);
