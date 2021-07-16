@@ -860,7 +860,6 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
 	if (member != NULL) {
 		tag__init(&member->tag, cu, die);
 		member->name = attr_string(die, DW_AT_name, conf);
-		member->const_value = attr_numeric(die, DW_AT_const_value);
 		member->alignment = attr_numeric(die, DW_AT_alignment);
 
 		Dwarf_Attribute attr;
@@ -899,8 +898,12 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
 		member->bit_hole = 0;
 		member->bitfield_end = 0;
 		member->visited = 0;
-		member->accessibility = attr_numeric(die, DW_AT_accessibility);
-		member->virtuality    = attr_numeric(die, DW_AT_virtuality);
+
+		if (!cu__is_c(cu)) {
+			member->accessibility = attr_numeric(die, DW_AT_accessibility);
+			member->const_value   = attr_numeric(die, DW_AT_const_value);
+			member->virtuality    = attr_numeric(die, DW_AT_virtuality);
+		}
 		member->hole = 0;
 	}
 
