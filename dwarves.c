@@ -452,6 +452,10 @@ static int ptr_table__add(struct ptr_table *pt, void *ptr, uint32_t *idxp)
 		if (entries == NULL)
 			return -ENOMEM;
 
+		/* Zero out the new range */
+		memset(entries + pt->allocated_entries * sizeof(void *), 0,
+		       (allocated_entries - pt->allocated_entries) * sizeof(void *));
+
 		pt->allocated_entries = allocated_entries;
 		pt->entries = entries;
 	}
