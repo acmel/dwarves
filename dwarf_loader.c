@@ -322,6 +322,11 @@ static uint64_t attr_numeric(Dwarf_Die *die, uint32_t name)
 	return 0;
 }
 
+static uint64_t attr_alignment(Dwarf_Die *die, struct conf_load *conf)
+{
+	return conf->read_alignment_attr ? attr_numeric(die, DW_AT_alignment) : 0;
+}
+
 static uint64_t dwarf_expr(const uint8_t *expr, uint32_t len __maybe_unused)
 {
 	/* Common case: offset from start of the class */
@@ -601,7 +606,7 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu, struct 
 	namespace__init(&type->namespace, die, cu, conf);
 	__type__init(type);
 	type->size		 = attr_numeric(die, DW_AT_byte_size);
-	type->alignment		 = attr_numeric(die, DW_AT_alignment);
+	type->alignment		 = attr_alignment(die, conf);
 	type->declaration	 = attr_numeric(die, DW_AT_declaration);
 	dwarf_tag__set_spec(type->namespace.tag.priv,
 			    attr_type(die, DW_AT_specification));
@@ -860,7 +865,7 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
 	if (member != NULL) {
 		tag__init(&member->tag, cu, die);
 		member->name = attr_string(die, DW_AT_name, conf);
-		member->alignment = attr_numeric(die, DW_AT_alignment);
+		member->alignment = attr_alignment(die, conf);
 
 		Dwarf_Attribute attr;
 
