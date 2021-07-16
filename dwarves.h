@@ -262,6 +262,11 @@ static inline __pure bool cu__is_c_plus_plus(const struct cu *cu)
 	return cu->language == LANG_C_plus_plus;
 }
 
+static inline __pure bool cu__is_c(const struct cu *cu)
+{
+	return cu->language == LANG_C;
+}
+
 /**
  * cu__for_each_cached_symtab_entry - iterate thru the cached symtab entries
  * @cu: struct cu instance
