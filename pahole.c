@@ -2535,6 +2535,9 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		goto filter_it;
 
 	if (btf_encode) {
+		static pthread_mutex_t btf_lock = PTHREAD_MUTEX_INITIALIZER;
+
+		pthread_mutex_lock(&btf_lock);
 		/*
 		 * FIXME:
 		 *
@@ -2544,15 +2547,20 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		if (!btf_encoder) {
 			btf_encoder = btf_encoder__new(cu, detached_btf_filename, conf_load->base_btf, skip_encoding_btf_vars,
 						       btf_encode_force, btf_gen_floats, global_verbose);
-			if (btf_encoder == NULL)
-				return LSK__STOP_LOADING;
+			if (btf_encoder == NULL) {
+				ret = LSK__STOP_LOADING;
+				goto out_btf;
+			}
 		}
 
 		if (btf_encoder__encode_cu(btf_encoder, cu)) {
 			fprintf(stderr, "Encountered error while encoding BTF.\n");
 			exit(1);
 		}
-		return LSK__DELETE;
+		ret = LSK__DELETE;
+out_btf:
+		pthread_mutex_unlock(&btf_lock);
+		return ret;
 	}
 #if 0
 	if (ctf_encode) {
@@ -2861,11 +2869,6 @@ int main(int argc, char *argv[])
 
 	if (dwarves__init(cacheline_size)) {
 		fputs("pahole: insufficient memory\n", stderr);
-		goto out;
-	}
-
-	if (btf_encode && conf_load.nr_jobs > 1) {
-		fputs("pahole: parallel BTF encoding isn't supported yet, drop -j/--jobs\n", stderr);
 		goto out;
 	}
 
