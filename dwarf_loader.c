@@ -1741,6 +1741,8 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			tag = die__create_new_label(die, lexblock, cu, conf);
 			break;
 		case DW_TAG_inlined_subroutine:
+			if (conf->ignore_inline_expansions)
+				continue;
 			tag = die__create_new_inline_expansion(die, lexblock, cu, conf);
 			break;
 		case DW_TAG_lexical_block:
