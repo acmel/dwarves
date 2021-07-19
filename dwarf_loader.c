@@ -1738,6 +1738,8 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 				ftype->unspec_parms = 1;
 			continue;
 		case DW_TAG_label:
+			if (conf->ignore_labels)
+				continue;
 			tag = die__create_new_label(die, lexblock, cu, conf);
 			break;
 		case DW_TAG_inlined_subroutine:

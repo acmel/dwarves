@@ -53,6 +53,7 @@ struct conf_load {
 	bool			get_addr_info;
 	bool			read_alignment_attr;
 	bool			ignore_inline_expansions;
+	bool			ignore_labels;
 	uint16_t		kabi_prefix_len;
 	const char		*kabi_prefix;
 	struct btf		*base_btf;
