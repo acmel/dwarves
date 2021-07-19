@@ -1300,6 +1300,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'J': btf_encode = 1;
 		  conf_load.get_addr_info = true;
 		  conf_load.read_alignment_attr = false;
+		  conf_load.ignore_inline_expansions = true;
 		  no_bitfield_type_recode = true;	break;
 	case 'l': conf.show_first_biggest_size_base_type_member = 1;	break;
 	case 'M': conf.show_only_data_members = 1;	break;
