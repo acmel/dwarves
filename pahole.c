@@ -1299,6 +1299,9 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'J': btf_encode = 1;
 		  conf_load.get_addr_info = true;
 		  conf_load.ignore_alignment_attr = true;
+		  // XXX for now, test this more thoroughly
+		  // We may have some references from formal parameters, etc, (abstract_origin)
+		  // conf_load.ignore_inline_expansions = true;
 		  no_bitfield_type_recode = true;	break;
 	case 'l': conf.show_first_biggest_size_base_type_member = 1;	break;
 	case 'M': conf.show_only_data_members = 1;	break;
