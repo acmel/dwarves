@@ -1748,6 +1748,9 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			tag = die__create_new_inline_expansion(die, lexblock, cu, conf);
 			break;
 		case DW_TAG_lexical_block:
+			// lexblocks can contain types that are then referenced from outside.
+			// Thus we can't ignore them without more surgery, i.e. by adding code
+			// to just process types inside lexblocks, leave this for later.
 			if (die__create_new_lexblock(die, cu, lexblock, conf) != 0)
 				goto out_enomem;
 			continue;
