@@ -31,6 +31,42 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
+#define obstack_chunk_alloc malloc
+#define obstack_chunk_free free
+
+static void *obstack_zalloc(struct obstack *obstack, size_t size)
+{
+	void *o = obstack_alloc(obstack, size);
+
+	if (o)
+		memset(o, 0, size);
+	return o;
+}
+
+void *cu__zalloc(struct cu *cu, size_t size)
+{
+	if (cu->use_obstack)
+		return obstack_zalloc(&cu->obstack, size);
+
+	return zalloc(size);
+}
+
+void *cu__malloc(struct cu *cu, size_t size)
+{
+	if (cu->use_obstack)
+		return obstack_alloc(&cu->obstack, size);
+
+	return malloc(size);
+}
+
+void cu__free(struct cu *cu, void *ptr)
+{
+	if (!cu->use_obstack)
+		free(ptr);
+
+	// When using an obstack we'll free everything in cu__delete()
+}
+
 int tag__is_base_type(const struct tag *tag, const struct cu *cu)
 {
 	switch (tag->tag) {
@@ -570,12 +606,16 @@ int cu__add_tag_with_id(struct cu *cu, struct tag *tag, uint32_t id)
 
 struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id, int build_id_len,
-		   const char *filename)
+		   const char *filename, bool use_obstack)
 {
 	struct cu *cu = malloc(sizeof(*cu) + build_id_len);
 
 	if (cu != NULL) {
 		uint32_t void_id;
+
+		cu->use_obstack = use_obstack;
+		if (cu->use_obstack)
+			obstack_init(&cu->obstack);
 
 		cu->name = strdup(name);
 		if (cu->name == NULL)
@@ -638,6 +678,10 @@ void cu__delete(struct cu *cu)
 	ptr_table__exit(&cu->functions_table);
 	if (cu->dfops && cu->dfops->cu__delete)
 		cu->dfops->cu__delete(cu);
+
+	if (cu->use_obstack)
+		obstack_free(&cu->obstack, NULL);
+
 	zfree(&cu->filename);
 	zfree(&cu->name);
 	free(cu);
