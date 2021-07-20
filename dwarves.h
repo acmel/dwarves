@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <obstack.h>
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
 #include <sys/types.h>
@@ -49,6 +50,7 @@ struct conf_load {
 	char			*format_path;
 	int			nr_jobs;
 	bool			extra_dbg_info;
+	bool			use_obstack;
 	bool			fixup_silly_bitfields;
 	bool			get_addr_info;
 	bool			ignore_alignment_attr;
@@ -229,7 +231,9 @@ struct cu {
 	struct debug_fmt_ops *dfops;
 	Elf		 *elf;
 	Dwfl_Module	 *dwfl;
+	struct obstack	 obstack;
 	uint32_t	 cached_symtab_nr_entries;
+	bool		 use_obstack;
 	uint8_t		 addr_size;
 	uint8_t		 extra_dbg_info:1;
 	uint8_t		 has_addr_info:1;
@@ -249,8 +253,12 @@ struct cu {
 
 struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id, int build_id_len,
-		   const char *filename);
+		   const char *filename, bool use_obstack);
 void cu__delete(struct cu *cu);
+
+void *cu__malloc(struct cu *cu, size_t size);
+void *cu__zalloc(struct cu *cu, size_t size);
+void cu__free(struct cu *cu, void *ptr);
 
 static inline int cu__cache_symtab(struct cu *cu)
 {

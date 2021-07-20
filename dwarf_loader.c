@@ -118,16 +118,19 @@ struct dwarf_cu {
 	struct dwarf_cu *type_unit;
 };
 
-static int dwarf_cu__init(struct dwarf_cu *dcu)
+static int dwarf_cu__init(struct dwarf_cu *dcu, struct cu *cu)
 {
 	uint64_t hashtags_size = 1UL << hashtags__bits;
-	dcu->hash_tags = malloc(sizeof(struct hlist_head) * hashtags_size);
+
+	dcu->cu = cu;
+
+	dcu->hash_tags = cu__malloc(cu, sizeof(struct hlist_head) * hashtags_size);
 	if (!dcu->hash_tags)
 		return -ENOMEM;
 
-	dcu->hash_types = malloc(sizeof(struct hlist_head) * hashtags_size);
+	dcu->hash_types = cu__malloc(cu, sizeof(struct hlist_head) * hashtags_size);
 	if (!dcu->hash_types) {
-		zfree(&dcu->hash_tags);
+		cu__free(cu, dcu->hash_tags);
 		return -ENOMEM;
 	}
 
@@ -140,12 +143,12 @@ static int dwarf_cu__init(struct dwarf_cu *dcu)
 	return 0;
 }
 
-static struct dwarf_cu *dwarf_cu__new(void)
+static struct dwarf_cu *dwarf_cu__new(struct cu *cu)
 {
-	struct dwarf_cu *dwarf_cu = zalloc(sizeof(*dwarf_cu));
+	struct dwarf_cu *dwarf_cu = cu__zalloc(cu, sizeof(*dwarf_cu));
 
-	if (dwarf_cu != NULL && dwarf_cu__init(dwarf_cu) != 0) {
-		free(dwarf_cu);
+	if (dwarf_cu != NULL && dwarf_cu__init(dwarf_cu, cu) != 0) {
+		cu__free(cu, dwarf_cu);
 		dwarf_cu = NULL;
 	}
 
@@ -159,9 +162,8 @@ static void dwarf_cu__delete(struct cu *cu)
 
 	struct dwarf_cu *dcu = cu->priv;
 
-	zfree(&dcu->hash_tags);
-	zfree(&dcu->hash_types);
-	free(dcu);
+	// dcu->hash_tags & dcu->hash_types are on cu->obstack
+	cu__free(cu, dcu);
 	cu->priv = NULL;
 }
 
@@ -238,7 +240,7 @@ static struct dwarf_tag *dwarf_cu__find_type_by_ref(const struct dwarf_cu *dcu,
 
 static void *memdup(const void *src, size_t len, struct cu *cu)
 {
-	void *s = malloc(len);
+	void *s = cu__malloc(cu, len);
 	if (s != NULL)
 		memcpy(s, src, len);
 	return s;
@@ -433,12 +435,12 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 
 static void *__tag__alloc(struct dwarf_cu *dcu, size_t size, bool spec)
 {
-	struct dwarf_tag *dtag = zalloc((sizeof(*dtag) + (spec ? sizeof(dwarf_off_ref) : 0)));
+	struct dwarf_tag *dtag = cu__zalloc(dcu->cu, (sizeof(*dtag) + (spec ? sizeof(dwarf_off_ref) : 0)));
 
 	if (dtag == NULL)
 		return NULL;
 
-	struct tag *tag = zalloc(size);
+	struct tag *tag = cu__zalloc(dcu->cu, size);
 
 	if (tag == NULL)
 		return NULL;
@@ -726,8 +728,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 	switch (tag->tag) {
 	case DW_TAG_typedef: {
 		const struct dwarf_tag *dtag = tag->priv;
-		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv,
-								     &dtag->type);
+		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
 
 		if (dtype == NULL) {
 			tag__print_type_not_found(tag);
@@ -740,7 +741,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		if (id < 0)
 			return id;
 
-		struct type *new_typedef = zalloc(sizeof(*new_typedef));
+		struct type *new_typedef = cu__zalloc(cu, sizeof(*new_typedef));
 		if (new_typedef == NULL)
 			return -ENOMEM;
 
@@ -767,7 +768,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		if (id == tag->type)
 			return id;
 
-		recoded = zalloc(sizeof(*recoded));
+		recoded = cu__zalloc(cu, sizeof(*recoded));
 		if (recoded == NULL)
 			return -ENOMEM;
 
@@ -786,7 +787,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		if (recoded != NULL)
 			return short_id;
 
-		struct base_type *new_bt = zalloc(sizeof(*new_bt));
+		struct base_type *new_bt = cu__zalloc(cu, sizeof(*new_bt));
 		if (new_bt == NULL)
 			return -ENOMEM;
 
@@ -808,7 +809,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 			return short_id;
 
 		struct type *alias = tag__type(tag);
-		struct type *new_enum = zalloc(sizeof(*new_enum));
+		struct type *new_enum = cu__zalloc(cu, sizeof(*new_enum));
 		if (new_enum == NULL)
 			return -ENOMEM;
 
@@ -2522,15 +2523,14 @@ static int cus__load_debug_types(struct cus *cus, struct conf_load *conf,
 			struct cu *cu;
 
 			cu = cu__new("", pointer_size, build_id,
-				     build_id_len, filename);
+				     build_id_len, filename, conf->use_obstack);
 			if (cu == NULL ||
 			    cu__set_common(cu, conf, mod, elf) != 0) {
 				return DWARF_CB_ABORT;
 			}
 
-			if (dwarf_cu__init(dcup) != 0)
+			if (dwarf_cu__init(dcup, cu) != 0)
 				return DWARF_CB_ABORT;
-
 			dcup->cu = cu;
 			/* Funny hack.  */
 			dcup->type_unit = dcup;
@@ -2650,16 +2650,15 @@ static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *c
 	 * /usr/libexec/gcc/x86_64-redhat-linux/4.3.2/ecj1.debug
 	 */
 	const char *name = attr_string(cu_die, DW_AT_name, dcus->conf);
-	struct cu *cu = cu__new(name ?: "", pointer_size, dcus->build_id, dcus->build_id_len, dcus->filename);
+	struct cu *cu = cu__new(name ?: "", pointer_size, dcus->build_id, dcus->build_id_len, dcus->filename, dcus->conf->use_obstack);
 	if (cu == NULL || cu__set_common(cu, dcus->conf, dcus->mod, dcus->elf) != 0)
 		return DWARF_CB_ABORT;
 
-	struct dwarf_cu *dcu = dwarf_cu__new();
+	struct dwarf_cu *dcu = dwarf_cu__new(cu);
 
 	if (dcu == NULL)
 		return DWARF_CB_ABORT;
 
-	dcu->cu = cu;
 	dcu->type_unit = dcus->type_dcu;
 	cu->priv = dcu;
 	cu->dfops = &dwarf__ops;
@@ -2794,7 +2793,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 
 		if (cu == NULL) {
 			cu = cu__new("", pointer_size, build_id, build_id_len,
-				     filename);
+				     filename, conf->use_obstack);
 			if (cu == NULL || cu__set_common(cu, conf, mod, elf) != 0)
 				goto out_abort;
 
@@ -2810,7 +2809,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 			for (hashtags__bits = max_hashtags__bits;
 			     hashtags__bits >= default_hbits;
 			     hashtags__bits--) {
-				if (dwarf_cu__init(dcu) == 0)
+				if (dwarf_cu__init(dcu, cu) == 0)
 					break;
 			}
 			if (hashtags__bits < default_hbits)
