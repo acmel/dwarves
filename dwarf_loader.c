@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <libelf.h>
+#include <limits.h>
 #include <pthread.h>
 #include <search.h>
 #include <stdio.h>
@@ -114,12 +115,14 @@ static void dwarf_tag__set_spec(struct dwarf_tag *dtag, dwarf_off_ref spec)
 struct dwarf_cu {
 	struct hlist_head *hash_tags;
 	struct hlist_head *hash_types;
+	struct dwarf_tag *last_type_lookup;
 	struct cu *cu;
 	struct dwarf_cu *type_unit;
 };
 
 static int dwarf_cu__init(struct dwarf_cu *dcu, struct cu *cu)
 {
+	static struct dwarf_tag sentinel_dtag = { .id = ULLONG_MAX, };
 	uint64_t hashtags_size = 1UL << hashtags__bits;
 
 	dcu->cu = cu;
@@ -140,6 +143,8 @@ static int dwarf_cu__init(struct dwarf_cu *dcu, struct cu *cu)
 		INIT_HLIST_HEAD(&dcu->hash_types[i]);
 	}
 	dcu->type_unit = NULL;
+	// To avoid a per-lookup check against NULL in dwarf_cu__find_type_by_ref()
+	dcu->last_type_lookup = &sentinel_dtag;
 	return 0;
 }
 
@@ -224,7 +229,7 @@ static struct dwarf_tag *dwarf_cu__find_tag_by_ref(const struct dwarf_cu *cu,
 	return hashtags__find(cu->hash_tags, ref->off);
 }
 
-static struct dwarf_tag *dwarf_cu__find_type_by_ref(const struct dwarf_cu *dcu,
+static struct dwarf_tag *dwarf_cu__find_type_by_ref(struct dwarf_cu *dcu,
 						    const struct dwarf_off_ref *ref)
 {
 	if (dcu == NULL)
@@ -235,7 +240,16 @@ static struct dwarf_tag *dwarf_cu__find_type_by_ref(const struct dwarf_cu *dcu,
 			return NULL;
 		}
 	}
-	return hashtags__find(dcu->hash_types, ref->off);
+
+	if (dcu->last_type_lookup->id == ref->off)
+		return dcu->last_type_lookup;
+
+	struct dwarf_tag *dtag = hashtags__find(dcu->hash_types, ref->off);
+
+	if (dtag)
+		dcu->last_type_lookup = dtag;
+
+	return dtag;
 }
 
 static void *memdup(const void *src, size_t len, struct cu *cu)
