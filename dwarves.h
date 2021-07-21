@@ -56,6 +56,8 @@ struct conf_load {
 	bool			read_alignment_attr;
 	bool			ignore_inline_expansions;
 	bool			ignore_labels;
+	uint8_t			hashtable_bits;
+	uint8_t			max_hashtable_bits;
 	uint16_t		kabi_prefix_len;
 	const char		*kabi_prefix;
 	struct btf		*base_btf;

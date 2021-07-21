@@ -3040,6 +3040,21 @@ static int dwarf__load_file(struct cus *cus, struct conf_load *conf,
 {
 	int fd, err;
 
+	if (conf->max_hashtable_bits != 0) {
+		if (conf->max_hashtable_bits > 31)
+			return -E2BIG;
+
+		max_hashtags__bits = conf->max_hashtable_bits;
+	}
+
+	if (conf->hashtable_bits != 0) {
+		if (conf->hashtable_bits > max_hashtags__bits)
+			return -E2BIG;
+
+		hashtags__bits = conf->hashtable_bits;
+	} else if (hashtags__bits > max_hashtags__bits)
+		return -EINVAL;
+
 	elf_version(EV_CURRENT);
 
 	fd = open(filename, O_RDONLY);
