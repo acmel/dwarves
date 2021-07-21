@@ -900,6 +900,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_btf_encode_detached   326
 #define ARGP_prettify_input_filename 327
 #define ARGP_sort_output	   328
+#define ARGP_hashbits		   329
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1260,6 +1261,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Path to the raw data to pretty print",
 	},
 	{
+		.name = "hashbits",
+		.key  = ARGP_hashbits,
+		.arg  = "BITS",
+		.doc  = "Number of bits for the hash table key",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1399,6 +1406,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		prettify_input_filename = arg;		break;
 	case ARGP_sort_output:
 		sort_output = true;			break;
+	case ARGP_hashbits:
+		conf_load.hashtable_bits = atoi(arg);	break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -2870,6 +2879,11 @@ int main(int argc, char *argv[])
 	if (print_numeric_version) {
 		dwarves_print_numeric_version(stdout);
 		return 0;
+	}
+
+	if (conf_load.hashtable_bits > 31) {
+		fprintf(stderr, "Invalid --hashbits value (%d) should be less than 32\n", conf_load.hashtable_bits);
+		goto out;
 	}
 
 	if (dwarves__init(cacheline_size)) {
