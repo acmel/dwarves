@@ -128,6 +128,13 @@ includes "ctf" and "dwarf". The default format path used is equivalent to
 "-F dwarf,ctf".
 
 .TP
+.B \-\-hashbits=BITS
+Allows specifying the number of bits for the debugging format loader to use.
+The only one affected so far is the "dwarf" one, its default now is 15, the
+maximum for it is now 21 bits. Tweak it to see if it improves performance as
+the kernel evolves and more types and functions have to be loaded.
+
+.TP
 .B \-\-hex
 Print offsets and sizes in hexadecimal.
 
