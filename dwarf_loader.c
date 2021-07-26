@@ -54,7 +54,7 @@
 
 static pthread_mutex_t libdw__lock = PTHREAD_MUTEX_INITIALIZER;
 
-static uint32_t hashtags__bits = 15;
+static uint32_t hashtags__bits = 12;
 static uint32_t max_hashtags__bits = 21;
 
 static uint32_t hashtags__fn(Dwarf_Off key)
