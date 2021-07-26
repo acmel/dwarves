@@ -45,6 +45,7 @@ struct var_info {
 };
 
 struct btf_encoder {
+	struct list_head  node;
 	struct btf        *btf;
 	struct gobuffer   percpu_secinfo;
 	const char	  *filename;
@@ -71,6 +72,21 @@ struct btf_encoder {
 		int		    cnt;
 	} functions;
 };
+
+void btf_encoders__add(struct list_head *encoders, struct btf_encoder *encoder)
+{
+	list_add_tail(&encoder->node, encoders);
+}
+
+struct btf_encoder *btf_encoders__first(struct list_head *encoders)
+{
+	return list_first_entry(encoders, struct btf_encoder, node);
+}
+
+struct btf_encoder *btf_encoders__next(struct btf_encoder *encoder)
+{
+	return list_next_entry(encoder, node);
+}
 
 #define PERCPU_SECTION ".data..percpu"
 
