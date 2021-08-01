@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <dwarf.h>
+#include <elfutils/version.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <search.h>
@@ -1299,8 +1300,12 @@ static error_t pahole__options_parser(int key, char *arg,
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
 	case 'j':
+#if _ELFUTILS_PREREQ(0, 178)
 		  conf_load.nr_jobs = arg ? atoi(arg) :
 					    sysconf(_SC_NPROCESSORS_ONLN) * 1.1;
+#else
+		  fputs("pahole: Multithreading requires elfutils >= 0.178. Continuing with a single thread...\n", stderr);
+#endif
 							break;
 	case ARGP_btf_encode_detached:
 		  detached_btf_filename = arg; // fallthru
