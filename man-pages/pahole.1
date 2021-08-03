@@ -238,7 +238,16 @@ Show first biggest size base_type member.
 
 .TP
 .B \-m, \-\-nr_methods
-Show number of methods.
+Show number of methods of all classes, i.e. the number of functions have arguments that
+are pointers to a given class.
+
+To get the number of methods for an specific class, please use:
+
+  $ pahole --nr_methods | grep -w sock
+  sock  1005
+  $ 
+
+In the above example it used the BTF information in /sys/kernel/btf/vmlinux.
 
 .TP
 .B \-M, \-\-show_only_data_members
