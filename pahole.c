@@ -2873,6 +2873,11 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
+	if (class_name != NULL && stats_formatter == nr_methods_formatter) {
+		fputs("pahole: -m/nr_methods doesn't work with --class/-C, it shows all classes and the number of its methods\n", stderr);
+		return rc;
+	}
+
 	if (print_numeric_version) {
 		dwarves_print_numeric_version(stdout);
 		return 0;
