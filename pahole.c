@@ -90,7 +90,6 @@ static struct conf_load conf_load = {
 struct structure {
 	struct list_head  node;
 	struct rb_node	  rb_node;
-	char		  *name;
 	struct class	  *class;
 	struct cu	  *cu;
 	uint32_t	  id;
@@ -98,16 +97,11 @@ struct structure {
 	uint32_t	  nr_methods;
 };
 
-static struct structure *structure__new(const char *name, struct class *class, struct cu *cu, uint32_t id)
+static struct structure *structure__new(struct class *class, struct cu *cu, uint32_t id)
 {
 	struct structure *st = malloc(sizeof(*st));
 
 	if (st != NULL) {
-		st->name = strdup(name);
-		if (st->name == NULL) {
-			free(st);
-			return NULL;
-		}
 		st->nr_files   = 1;
 		st->nr_methods = 0;
 		st->class      = class;
@@ -123,7 +117,6 @@ static void structure__delete(struct structure *st)
 	if (st == NULL)
 		return;
 
-	zfree(&st->name);
 	free(st);
 }
 
@@ -143,7 +136,7 @@ static struct structure *__structures__add(struct class *class, struct cu *cu, u
 
                 parent = *p;
                 str = rb_entry(parent, struct structure, rb_node);
-		rc = strcmp(str->name, new_class_name);
+		rc = strcmp(class__name(str->class), new_class_name);
 
 		if (rc > 0)
                         p = &(*p)->rb_left;
@@ -155,7 +148,7 @@ static struct structure *__structures__add(struct class *class, struct cu *cu, u
 		}
         }
 
-	str = structure__new(new_class_name, class, cu, id);
+	str = structure__new(class, cu, id);
 	if (str == NULL)
 		return NULL;
 
@@ -201,7 +194,7 @@ void structures__delete(void)
 
 static void nr_definitions_formatter(struct structure *st)
 {
-	printf("%s%c%u\n", st->name, separator, st->nr_files);
+	printf("%s%c%u\n", class__name(st->class), separator, st->nr_files);
 }
 
 static void nr_members_formatter(struct class *class, struct cu *cu __maybe_unused, uint32_t id __maybe_unused)
@@ -211,7 +204,7 @@ static void nr_members_formatter(struct class *class, struct cu *cu __maybe_unus
 
 static void nr_methods_formatter(struct structure *st)
 {
-	printf("%s%c%u\n", st->name, separator, st->nr_methods);
+	printf("%s%c%u\n", class__name(st->class), separator, st->nr_methods);
 }
 
 static void size_formatter(struct class *class, struct cu *cu __maybe_unused, uint32_t id __maybe_unused)
@@ -807,7 +800,7 @@ static void print_structs_with_pointer_to(struct cu *cu, uint32_t type)
 					break;
 				looked = true;
 			}
-			printf("%s: %s\n", str->name,
+			printf("%s: %s\n", class__name(str->class),
 			       class_member__name(pos_member));
 		}
 	}
