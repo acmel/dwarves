@@ -948,6 +948,7 @@ struct tag_cu_node {
 /**
  * struct type - base type for enumerations, structs and unions
  *
+ * @node: Used in emissions->fwd_decls, i.e. only on the 'dwarves_emit.c' file
  * @nr_members: number of non static DW_TAG_member entries
  * @nr_static_members: number of static DW_TAG_member entries
  * @nr_tags: number of tags
