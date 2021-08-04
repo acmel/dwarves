@@ -948,7 +948,7 @@ struct tag_cu_node {
 /**
  * struct type - base type for enumerations, structs and unions
  *
- * @nnr_members: number of non static DW_TAG_member entries
+ * @nr_members: number of non static DW_TAG_member entries
  * @nr_static_members: number of static DW_TAG_member entries
  * @nr_tags: number of tags
  * @alignment: DW_AT_alignement, zero if not present, gcc emits since circa 7.3.1
