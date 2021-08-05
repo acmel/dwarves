@@ -887,7 +887,7 @@ static int btf_encoder__write_raw_file(struct btf_encoder *encoder)
 
 	close(fd);
 
-	if (err != raw_btf_size) {
+	if ((uint32_t)err != raw_btf_size) {
 		fprintf(stderr, "%s: Could only write %d bytes to %s of raw BTF info out of %d, aborting\n", __func__, err, filename, raw_btf_size);
 		unlink(filename);
 		err = -1;
