@@ -1432,7 +1432,7 @@ void class__find_holes(struct class *class)
 			last_seen_bit = bitfield_end;
 		}
 		if (pos->bitfield_size) {
-			int aligned_start = pos->byte_offset * 8;
+			uint32_t aligned_start = pos->byte_offset * 8;
 			/* we can have some alignment byte padding left,
 			 * but we need to be careful about bitfield spanning
 			 * multiple aligned boundaries */
