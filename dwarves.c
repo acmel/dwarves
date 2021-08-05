@@ -2383,7 +2383,7 @@ int cus__load_files(struct cus *cus, struct conf_load *conf,
 	return i ? 0 : cus__load_running_kernel(cus, conf);
 }
 
-int cus__fprintf_load_files_err(struct cus *cus, const char *tool, char *argv[], int err, FILE *output)
+int cus__fprintf_load_files_err(struct cus *cus __maybe_unused, const char *tool, char *argv[], int err, FILE *output)
 {
 	/* errno is not properly preserved in some cases, sigh */
 	return fprintf(output, "%s: %s: %s\n", tool, argv[-err - 1],
