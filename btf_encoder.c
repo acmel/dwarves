@@ -817,8 +817,7 @@ static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct ta
 	return type_id;
 }
 
-static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct tag *tag,
-				   uint32_t core_id, uint32_t type_id_off)
+static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct tag *tag, uint32_t type_id_off)
 {
 	/* single out type 0 as it represents special type "void" */
 	uint32_t ref_type_id = tag->type == 0 ? 0 : type_id_off + tag->type;
@@ -1381,7 +1380,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 	}
 
 	cu__for_each_type(cu, core_id, pos) {
-		int32_t btf_type_id = btf_encoder__encode_tag(encoder, pos, core_id, type_id_off);
+		int32_t btf_type_id = btf_encoder__encode_tag(encoder, pos, type_id_off);
 
 		if (btf_type_id < 0 ||
 		    tag__check_id_drift(pos, core_id, btf_type_id, type_id_off)) {
