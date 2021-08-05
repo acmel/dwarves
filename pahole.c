@@ -1931,7 +1931,7 @@ static int64_t type__instance_read_once(struct type_instance *instance, FILE *fp
 
  	instance->read_already = true;
 
-	return fread(instance->instance, instance->type->size, 1, fp) != 1 ? -1 : instance->type->size;
+	return fread(instance->instance, instance->type->size, 1, fp) != 1 ? -1 : (int64_t)instance->type->size;
 }
 
 /*
