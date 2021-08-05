@@ -779,7 +779,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		struct tag *type = dtype->tag;
 
 		id = tag__recode_dwarf_bitfield(type, cu, bit_size);
-		if (id == tag->type)
+		if (id >= 0 && (uint32_t)id == tag->type)
 			return id;
 
 		recoded = cu__zalloc(cu, sizeof(*recoded));
