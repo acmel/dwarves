@@ -2512,12 +2512,9 @@ static int cu__set_common(struct cu *cu, struct conf_load *conf,
 	return 0;
 }
 
-static int cus__load_debug_types(struct cus *cus, struct conf_load *conf,
-				 Dwfl_Module *mod, Dwarf *dw, Elf *elf,
-				 const char *filename,
-				 const unsigned char *build_id,
-				 int build_id_len,
-				 struct cu **cup, struct dwarf_cu *dcup)
+static int __cus__load_debug_types(struct conf_load *conf, Dwfl_Module *mod, Dwarf *dw, Elf *elf,
+				   const char *filename, const unsigned char *build_id,
+				   int build_id_len, struct cu **cup, struct dwarf_cu *dcup)
 {
 	Dwarf_Off off = 0, noff, type_off;
 	size_t cuhl;
@@ -2884,9 +2881,7 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 	struct dwarf_cu type_dcu;
 	int type_lsk = LSK__KEEPIT;
 
-	int res = cus__load_debug_types(cus, conf, mod, dw, elf, filename,
-					build_id, build_id_len,
-					&type_cu, &type_dcu);
+	int res = __cus__load_debug_types(conf, mod, dw, elf, filename, build_id, build_id_len, &type_cu, &type_dcu);
 	if (res != 0) {
 		return res;
 	}
