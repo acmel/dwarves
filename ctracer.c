@@ -309,8 +309,7 @@ static struct class_member *class__remove_member(struct class *class, const stru
 	return list_entry(next, struct class_member, tag.node);
 }
 
-static size_t class__find_biggest_member_name(const struct class *class,
-					      const struct cu *cu)
+static size_t class__find_biggest_member_name(const struct class *class)
 {
 	struct class_member *pos;
 	size_t biggest_name_len = 0;
@@ -326,12 +325,10 @@ static size_t class__find_biggest_member_name(const struct class *class,
 	return biggest_name_len;
 }
 
-static void class__emit_class_state_collector(struct class *class,
-					      const struct cu *cu,
-					      struct class *clone)
+static void class__emit_class_state_collector(struct class *class, struct class *clone)
 {
 	struct class_member *pos;
-	int len = class__find_biggest_member_name(clone, cu);
+	int len = class__find_biggest_member_name(clone);
 
 	fprintf(fp_collector,
 		"void ctracer__class_state(const void *from, void *to)\n"
@@ -390,8 +387,7 @@ static void emit_struct_member_table_entry(FILE *fp,
  * ostra-cg to preprocess the raw data collected from the debugfs/relay
  * channel.
  */
-static int class__emit_ostra_converter(struct tag *tag,
-				       const struct cu *cu)
+static int class__emit_ostra_converter(struct tag *tag)
 {
 	struct class *class = tag__class(tag);
 	struct class_member *pos;
@@ -655,7 +651,7 @@ static int class__emit_classes(struct tag *tag, struct cu *cu)
 
 	class__fprintf(mini_class, cu, fp_classes);
 	fputs(";\n\n", fp_classes);
-	class__emit_class_state_collector(class, cu, mini_class);
+	class__emit_class_state_collector(class, mini_class);
 	err = 0;
 out:
 	return err;
@@ -1077,7 +1073,7 @@ failure:
 	class__emit_classes(class, cu);
 	fputc('\n', fp_collector);
 
-	class__emit_ostra_converter(class, cu);
+	class__emit_ostra_converter(class);
 
 	cu_blacklist = strlist__new(true);
 	if (cu_blacklist != NULL)
