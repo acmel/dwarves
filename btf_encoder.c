@@ -1322,7 +1322,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		/* find percpu section's shndx */
 
 		GElf_Shdr shdr;
-		Elf_Scn *sec = elf_section_by_name(cu->elf, &encoder->ehdr, &shdr, PERCPU_SECTION, NULL);
+		Elf_Scn *sec = elf_section_by_name(cu->elf, &shdr, PERCPU_SECTION, NULL);
 
 		if (!sec) {
 			if (encoder->verbose)

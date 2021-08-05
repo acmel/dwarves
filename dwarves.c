@@ -2142,18 +2142,15 @@ static int elf_read_build_id(Elf *elf, void *bf, size_t size)
 	 *   '.note' (VDSO specific)
 	 */
 	do {
-		sec = elf_section_by_name(elf, &ehdr, &shdr,
-					  ".note.gnu.build-id", NULL);
+		sec = elf_section_by_name(elf, &shdr, ".note.gnu.build-id", NULL);
 		if (sec)
 			break;
 
-		sec = elf_section_by_name(elf, &ehdr, &shdr,
-					  ".notes", NULL);
+		sec = elf_section_by_name(elf, &shdr, ".notes", NULL);
 		if (sec)
 			break;
 
-		sec = elf_section_by_name(elf, &ehdr, &shdr,
-					  ".note", NULL);
+		sec = elf_section_by_name(elf, &shdr, ".note", NULL);
 		if (sec)
 			break;
 

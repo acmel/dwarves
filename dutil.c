@@ -180,8 +180,7 @@ bool strlist__has_entry(struct strlist *slist, const char *entry)
 	return false;
 }
 
-Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
-			     GElf_Shdr *shp, const char *name, size_t *index)
+Elf_Scn *elf_section_by_name(Elf *elf, GElf_Shdr *shp, const char *name, size_t *index)
 {
 	Elf_Scn *sec = NULL;
 	size_t cnt = 1;

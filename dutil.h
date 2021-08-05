@@ -321,8 +321,7 @@ static inline bool strstarts(const char *str, const char *prefix)
 
 void *zalloc(const size_t size);
 
-Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
-			     GElf_Shdr *shp, const char *name, size_t *index);
+Elf_Scn *elf_section_by_name(Elf *elf, GElf_Shdr *shp, const char *name, size_t *index);
 
 Elf_Scn *elf_section_by_idx(Elf *elf, GElf_Shdr *shp, int idx);
 

@@ -830,8 +830,7 @@ static int elf__open(const char *filename)
 
 	GElf_Shdr shdr;
 	size_t init_index;
-	Elf_Scn *init = elf_section_by_name(elf, &ehdr, &shdr, ".init.text",
-					    &init_index);
+	Elf_Scn *init = elf_section_by_name(elf, &shdr, ".init.text", &init_index);
 	if (init == NULL)
 		goto out_elf_end;
 
