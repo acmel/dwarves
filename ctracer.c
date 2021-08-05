@@ -822,12 +822,6 @@ static int elf__open(const char *filename)
 		goto out_close;
 	}
 
-	GElf_Ehdr ehdr;
-	if (gelf_getehdr(elf, &ehdr) == NULL) {
-		fprintf(stderr, "%s: cannot get elf header.\n", __func__);
-		goto out_elf_end;
-	}
-
 	GElf_Shdr shdr;
 	size_t init_index;
 	Elf_Scn *init = elf_section_by_name(elf, &shdr, ".init.text", &init_index);
