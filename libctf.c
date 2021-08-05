@@ -132,8 +132,7 @@ int ctf__load(struct ctf *ctf)
 {
 	int err = -ENOTSUP;
 	GElf_Shdr shdr;
-	Elf_Scn *sec = elf_section_by_name(ctf->elf, &ctf->ehdr,
-					   &shdr, ".SUNW_ctf", NULL);
+	Elf_Scn *sec = elf_section_by_name(ctf->elf, &shdr, ".SUNW_ctf", NULL);
 
 	if (sec == NULL)
 		return -ESRCH;
