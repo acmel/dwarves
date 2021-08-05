@@ -535,7 +535,7 @@ static void btf__cu_delete(struct cu *cu)
 	cu->priv = NULL;
 }
 
-static int libbpf_log(enum libbpf_print_level level, const char *format, va_list args)
+static int libbpf_log(enum libbpf_print_level level __maybe_unused, const char *format, va_list args)
 {
 	return vfprintf(stderr, format, args);
 }
