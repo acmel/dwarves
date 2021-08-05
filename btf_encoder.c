@@ -529,7 +529,7 @@ static int32_t btf_encoder__add_func_param(struct btf_encoder *encoder, const ch
 	}
 }
 
-static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct cu *cu, struct ftype *ftype, uint32_t type_id_off)
+static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct ftype *ftype, uint32_t type_id_off)
 {
 	struct btf *btf = encoder->btf;
 	const struct btf_type *t;
@@ -856,7 +856,7 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 	case DW_TAG_enumeration_type:
 		return btf_encoder__add_enum_type(encoder, tag);
 	case DW_TAG_subroutine_type:
-		return btf_encoder__add_func_proto(encoder, cu, tag__ftype(tag), type_id_off);
+		return btf_encoder__add_func_proto(encoder, tag__ftype(tag), type_id_off);
 	default:
 		fprintf(stderr, "Unsupported DW_TAG_%s(0x%x)\n",
 			dwarf_tag_name(tag->tag), tag->tag);
@@ -1431,7 +1431,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 				continue;
 		}
 
-		btf_fnproto_id = btf_encoder__add_func_proto(encoder, cu, &fn->proto, type_id_off);
+		btf_fnproto_id = btf_encoder__add_func_proto(encoder, &fn->proto, type_id_off);
 		name = function__name(fn);
 		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id, name, false);
 		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
