@@ -30,8 +30,7 @@ static bool filter(struct function *f)
 	return true;
 }
 
-static void zero_extend(const int regparm, const struct base_type *bt,
-			struct cu *cu, const char *parm)
+static void zero_extend(const int regparm, const struct base_type *bt, const char *parm)
 {
 	const char *instr = "INVALID";
 
@@ -76,7 +75,7 @@ static void emit_wrapper(struct function *f, struct cu *cu)
 					printf("wrap_%s:\n", name);
 					needs_wrapper = 1;
 				}
-				zero_extend(regparm, bt, cu, parameter__name(parm));
+				zero_extend(regparm, bt, parameter__name(parm));
 			}
 		}
 		++regparm;
