@@ -577,8 +577,8 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 			if (strcmp(name, "long int") != 0 &&
 			    strcmp(name, "long unsigned int") != 0)
 				break;
-			/* fallthru */
 		}
+			/* fallthru */
 		case DW_TAG_pointer_type:
 			diff = word_size_diff;
 			break;
