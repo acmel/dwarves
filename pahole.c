@@ -2784,7 +2784,7 @@ static int prototypes__load(struct list_head *prototypes, const char *filename)
 		if (len == 0)
 			continue;
 		entry[len - 1] = '\0';
-		if (prototypes__add(&class_names, entry))
+		if (prototypes__add(prototypes, entry))
 			goto out;
 	}
 
