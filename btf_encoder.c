@@ -50,7 +50,6 @@ struct btf_encoder {
 	struct gobuffer   percpu_secinfo;
 	const char	  *filename;
 	struct elf_symtab *symtab;
-	GElf_Ehdr	  ehdr;
 	bool		  has_index_type,
 			  need_index_type,
 			  skip_encoding_vars,
@@ -1294,13 +1293,15 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		encoder->need_index_type = false;
 		encoder->array_index_id  = 0;
 
-		if (gelf_getehdr(cu->elf, &encoder->ehdr) == NULL) {
+		GElf_Ehdr ehdr;
+
+		if (gelf_getehdr(cu->elf, &ehdr) == NULL) {
 			if (encoder->verbose)
 				elf_error("cannot get ELF header");
 			goto out_delete;
 		}
 
-		switch (encoder->ehdr.e_ident[EI_DATA]) {
+		switch (ehdr.e_ident[EI_DATA]) {
 		case ELFDATA2LSB:
 			btf__set_endianness(encoder->btf, BTF_LITTLE_ENDIAN);
 			break;
