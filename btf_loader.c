@@ -359,7 +359,7 @@ static int create_new_variable(struct cu *cu, const struct btf_type *tp, uint32_
 	return 0;
 }
 
-static int create_new_datasec(struct cu *cu, const struct btf_type *tp, uint32_t id)
+static int create_new_datasec(struct cu *cu __maybe_unused, const struct btf_type *tp __maybe_unused, uint32_t id __maybe_unused)
 {
 	//cu__add_tag_with_id(cu, &datasec->tag, id);
 
