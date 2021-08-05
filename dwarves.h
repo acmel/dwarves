@@ -1171,8 +1171,7 @@ size_t class__fprintf(struct class *cls, const struct cu *cu, FILE *fp);
 
 void class__add_vtable_entry(struct class *cls, struct function *vtable_entry);
 static inline struct class_member *
-	class__find_member_by_name(const struct class *cls,
-				   const struct cu *cu, const char *name)
+	class__find_member_by_name(const struct class *cls, const char *name)
 {
 	return type__find_member_by_name(&cls->type, name);
 }

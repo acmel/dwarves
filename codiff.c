@@ -190,7 +190,7 @@ static struct class_member *class__find_pair_member(const struct class *structur
 	struct class_member *member;
 
 	if (member_name)
-		return class__find_member_by_name(structure, cu, member_name);
+		return class__find_member_by_name(structure, member_name);
 
 	int nr_anonymous = ++*nr_anonymousp;
 
