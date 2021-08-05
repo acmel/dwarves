@@ -2480,7 +2480,6 @@ static int cu__finalize(struct cu *cu, struct conf_load *conf)
 }
 
 static int finalize_cu_immediately(struct cus *cus, struct cu *cu,
-				   struct dwarf_cu *dcu,
 				   struct conf_load *conf)
 {
 	int lsk = cu__finalize(cu, conf);
@@ -2677,7 +2676,7 @@ static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *c
 	cu->dfops = &dwarf__ops;
 
 	if (die__process_and_recode(cu_die, cu, dcus->conf) != 0 ||
-	    finalize_cu_immediately(dcus->cus, cu, dcu, dcus->conf) == LSK__STOP_LOADING)
+	    finalize_cu_immediately(dcus->cus, cu, dcus->conf) == LSK__STOP_LOADING)
 		return DWARF_CB_ABORT;
 
        return DWARF_CB_OK;
@@ -2860,7 +2859,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 	if (cu__resolve_func_ret_types(cu) != LSK__KEEPIT)
 		goto out_abort;
 
-	if (finalize_cu_immediately(cus, cu, dcu, conf)
+	if (finalize_cu_immediately(cus, cu, conf)
 	    == LSK__STOP_LOADING)
 		goto out_abort;
 
