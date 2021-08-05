@@ -182,8 +182,8 @@ static int check_print_change(const struct class_member *old,
 	return changes;
 }
 
-static struct class_member *class__find_pair_member(const struct class *structure, const struct cu *cu,
-						    const struct class_member *pair_member, const struct cu *pair_cu,
+static struct class_member *class__find_pair_member(const struct class *structure,
+						    const struct class_member *pair_member,
 						    int *nr_anonymousp)
 {
 	const char *member_name = class_member__name(pair_member);
@@ -217,7 +217,7 @@ static int check_print_members_changes(const struct class *structure,
 	uint16_t nr_twins_found = 0;
 
 	type__for_each_member(&structure->type, member) {
-		struct class_member *twin = class__find_pair_member(new_structure, new_cu, member, cu, &nr_anonymous);
+		struct class_member *twin = class__find_pair_member(new_structure, member, &nr_anonymous);
 		if (twin != NULL) {
 			twin->tag.visited = 1;
 			++nr_twins_found;
@@ -450,7 +450,7 @@ static void show_nr_members_changes(const struct class *structure,
 
 	/* Find the removed ones */
 	type__for_each_member(&structure->type, member) {
-		struct class_member *twin = class__find_pair_member(new_structure, new_cu, member, cu, &nr_anonymous);
+		struct class_member *twin = class__find_pair_member(new_structure, member, &nr_anonymous);
 		if (twin == NULL)
 			show_changed_member('-', member, cu);
 	}
@@ -458,7 +458,7 @@ static void show_nr_members_changes(const struct class *structure,
 	nr_anonymous = 0;
 	/* Find the new ones */
 	type__for_each_member(&new_structure->type, member) {
-		struct class_member *twin = class__find_pair_member(structure, cu, member, new_cu, &nr_anonymous);
+		struct class_member *twin = class__find_pair_member(structure, member, &nr_anonymous);
 		if (twin == NULL)
 			show_changed_member('+', member, new_cu);
 	}
