@@ -1389,7 +1389,7 @@ void class__find_holes(struct class *class)
 {
 	const struct type *ctype = &class->type;
 	struct class_member *pos, *last = NULL;
-	int cur_bitfield_end = ctype->size * 8, cur_bitfield_size = 0;
+	uint32_t cur_bitfield_end = ctype->size * 8, cur_bitfield_size = 0;
 	int bit_holes = 0, byte_holes = 0;
 	uint32_t bit_start, bit_end;
 	int last_seen_bit = 0;
