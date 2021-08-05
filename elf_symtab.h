@@ -21,7 +21,7 @@ struct elf_symtab {
 	char	  *name;
 };
 
-struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr);
+struct elf_symtab *elf_symtab__new(const char *name, Elf *elf);
 void elf_symtab__delete(struct elf_symtab *symtab);
 
 static inline uint32_t elf_symtab__nr_symbols(const struct elf_symtab *symtab)

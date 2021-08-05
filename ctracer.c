@@ -834,7 +834,7 @@ static int elf__open(const char *filename)
 	if (init == NULL)
 		goto out_elf_end;
 
-	struct elf_symtab *symtab = elf_symtab__new(".symtab", elf, &ehdr);
+	struct elf_symtab *symtab = elf_symtab__new(".symtab", elf);
 	if (symtab == NULL)
 		goto out_elf_end;
 

@@ -1312,7 +1312,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 			goto out_delete;
 		}
 
-		encoder->symtab = elf_symtab__new(NULL, cu->elf, &encoder->ehdr);
+		encoder->symtab = elf_symtab__new(NULL, cu->elf);
 		if (!encoder->symtab) {
 			if (encoder->verbose)
 				printf("%s: '%s' doesn't have symtab.\n", __func__, cu->filename);

@@ -432,7 +432,7 @@ int elf_symtab__show(char *filename)
 		goto out_elf_end;
 	}
 
-	struct elf_symtab *symtab = elf_symtab__new(symtab_name, elf, &ehdr);
+	struct elf_symtab *symtab = elf_symtab__new(symtab_name, elf);
 	if (symtab == NULL)
 		goto out_elf_end;
 
