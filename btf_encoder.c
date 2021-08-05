@@ -1131,14 +1131,12 @@ static int btf_encoder__collect_symbols(struct btf_encoder *encoder, bool collec
 	return 0;
 }
 
-static bool has_arg_names(struct cu *cu, struct ftype *ftype)
+static bool ftype__has_arg_names(const struct ftype *ftype)
 {
 	struct parameter *param;
-	const char *name;
 
 	ftype__for_each_parameter(ftype, param) {
-		name = parameter__name(param);
-		if (name == NULL)
+		if (parameter__name(param) == NULL)
 			return false;
 	}
 	return true;
@@ -1411,7 +1409,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 		 */
 		if (fn->declaration)
 			continue;
-		if (!has_arg_names(cu, &fn->proto))
+		if (!ftype__has_arg_names(&fn->proto))
 			continue;
 		if (encoder->functions.cnt) {
 			struct elf_function *func;
