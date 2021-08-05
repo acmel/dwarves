@@ -118,7 +118,7 @@ err:
 		if (!should_copy_scn(elf, shdr, sections) && !copy_all_sections)
 			continue;
 
-		elfcreator_copy_scn(ctor, elf, scn);
+		elfcreator_copy_scn(ctor, scn);
 	}
 	elfcreator_end(ctor);
 	return 0;

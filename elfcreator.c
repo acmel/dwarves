@@ -108,7 +108,7 @@ static void update_dyn_cache(ElfCreator *ctor)
 	ctor->dyndata = elf_getdata(ctor->dynscn, NULL);
 }
 
-void elfcreator_copy_scn(ElfCreator *ctor, Elf *src, Elf_Scn *scn)
+void elfcreator_copy_scn(ElfCreator *ctor, Elf_Scn *scn)
 {
 	Elf_Scn *newscn;
 	Elf_Data *indata, *outdata;
