@@ -1313,7 +1313,7 @@ struct argp_state;
 void dwarves_print_version(FILE *fp, struct argp_state *state);
 void dwarves_print_numeric_version(FILE *fp);
 
-extern bool print_numeric_version;;
+extern bool print_numeric_version;
 
 extern bool no_bitfield_type_recode;
 
