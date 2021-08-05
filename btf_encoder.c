@@ -905,7 +905,6 @@ static int btf_encoder__write_elf(struct btf_encoder *encoder)
 	struct btf *btf = encoder->btf;
 	const char *filename = encoder->filename;
 	GElf_Shdr shdr_mem, *shdr;
-	GElf_Ehdr ehdr_mem, *ehdr;
 	Elf_Data *btf_data = NULL;
 	Elf_Scn *scn = NULL;
 	Elf *elf = NULL;
@@ -932,12 +931,6 @@ static int btf_encoder__write_elf(struct btf_encoder *encoder)
 	}
 
 	elf_flagelf(elf, ELF_C_SET, ELF_F_DIRTY);
-
-	ehdr = gelf_getehdr(elf, &ehdr_mem);
-	if (ehdr == NULL) {
-		elf_error("elf_getehdr failed");
-		goto out;
-	}
 
 	/*
 	 * First we look if there was already a .BTF section to overwrite.
