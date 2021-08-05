@@ -282,7 +282,7 @@ size_t ctf__get_size(struct ctf *ctf)
 
 int ctf__load_symtab(struct ctf *ctf)
 {
-	ctf->symtab = elf_symtab__new(".symtab", ctf->elf, &ctf->ehdr);
+	ctf->symtab = elf_symtab__new(".symtab", ctf->elf);
 	return ctf->symtab == NULL ? -1 : 0;
 }
 

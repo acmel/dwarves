@@ -15,7 +15,7 @@
 #define HASHSYMS__BITS 8
 #define HASHSYMS__SIZE (1UL << HASHSYMS__BITS)
 
-struct elf_symtab *elf_symtab__new(const char *name, Elf *elf, GElf_Ehdr *ehdr)
+struct elf_symtab *elf_symtab__new(const char *name, Elf *elf)
 {
 	size_t symtab_index;
 
