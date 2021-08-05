@@ -756,7 +756,7 @@ static int tag__check_id_drift(const struct tag *tag,
 	return 0;
 }
 
-static int32_t btf_encoder__add_struct_type(struct btf_encoder *encoder, struct cu *cu, struct tag *tag, uint32_t type_id_off)
+static int32_t btf_encoder__add_struct_type(struct btf_encoder *encoder, struct tag *tag, uint32_t type_id_off)
 {
 	struct type *type = tag__type(tag);
 	struct class_member *pos;
@@ -848,7 +848,7 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct cu *cu, s
 		if (tag__type(tag)->declaration)
 			return btf_encoder__add_ref_type(encoder, BTF_KIND_FWD, 0, name, tag->tag == DW_TAG_union_type);
 		else
-			return btf_encoder__add_struct_type(encoder, cu, tag, type_id_off);
+			return btf_encoder__add_struct_type(encoder, tag, type_id_off);
 	case DW_TAG_array_type:
 		/* TODO: Encode one dimension at a time. */
 		encoder->need_index_type = true;
