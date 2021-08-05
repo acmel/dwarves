@@ -12,7 +12,7 @@
 
 typedef struct elf_creator ElfCreator;
 extern ElfCreator *elfcreator_begin(char *path, Elf *elf);
-extern void elfcreator_copy_scn(ElfCreator *ctor, Elf *src, Elf_Scn *scn);
+extern void elfcreator_copy_scn(ElfCreator *ctor, Elf_Scn *scn);
 extern void elfcreator_end(ElfCreator *ctor);
 
 #endif /* ELFCREATOR_H */
