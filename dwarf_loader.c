@@ -2468,8 +2468,7 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 	return 0;
 }
 
-static int finalize_cu(struct cus *cus, struct cu *cu, struct dwarf_cu *dcu,
-		       struct conf_load *conf)
+static int cu__finalize(struct cu *cu, struct dwarf_cu *dcu, struct conf_load *conf)
 {
 	cu__for_all_tags(cu, class_member__cache_byte_size, conf);
 	if (conf && conf->steal) {
@@ -2482,7 +2481,7 @@ static int finalize_cu_immediately(struct cus *cus, struct cu *cu,
 				   struct dwarf_cu *dcu,
 				   struct conf_load *conf)
 {
-	int lsk = finalize_cu(cus, cu, dcu, conf);
+	int lsk = cu__finalize(cu, dcu, conf);
 	switch (lsk) {
 	case LSK__DELETE:
 		cu__delete(cu);
@@ -2894,7 +2893,7 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 	}
 
 	if (type_cu != NULL) {
-		type_lsk = finalize_cu(cus, type_cu, &type_dcu, conf);
+		type_lsk = cu__finalize(type_cu, &type_dcu, conf);
 		if (type_lsk == LSK__KEEPIT) {
 			cus__add(cus, type_cu);
 		}
