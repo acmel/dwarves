@@ -142,6 +142,15 @@ static int type__compare_members(struct type *a, struct cu *cu_a, struct type *b
 		if (!type_ma || !type_mb) // shuldn't happen
 			return type_ma ? 1 : -1; // best effort
 
+		const char *name_a = class_member__name(ma),
+			   *name_b = class_member__name(mb);
+
+		if (name_a && name_b) {
+			ret = strcmp(name_a, name_b);
+			if (ret)
+				return ret;
+		}
+
 		char bf_a[1024], bf_b[1024];
 
 		ret = strcmp(tag__name(type_ma, cu_a, bf_a, sizeof(bf_a), NULL),
