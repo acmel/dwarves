@@ -123,19 +123,36 @@ static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
 static pthread_mutex_t structures_lock = PTHREAD_MUTEX_INITIALIZER;
 
+static int type__compare(struct type *a, struct type *b)
+{
+	int ret = strcmp(type__name(a), type__name(b));
+
+	if (ret)
+		goto found;
+
+	ret = (int)a->size - (int)b->size;
+	if (ret)
+		goto found;
+
+	ret = (int)a->nr_members - (int)b->nr_members;
+	if (ret)
+		goto found;
+found:
+	return ret;
+}
+
 static struct structure *__structures__add(struct class *class, struct cu *cu, uint32_t id, bool *existing_entry)
 {
         struct rb_node **p = &structures__tree.rb_node;
         struct rb_node *parent = NULL;
 	struct structure *str;
-	const char *new_class_name = class__name(class);
 
         while (*p != NULL) {
 		int rc;
 
                 parent = *p;
                 str = rb_entry(parent, struct structure, rb_node);
-		rc = strcmp(class__name(str->class), new_class_name);
+		rc = type__compare(&str->class->type, &class->type);
 
 		if (rc > 0)
                         p = &(*p)->rb_left;
