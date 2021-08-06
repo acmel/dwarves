@@ -998,6 +998,16 @@ static inline struct tag *type__tag(const struct type *type)
 
 void type__delete(struct type *type);
 
+static inline struct class_member *type__first_member(struct type *type)
+{
+	return list_first_entry(&type->namespace.tags, struct class_member, tag.node);
+}
+
+static inline struct class_member *class_member__next(struct class_member *member)
+{
+	return list_entry(member->tag.node.next, struct class_member, tag.node);
+}
+
 /**
  * type__for_each_tag - iterate thru all the tags
  * @type: struct type instance to iterate
