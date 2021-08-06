@@ -123,7 +123,52 @@ static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
 static pthread_mutex_t structures_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static int type__compare(struct type *a, struct type *b)
+static int type__compare_members(struct type *a, struct cu *cu_a, struct type *b, struct cu *cu_b)
+{
+	int ret;
+
+	// a->nr_members should be equal to b->nr_members at this point
+
+	if (a->nr_members == 0)
+		return 0;
+
+	struct class_member *ma, *mb = type__first_member(b);
+
+	type__for_each_member(a, ma) {
+		struct tag *type_ma = cu__type(cu_a, ma->tag.type),
+			   *type_mb = cu__type(cu_b, mb->tag.type);
+
+		if (type_ma && !type_mb && class_member__name(mb) == NULL) {
+			/*
+			 * FIXME This is happening with a vmlinux built with
+			 * clang and thin-LTO, and since this is not
+			 * multithreadeded, we can get the previous behaviour
+			 * by considering just the first occurence, the one with
+			 * all the class member names and proper types, and since
+			 * the name, size, number of members is the same, consider them equal
+			 * and use the complete type (the first one found).
+			 * With this btfdiff works for both non-thin-LTO and thin-LTO vmlinux files
+			 */
+			return 0;
+		}
+
+		if (!type_ma || !type_mb) // shuldn't happen
+			return type_ma ? 1 : -1; // best effort
+
+		char bf_a[1024], bf_b[1024];
+
+		ret = strcmp(tag__name(type_ma, cu_a, bf_a, sizeof(bf_a), NULL),
+			     tag__name(type_mb, cu_b, bf_b, sizeof(bf_b), NULL));
+		if (ret)
+			return ret;
+
+		mb = class_member__next(mb);
+	}
+
+	return 0;
+}
+
+static int type__compare(struct type *a, struct cu *cu_a, struct type *b, struct cu *cu_b)
 {
 	int ret = strcmp(type__name(a), type__name(b));
 
@@ -137,6 +182,8 @@ static int type__compare(struct type *a, struct type *b)
 	ret = (int)a->nr_members - (int)b->nr_members;
 	if (ret)
 		goto found;
+
+	ret = type__compare_members(a, cu_a, b, cu_b);
 found:
 	return ret;
 }
@@ -152,7 +199,7 @@ static struct structure *__structures__add(struct class *class, struct cu *cu, u
 
                 parent = *p;
                 str = rb_entry(parent, struct structure, rb_node);
-		rc = type__compare(&str->class->type, &class->type);
+		rc = type__compare(&str->class->type, str->cu, &class->type, cu);
 
 		if (rc > 0)
                         p = &(*p)->rb_left;
