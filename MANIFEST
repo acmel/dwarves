@@ -39,8 +39,6 @@ rbtree.c
 rbtree.h
 scncopy.c
 syscse.c
-strings.c
-pahole_strings.h
 dutil.c
 dutil.h
 changes-v1.13
