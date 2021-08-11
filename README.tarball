@@ -1,1 +1,1 @@
-tar cvfJ ~/rpmbuild/SOURCES/dwarves-1.17.tar.xz --transform 's,^,dwarves-1.17/,' `cat MANIFEST`
+v=1.$(($(git tag | sort -V | tail -1 | cut -d. -f2) + 1)) ; tar cvfJ ~/rpmbuild/SOURCES/dwarves-${v}.tar.xz --transform "s,^,dwarves-${v}/," `cat MANIFEST`
