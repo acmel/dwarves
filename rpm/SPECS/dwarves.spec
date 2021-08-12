@@ -123,7 +123,6 @@ rm -Rf %{buildroot}
 %{_includedir}/dwarves/elf_symtab.h
 %{_includedir}/dwarves/gobuffer.h
 %{_includedir}/dwarves/hash.h
-%{_includedir}/dwarves/libbtf.h
 %{_includedir}/dwarves/libctf.h
 %{_includedir}/dwarves/list.h
 %{_includedir}/dwarves/rbtree.h
