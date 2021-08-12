@@ -1,1 +1,1 @@
-v=1.$(($(git tag | sort -V | tail -1 | cut -d. -f2) + 1)) ; tar cvfJ ~/rpmbuild/SOURCES/dwarves-${v}.tar.xz --transform "s,^,dwarves-${v}/," `cat MANIFEST`
+v=1.$(($(git tag | sort -V | tail -1 | cut -d. -f2) + 1)) ; tar cvfJ ~/rpmbuild/SOURCES/dwarves-${v}.tar.xz --transform "s,^pahole/,dwarves-${v}/," `sed s%^%../pahole/%g MANIFEST`
