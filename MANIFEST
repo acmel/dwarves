@@ -68,3 +68,4 @@ libctf.c
 libctf.h
 regtest
 lib/bpf/
+lib/include/bpf
