@@ -10,6 +10,7 @@
  */
 
 #include <stdbool.h>
+#include <linux/stddef.h>
 #include <stddef.h>
 #include <string.h>
 #include <elf.h>
