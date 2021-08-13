@@ -12,6 +12,7 @@
 #include <dwarf.h>
 #include <elfutils/version.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <pthread.h>
 #include <search.h>
 #include <stdarg.h>
