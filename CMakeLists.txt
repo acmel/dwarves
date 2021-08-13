@@ -59,6 +59,7 @@ add_definitions(-D_GNU_SOURCE -DDWARVES_MAJOR_VERSION=1)
 add_definitions(-D_GNU_SOURCE -DDWARVES_MINOR_VERSION=22)
 find_package(DWARF REQUIRED)
 find_package(ZLIB REQUIRED)
+find_package(argp REQUIRED)
 
 # make sure git submodule(s) are checked out
 find_package(Git QUIET)
@@ -120,7 +121,7 @@ endif()
 add_library(dwarves ${dwarves_LIB_SRCS})
 set_target_properties(dwarves PROPERTIES VERSION 1.0.0 SOVERSION 1)
 set_target_properties(dwarves PROPERTIES INTERFACE_LINK_LIBRARIES "")
-target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES} ${LIBBPF_LIBRARIES})
+target_link_libraries(dwarves ${DWARF_LIBRARIES} ${ZLIB_LIBRARIES} ${LIBBPF_LIBRARIES} ${ARGP_LIBRARY})
 
 set(dwarves_emit_LIB_SRCS dwarves_emit.c)
 add_library(dwarves_emit ${dwarves_emit_LIB_SRCS})
