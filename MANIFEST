@@ -16,6 +16,7 @@ dwarves_reorganize.c
 dwarves_reorganize.h
 cmake/modules/FindDWARF.cmake
 cmake/modules/Findargp.cmake
+cmake/modules/Findobstack.cmake
 CMakeLists.txt
 codiff.c
 ctracer.c
