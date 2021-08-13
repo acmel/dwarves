@@ -10,10 +10,14 @@
 #include <dwarf.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <inttypes.h>
 #include <elfutils/version.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "config.h"
 #include "dwarves.h"
@@ -1933,10 +1937,39 @@ void cus__print_error_msg(const char *progname, const struct cus *cus,
 		fprintf(stderr, "%s: %s\n", progname, strerror(-err));
 }
 
+#ifndef _SC_LEVEL1_DCACHE_LINESIZE
+int filename__read_int(const char *filename, int *value)
+{
+        char line[64];
+        int fd = open(filename, O_RDONLY), err = -1;
+
+        if (fd < 0)
+                return -1;
+
+        if (read(fd, line, sizeof(line)) > 0) {
+                *value = atoi(line);
+                err = 0;
+        }
+
+        close(fd);
+        return err;
+}
+#endif
+
+static long cacheline__size(void)
+{
+#ifdef _SC_LEVEL1_DCACHE_LINESIZE
+	return sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+#else
+	int value;
+	return filename__read_int("/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size", &value) == 0 ? value : -1;
+#endif
+}
+
 void dwarves__fprintf_init(uint16_t user_cacheline_size)
 {
 	if (user_cacheline_size == 0) {
-		long sys_cacheline_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+		long sys_cacheline_size = cacheline__size();
 
 		if (sys_cacheline_size > 0)
 			cacheline_size = sys_cacheline_size;
