@@ -1,0 +1,95 @@
+pahole:
+
+- Allow encoding BTF to a separate BTF file (detached) instead of to a new
+  ".BTF" ELF section in the file being encoded (vmlinux usually).
+
+- Introduce -j/--jobs option to specify the number of threads to use. Without
+  arguments means one thread per CPU. So far used for the DWARF loader, will
+  be used as well for the BTF encoder.
+
+- Show all different types with the same name, not just the first one found.
+
+- Introduce sorted type output (--sort), needed with multithreaded DWARF loading,
+  to use with things like 'btfdiff' that expects the output from DWARF and BTF
+  types to be comparable using 'diff'.
+
+- Stop assuming that reading from stdin means pretty printing as this broke
+  pre-existing scripts, introduce a explicit --prettify command line option.
+
+- Improve type resolution for the --header command line option.
+
+- Disable incomplete CTF encoder, this needs to be done using the external
+  libctf library.
+
+- Do not consider the ftrace filter when encoding BTF for kernel functions.
+
+- Add --kabi_prefix to avoid deduplication woes when using _RH_KABI_REPLACE(),
+
+- Add --with_flexible_array to show just types with flexible arrays.
+
+DWARF Loader:
+
+- Multithreaded loading, requires elfutils >= 0.178.
+
+- Lock calls to non-thread safe elfutils' libdw functions (dwarf_decl_file()
+  and dwarf_decl_line())
+
+- Change hash table size to one that performs better with current typical
+  vmlinux files.
+
+- Allow tweaking the hash table size from the command line.
+
+- Stop allocating memory for strings obtained from libdw, just defer freeing
+  the Dwfl handler so that references to its strings can be safely kept.
+
+- Use a frontend cache for the latest lookup result.
+
+- Allow ignoring some DWARF tags when loading for encoding BTF, as BTF doesn't
+  have equivalents for things like DW_TAG_inline_expansion and DW_TAG_label.
+
+- Allow ignoring some DWARF tag attributes, such as DW_AT_alignment, not used
+  when encoding BTF.
+
+- Do not query for non-C attributes when loading a C language CU (compilation unit).
+
+BTF encoder:
+
+- Preparatory work for multithreaded encoding, the focus for 1.23.
+
+btfdiff:
+
+- Support diffing against a detached BTF file, e.g.: 'btfdiff vmlinux vmlinux.btf'
+
+- Support multithreaded DWARF loading, using the new pahole --sort option to have
+  the output from both BTF and DWARF sorted and thus comparable via 'diff'.
+
+Build:
+
+- Support building with libc libraries lacking either obstacks or argp, such
+  as Alpine Linux's musl libc.
+
+- Support systems without getconf() to obtain the data cacheline size, such
+  as musl libc.
+
+- Add a buildcmd.sh for test builds, tested using the same set of containers
+  used for testing the Linux kernel perf tools.
+
+- Enable selecting building with a shared libdwarves library or statically.
+
+- Allow to use the libbpf package found in distributions instead of with the
+  accompanying libbpf git submodule.
+
+Cleanups:
+
+- Address lots of compiler warnings accumulated by not using -Wextra, it'll
+  be added in the next release after allowing not to use it to build libbpf.
+
+- Address covscan report issues.
+
+Documentation:
+
+- Improve the --nr_methods/-m pahole man page entry.
+
+- Clarify that currently --nr_methods doesn't work together witn -C.
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>

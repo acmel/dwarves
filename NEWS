@@ -1,3 +1,371 @@
+v1.22:
+
+Mon Aug 23 2021
+
+40a40df961e74aac core: Bump the chunk size for ptr_table uses in types, tags, functions tables
+9f0809e6a8e790a1 pahole: Introduce --ptr_table_stats
+f035871495435e58 core: Add CU stats printer
+c59e996c97eb5569 pahole: Fix races in accessing type information in live CUs
+c34b6c6cc96b9669 pahole: Add missing limits.h include to get ULLONG_MAX definition
+5e8ad60d1f33bed6 CMakeList.txt: Look for obstack outside libc
+739bc50b90694ffe cmake: Add a module to find if obstack is in a separate library
+5244b47a883bee96 CMakeList.txt: Look for argp outside libc
+3f70d31571d47c64 cmake: Add a module to find if argp is in a separate library
+9f9588dc2bd8c955 fprintf: Add alternative method for reading the data cacheline size
+71867afd666f2945 core: Include missing limits.h to get PATH_MAX definition
+0d8d457fa325fb07 dutil: Include linux/stddef.h to build on Alpine Linux systems
+bb02fec203463b9f README.tarball: Overcome --transform problem with symlinks
+9fed416b380a7a17 MANIFEST: Add lib/include/bpf
+cb1cf166769a169e spec: Remove deleted libbtf.h from the RPM file list
+d0c3dd18c7d81cff README.tarball: Remove hardcoded version, get it from 'git tag'
+b5140d5e6c8cade8 MANIFEST: Remove long gone strings header files
+02fd228f6af7b04e MANIFEST: Add buildcmd.sh
+06e41eccc2d19263 buildcmd.sh: Add single build script for use in CI
+eba3e874add53187 pahole: Consider type members's names when comparing unions, structs
+f61d458c9126467e pahole: Consider type members's types when comparing unions, structs
+589a298829760a14 core: Introduce helpers for getting the first and next members of a type
+815041d6dc4d62bf pahole: Improve the type sorting routine to consider multiple types with same name
+93e26698693aca95 core: Remove extra ; in 'print_numeric_version' extern declaration
+19798784d7a715d0 btf_loader: Mark the 'level' arg to the libbpf error callback as __maybe_unused
+22763a8fc7ee5f79 btf_loader: Mark create_new_datasec() args as __maybe_unused
+38df86db2b65dd43 dwarf_loader: cus__load_debug_types() doesn't use its 'cus' arg, remove it
+16d646c07e98d66c dwarf_loader: Rename finalize_cu_immediately() to cus__finalize() to follow convention
+90599e6177f20696 dwarf_loader: Remove unused 'dcu' argument from finalize_cu_immediately()
+6fd4377a0db1e8d3 dwarf_loader: Remove unused 'dcus' argument from cu__finalize()
+2bb04ecf79880a97 dwarf_loader: Remove unused 'cus' argument from finalize_cu()
+9ada372a21d0abc2 dwarf_loader: Fix signed/unsigned comparision in tag__recode_dwarf_bitfield()
+e4e9267c3a177ffa core: cus__fprintf_load_files_err() doesn't use its 'cus' argument
+df92cb6b8e0f1577 core: Change last_seen_bit to uint32_t in class__find_holes()
+789d8b3e1a7210d1 core: Change aligned_start to uint32_t in class__find_holes()
+182cdcaed9055c76 core: Change cur_bitfield_end to uint32_t in class__find_holes()
+5900f43f10844971 core: Change bit_start and bit_end to uint32_t in class__find_holes()
+8634d8535f3fb25d btf_encoder: Fix signed/unsigned comparision
+8d2efa2b6c147c37 btf_encoder: has_arg_names() doesn't need the 'cu' pointer
+05f737076f81eab9 btf_encoder: btf_encoder__encode_tag() doesn't need the 'core_id' pointer
+dc30e82b26dc98ef btf_encoder: btf_encoder__encode_tag() doesn't need the 'cu' pointer
+4360359e434b41db btf_encoder: btf_encoder__add_struct_type() doesn't need the 'cu' pointer
+6e1e4881a584ca54 btf_encoder: btf_encoder__add_func_proto() doesn't need the 'cu' pointer
+9fbfcee7d9708876 btf_encoder: No need to read the ehdr in btf_encoder__write_elf(), ditch it
+898cc490279c794b ctracer: No need to read the ehdr, ditch it
+dee83e27dd69cb98 btf_encoder: No need to store the ehdr in the instance
+24404190b80aa6bf elf_symtab: Remove needless GElf_Ehdr pointer argument from the constructor
+74c2078e04755b6a dutil: elf_symtab__new() doesn't need the GElf_Ehdr *ep argument
+23ea62817c3c9d1d pahole: Move case fallthru comment to after the statement
+7a8e75cd9a99f618 elfcreator: elfcreator_copy_scn() doesn't need the 'elf' arg
+3925a5bd53d68edc syscse: zero_extend() doesn't need a 'cu' arg
+21b2933f018a954d pahole: Fix signedness of ternary expression operator
+4e11c13895556982 ctracer: Remove a bunch of unused 'cu' pointers
+54c1e93b8eada3db pahole: Use the 'prototypes' parameter in prototypes__load()
+8b495918e6b52c4c codiff: class__find_pair_member() doesn't need 'cu' args
+057be3d9936f78d9 core: class__find_member_by_name() doesn't need a cu pointer
+ce9de90364d0fe98 core: Document type->node member usage
+cead526d6b96e1d7 core: Fix nnr_members typo on 'struct type' comment docs
+7cfc9be1f27876f4 man-pages: Improve the --nr_methods/-m pahole man page entry
+3895127ce674cfb6 pahole: Clarify that currently --nr_methods doesn't work together witn -C
+2ea46285aca0c639 pahole: No need to store the class name in 'struct structure'
+4d8551396df5ce5a pahole: Multithreaded DWARF loading requires elfutils >= 0.178
+e57e23c72a7c0446 btf_encoder: Add methods to maintain a list of btf encoders
+e9b83dba79a87935 list: Adopt list_next_entry() from the Linux kernel
+6edae3e768e6bc0d dwarf_loader: Make hash table size default to 12, faster than 15
+d2d83be1e2124785 pahole: Allow tweaking the size of the loader hash tables
+ff7bd7083f36db80 core: Allow sizing the loader hash table
+3068ff36b7ff943d hash: Remove unused hash_32(), hash_ptr()
+8eebf70d05d881cf dwarf_loader: Use a per-CU frontend cache for the latest lookup result
+a2f1e698487b783c core: Use obstacks: take 2
+dca86fb8c2220f9a dwarf_loader: Add comment on why we can't ignore lexblocks
+9d0a7ee0c38ebac5 pahole: Ignore DW_TAG_label when encoding BTF
+d40c5f1e20795938 core: Allow ignoring DW_TAG_label
+51ba83192979916e pahole: Ignore DW_TAG_inline_expansion when encoding BTF
+903863889131a7fa core: Allow ignoring DW_TAG_inline_expansion
+20757745f04ace54 pahole: Allow encoding BTF with parallel DWARF loading
+5a85d9a450819500 core: Zero out unused entries when extending ptr_table array in ptr_table__add()
+d133569bd0f0b422 pahole: No need to read DW_AT_alignment when encoding BTF
+21a41e5386938db1 dwarf_loader: Allow asking not to read the DW_AT_alignment attribute
+1ef1639039b56005 dwarf_loader: Do not look for non-C DWARF attributes in C CUs
+88265eab35666f34 core: Add cu__is_c() to check if the CU language is C
+1caed1c443d4a0dc dwarf_loader: Add a lock around dwarf_decl_file() and dwarf_decl_line() calls
+dd13708f2fd7557b btfdiff: Use multithreaded DWARF loading
+f95f7838499f94c3 btfdiff: Use --sort for pretty printing from both BTF and DWARF
+3e1c7a20770ec432 pahole: Introduce --sort
+967290bc7176e3c2 pahole: Store the class id in 'struct structure' as well
+2b45e1b6d04b147c dwarf_loader: Defer freeing libdw Dwfl handler
+35845e7e41872158 core: Provide a way to store per loader info in cus and an exit function
+5365c45177643f35 pahole: Keep class + cu in tree of structures
+fb99cad539e58638 dwarf_loader: Parallel DWARF loading
+75d4748861ad98cf pahole: Disable parallell BTF encoding for now
+1c60f71daacbe4d0 pahole: Add locking for the structures list and rbtree
+46ad8c01585df768 dwarf_loader: Introduce 'dwarf_cus' to group all the DWARF specific per-cus state
+d963af9fd8148ba0 dwarf_loader: Factor common bits for creating and processing CU
+0c5bf70cc1259162 fprintf: class__vtable_fprintf() doesn't need a 'cu' arg
+38ff86b149e1aa9a fprintf: string_type__fprintf() doesn't need a 'cu' arg
+a75c342ac2fc6c54 core: Ditch tag__free_orig_info(), unused
+80fe32fd294ac15e core: variable__name() doesn't need a 'cu' arg
+caa219dffcb41422 core: base_type__name() doesn't need a 'cu' arg
+7569e46d3515f93e core: namespace__delete() doesn't need a 'cu' arg
+de4e8b7f178257d5 core: {tag,function,lexblock}__delete() doesn't need a 'cu' arg
+789ed4e3a2c34b54 core: ftype__delete() doesn't need a 'cu' arg
+6340cb462767aa95 core: enumeration__delete() doesn't need a 'cu' arg
+33e44f5295702d95 core: type__delete() doesn't need a 'cu' arg
+0f54ca9c827e9ef7 core: class__clone() doesn't need a 'cu' arg
+2b2014187b811243 core: class__delete() doesn't need a 'cu' arg
+f40900eba656db3b core: type__delete_class_members() doesn't need a 'cu' arg
+50916756d59ad7f9 core: class_member__delete() doesn't need a 'cu' arg
+2e50463c3aa149d3 core: type__clone_members() doesn't need a 'cu' arg
+a66208355ea8108c core: class_member__clone() doesn't need a 'cu' arg
+33e0d5f874dc22c4 pahole: Introduce --prettify option
+bc36e94f32e662aa pahole: Try harder to resolve the --header type when pretty printing
+fcfa2141c375849b pahole: Make prototype__stdio_fprintf_value() receive a FILE to read raw data from
+1a65d232b040fae6 man-page: Move the PRETTY PRINTING header earlier
+2d35630fa55de2bc pahole: Make pipe_seek() honour the 'fp' arg instead of hardcoding stdin
+9aa01472d9655e1b pahole: Rename 'fp' to 'output' in prototype__stdio_fprintf_value()
+472b94018055873d pahole: Use the supplied 'fp' argument in type__instance_read_once()
+63992cb02a69485b core: Use namespace->name in class__clone()
+ced4c34c37acd185 core: Remove strings.c, unused
+adbb66c2957d9eef ctf_loader: Use uint32_t instead of strings_t, that is going away
+ad707445b3fcaf11 core: Remove base_type_name_to_size_table.sname, unused
+f8d571934b96ea35 pahole: Add missing bpf/btf.h include
+deb6a4a4921b33ec libctf: Comment out unused CTF encoding functions
+82155bc92f726c43 btf_loader: Add missing bpf/btf.h include
+05f1f9dece4ed54d btf_encoder: Add missing bpf/btf.h include
+f4a77d03909c1cf8 pahole: Use conf_load.kabi_prefix
+2b9bd83e63bacb59 dwarf_loader: Make attr_suffix() handle kabi_prefix
+daaafeb35f168fd1 dwarf_loader: Pass conf_load to functions calling attr_string()
+def39099c1920346 ctf_loader: No need for the 'strings' extern, not used
+2499920ac8d88b82 btf_loader: No need for the 'strings' extern, not used
+a388aaf489f945d4 dwarf_loader: Remove unused strings variable and debug_fmt_ops->{init,exit}()
+3d3b7b3287617b8f core: Remove unused debug_fmt_ops->dwarf__strings_ptr()
+05687c547e9f22e8 core: Remove unused cu__string() method
+a201149e181be613 dwarf_loader: No need to strdup() what dwarf_formstring() returns
+6b7f1b72f9a958e4 core: No need for debug_fmt_ops->variable_name() anymore
+9d0e3ab9a29c2e81 pahole: function__name() doesn't need a 'struct cu *' argument
+a7d789a4f841b0ea core: Make variable->name a real string
+b5694280ec5b1f1f core: Make label->name a real string
+e974d1b2404154ea pahole: class_member_filter__new() doesn't need a 'struct cu *' argument
+0275e8d24975c531 pahole: class_member_filter__parse() doesn't need a 'struct cu *' argument
+90183e8e4da43785 pahole: tag__real_sizeof() doesn't need a 'struct cu *' argument
+5cb91927385d7b75 pahole: Rename tag__fprintf_hexdump_value() to instance__fprintf_hexdump_value()
+75c769a900185faf pahole: enumerations__lookup_entry_from_value() doesn't need to return a CU anymore
+1edca2655284d968 pahole: enumeration__lookup_entry_from_value() doesn't need a 'cu' argument
+f8d98eff756bf406 core: Ditch unused enumeration__prefix_len() method
+5cc365164a4cba46 core: Ditch unused enumeration__prefix() method
+e18c60d793935ab6 pahole: enumeration__lookup_value() doesn't need a 'cu' argument
+4b877c8e6762c42f pahole: enumeration__lookup_enumerator() doesn't need a 'cu' argument
+3ff11828fee01a91 core: enumeration__emit_definitions() doesn't need a 'cu' argument
+0947d6e7954d752d core: enumeration__fprintf() doesn't need a 'cu' argument
+bb22f5bb0a137342 core: Make enumeration__max_entry_name_len() static
+dc83336171d1157c core: enumeration__max_entry_name_len() doesn't need a 'cu' argument
+ec1667c76db61e2f core: Make enumeration__calc_prefix() static
+45ec63ed20a56557 core: enumeration__calc_prefix doesn't need a 'cu' argument
+2fae84e2f79726fb btf_encoder: btf_encoder__add_enum_type() doesn't need a 'cu' argument, ditch it
+96243fdd79c5c45d core: enumerator__name() doesn't need a 'cu' argument, ditch it
+ee5c12893b2e8aa8 core: Ditch dwarves__active_loader, unused
+713239bc008910ff core: Make enumerator->name a real string
+7721cc17aca7020d emit: type__emit_fwd_decl() isn't used outside emit.c, make it static
+9aa5db7acd420d55 emit: type__emit_fwd_decl() doesn't need a cu arg
+c46f91ef6f9cd0a1 emit: type_emissions__find_definition() doesn't need a cu arg
+c127d25daf88c1a2 core: class__name() doesn't need a cu arg
+00e8c5fe216755d6 core: type__name() doesn't need a cu arg
+b99c4008acca8794 core: Make namespace->name a real string
+379a73c6eb4633d4 core: Make class_member->name a real string
+3280cb41768a7130 core: Make parameter->name a real string
+f009162fd133d155 core: Make base_type->name a real string
+e2ee753fa74ca570 pahole: Disable incomplete CTF encoder
+0d13bc50ee8dbdf8 core: Ditch unused cu__find_struct_by_sname()
+46f3f372416d7f9f core: Convert cu__find_base_type_by_sname_and_size to search for a string
+f84e8777eada296a core: Convert cu__find_enumeration_by_sname_and_size to search for a string
+a16c82f7110467b7 dwarf_loader: Rename strings_t 'name' to 'sname' to clarify usage
+82e5b5101a6adf73 core: Make function->name a real string
+4f73cac85321bd5b core: Make function->linkage_name a real string
+a93160df5335ed2e dwarf_loader: Make dwarf_tag->decl_file a real string
+a3fcbcacf79787d6 pahole: Allow specifying the number of threads to use while loading files
+d70b2562ee5d90f2 pahole: Make '-j' available for use as number of jobs (threads)
+41a283c65d300945 core: Protect cus->cus with a mutex
+972065482a7f714d core: Make 'struct cus' opaque, only visible in dwarves.c
+3895b29060fdc21e core: Introduce helper to return number of cu entries in a 'struct cus'
+874e750fb8bddcad core: Move cus__find_pair() from codiff to the core
+bf74fc1fcf1ab78e core: Introduce helper to return if there is no cu entries in a 'struct cus'
+7020f9214328ac8d core: Prepare cus__find_cu_by_name() for locking
+4bf7285b37108222 core: Prepare cus__find_function_at_addr() for locking
+73a2fd1e5a70c7f2 core: Prepare __cus__find_struct_by_name() for locking
+5020bf721b204673 core: Prepare cus__find_type_by_name() for locking
+d124926baf2366a2 core: Initialize cu->priv in cu__new()
+3ec54ee72ff7c5b1 CMakeList.txt: Bump version to the upcoming 1.22 release, not out of the door yet
+1ef87b26fd268b52 Revert "btf_encoder: Reduce the size of encode_cu() by moving function encoding to separate method"
+7869cc113b0b5a3d dwarf_loader: Separate non-LTO per CU processing + BTF encoding part
+de3a7f912559433c btf_encoder: Reduce the size of encode_cu() by moving function encoding to separate method
+d348b37ed16249e0 btf_encoder: Reduce the size of encode_cu() by moving var encoding to separate method
+f62196d3be5a8765 btf_encoder: No need to set the endianness twice when encoding into an ELF file
+819f83bd9736b9c8 btf_encoder: Pass detached_filename to the constructor
+7ed4ddc46826538e btf_encoder: Adopt writing to raw file method
+1498094d335f697a btf_encoder: Rename btf__encode_in_elf to btf_encoder__write_elf, shortening function signature
+cd2b8978c43ea00a btf_encoder: Combine btf__write_elf() with btf__encode_in_elf()
+18a3e9711ccc6887 btf_encoder: Move duplicate code to btf_encoder__encode()
+9eb3d7a29de32bf4 btf_encoder: Pass the 'skip_encoding_vars' to the constructor
+707101ec38d76958 btf_encoder: No need to export the 'struct btf_definition', make it opaque
+f1feaa94c7a92e5c libbpf: bump dependency to >= 0.4.0
+1b50808c2958dde3 libbpf: If LIBBPF_EMBEDDED=OFF and libbpf-dev/pkgconfig is not available, fail the build
+790dfbda79444d11 headers: Rebame __unused to __maybe_unused to avoid clashes with system headers
+82756ea3eaf1f6e7 libbpf: Fixup patch to allow to use packaged version
+ba953a53be25765e README: Add documentation for -DBUILD_SHARED_LIBS
+aa2027708659f172 CMakeLists.txt: Enable SHARED and STATIC lib creation
+ae2581647e849488 libbpf: Allow to use packaged version
+743f2536d8b876a4 btf_encoder: Move libbtf.c to btf_encoder.c, the only user of its functions
+6f72dddbed0e1bf8 btf_encoder: Move PERCPU_SECTION define to the only source file using it
+f0f5b4f2bc34b029 btf_encoder: Move library global variable btf_gen_floats to btf_encoder class
+09970b03bd309d83 btf_encoder: Ditch unused 'btf_encoder__verbose' global variable
+1bf2e3511a1386c4 btf_encoder: Use encoder->verbose instead of btf_encoder__verbose
+4ffa484b6a04530b btf_encoder: Adopt btf__log_func_param() and use encoder->verbose
+729da7613b399f9c btf_encoder: Adopt btf__log_member() and use encoder->verbose
+be75b76b6b9e479f btf_encoder: Adopt btf__log_type() and use encoder->verbose
+9f19e96001f72c49 btf_encoder: No need to pass encoder->percpu_secinfo to btf_encoder__add_datasec()
+869c177f8e13ce12 btf_encoder: Make btf_encoder__add_var_secinfo() receive a btf_encoder pointer
+f0e8cd68f5dcb20b btf_encoder: Adopt btf__encode_var_secinfo() as btf_encoder__add_var_secinfo()
+cc646d93d18270e9 btf_encoder: Adopt btf__encode_datasec_type() as btf_encoder__add_datasec()
+b0f71fabdeee329b btf_encoder: Adopt btf__encode_var_type() as btf_encoder__add_var()
+1aece1e7e6d593db btf_encoder: Adopt btf__encode_enum_val() as btf_encoder__add_enum_val()
+4371b3cd5b9b18e6 btf_encoder: Adopt btf__encode_enum() as btf_encoder__add_enum()
+b536947512efcb7e btf_encoder: Adopt btf__encode_enumeration_type() as btf_encoder__add_enum_type()
+1bc29591ec010fa8 btf_encoder: Adopt btf__encode_func_proto_param() as btf_encoder__add_func_param()
+393febe592e94f4a btf_encoder: Adopt btf__encode_func_proto() as btf_encoder__add_func_proto()
+4eb4c03578b29791 btf_encoder: Adopt btf__encode_array() as btf_encoder__add_array()
+06cd9f00c69d11bd btf_encoder: Adopt btf__encode_struct() as btf_encoder__add_struct()
+0b29d5a65ccef5f6 btf_encoder: Adopt btf__encode_member() as btf_encoder__add_field()
+3e2a1f7ddc930d3c btf_encoder: Adopt btf__encode_struct_type() as btf_encoder__add_struct_type()
+2c7a2f270ef7bcea btf_encoder: Adopt btf__encode_ref_type() as btf_encoder__add_ref_type()
+07d4ec9cef0c1619 btf_encoder: Adopt btf__encode_float_type() as btf_encoder__add_float()
+68ed8af85908e432 btf_encoder: Adopt btf__encode_base_type() as btf_encoder__add_base_type()
+14ab2e036147b6bc libbtf: Ditch unused btf_elf__verbose_log() macro
+539c94fee9315254 libbtf: Ditch btf_elf class, unused
+282a8a2187bde9bd btf_encoder: Use 'struct btf' directly, stop using btf_elf
+dd0b01f56837794e libbtf: Remove unused ELF fields and calls from btf_elf
+a0c5f49b0c405b1b btf_encoder: Phagocytize percpu_secinfo from btf_elf
+c288e29d06c380b5 pahole: Rename 'encoder' to 'btf_encoder' as we support multiple formats
+46a3e3a87a8963ca btf_encoder: Move the global btf_encoder to its users, like pahole
+fa849010b4565015 btf_encoder: Adopt the cu__encode_btf() method, as btf_encoder__encode_cu()
+3be437c5e7d2777e btf_encoder: Set btf_encoder__verbose in just one place, its users
+e1e787af4496b51f btf_encoder: Move btf_elf__verbose var to btf_encoder class
+66f4054252ab996e btf_encoder: Adopt btf_elf__force, its only used in btf_encoder methods
+5e1207754eb67249 pahole: Adopt btf_encoder object instantiation from btf_encoder
+0208952e8ffcfdc3 btf_encoder: Move the function encode() to be a btf_encoder method
+bcc5f95364da96bb btf_encoder: Temporarily expose the 'encoder' variable
+e27be59f10c7c6e3 btf_encoder: Move 'filename' member from btf_elf to btf_encoder
+da9d70a16ff01492 btfdiff: Support diffing DWARF vs detached BTF
+6bc135c8f49696a9 btf_encoder: No need for calling btf_encoder__encode() from cu__encode_btf()
+48a0fa2ef7b546a3 btf_encoder: Move btf_elf based encode_in_elf and write_elf methods to btf_encoder
+cc8eae604dc07b5e btf_encoder: Move collect_symbols() call to btf_encoder constructor
+96e59c55686bccaf btf_encoder: Remove needless hash.h include, not used anymore
+92f8852d8d178966 btf_encoder: Move global elf_functions table to the btf_encoder class
+aa48ed55a790c2d5 btf_encoder: Move ELF's ehdr from btf_elf to btf_encoder
+b3701a8346a6ea71 btf_encoder: Move 'symtab' from btf_elf to btf_encoder
+be8dac48691f6578 btf_encoder: Move percpu members from btf_elf to btf_encoder
+7f70877b198200ac btf_encoder: Add a 'verbose' member for encoder specific logging requests
+ef8a48b3bc7cda1f btf_encoder: Move 'array_index_id' global variable to 'struct btf_encoder'
+f3e6edffd7210265 btf_encoder: Move percpu vars global variables to btf_encoder class
+14053c490bf68a49 btf_encoder: Adopt collect_function() as a btf_encoder method
+049675f4a5401ac2 btf_encoder: Adopt collect_per_cpu_var() as a btf_encoder method
+21b5e9b368228502 btf_encoder: Adopt collect_symbol() as a btf_encoder method
+e40bc12ddf42b4a8 btf_encoder: Move 'need_index_type' global variable to 'struct btf_encoder'
+cccfeec3c7d68f89 btf_encoder: Make tag__encode_btf() its encode_tag() method
+65b3c598ab24a14a btf_encoder: Move 'has_index_type' global variable to 'struct btf_encoder'
+a5c732e712564798 btf_encoder: Introduce 'struct btf_encoder' to have all the current globals
+bd4e585d81a35862 btf_encoder: Replace btfe with btf in tag__encode_btf()
+de2676159d8472b7 btf_encoder: Move encode_enumeration_type() from btf_elf to btf
+80dec71c934fc96a btf_encoder: Move encode_struct_type() from btf_elf to btf
+6d7790a5d4fc68a4 btf_encoder: Move add_datasec_type() from btf_elf to btf encode_datasec_type()
+12d340c321e31564 btf_encoder: Move add_var_secinfo() from btf_elf to btf encode_var_secinfo()
+d90b38c1f3ca9171 btf_encoder: Move add_var_type() from btf_elf to btf encode_var_type()
+bce82c1a00a9beee btf_encoder: Move add_func_proto() from btf_elf to btf encode_func_proto()
+188f25b74130d131 btf_encoder: Move add_enum() from btf_elf to btf encode_enum()
+f82bd80a5c175425 btf_encoder: Move add_struct() from btf_elf to btf encode_struct()
+1216aebd27ecd4e6 btf_encoder: Move add_array() from btf_elf to btf encode_array()
+a96c91261e731602 btf_encoder: Move add_ref_type() from btf_elf to btf encode_ref_type()
+a97ed8080a354487 btf_encoder: Move add_member() from btf_elf to btf encode_member()
+56e0c2d4ccc7a9bd btf_encoder: Move add_base_type() from btf_elf to btf encode_base_type()
+adeeb9ebcf7ef8bd btf_encoder: Move add_float_type() from btf_elf to btf encode_float_type()
+37d3b8a1cedac677 btf_encoder: bpf__log_func_param() doesn't need the btfe arg
+64d216f57e7a229f btf_encoder: Move log_member() from btf_elf to btf
+20bb260428c0a1ad btf_encoder: Move log_type() from btf_elf to btf
+16d026ce5db765c9 btf_encoder: Move log_err() from btf_elf to btf
+c5f594eaa9b5ab8c btf_encoder: Remove 'elf' from btf_elf__int_encoding_str() name
+c81d11b8bb80bed1 btf_elf: Remove base_btf member, used only in the constructor
+69f5fff50e442cad btf_elf: No point in falling back to raw BTF in btf_new()
+3fcf804a7e69aa4f btf_elf: No point in looking at the filename for /sys/kernel/btf in btf_elf__new()
+c9eb447502b771c5 libbtf: Ditch unused btf_elf__string() method
+a355a245fb48b05f libbtf: Remove unused btf_elf__load()
+3de65d433ab18301 btf_encoder: Move printable_name() from btfe to btf
+7fb31d787d3deec1 btf_loader: Stop using libbtf.h and the btf_elf class
+e431c18b80650545 btf_loader: cu__fixup_btf_bitfields doesn'n need btfe parameter, ditch it
+8c1919c10df8a79f btf_loader: class__fixup_btf_bitfields doesn'n need btfe parameter, ditch it
+4d2ae0d9049e47c5 btf_elf: Remove unused btfe->priv member
+b54b74edfcd0dc8c btf_loader: Add a local 'btf' var to prep next patches
+52bedef0fddaa227 btf_loader: Move load_sections() from btf_elf to btf
+ac3f2952a854fccc btf_loader: Move load_types() from btf_elf to btf
+1a33deae144dbd22 btf_loader: Move create_new_tag() from btfe to cu
+8323cb33bc73817a btf_loader: Move create_new_datasec() from btfe to cu
+6fb41bbf8e31f3cf btf_loader: Move create_new_variable() from btfe to cu
+9122424dda37ccff btf_loader: Move create_new_typedef() from btfe to cu
+dd3e9ab4a00f8cf9 btf_loader: Move create_new_forward_decl() from btfe to cu
+cca6b51d292df6f1 btf_loader: Move create_new_subroutine_type() from btfe to cu
+ba1b77d01dda3ac0 btf_loader: Move create_new_enumeration() from btfe to cu
+a58bc8300f13c93f btf_loader: Move create_new_union() from btfe to cu
+367f5fe74cbb35ec btf_loader: Move create_new_class() from btfe to cu
+2460bead8a8fc02f btf_loader: The create_members() function doesn't need the btfe arg
+1136795fec7ff6bf btf_loader: Move create_new_array() from btfe to cu
+ab2f5028916c7822 btf_loader: Move create_new_float_type() from btfe to cu
+6b452a1cc5f2f22b btf_loader: Move create_new_int_type() from btfe to cu
+073a5f69ef19700a btf_loader: Move create_new_function() from btfe to cu
+29ad464f73286067 btf_loader: Move load_ftype() from btfe to cu
+407693e2cabfa7a3 btf_loader: Pass cu to the load_sections/types routines
+89b9c4f8851ebc8f libbtf: Remove the 'base_btf' global var, now unused
+6f70d0accaf17f74 pahole: Use conf_load->base_btf to call cu__encode_btf()
+0e77be409969631b btf_loader: Use conf_load->base_btf instead of the global btf_base var
+6ee61b161dbcc42c pahole: Set conf_load.btf_base when applicable
+b8255beb12c02d76 core: Allow passing the base_btf object via 'struct conf_load'
+f93e05d8bd45d4b3 btf_encoder: Pass the base BTF object to the BTF encoder
+81797a00fbdd1017 btf_elf: Remove unused 'wordsize' member
+ecc888b855c249a6 btf_loader: Use btf__pointer_size() to set cu->addr_size
+e6b69ffc74dcb3f0 btf_elf: Remove unused is_big_endian member
+81fe7d688de85fa2 btf_loader: Use btf__endianness() instead of to be removed btfe member
+9f8ce7e1137f22c1 libbtf: Remove unused btf_elf->raw_btf member
+89be5646a03435bf pahole: Allow encoding BTF into a detached file
+22a76fbc8b33a3cd btf_loader: Use btf__parse_split()
+c9d4c106ab95cd8c dwarf_loader: Add define for DW_OP_addrx
+76f7844c817eeac5 libbtf: Fix typo
+3d510406ff363056 pahole: Add --kabi_prefix flag
+0d17503db0580a66 btf_encoder: fix and complete filtering out zero-sized per-CPU variables
+fb418f9d8384d3a9 dwarves: Make handling of NULL by destructos consistent
+f049fe9ebf7aa9c2 dutil: Make handling of NULL by destructos consistent
+1512ab8ab6fe76a9 pahole: Make handling of NULL by destructos consistent
+1105b7dad2d0978b elf_symtab: Use zfree() where applicable
+131275fa20437dec codiff: Use zfree() where applicable
+6784b03fd447f507 dutil: Adopt the zalloc()/zfree() from perf
+d7f5824a9e1895d1 libctf: Use zfree() where applicable
+45d9eb8602b42a6b pahole: Use zfree() where applicable
+f48cc78e8e6e56df dwarf_loader: Use zfree() instead of ad-hoc implementation
+d0f6a4a1da524873 gobuffer: Use zfree() and make delete accept NULL, like free()
+db37185d16d4a56d dwarves: Use zfree()
+e7e86c75e149c161 libbtf: Use zfree()
+972001e58e9f5ed9 dutil: Adopt zfree(), to use it more pervasively
+5847901abf13e8bd dwarves: Plug leaks in cu__new() found by covscan
+32114e611a93b046 dwarf_loader: Call dwarf_cu__delete() when aborting the load
+26bd4c41646a64b9 dwarf_loader: Delete the allocated CU when aborting
+d8940df90b4a952b dwarf_loader: Make all ABORT returns go thru a single exit label
+3ba54ee43a301419 dwarf_loader: Use zalloc() to allocate dwarf_cu
+f3957627bb3e3431 dwarf_loader: Make dwarf_cu__delete() accept NULL, just like free()
+8772c9d827813d4d dwarves: Accept NULL in cu__delete(), just like free() accepts
+25cc0c77545cefbc dwarf_loader: Check if we have a CU after the loop in cus__merge_and_process_cu()
+2f30062b546de1ef dwarf_loader: Check tag__recode_dwarf_bitfield() return, may be NULL
+d68fd2bbc59291f3 ctracer: Initialize the 'parm_list' variable, detected by covscan
+5b0fb9745e1e9597 codiff: Fix usage of negative errno values with strerror(), reported by covscan
+cba940fb86a46fa9 btf_loader: Fix some memory leaks found by covscan
+674063b1ea4156d2 loaders: Plug enumeration__delete() leak detected by covscan
+505a1f5615c5064a dwarves: Stop using obstacks
+872658b88021b487 CMakeLists.txt: Specify the file extension of srcs
+aa8519378a37c9a5 README: Mention how to specify another prefix
+58a98f76ac95b1bb btf: Remove ftrace filter
+7c60b0443cb01795 pahole: Fix error message when --header couldn't be read
+7eea706c14997b4f pahole: Introduce --with_flexible_array option to show just types ending in a flexible array
+
 v1.21:
 
 Fri Apr  9 2021
