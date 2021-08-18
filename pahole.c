@@ -34,6 +34,7 @@ static bool btf_encode;
 static bool btf_gen_floats;
 static bool ctf_encode;
 static bool sort_output;
+static bool need_resort;
 static bool first_obj_only;
 static bool skip_encoding_btf_vars;
 static bool btf_encode_force;
@@ -124,9 +125,12 @@ static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
 static pthread_mutex_t structures_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static int type__compare_members(struct type *a, struct cu *cu_a, struct type *b, struct cu *cu_b)
+static int type__compare_members_types(struct type *a, struct cu *cu_a, struct type *b, struct cu *cu_b)
 {
-	int ret;
+	int ret = strcmp(type__name(a), type__name(b));
+
+	if (ret)
+		return ret;
 
 	// a->nr_members should be equal to b->nr_members at this point
 
@@ -165,6 +169,14 @@ static int type__compare_members(struct type *a, struct cu *cu_a, struct type *b
 				return ret;
 		}
 
+		ret = (int)ma->bit_offset - (int)mb->bit_offset;
+		if (ret)
+			return ret;
+
+		ret = (int)ma->bitfield_size - (int)mb->bitfield_size;
+		if (ret)
+			return ret;
+
 		char bf_a[1024], bf_b[1024];
 
 		ret = strcmp(tag__name(type_ma, cu_a, bf_a, sizeof(bf_a), NULL),
@@ -173,6 +185,102 @@ static int type__compare_members(struct type *a, struct cu *cu_a, struct type *b
 			return ret;
 
 		mb = class_member__next(mb);
+	}
+
+	return 0;
+}
+
+static int type__compare_members(struct type *a, struct type *b)
+{
+	int ret;
+
+	// a->nr_members should be equal to b->nr_members at this point
+
+	if (a->nr_members == 0)
+		return 0;
+
+	struct class_member *ma, *mb = type__first_member(b);
+
+	// Don't look at the types, as we may be referring to a CU being loaded
+	// in another thread and since we're not locking the ptr_table's, we
+	// may race When printing all the types using --sort we'll do an extra
+	// check that takes into account the types, since at that time all the
+	// ptr_tables/cus are quiescent.
+
+	type__for_each_member(a, ma) {
+		const char *name_a = class_member__name(ma),
+			   *name_b = class_member__name(mb);
+
+		if (name_a && name_b) {
+			ret = strcmp(name_a, name_b);
+			if (ret)
+				return ret;
+		}
+
+		ret = (int)ma->bit_offset - (int)mb->bit_offset;
+		if (ret)
+			return ret;
+
+		ret = (int)ma->bitfield_size - (int)mb->bitfield_size;
+		if (ret)
+			return ret;
+
+		mb = class_member__next(mb);
+	}
+
+	/*
+	   Since we didn't check the types, we may end with at least this btfdiff output:
+
++++ /tmp/btfdiff.btf.b5DJu4	2021-08-18 12:06:27.773932193 -0300
+@@ -31035,7 +31035,7 @@ struct elf_note_info {
+	struct memelfnote          auxv;                 / *    56    24 * /
+	/ * --- cacheline 1 boundary (64 bytes) was 16 bytes ago --- * /
+	struct memelfnote          files;                / *    80    24 * /
+-	compat_siginfo_t           csigdata;             / *   104   128 * /
++	siginfo_t                  csigdata;             / *   104   128 * /
+
+	   So if we're printing everything, consider the types as different and
+	   at the end with type__compare_members_types() when using --sort,
+	   we'll need as well to resort, to avoid things like:
+
+@@ -47965,8 +47965,8 @@ struct instance_attribute {
+
+	/ * XXX last struct has 6 bytes of padding * /
+
+-	ssize_t                    (*show)(struct edac_device_instance *, char *);                 / *    16     8 * /
+-	ssize_t                    (*store)(struct edac_device_instance *, const char  *, size_t); / *    24     8 * /
++	ssize_t                    (*show)(struct edac_pci_ctl_info *, char *);                    / *    16     8 * /
++	ssize_t                    (*store)(struct edac_pci_ctl_info *, const char  *, size_t);    / *    24     8 * /
+
+	/ * size: 32, cachelines: 1, members: 3 * /
+	/ * paddings: 1, sum paddings: 6 * /
+@@ -47977,8 +47977,8 @@ struct instance_attribute {
+
+	/ * XXX last struct has 6 bytes of padding * /
+
+-	ssize_t                    (*show)(struct edac_pci_ctl_info *, char *);                    / *    16     8 * /
+-	ssize_t                    (*store)(struct edac_pci_ctl_info *, const char  *, size_t);    / *    24     8 * /
++	ssize_t                    (*show)(struct edac_device_instance *, char *);                 / *    16     8 * /
++	ssize_t                    (*store)(struct edac_device_instance *, const char  *, size_t); / *    24     8 * /
+
+	/ * size: 32, cachelines: 1, members: 3 * /
+	/ * paddings: 1, sum paddings: 6 * /
+
+	   I.e. the difference is in the arguments to those show/store function
+	   pointers, but since we didn't took the types into account when first
+	   sorting, we need to resort.
+
+	   So the first sort weeds out duplicates when loading from multiple
+	   CUs, i.e. DWARF, the second will make sure both BTF and DWARF are
+	   sorted taking into account types and then btfdiff finally will be
+	   happy and we can continue to depend on it for regression tests for
+	   the BTF and DWARF encoder and loader
+
+	 */
+
+	if (sort_output) {
+		need_resort = true;
+		return 1;
 	}
 
 	return 0;
@@ -193,7 +301,7 @@ static int type__compare(struct type *a, struct cu *cu_a, struct type *b, struct
 	if (ret)
 		goto found;
 
-	ret = type__compare_members(a, cu_a, b, cu_b);
+	ret = type__compare_members(a, b);
 found:
 	return ret;
 }
@@ -430,9 +538,9 @@ static void print_classes(struct cu *cu)
 	}
 }
 
-static void print_ordered_classes(void)
+static void __print_ordered_classes(struct rb_root *root)
 {
-	struct rb_node *next = rb_first(&structures__tree);
+	struct rb_node *next = rb_first(root);
 
 	while (next) {
 		struct structure *st = rb_entry(next, struct structure, rb_node);
@@ -443,6 +551,52 @@ static void print_ordered_classes(void)
 	}
 
 }
+
+static void resort_add(struct rb_root *resorted, struct structure *str)
+{
+	struct rb_node **p = &resorted->rb_node;
+	struct rb_node *parent = NULL;
+	struct structure *node;
+
+	while (*p != NULL) {
+		int rc;
+
+		parent = *p;
+		node = rb_entry(parent, struct structure, rb_node);
+		rc = type__compare_members_types(&node->class->type, node->cu, &str->class->type, str->cu);
+
+		if (rc > 0)
+			p = &(*p)->rb_left;
+		else if (rc < 0)
+			p = &(*p)->rb_right;
+		else
+			return; // Duplicate, ignore it
+	}
+
+	rb_link_node(&str->rb_node, parent, p);
+	rb_insert_color(&str->rb_node, resorted);
+}
+
+static void resort_classes(struct rb_root *resorted, struct list_head *head)
+{
+	struct structure *str;
+
+	list_for_each_entry(str, head, node)
+		resort_add(resorted, str);
+}
+
+static void print_ordered_classes(void)
+{
+	if (!need_resort) {
+		__print_ordered_classes(&structures__tree);
+	} else {
+		struct rb_root resorted = RB_ROOT;
+
+		resort_classes(&resorted, &structures__list);
+		__print_ordered_classes(&resorted);
+	}
+}
+
 
 static struct cu *cu__filter(struct cu *cu)
 {
