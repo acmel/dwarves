@@ -330,6 +330,12 @@ Converts silly bitfields such as "int foo:32" to plain "int foo".
 be verbose
 
 .TP
+.B \-\-ptr_table_stats
+Print statistics about ptr_table data structures, used to hold all the types,
+tags and functions data structures, for development tuning of such tables, tuned
+for a typical 2021 vmlinux file.
+
+.TP
 .B \-w, \-\-word_size=WORD_SIZE
 Change the arch word size to WORD_SIZE.
 

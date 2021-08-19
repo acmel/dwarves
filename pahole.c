@@ -1123,6 +1123,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_prettify_input_filename 327
 #define ARGP_sort_output	   328
 #define ARGP_hashbits		   329
+#define ARGP_devel_stats	   330
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1489,6 +1490,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Number of bits for the hash table key",
 	},
 	{
+		.name = "ptr_table_stats",
+		.key  = ARGP_devel_stats,
+		.doc  = "Print internal data structures stats",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1634,6 +1640,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		sort_output = true;			break;
 	case ARGP_hashbits:
 		conf_load.hashtable_bits = atoi(arg);	break;
+	case ARGP_devel_stats:
+		conf_load.ptr_table_stats = true;	break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -2773,6 +2781,16 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	if (!cu__filter(cu))
 		goto filter_it;
+
+	if (conf_load->ptr_table_stats) {
+		static bool first = true;
+
+		if (first) {
+			cus__fprintf_ptr_table_stats_csv_header(stderr);
+			first = false;
+		}
+		cu__fprintf_ptr_table_stats_csv(cu, stderr);
+	}
 
 	if (btf_encode) {
 		static pthread_mutex_t btf_lock = PTHREAD_MUTEX_INITIALIZER;
