@@ -483,7 +483,7 @@ static int ptr_table__add(struct ptr_table *pt, void *ptr, uint32_t *idxp)
 	const uint32_t rc = pt->nr_entries;
 
 	if (nr_entries > pt->allocated_entries) {
-		uint32_t allocated_entries = pt->allocated_entries + 256;
+		uint32_t allocated_entries = pt->allocated_entries + 2048;
 		void *entries = realloc(pt->entries,
 					sizeof(void *) * allocated_entries);
 		if (entries == NULL)
@@ -508,7 +508,7 @@ static int ptr_table__add_with_id(struct ptr_table *pt, void *ptr,
 {
 	/* Assume we won't be fed with the same id more than once */
 	if (id >= pt->allocated_entries) {
-		uint32_t allocated_entries = roundup(id + 1, 256);
+		uint32_t allocated_entries = roundup(id + 1, 2048);
 		void *entries = realloc(pt->entries,
 					sizeof(void *) * allocated_entries);
 		if (entries == NULL)
