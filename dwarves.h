@@ -262,6 +262,10 @@ void *cu__malloc(struct cu *cu, size_t size);
 void *cu__zalloc(struct cu *cu, size_t size);
 void cu__free(struct cu *cu, void *ptr);
 
+int cu__fprintf_ptr_table_stats_csv(struct cu *cu, FILE *fp);
+
+int cus__fprintf_ptr_table_stats_csv_header(FILE *fp);
+
 static inline int cu__cache_symtab(struct cu *cu)
 {
 	int err = dwfl_module_getsymtab(cu->dwfl);

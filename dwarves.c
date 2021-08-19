@@ -605,6 +605,21 @@ int cu__add_tag_with_id(struct cu *cu, struct tag *tag, uint32_t id)
 	return err;
 }
 
+int cus__fprintf_ptr_table_stats_csv_header(FILE *fp)
+{
+	return fprintf(fp, "# cu,tags,allocated_tags,types,allocated_types,functions,allocated_functions\n");
+}
+
+int cu__fprintf_ptr_table_stats_csv(struct cu *cu, FILE *fp)
+{
+	int printed = fprintf(fp, "%s,%u,%u,%u,%u,%u,%u\n", cu->name,
+			      cu->tags_table.nr_entries, cu->tags_table.allocated_entries,
+			      cu->types_table.nr_entries, cu->types_table.allocated_entries,
+			      cu->functions_table.nr_entries, cu->functions_table.allocated_entries);
+
+	return printed;
+}
+
 struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id, int build_id_len,
 		   const char *filename, bool use_obstack)
