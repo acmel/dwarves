@@ -61,6 +61,7 @@ find_package(DWARF REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(argp REQUIRED)
 find_package(obstack REQUIRED)
+find_package(Python3 QUIET)
 
 # make sure git submodule(s) are checked out
 find_package(Git QUIET)
@@ -185,8 +186,10 @@ install(FILES dwarves.h dwarves_emit.h dwarves_reorganize.h
 	      elfcreator.h elf_symtab.h hash.h libctf.h
 	DESTINATION ${CMAKE_INSTALL_PREFIX}/include/dwarves/)
 install(FILES man-pages/pahole.1 DESTINATION ${CMAKE_INSTALL_PREFIX}/share/man/man1/)
-install(PROGRAMS ostra/ostra-cg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+if(Python3_FOUND)
+	install(PROGRAMS ostra/ostra-cg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+	install(FILES ostra/python/ostra.py DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dwarves/runtime/python)
+endif()
 install(PROGRAMS btfdiff fullcircle DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-install(FILES ostra/python/ostra.py DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dwarves/runtime/python)
 install(FILES lib/Makefile lib/ctracer_relay.c lib/ctracer_relay.h lib/linux.blacklist.cu
 	DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dwarves/runtime)
