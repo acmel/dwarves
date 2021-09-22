@@ -1124,6 +1124,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_sort_output	   328
 #define ARGP_hashbits		   329
 #define ARGP_devel_stats	   330
+#define ARGP_skip_encoding_btf_tag 331
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1495,6 +1496,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Print internal data structures stats",
 	},
 	{
+		.name = "skip_encoding_btf_tag",
+		.key  = ARGP_skip_encoding_btf_tag,
+		.doc  = "Do not encode TAGs in BTF."
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1642,6 +1648,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.hashtable_bits = atoi(arg);	break;
 	case ARGP_devel_stats:
 		conf_load.ptr_table_stats = true;	break;
+	case ARGP_skip_encoding_btf_tag:
+		conf_load.skip_encoding_btf_tag = true;	break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}

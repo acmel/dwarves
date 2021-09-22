@@ -52,6 +52,10 @@
 #define DW_OP_addrx 0xa1
 #endif
 
+#ifndef DW_TAG_LLVM_annotation
+#define DW_TAG_LLVM_annotation 0x6000
+#endif
+
 static pthread_mutex_t libdw__lock = PTHREAD_MUTEX_INITIALIZER;
 
 static uint32_t hashtags__bits = 12;
@@ -602,6 +606,7 @@ static void namespace__init(struct namespace *namespace, Dwarf_Die *die,
 {
 	tag__init(&namespace->tag, cu, die);
 	INIT_LIST_HEAD(&namespace->tags);
+	INIT_LIST_HEAD(&namespace->annots);
 	namespace->name  = attr_string(die, DW_AT_name, conf);
 	namespace->nr_tags = 0;
 	namespace->shared_tags = 0;
@@ -719,6 +724,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu, struct conf
 		/* non-defining declaration of an object */
 		var->declaration = dwarf_hasattr(die, DW_AT_declaration);
 		var->scope = VSCOPE_UNKNOWN;
+		INIT_LIST_HEAD(&var->annots);
 		var->ip.addr = 0;
 		if (!var->declaration && cu->has_addr_info)
 			var->scope = dwarf__location(die, &var->ip.addr, &var->location);
@@ -852,6 +858,51 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 
 	free(recoded);
 	return -ENOMEM;
+}
+
+static int add_llvm_annotation(Dwarf_Die *die, int component_idx, struct conf_load *conf,
+			       struct list_head *head)
+{
+	struct llvm_annotation *annot;
+	const char *name;
+
+	if (conf->skip_encoding_btf_tag)
+		return 0;
+
+	/* Only handle btf_tag annotation for now. */
+	name = attr_string(die, DW_AT_name, conf);
+	if (strcmp(name, "btf_tag") != 0)
+		return 0;
+
+	annot = zalloc(sizeof(*annot));
+	if (!annot)
+		return -ENOMEM;
+
+	annot->value = attr_string(die, DW_AT_const_value, conf);
+	annot->component_idx = component_idx;
+	list_add_tail(&annot->node, head);
+	return 0;
+}
+
+static int add_child_llvm_annotations(Dwarf_Die *die, int component_idx,
+				      struct conf_load *conf, struct list_head *head)
+{
+	Dwarf_Die child;
+	int ret;
+
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
+		return 0;
+
+	die = &child;
+	do {
+		if (dwarf_tag(die) == DW_TAG_LLVM_annotation) {
+			ret = add_llvm_annotation(die, component_idx, conf, head);
+			if (ret)
+				return ret;
+		}
+	} while (dwarf_siblingof(die, die) == 0);
+
+	return 0;
 }
 
 int class_member__dwarf_recode_bitfield(struct class_member *member,
@@ -1092,6 +1143,7 @@ static struct function *function__new(Dwarf_Die *die, struct cu *cu, struct conf
 		func->accessibility   = attr_numeric(die, DW_AT_accessibility);
 		func->virtuality      = attr_numeric(die, DW_AT_virtuality);
 		INIT_LIST_HEAD(&func->vtable_node);
+		INIT_LIST_HEAD(&func->annots);
 		INIT_LIST_HEAD(&func->tool_node);
 		func->vtable_entry    = -1;
 		if (dwarf_hasattr(die, DW_AT_vtable_elem_location))
@@ -1304,16 +1356,21 @@ static struct tag *die__create_new_string_type(Dwarf_Die *die, struct cu *cu)
 static struct tag *die__create_new_parameter(Dwarf_Die *die,
 					     struct ftype *ftype,
 					     struct lexblock *lexblock,
-					     struct cu *cu, struct conf_load *conf)
+					     struct cu *cu, struct conf_load *conf,
+					     int param_idx)
 {
 	struct parameter *parm = parameter__new(die, cu, conf);
 
 	if (parm == NULL)
 		return NULL;
 
-	if (ftype != NULL)
+	if (ftype != NULL) {
 		ftype__add_parameter(ftype, parm);
-	else {
+		if (param_idx >= 0) {
+			if (add_child_llvm_annotations(die, param_idx, conf, &(tag__function(&ftype->tag)->annots)))
+				return NULL;
+		}
+	} else {
 		/*
 		 * DW_TAG_formal_parameters on a non DW_TAG_subprogram nor
 		 * DW_TAG_subroutine_type tag happens sometimes, likely due to
@@ -1346,7 +1403,10 @@ static struct tag *die__create_new_variable(Dwarf_Die *die, struct cu *cu, struc
 {
 	struct variable *var = variable__new(die, cu, conf);
 
-	return var ? &var->ip.tag : NULL;
+	if (var == NULL || add_child_llvm_annotations(die, -1, conf, &var->annots))
+		return NULL;
+
+	return &var->ip.tag;
 }
 
 static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
@@ -1371,7 +1431,7 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 			tag__print_not_supported(dwarf_tag(die));
 			continue;
 		case DW_TAG_formal_parameter:
-			tag = die__create_new_parameter(die, ftype, NULL, cu, conf);
+			tag = die__create_new_parameter(die, ftype, NULL, cu, conf, -1);
 			break;
 		case DW_TAG_unspecified_parameters:
 			ftype->unspec_parms = 1;
@@ -1455,6 +1515,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			      struct cu *cu, struct conf_load *conf)
 {
 	const bool is_union = tag__is_union(&class->namespace.tag);
+	int member_idx = 0;
 
 	do {
 		switch (dwarf_tag(die)) {
@@ -1497,7 +1558,14 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 
 			type__add_member(class, member);
 			cu__hash(cu, &member->tag);
+			if (add_child_llvm_annotations(die, member_idx, conf, &class->namespace.annots))
+				return -ENOMEM;
+			member_idx++;
 		}
+			continue;
+		case DW_TAG_LLVM_annotation:
+			if (add_llvm_annotation(die, -1, conf, &class->namespace.annots))
+				return -ENOMEM;
 			continue;
 		default: {
 			struct tag *tag = die__process_tag(die, cu, 0, conf);
@@ -1699,6 +1767,7 @@ static struct tag *die__create_new_inline_expansion(Dwarf_Die *die,
 static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 				 struct lexblock *lexblock, struct cu *cu, struct conf_load *conf)
 {
+	int param_idx = 0;
 	Dwarf_Die child;
 	struct tag *tag;
 
@@ -1742,7 +1811,7 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			tag__print_not_supported(dwarf_tag(die));
 			continue;
 		case DW_TAG_formal_parameter:
-			tag = die__create_new_parameter(die, ftype, lexblock, cu, conf);
+			tag = die__create_new_parameter(die, ftype, lexblock, cu, conf, param_idx++);
 			break;
 		case DW_TAG_variable:
 			tag = die__create_new_variable(die, cu, conf);
@@ -1769,6 +1838,10 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			// Thus we can't ignore them without more surgery, i.e. by adding code
 			// to just process types inside lexblocks, leave this for later.
 			if (die__create_new_lexblock(die, cu, lexblock, conf) != 0)
+				goto out_enomem;
+			continue;
+		case DW_TAG_LLVM_annotation:
+			if (add_llvm_annotation(die, -1, conf, &(tag__function(&ftype->tag)->annots)))
 				goto out_enomem;
 			continue;
 		default:

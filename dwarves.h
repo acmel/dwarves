@@ -58,6 +58,7 @@ struct conf_load {
 	bool			ignore_inline_expansions;
 	bool			ignore_labels;
 	bool			ptr_table_stats;
+	bool			skip_encoding_btf_tag;
 	uint8_t			hashtable_bits;
 	uint8_t			max_hashtable_bits;
 	uint16_t		kabi_prefix_len;
@@ -594,6 +595,12 @@ static inline struct ptr_to_member_type *
 	return (struct ptr_to_member_type *)tag;
 }
 
+struct llvm_annotation {
+	const char		*value;
+	int16_t			component_idx;
+	struct list_head	node;
+};
+
 /** struct namespace - base class for enums, structs, unions, typedefs, etc
  *
  * @tags - class_member, enumerators, etc
@@ -605,6 +612,7 @@ struct namespace {
 	uint16_t	 nr_tags;
 	uint8_t		 shared_tags;
 	struct list_head tags;
+	struct list_head annots;
 };
 
 static inline struct namespace *tag__namespace(const struct tag *tag)
@@ -686,6 +694,7 @@ struct variable {
 	enum vscope	 scope;
 	struct location	 location;
 	struct hlist_node tool_hnode;
+	struct list_head annots;
 	struct variable  *spec;
 };
 
@@ -818,6 +827,7 @@ struct function {
 	uint8_t		 btf:1;
 	int32_t		 vtable_entry;
 	struct list_head vtable_node;
+	struct list_head annots;
 	/* fields used by tools */
 	union {
 		struct list_head  tool_node;
