@@ -141,6 +141,7 @@ static const char * const btf_kind_str[NR_BTF_KINDS] = {
 	[BTF_KIND_VAR]          = "VAR",
 	[BTF_KIND_DATASEC]      = "DATASEC",
 	[BTF_KIND_FLOAT]        = "FLOAT",
+	[BTF_KIND_TAG]          = "TAG",
 };
 
 static const char *btf__printable_name(const struct btf *btf, uint32_t offset)
@@ -639,6 +640,26 @@ static int32_t btf_encoder__add_datasec(struct btf_encoder *encoder, const char 
 				       vsi->type, vsi->offset, vsi->size);
 			return -1;
 		}
+	}
+
+	return id;
+}
+
+static int32_t btf_encoder__add_tag(struct btf_encoder *encoder, const char *value, uint32_t type,
+				    int component_idx)
+{
+	struct btf *btf = encoder->btf;
+	const struct btf_type *t;
+	int32_t id;
+
+	id = btf__add_tag(btf, value, type, component_idx);
+	if (id > 0) {
+		t = btf__type_by_id(btf, id);
+		btf_encoder__log_type(encoder, t, false, true, "type_id=%u component_idx=%d",
+				      t->type, component_idx);
+	} else {
+		btf__log_err(btf, BTF_KIND_TAG, value, true, "component_idx=%d Error emitting BTF type",
+			     component_idx);
 	}
 
 	return id;
@@ -1158,6 +1179,7 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder, struct 
 		struct variable *var = tag__variable(pos);
 		uint32_t size, type, linkage;
 		const char *name, *dwarf_name;
+		struct llvm_annotation *annot;
 		const struct tag *tag;
 		uint64_t addr;
 		int id;
@@ -1242,6 +1264,15 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder, struct 
 			fprintf(stderr, "error: failed to encode variable '%s' at addr 0x%" PRIx64 "\n",
 			        name, addr);
 			goto out;
+		}
+
+		list_for_each_entry(annot, &var->annots, node) {
+			int tag_type_id = btf_encoder__add_tag(encoder, annot->value, id, annot->component_idx);
+			if (tag_type_id < 0) {
+				fprintf(stderr, "error: failed to encode tag '%s' to variable '%s' with component_idx %d\n",
+					annot->value, name, annot->component_idx);
+				goto out;
+			}
 		}
 
 		/*
@@ -1359,6 +1390,8 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 {
 	uint32_t type_id_off = btf__get_nr_types(encoder->btf);
+	struct llvm_annotation *annot;
+	int btf_type_id, tag_type_id;
 	uint32_t core_id;
 	struct function *fn;
 	struct tag *pos;
@@ -1378,7 +1411,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 	}
 
 	cu__for_each_type(cu, core_id, pos) {
-		int32_t btf_type_id = btf_encoder__encode_tag(encoder, pos, type_id_off);
+		btf_type_id = btf_encoder__encode_tag(encoder, pos, type_id_off);
 
 		if (btf_type_id < 0 ||
 		    tag__check_id_drift(pos, core_id, btf_type_id, type_id_off)) {
@@ -1394,6 +1427,25 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 		bt.bit_size = 32;
 		btf_encoder__add_base_type(encoder, &bt, "__ARRAY_SIZE_TYPE__");
 		encoder->has_index_type = true;
+	}
+
+	cu__for_each_type(cu, core_id, pos) {
+		struct namespace *ns;
+
+		if (pos->tag != DW_TAG_structure_type && pos->tag != DW_TAG_union_type)
+			continue;
+
+		btf_type_id = type_id_off + core_id;
+		ns = tag__namespace(pos);
+		list_for_each_entry(annot, &ns->annots, node) {
+			tag_type_id = btf_encoder__add_tag(encoder, annot->value, btf_type_id, annot->component_idx);
+			if (tag_type_id < 0) {
+				fprintf(stderr, "error: failed to encode tag '%s' to %s '%s' with component_idx %d\n",
+					annot->value, pos->tag == DW_TAG_structure_type ? "struct" : "union",
+					namespace__name(ns), annot->component_idx);
+				goto out;
+			}
+		}
 	}
 
 	cu__for_each_function(cu, core_id, fn) {
@@ -1435,6 +1487,15 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 			err = -1;
 			printf("error: failed to encode function '%s'\n", function__name(fn));
 			goto out;
+		}
+
+		list_for_each_entry(annot, &fn->annots, node) {
+			tag_type_id = btf_encoder__add_tag(encoder, annot->value, btf_fn_id, annot->component_idx);
+			if (tag_type_id < 0) {
+				fprintf(stderr, "error: failed to encode tag '%s' to func %s with component_idx %d\n",
+					annot->value, name, annot->component_idx);
+				goto out;
+			}
 		}
 	}
 
