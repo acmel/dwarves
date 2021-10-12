@@ -723,6 +723,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu, struct conf
 		var->external = dwarf_hasattr(die, DW_AT_external);
 		/* non-defining declaration of an object */
 		var->declaration = dwarf_hasattr(die, DW_AT_declaration);
+		var->has_specification = has_specification;
 		var->scope = VSCOPE_UNKNOWN;
 		INIT_LIST_HEAD(&var->annots);
 		var->ip.addr = 0;
@@ -2291,12 +2292,16 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 		goto find_type;
 	case DW_TAG_variable: {
 		struct variable *var = tag__variable(tag);
-		dwarf_off_ref specification = dwarf_tag__spec(dtag);
 
-		if (specification.off) {
-			dtype = dwarf_cu__find_tag_by_ref(cu->priv, &specification);
-			if (dtype)
-				var->spec = tag__variable(dtype->tag);
+		if (var->has_specification) {
+			dwarf_off_ref specification = dwarf_tag__spec(dtag);
+
+			if (specification.off) {
+				dtype = dwarf_cu__find_tag_by_ref(cu->priv,
+								  &specification);
+				if (dtype)
+					var->spec = tag__variable(dtype->tag);
+			}
 		}
 	}
 

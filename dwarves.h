@@ -693,6 +693,7 @@ struct variable {
 	const char	 *name;
 	uint8_t		 external:1;
 	uint8_t		 declaration:1;
+	uint8_t		 has_specification:1;
 	enum vscope	 scope;
 	struct location	 location;
 	struct hlist_node tool_hnode;
