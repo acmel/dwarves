@@ -56,7 +56,8 @@ struct btf_encoder {
 			  raw_output,
 			  verbose,
 			  force,
-			  gen_floats;
+			  gen_floats,
+			  is_rel;
 	uint32_t	  array_index_id;
 	struct {
 		struct var_info vars[MAX_PERCPU_VAR_CNT];
@@ -1104,6 +1105,13 @@ static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym
 	if (encoder->verbose)
 		printf("Found per-CPU symbol '%s' at address 0x%" PRIx64 "\n", sym_name, addr);
 
+	/* Make sure addr is section-relative. For kernel modules (which are
+	 * ET_REL files) this is already the case. For vmlinux (which is an
+	 * ET_EXEC file) we need to subtract the section address.
+	 */
+	if (!encoder->is_rel)
+		addr -= encoder->percpu.base_addr;
+
 	if (encoder->percpu.var_cnt == MAX_PERCPU_VAR_CNT) {
 		fprintf(stderr, "Reached the limit of per-CPU variables: %d\n",
 			MAX_PERCPU_VAR_CNT);
@@ -1195,12 +1203,9 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder, struct 
 		addr = var->ip.addr;
 		dwarf_name = variable__name(var);
 
-		/* DWARF takes into account .data..percpu section offset
-		 * within its segment, which for vmlinux is 0, but for kernel
-		 * modules is >0. ELF symbols, on the other hand, don't take
-		 * into account these offsets (as they are relative to the
-		 * section start), so to match DWARF and ELF symbols we need
-		 * to negate the section base address here.
+		/* Make sure addr is section-relative. DWARF, unlike ELF,
+		 * always contains virtual symbol addresses, so subtract
+		 * the section address unconditionally.
 		 */
 		if (addr < encoder->percpu.base_addr || addr >= encoder->percpu.base_addr + encoder->percpu.sec_sz)
 			continue;
@@ -1321,6 +1326,8 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 				elf_error("cannot get ELF header");
 			goto out_delete;
 		}
+
+		encoder->is_rel = ehdr.e_type == ET_REL;
 
 		switch (ehdr.e_ident[EI_DATA]) {
 		case ELFDATA2LSB:
