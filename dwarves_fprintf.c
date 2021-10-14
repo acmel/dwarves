@@ -787,7 +787,7 @@ print_default:
 					   (type->tag == DW_TAG_class_type &&
 					    !tconf.classes_as_structs) ? "class" : "struct",
 					   tconf.type_spacing - 7,
-					   type__name(ctype), name);
+					   type__name(ctype), name ?: "");
 		} else {
 			struct class *cclass = tag__class(type);
 
@@ -802,7 +802,7 @@ print_default:
 		ctype = tag__type(type);
 
 		if (type__name(ctype) != NULL && !expand_types) {
-			printed += fprintf(fp, "union %-*s %s", tconf.type_spacing - 6, type__name(ctype), name);
+			printed += fprintf(fp, "union %-*s %s", tconf.type_spacing - 6, type__name(ctype), name ?: "");
 		} else {
 			tconf.type_spacing -= 8;
 			printed += union__fprintf(ctype, cu, &tconf, fp);
@@ -812,7 +812,7 @@ print_default:
 		ctype = tag__type(type);
 
 		if (type__name(ctype) != NULL)
-			printed += fprintf(fp, "enum %-*s %s", tconf.type_spacing - 5, type__name(ctype), name);
+			printed += fprintf(fp, "enum %-*s %s", tconf.type_spacing - 5, type__name(ctype), name ?: "");
 		else
 			printed += enumeration__fprintf(type, &tconf, fp);
 		break;
@@ -863,7 +863,21 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 	if (member->is_static)
 		printed += fprintf(fp, "static ");
 
-	printed += type__fprintf(type, cu, name, &sconf, fp);
+	/* For struct-like constructs, the name of the member cannot be
+	 * conflated with the name of its type, otherwise __attribute__ are
+	 * printed in the wrong order.
+	 */
+	if (tag__is_union(type) || tag__is_struct(type) ||
+	    tag__is_enumeration(type)) {
+		printed += type__fprintf(type, cu, NULL, &sconf, fp);
+		if (name) {
+			if (!type__name(tag__type(type)))
+				printed += fprintf(fp, " ");
+			printed += fprintf(fp, "%s", name);
+		}
+	} else {
+		printed += type__fprintf(type, cu, name, &sconf, fp);
+	}
 
 	if (member->is_static) {
 		if (member->const_value != 0)
