@@ -2791,6 +2791,9 @@ static void *dwarf_cus__process_cu_thread(void *arg)
 			goto out_abort;
 	}
 
+	if (dcus->conf->thread_exit && dcus->conf->thread_exit() != 0)
+		goto out_abort;
+
 	return (void *)DWARF_CB_OK;
 out_abort:
 	return (void *)DWARF_CB_ABORT;

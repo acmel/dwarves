@@ -37,6 +37,7 @@ struct btf;
 struct conf_fprintf;
 
 /** struct conf_load - load configuration
+ * @thread_exit - called at the end of a thread, 1st user: BTF encoder dedup
  * @extra_dbg_info - keep original debugging format extra info
  *		     (e.g. DWARF's decl_{line,file}, id, etc)
  * @fixup_silly_bitfields - Fixup silly things such as "int foo:32;"
@@ -47,6 +48,7 @@ struct conf_fprintf;
 struct conf_load {
 	enum load_steal_kind	(*steal)(struct cu *cu,
 					 struct conf_load *conf);
+	int			(*thread_exit)(void);
 	void			*cookie;
 	char			*format_path;
 	int			nr_jobs;
