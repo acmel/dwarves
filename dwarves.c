@@ -1515,7 +1515,7 @@ void class__find_holes(struct class *class)
 
 static size_t type__natural_alignment(struct type *type, const struct cu *cu);
 
-static size_t tag__natural_alignment(struct tag *tag, const struct cu *cu)
+size_t tag__natural_alignment(struct tag *tag, const struct cu *cu)
 {
 	size_t natural_alignment = 1;
 
