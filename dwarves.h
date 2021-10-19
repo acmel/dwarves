@@ -44,6 +44,7 @@ struct conf_fprintf;
  * @get_addr_info - wheter to load DW_AT_location and other addr info
  * @nr_jobs - -j argument, number of threads to use
  * @ptr_table_stats - print developer oriented ptr_table statistics.
+ * @skip_missing - skip missing types rather than bailing out.
  */
 struct conf_load {
 	enum load_steal_kind	(*steal)(struct cu *cu,
@@ -61,6 +62,7 @@ struct conf_load {
 	bool			ignore_labels;
 	bool			ptr_table_stats;
 	bool			skip_encoding_btf_tag;
+	bool			skip_missing;
 	uint8_t			hashtable_bits;
 	uint8_t			max_hashtable_bits;
 	uint16_t		kabi_prefix_len;

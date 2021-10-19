@@ -1125,6 +1125,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_hashbits		   329
 #define ARGP_devel_stats	   330
 #define ARGP_skip_encoding_btf_tag 331
+#define ARGP_skip_missing          332
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1501,6 +1502,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Do not encode TAGs in BTF."
 	},
 	{
+		.name = "skip_missing",
+		.key  = ARGP_skip_missing,
+		.doc = "skip missing types passed to -C rather than stop",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1650,6 +1656,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.ptr_table_stats = true;	break;
 	case ARGP_skip_encoding_btf_tag:
 		conf_load.skip_encoding_btf_tag = true;	break;
+	case ARGP_skip_missing:
+		conf_load.skip_missing = true;          break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -2879,8 +2887,13 @@ out_btf:
 		static type_id_t class_id;
 		struct tag *class = cu__find_type_by_name(cu, prototype->name, include_decls, &class_id);
 
-		if (class == NULL)
-			return ret; // couldn't find that class name in this CU, continue to the next one.
+		// couldn't find that class name in this CU, continue to the next one.
+		if (class == NULL) {
+			if (conf_load->skip_missing)
+				continue;
+			else
+				return ret;
+		}
 
 		if (prototype->nr_args != 0 && !tag__is_struct(class)) {
 			fprintf(stderr, "pahole: attributes are only supported with 'class' and 'struct' types\n");
