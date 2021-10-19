@@ -1127,6 +1127,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_skip_encoding_btf_decl_tag 331
 #define ARGP_skip_missing          332
 #define ARGP_skip_encoding_btf_type_tag 333
+#define ARGP_inner_anon		   334
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1233,6 +1234,11 @@ static const struct argp_option pahole__options[] = {
 		.name = "expand_types",
 		.key  = 'E',
 		.doc  = "expand class members",
+	},
+	{
+		.name = "inner_anon",
+		.key  = ARGP_inner_anon,
+		.doc  = "expanded class members are anonymous",
 	},
 	{
 		.name = "nr_members",
@@ -1666,6 +1672,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.skip_missing = true;          break;
 	case ARGP_skip_encoding_btf_type_tag:
 		conf_load.skip_encoding_btf_type_tag = true;	break;
+	case ARGP_inner_anon:
+		conf.inner_anonymous = true;            break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
