@@ -100,7 +100,8 @@ or file URLs (e.g.: file://class_list.txt)
 .B \-c, \-\-cacheline_size=SIZE
 Set cacheline size to SIZE bytes.
 
-.TP \-\-sort
+.TP
+.B \-\-sort
 Sort the output by type name, maybe this will grow to allow sorting by other
 criteria.
 
@@ -792,7 +793,7 @@ $ pahole ~/bin/perf --header=perf_file_header --seek_bytes '$header.data.offset'
 		.size = 88,
 	},
 	.id = 13,
-	.path = "/machine.slice/machine-qemu\x2d1\x2drhel6.sandy.scope",
+	.path = "/machine.slice/machine-qemu\\x2d1\\x2drhel6.sandy.scope",
 },
 $ 
 .fi
@@ -805,7 +806,7 @@ $ pahole ~/bin/perf --header=perf_file_header --range=data -C 'perf_event_header
 .P
 This uses ~/bin/perf to get the type definitions, the defines 'struct perf_file_header' as the header,
 then seeks '$header.data.offset' bytes from the start of the file, and considers '$header.data.size' bytes
-worth of such records. The filter expression may omit a common prefix, in this case it could additonally be
+worth of such records. The filter expression may omit a common prefix, in this case it could additionally be
 equivalently written as both 'filter=type==CGROUP' or the 'filter=' can also be omitted, getting as compact
 as 'type==CGROUP':
 .P
