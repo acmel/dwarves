@@ -61,7 +61,7 @@ struct conf_load {
 	bool			ignore_inline_expansions;
 	bool			ignore_labels;
 	bool			ptr_table_stats;
-	bool			skip_encoding_btf_tag;
+	bool			skip_encoding_btf_decl_tag;
 	bool			skip_missing;
 	uint8_t			hashtable_bits;
 	uint8_t			max_hashtable_bits;

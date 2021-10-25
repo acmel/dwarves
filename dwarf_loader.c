@@ -867,12 +867,12 @@ static int add_llvm_annotation(Dwarf_Die *die, int component_idx, struct conf_lo
 	struct llvm_annotation *annot;
 	const char *name;
 
-	if (conf->skip_encoding_btf_tag)
+	if (conf->skip_encoding_btf_decl_tag)
 		return 0;
 
-	/* Only handle btf_tag annotation for now. */
+	/* Only handle btf_decl_tag annotation for now. */
 	name = attr_string(die, DW_AT_name, conf);
-	if (strcmp(name, "btf_tag") != 0)
+	if (strcmp(name, "btf_decl_tag") != 0)
 		return 0;
 
 	annot = zalloc(sizeof(*annot));
