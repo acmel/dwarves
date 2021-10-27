@@ -837,6 +837,7 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 				     struct conf_fprintf *conf, FILE *fp)
 {
 	const int size = member->byte_size;
+	int member_alignment_printed = 0;
 	struct conf_fprintf sconf = *conf;
 	uint32_t offset = member->byte_offset;
 	size_t printed = 0, printed_cacheline = 0;
@@ -886,8 +887,10 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 		printed += fprintf(fp, ":%u", member->bitfield_size);
 	}
 
-	if (!sconf.suppress_aligned_attribute && member->alignment != 0)
-		printed += fprintf(fp, " __attribute__((__aligned__(%u)))", member->alignment);
+	if (!sconf.suppress_aligned_attribute && member->alignment != 0) {
+		member_alignment_printed = fprintf(fp, " __attribute__((__aligned__(%u)))", member->alignment);
+		printed += member_alignment_printed;
+	}
 
 	fputc(';', fp);
 	++printed;
@@ -898,18 +901,12 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 	    type__name(tag__type(type)) == NULL) {
 		if (!sconf.suppress_offset_comment) {
 			/* Check if this is a anonymous union */
-			int slen = cm_name ? (int)strlen(cm_name) : -1;
+			int slen = member_alignment_printed + (cm_name ? (int)strlen(cm_name) : -1);
 			int size_spacing = 5;
 
 			if (tag__is_struct(type) && tag__class(type)->is_packed && !conf->suppress_packed) {
 				int packed_len = sizeof("__attribute__((__packed__))");
 				slen += packed_len;
-			}
-
-			if (tag__type(type)->alignment != 0 && !conf->suppress_aligned_attribute) {
-				char bftmp[64];
-				int aligned_len = snprintf(bftmp, sizeof(bftmp), " __attribute__((__aligned__(%u)))", tag__type(type)->alignment);
-				slen += aligned_len;
 			}
 
 			printed += fprintf(fp, sconf.hex_fmt ?
