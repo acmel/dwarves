@@ -476,6 +476,7 @@ static uint32_t class__infer_alignment(const struct conf_load *conf,
 				       uint32_t natural_alignment,
 				       uint32_t smallest_offset)
 {
+	uint16_t cacheline_size = conf->conf_fprintf->cacheline_size;
 	uint32_t alignment = 0;
 	uint32_t offset_delta = byte_offset - smallest_offset;
 
@@ -494,6 +495,15 @@ static uint32_t class__infer_alignment(const struct conf_load *conf,
 	/* Natural alignment, nothing to do */
 	if (alignment <= natural_alignment || alignment == 1)
 		alignment = 0;
+	/* If the offset is compatible with being aligned on the cacheline size
+	 * and this would only result in increasing the alignment, use the
+	 * cacheline size as it is safe and quite likely to be what was in the
+	 * source.
+	 */
+	else if (alignment < cacheline_size &&
+		 cacheline_size % alignment == 0 &&
+		 byte_offset % cacheline_size == 0)
+		alignment = cacheline_size;
 
 	return alignment;
 }
