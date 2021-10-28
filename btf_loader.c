@@ -471,7 +471,8 @@ static int btf__load_sections(struct btf *btf, struct cu *cu)
 	return btf__load_types(btf, cu);
 }
 
-static uint32_t class__infer_alignment(uint32_t byte_offset,
+static uint32_t class__infer_alignment(const struct conf_load *conf,
+				       uint32_t byte_offset,
 				       uint32_t natural_alignment,
 				       uint32_t smallest_offset)
 {
@@ -497,7 +498,7 @@ static uint32_t class__infer_alignment(uint32_t byte_offset,
 	return alignment;
 }
 
-static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu)
+static int class__fixup_btf_bitfields(const struct conf_load *conf, struct tag *tag, struct cu *cu)
 {
 	struct class_member *pos;
 	struct type *tag_type = tag__type(tag);
@@ -536,27 +537,29 @@ static int class__fixup_btf_bitfields(struct tag *tag, struct cu *cu)
 			}
 		}
 
-		pos->alignment = class__infer_alignment(pos->byte_offset,
+		pos->alignment = class__infer_alignment(conf,
+							pos->byte_offset,
 							tag__natural_alignment(type, cu),
 							smallest_offset);
 		smallest_offset = pos->byte_offset + pos->byte_size;
 	}
 
-	tag_type->alignment = class__infer_alignment(tag_type->size,
+	tag_type->alignment = class__infer_alignment(conf,
+						     tag_type->size,
 						     tag__natural_alignment(tag, cu),
 						     smallest_offset);
 
 	return 0;
 }
 
-static int cu__fixup_btf_bitfields(struct cu *cu)
+static int cu__fixup_btf_bitfields(const struct conf_load *conf, struct cu *cu)
 {
 	int err = 0;
 	struct tag *pos;
 
 	list_for_each_entry(pos, &cu->tags, node)
 		if (tag__is_struct(pos) || tag__is_union(pos)) {
-			err = class__fixup_btf_bitfields(pos, cu);
+			err = class__fixup_btf_bitfields(conf, pos, cu);
 			if (err)
 				break;
 		}
@@ -606,7 +609,7 @@ static int cus__load_btf(struct cus *cus, struct conf_load *conf, const char *fi
 	if (err != 0)
 		goto out_free;
 
-	err = cu__fixup_btf_bitfields(cu);
+	err = cu__fixup_btf_bitfields(conf, cu);
 	/*
 	 * The app stole this cu, possibly deleting it,
 	 * so forget about it
