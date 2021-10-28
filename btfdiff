@@ -33,6 +33,7 @@ ${pahole_bin} -F dwarf \
 	      --show_private_classes $dwarf_input > $dwarf_output
 ${pahole_bin} -F btf \
 	      --sort \
+	      --suppress_aligned_attribute \
 	      --suppress_packed \
 	      $btf_input > $btf_output
 
