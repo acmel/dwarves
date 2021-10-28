@@ -34,10 +34,11 @@ int main(int argc __maybe_unused, char *argv[])
 	int err, rc = EXIT_FAILURE;
 	struct cus *cus = cus__new();
 
-	if (dwarves__init(0) || cus == NULL) {
+	if (dwarves__init() || cus == NULL) {
 		fputs("dtagnames: insufficient memory\n", stderr);
 		goto out;
 	}
+	dwarves__resolve_cacheline_size(NULL, 0);
 
 	err = cus__load_files(cus, NULL, argv + 1);
 	if (err != 0) {

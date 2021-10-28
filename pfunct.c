@@ -721,10 +721,12 @@ int main(int argc, char *argv[])
 	if (symtab_name != NULL)
 		return elf_symtabs__show(argv + remaining);
 
-	if (dwarves__init(0)) {
+	if (dwarves__init()) {
 		fputs("pfunct: insufficient memory\n", stderr);
 		goto out;
 	}
+
+	dwarves__resolve_cacheline_size(&conf_load, 0);
 
 	struct cus *cus = cus__new();
 	if (cus == NULL) {

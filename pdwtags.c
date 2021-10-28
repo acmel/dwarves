@@ -131,10 +131,12 @@ int main(int argc, char *argv[])
 	int remaining, rc = EXIT_FAILURE, err;
 	struct cus *cus = cus__new();
 
-	if (dwarves__init(0) || cus == NULL) {
+	if (dwarves__init() || cus == NULL) {
 		fputs("pwdtags: insufficient memory\n", stderr);
 		goto out;
 	}
+
+	dwarves__resolve_cacheline_size(&pdwtags_conf_load, 0);
 
 	if (argp_parse(&pdwtags__argp, argc, argv, 0, &remaining, NULL) ||
 	    remaining == argc) {

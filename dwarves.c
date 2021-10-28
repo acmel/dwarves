@@ -2458,12 +2458,8 @@ void cus__set_loader_exit(struct cus *cus, void (*loader_exit)(struct cus *cus))
 	cus->loader_exit = loader_exit;
 }
 
-void dwarves__fprintf_init(uint16_t user_cacheline_size);
-
-int dwarves__init(uint16_t user_cacheline_size)
+int dwarves__init(void)
 {
-	dwarves__fprintf_init(user_cacheline_size);
-
 	int i = 0;
 	int err = 0;
 

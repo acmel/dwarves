@@ -940,10 +940,11 @@ int main(int argc, char *argv[])
 	FILE *fp_functions;
 	int rc = EXIT_FAILURE;
 
-	if (dwarves__init(0)) {
+	if (dwarves__init()) {
 		fputs("ctracer: insufficient memory\n", stderr);
 		goto out;
 	}
+	dwarves__resolve_cacheline_size(NULL, 0);
 
 	if (argp_parse(&ctracer__argp, argc, argv, 0, &remaining, NULL) ||
 	    remaining < argc) {

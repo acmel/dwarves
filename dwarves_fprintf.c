@@ -127,7 +127,7 @@ const char *dwarf_tag_name(const uint32_t tag)
 	return "INVALID";
 }
 
-static const struct conf_fprintf conf_fprintf__defaults = {
+static struct conf_fprintf conf_fprintf__defaults = {
 	.name_spacing = 23,
 	.type_spacing = 26,
 	.emit_stats   = 1,
@@ -135,11 +135,10 @@ static const struct conf_fprintf conf_fprintf__defaults = {
 
 const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
-static size_t cacheline_size;
 
-size_t tag__nr_cachelines(const struct tag *tag, const struct cu *cu)
+size_t tag__nr_cachelines(const struct conf_fprintf *conf, const struct tag *tag, const struct cu *cu)
 {
-	return (tag__size(tag, cu) + cacheline_size - 1) / cacheline_size;
+	return (tag__size(tag, cu) + conf->cacheline_size - 1) / conf->cacheline_size;
 }
 
 static const char *tag__accessibility(const struct tag *tag)
@@ -611,7 +610,7 @@ static size_t type__fprintf_stats(struct type *type, const struct cu *cu,
 {
 	size_t printed = fprintf(fp, "\n%.*s/* size: %d, cachelines: %zd, members: %u",
 				 conf->indent, tabs, type->size,
-				 tag__nr_cachelines(type__tag(type), cu), type->nr_members);
+				 tag__nr_cachelines(conf, type__tag(type), cu), type->nr_members);
 
 	if (type->nr_static_members != 0)
 		printed += fprintf(fp, ", static members: %u */\n", type->nr_static_members);
@@ -1304,11 +1303,11 @@ static size_t class__fprintf_cacheline_boundary(struct conf_fprintf *conf,
 						FILE *fp)
 {
 	int indent = conf->indent;
-	uint32_t cacheline = offset / cacheline_size;
+	uint32_t cacheline = offset / conf->cacheline_size;
 	size_t printed = 0;
 
 	if (cacheline > *conf->cachelinep) {
-		const uint32_t cacheline_pos = offset % cacheline_size;
+		const uint32_t cacheline_pos = offset % conf->cacheline_size;
 		const uint32_t cacheline_in_bytes = offset - cacheline_pos;
 
 		if (cacheline_pos == 0)
@@ -1750,7 +1749,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		}
 		printed += fprintf(fp, " */\n");
 	}
-	cacheline = (cconf.base_offset + type->size) % cacheline_size;
+	cacheline = (cconf.base_offset + type->size) % conf->cacheline_size;
 	if (cacheline != 0)
 		printed += fprintf(fp, "%.*s/* last cacheline: %u bytes */\n",
 				   cconf.indent, tabs,
@@ -1977,15 +1976,22 @@ static long cacheline__size(void)
 #endif
 }
 
-void dwarves__fprintf_init(uint16_t user_cacheline_size)
+void dwarves__resolve_cacheline_size(const struct conf_load *conf, uint16_t user_cacheline_size)
 {
+	uint16_t size;
+
 	if (user_cacheline_size == 0) {
 		long sys_cacheline_size = cacheline__size();
 
 		if (sys_cacheline_size > 0)
-			cacheline_size = sys_cacheline_size;
+			size = sys_cacheline_size;
 		else
-			cacheline_size = 64; /* Fall back to a sane value */
+			size = 64; /* Fall back to a sane value */
 	} else
-		cacheline_size = user_cacheline_size;
+		size = user_cacheline_size;
+
+	if (conf)
+		conf->conf_fprintf->cacheline_size = size;
+
+	conf_fprintf__defaults.cacheline_size = size;
 }

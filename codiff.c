@@ -778,10 +778,12 @@ failure:
 		goto out;
 	}
 
-	if (dwarves__init(0)) {
+	if (dwarves__init()) {
 		fputs("codiff: insufficient memory\n", stderr);
 		goto out;
 	}
+
+	dwarves__resolve_cacheline_size(&conf_load, 0);
 
 	if (show_function_diffs == 0 && show_struct_diffs == 0 &&
 	    show_terse_type_changes == 0)

@@ -1692,8 +1692,8 @@ static void do_reorg(struct tag *class, struct cu *cu)
 	tag__fprintf(class__tag(clone), cu, &conf, stdout);
 	if (savings != 0) {
 		const size_t cacheline_savings =
-		      (tag__nr_cachelines(class, cu) -
-		       tag__nr_cachelines(class__tag(clone), cu));
+		      (tag__nr_cachelines(&conf, class, cu) -
+		       tag__nr_cachelines(&conf, class__tag(clone), cu));
 
 		printf("   /* saved %d byte%s", savings,
 		       savings != 1 ? "s" : "");
@@ -3156,10 +3156,12 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	if (dwarves__init(cacheline_size)) {
+	if (dwarves__init()) {
 		fputs("pahole: insufficient memory\n", stderr);
 		goto out;
 	}
+
+	dwarves__resolve_cacheline_size(&conf_load, cacheline_size);
 
 	if (prettify_input_filename) {
 		if (strcmp(prettify_input_filename, "-") == 0) {

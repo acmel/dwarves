@@ -303,10 +303,12 @@ int main(int argc, char *argv[])
                 goto out;
 	}
 
-	if (dwarves__init(0)) {
+	if (dwarves__init()) {
 		fputs("pglobal: insufficient memory\n", stderr);
 		goto out;
 	}
+
+	dwarves__resolve_cacheline_size(&conf_load, 0);
 
 	struct cus *cus = cus__new();
 	if (cus == NULL) {

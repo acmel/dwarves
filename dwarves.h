@@ -100,6 +100,7 @@ struct conf_fprintf {
 	const char *header_type;
 	const char *range;
 	uint32_t   skip;
+	uint16_t   cacheline_size;
 	uint8_t	   indent;
 	uint8_t	   expand_types:1;
 	uint8_t	   expand_pointers:1;
@@ -573,7 +574,7 @@ void tag__not_found_die(const char *file, int line, const char *func);
 					  __LINE__, __func__); } while (0)
 
 size_t tag__size(const struct tag *tag, const struct cu *cu);
-size_t tag__nr_cachelines(const struct tag *tag, const struct cu *cu);
+size_t tag__nr_cachelines(const struct conf_fprintf *conf, const struct tag *tag, const struct cu *cu);
 struct tag *tag__follow_typedef(const struct tag *tag, const struct cu *cu);
 struct tag *tag__strip_typedefs_and_modifiers(const struct tag *tag, const struct cu *cu);
 
@@ -1336,8 +1337,9 @@ void enumeration__add(struct type *type, struct enumerator *enumerator);
 size_t enumeration__fprintf(const struct tag *tag_enum,
 			    const struct conf_fprintf *conf, FILE *fp);
 
-int dwarves__init(uint16_t user_cacheline_size);
+int dwarves__init(void);
 void dwarves__exit(void);
+void dwarves__resolve_cacheline_size(const struct conf_load *conf, uint16_t user_cacheline_size);
 
 const char *dwarf_tag_name(const uint32_t tag);
 
