@@ -1296,11 +1296,8 @@ static struct tag *die__create_new_typedef(Dwarf_Die *die, struct cu *cu, struct
 	if (tdef == NULL)
 		return NULL;
 
-	if (dwarf_haschildren(die)) {
-		struct dwarf_tag *dtag = tdef->namespace.tag.priv;
-		fprintf(stderr, "%s: DW_TAG_typedef %llx WITH children!\n",
-			__func__, (unsigned long long)dtag->id);
-	}
+	if (add_child_llvm_annotations(die, -1, conf, &tdef->namespace.annots))
+		return NULL;
 
 	return &tdef->namespace.tag;
 }
