@@ -1438,9 +1438,21 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 
 	cu__for_each_type(cu, core_id, pos) {
 		struct namespace *ns;
+		const char *tag_name;
 
-		if (pos->tag != DW_TAG_structure_type && pos->tag != DW_TAG_union_type)
+		switch (pos->tag) {
+		case DW_TAG_structure_type:
+			tag_name = "struct";
+			break;
+		case DW_TAG_union_type:
+			tag_name = "union";
+			break;
+		case DW_TAG_typedef:
+			tag_name = "typedef";
+			break;
+		default:
 			continue;
+		}
 
 		btf_type_id = type_id_off + core_id;
 		ns = tag__namespace(pos);
@@ -1448,8 +1460,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 			tag_type_id = btf_encoder__add_decl_tag(encoder, annot->value, btf_type_id, annot->component_idx);
 			if (tag_type_id < 0) {
 				fprintf(stderr, "error: failed to encode tag '%s' to %s '%s' with component_idx %d\n",
-					annot->value, pos->tag == DW_TAG_structure_type ? "struct" : "union",
-					namespace__name(ns), annot->component_idx);
+					annot->value, tag_name, namespace__name(ns), annot->component_idx);
 				goto out;
 			}
 		}
