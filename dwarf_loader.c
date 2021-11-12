@@ -2413,8 +2413,8 @@ static int die__process(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 	}
 
 	if (tag != DW_TAG_compile_unit && tag != DW_TAG_type_unit) {
-		fprintf(stderr, "%s: DW_TAG_compile_unit, DW_TAG_type_unit or DW_TAG_partial_unit expected got %s!\n",
-			__FUNCTION__, dwarf_tag_name(tag));
+		fprintf(stderr, "%s: DW_TAG_compile_unit, DW_TAG_type_unit or DW_TAG_partial_unit expected got %s (0x%x)!\n",
+			__FUNCTION__, dwarf_tag_name(tag), tag);
 		return -EINVAL;
 	}
 
