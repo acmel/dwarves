@@ -84,6 +84,15 @@ static const char *dwarf_tag_names[] = {
 	[DW_TAG_type_unit]		  = "type_unit",
 	[DW_TAG_rvalue_reference_type]    = "rvalue_reference_type",
 #endif
+#if _ELFUTILS_PREREQ(0, 170)
+	[DW_TAG_coarray_type]		  = "coarray_type",
+	[DW_TAG_generic_subrange]	  = "generic_subrange",
+	[DW_TAG_dynamic_type]		  = "dynamic_type",
+	[DW_TAG_call_site]		  = "call_site",
+	[DW_TAG_call_site_parameter]	  = "call_site_parameter",
+	[DW_TAG_skeleton_unit]		  = "skeleton_unit",
+	[DW_TAG_immutable_type]		  = "immutable_type",
+#endif
 };
 
 static const char *dwarf_gnu_tag_names[] = {
@@ -107,10 +116,14 @@ static const char *dwarf_gnu_tag_names[] = {
 const char *dwarf_tag_name(const uint32_t tag)
 {
 	if (tag >= DW_TAG_array_type && tag <=
+#if _ELFUTILS_PREREQ(0, 170)
+		DW_TAG_immutable_type
+#else
 #ifdef STB_GNU_UNIQUE
 		DW_TAG_rvalue_reference_type
 #else
 		DW_TAG_shared_type
+#endif
 #endif
 	    )
 		return dwarf_tag_names[tag];
