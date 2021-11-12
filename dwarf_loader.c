@@ -2400,6 +2400,17 @@ static int die__process(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 	Dwarf_Die child;
 	const uint16_t tag = dwarf_tag(die);
 
+	if (tag == DW_TAG_skeleton_unit) {
+		static bool warned;
+
+		if (!warned) {
+			fprintf(stderr, "WARNING: DW_TAG_skeleton_unit used, please look for a .dwo file and use it instead.\n"
+					"         A future version of pahole will support do this automagically.\n");
+			warned = true;
+		}
+		return 0; // so that other units can be processed
+	}
+
 	if (tag == DW_TAG_partial_unit) {
 		static bool warned;
 
@@ -2413,7 +2424,7 @@ static int die__process(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 	}
 
 	if (tag != DW_TAG_compile_unit && tag != DW_TAG_type_unit) {
-		fprintf(stderr, "%s: DW_TAG_compile_unit, DW_TAG_type_unit or DW_TAG_partial_unit expected got %s (0x%x)!\n",
+		fprintf(stderr, "%s: DW_TAG_compile_unit, DW_TAG_type_unit, DW_TAG_partial_unit or DW_TAG_skeleton_unit expected got %s (0x%x)!\n",
 			__FUNCTION__, dwarf_tag_name(tag), tag);
 		return -EINVAL;
 	}
