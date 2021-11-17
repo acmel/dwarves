@@ -31,6 +31,10 @@
 
 #define roundup(x,y) ((((x) + ((y) - 1)) / (y)) * (y))
 
+#ifndef DW_TAG_LLVM_annotation
+#define DW_TAG_LLVM_annotation 0x6000
+#endif
+
 static inline __attribute__((const)) bool is_power_of_2(unsigned long n)
 {
         return (n != 0 && ((n & (n - 1)) == 0));

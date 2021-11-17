@@ -52,10 +52,6 @@
 #define DW_OP_addrx 0xa1
 #endif
 
-#ifndef DW_TAG_LLVM_annotation
-#define DW_TAG_LLVM_annotation 0x6000
-#endif
-
 static pthread_mutex_t libdw__lock = PTHREAD_MUTEX_INITIALIZER;
 
 static uint32_t hashtags__bits = 12;
