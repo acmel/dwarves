@@ -1206,6 +1206,89 @@ static struct tag *die__create_new_tag(Dwarf_Die *die, struct cu *cu)
 	return tag;
 }
 
+static struct btf_type_tag_ptr_type *die__create_new_btf_type_tag_ptr_type(Dwarf_Die *die, struct cu *cu)
+{
+	struct btf_type_tag_ptr_type *tag;
+
+	tag  = tag__alloc_with_spec(cu, sizeof(struct btf_type_tag_ptr_type));
+	if (tag == NULL)
+		return NULL;
+
+	tag__init(&tag->tag, cu, die);
+	tag->tag.has_btf_type_tag = true;
+	INIT_LIST_HEAD(&tag->tags);
+	return tag;
+}
+
+static struct btf_type_tag_type *die__create_new_btf_type_tag_type(Dwarf_Die *die, struct cu *cu,
+								   struct conf_load *conf)
+{
+	struct btf_type_tag_type *tag;
+
+	tag  = tag__alloc_with_spec(cu, sizeof(struct btf_type_tag_type));
+	if (tag == NULL)
+		return NULL;
+
+	tag__init(&tag->tag, cu, die);
+	tag->value = attr_string(die, DW_AT_const_value, conf);
+	return tag;
+}
+
+static struct tag *die__create_new_pointer_tag(Dwarf_Die *die, struct cu *cu,
+					       struct conf_load *conf)
+{
+	struct btf_type_tag_ptr_type *tag = NULL;
+	struct btf_type_tag_type *annot;
+	Dwarf_Die *cdie, child;
+	const char *name;
+	uint32_t id;
+
+	/* If no child tags or skipping btf_type_tag encoding, just create a new tag
+	 * and return
+	 */
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0 ||
+	    conf->skip_encoding_btf_type_tag)
+		return tag__new(die, cu);
+
+	/* Otherwise, check DW_TAG_LLVM_annotation child tags */
+	cdie = &child;
+	do {
+		if (dwarf_tag(cdie) != DW_TAG_LLVM_annotation)
+			continue;
+
+		/* Only check btf_type_tag annotations */
+		name = attr_string(cdie, DW_AT_name, conf);
+		if (strcmp(name, "btf_type_tag") != 0)
+			continue;
+
+		if (tag == NULL) {
+			/* Create a btf_type_tag_ptr type. */
+			tag = die__create_new_btf_type_tag_ptr_type(die, cu);
+			if (!tag)
+				return NULL;
+		}
+
+		/* Create a btf_type_tag type for this annotation. */
+		annot = die__create_new_btf_type_tag_type(cdie, cu, conf);
+		if (annot == NULL)
+			return NULL;
+
+		if (cu__table_add_tag(cu, &annot->tag, &id) < 0)
+			return NULL;
+
+		struct dwarf_tag *dtag = annot->tag.priv;
+		dtag->small_id = id;
+		cu__hash(cu, &annot->tag);
+
+		/* For a list of DW_TAG_LLVM_annotation like tag1 -> tag2 -> tag3,
+		 * the tag->tags contains tag3 -> tag2 -> tag1.
+		 */
+		list_add(&annot->node, &tag->tags);
+	} while (dwarf_siblingof(cdie, cdie) == 0);
+
+	return tag ? &tag->tag : tag__new(die, cu);
+}
+
 static struct tag *die__create_new_ptr_to_member_type(Dwarf_Die *die,
 						      struct cu *cu)
 {
@@ -1903,12 +1986,13 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	case DW_TAG_const_type:
 	case DW_TAG_imported_declaration:
 	case DW_TAG_imported_module:
-	case DW_TAG_pointer_type:
 	case DW_TAG_reference_type:
 	case DW_TAG_restrict_type:
 	case DW_TAG_unspecified_type:
 	case DW_TAG_volatile_type:
 		tag = die__create_new_tag(die, cu);		break;
+	case DW_TAG_pointer_type:
+		tag = die__create_new_pointer_tag(die, cu, conf);	break;
 	case DW_TAG_ptr_to_member_type:
 		tag = die__create_new_ptr_to_member_type(die, cu); break;
 	case DW_TAG_enumeration_type:
@@ -2192,6 +2276,45 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 	}
 }
 
+static void dwarf_cu__recode_btf_type_tag_ptr(struct btf_type_tag_ptr_type *tag,
+					      uint32_t pointee_type)
+{
+	struct btf_type_tag_type *annot;
+	struct dwarf_tag *annot_dtag;
+	struct tag *prev_tag;
+
+	/* Given source like
+	 *   int tag1 tag2 tag3 *p;
+	 * the tag->tags contains tag3 -> tag2 -> tag1, the final type chain looks like:
+	 *   pointer -> tag3 -> tag2 -> tag1 -> pointee
+	 *
+	 * Basically it means
+	 *   - '*' applies to "int tag1 tag2 tag3"
+	 *   - tag3 applies to "int tag1 tag2"
+	 *   - tag2 applies to "int tag1"
+	 *   - tag1 applies to "int"
+	 *
+	 * This also makes final source code (format c) easier as we can do
+	 *   emit for "tag3 -> tag2 -> tag1 -> int"
+	 *   emit '*'
+	 *
+	 * For 'tag3 -> tag2 -> tag1 -> int":
+	 *   emit for "tag2 -> tag1 -> int"
+	 *   emit tag3
+	 *
+	 * Eventually we can get the source code like
+	 *   int tag1 tag2 tag3 *p;
+	 * and this matches the user/kernel code.
+	 */
+	prev_tag = &tag->tag;
+	list_for_each_entry(annot, &tag->tags, node) {
+		annot_dtag = annot->tag.priv;
+		prev_tag->type = annot_dtag->small_id;
+		prev_tag = &annot->tag;
+	}
+	prev_tag->type = pointee_type;
+}
+
 static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 {
 	struct dwarf_tag *dtag = tag->priv;
@@ -2301,7 +2424,10 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 	}
 
 	if (dtag->type.off == 0) {
-		tag->type = 0; /* void */
+		if (tag->tag != DW_TAG_pointer_type || !tag->has_btf_type_tag)
+			tag->type = 0; /* void */
+		else
+			dwarf_cu__recode_btf_type_tag_ptr(tag__btf_type_tag_ptr(tag), 0);
 		return 0;
 	}
 
@@ -2313,7 +2439,11 @@ check_type:
 		return 0;
 	}
 out:
-	tag->type = dtype->small_id;
+	if (tag->tag != DW_TAG_pointer_type || !tag->has_btf_type_tag)
+		tag->type = dtype->small_id;
+	else
+		dwarf_cu__recode_btf_type_tag_ptr(tag__btf_type_tag_ptr(tag), dtype->small_id);
+
 	return 0;
 }
 

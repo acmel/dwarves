@@ -63,6 +63,7 @@ struct conf_load {
 	bool			ptr_table_stats;
 	bool			skip_encoding_btf_decl_tag;
 	bool			skip_missing;
+	bool			skip_encoding_btf_type_tag;
 	uint8_t			hashtable_bits;
 	uint8_t			max_hashtable_bits;
 	uint16_t		kabi_prefix_len;
@@ -413,6 +414,7 @@ struct tag {
 	uint16_t	 tag;
 	bool		 visited;
 	bool		 top_level;
+	bool		 has_btf_type_tag;
 	uint16_t	 recursivity_level;
 	void		 *priv;
 };
@@ -533,7 +535,8 @@ static inline int tag__is_tag_type(const struct tag *tag)
 	       tag->tag == DW_TAG_restrict_type ||
 	       tag->tag == DW_TAG_subroutine_type ||
 	       tag->tag == DW_TAG_unspecified_type ||
-	       tag->tag == DW_TAG_volatile_type;
+	       tag->tag == DW_TAG_volatile_type ||
+	       tag->tag == DW_TAG_LLVM_annotation;
 }
 
 static inline const char *tag__decl_file(const struct tag *tag,
@@ -605,6 +608,34 @@ struct llvm_annotation {
 	int16_t			component_idx;
 	struct list_head	node;
 };
+
+/** struct btf_type_tag_type - representing a btf_type_tag annotation
+ *
+ * @tag   - DW_TAG_LLVM_annotation tag
+ * @value - btf_type_tag value string
+ * @node  - list_head node
+ */
+struct btf_type_tag_type {
+	struct tag		tag;
+	const char		*value;
+	struct list_head	node;
+};
+
+/** The struct btf_type_tag_ptr_type - type containing both pointer type and
+ *  its btf_type_tag annotations
+ *
+ * @tag  - pointer type tag
+ * @tags - btf_type_tag annotations for the pointer type
+ */
+struct btf_type_tag_ptr_type {
+	struct tag		tag;
+	struct list_head 	tags;
+};
+
+static inline struct btf_type_tag_ptr_type *tag__btf_type_tag_ptr(struct tag *tag)
+{
+	return (struct btf_type_tag_ptr_type *)tag;
+}
 
 /** struct namespace - base class for enums, structs, unions, typedefs, etc
  *
