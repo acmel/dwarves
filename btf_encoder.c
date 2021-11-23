@@ -143,6 +143,7 @@ static const char * const btf_kind_str[NR_BTF_KINDS] = {
 	[BTF_KIND_DATASEC]      = "DATASEC",
 	[BTF_KIND_FLOAT]        = "FLOAT",
 	[BTF_KIND_DECL_TAG]     = "DECL_TAG",
+	[BTF_KIND_TYPE_TAG]     = "TYPE_TAG",
 };
 
 static const char *btf__printable_name(const struct btf *btf, uint32_t offset)
@@ -392,6 +393,9 @@ static int32_t btf_encoder__add_ref_type(struct btf_encoder *encoder, uint16_t k
 		break;
 	case BTF_KIND_TYPEDEF:
 		id = btf__add_typedef(btf, name, type);
+		break;
+	case BTF_KIND_TYPE_TAG:
+		id = btf__add_type_tag(btf, name, type);
 		break;
 	case BTF_KIND_FWD:
 		id = btf__add_fwd(btf, name, kind_flag);
@@ -862,6 +866,9 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct tag *tag,
 	case DW_TAG_typedef:
 		name = namespace__name(tag__namespace(tag));
 		return btf_encoder__add_ref_type(encoder, BTF_KIND_TYPEDEF, ref_type_id, name, false);
+	case DW_TAG_LLVM_annotation:
+		name = tag__btf_type_tag(tag)->value;
+		return btf_encoder__add_ref_type(encoder, BTF_KIND_TYPE_TAG, ref_type_id, name, false);
 	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
 	case DW_TAG_class_type:

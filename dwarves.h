@@ -637,6 +637,11 @@ static inline struct btf_type_tag_ptr_type *tag__btf_type_tag_ptr(struct tag *ta
 	return (struct btf_type_tag_ptr_type *)tag;
 }
 
+static inline struct btf_type_tag_type *tag__btf_type_tag(struct tag *tag)
+{
+	return (struct btf_type_tag_type *)tag;
+}
+
 /** struct namespace - base class for enums, structs, unions, typedefs, etc
  *
  * @tags - class_member, enumerators, etc
