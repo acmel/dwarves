@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.22
+Version: 1.23
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -79,7 +79,7 @@ rm -Rf %{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
-%doc changes-v1.22
+%doc changes-v1.23
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -131,7 +131,18 @@ rm -Rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
-* Mon Aug 23 2021 Aug 17 2021 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.22-1
+* Wed Dec  8 2021 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.23-1
+- New release: v1.23
+- Process DW_TAG_LLVM_annotation tags.
+- Initial support for DW_TAG_skeleton_unit.
+- Encode BTF_KIND_TYPE_TAG and BTF_KIND_DECL_TAG
+- Fix handling of percpu symbols on s390.
+- Use cacheline size to infer struct member alignment from BTF.
+- Add --skip_missing to not stop when not finding one of -C arguments.
+- Fix __attribute__((__aligned__(N)) printing alignment for struct members.
+- Fix nested __attribute__(__aligned__(N)) struct printing order.
+
+* Mon Aug 23 2021 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.22-1
 - New release: v1.22
 - Introduce -j/--jobs option to specify the number of threads to use.
 - Multithreaded DWARF loading, requires elfutils >= 0.178.

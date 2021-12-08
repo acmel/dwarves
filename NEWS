@@ -1,3 +1,44 @@
+v1.23
+
+Wed Dec  8 2021
+
+54ae2f7f5e4f6328 Revert "fprintf: Allow making struct/enum/union anonymous"
+69fb1861de35120c Revert "pahole: Add --inner_anon option"
+005236c3e40eeb64 pahole: Add --inner_anon option
+7c5e35b63bd26f1d fprintf: Allow making struct/enum/union anonymous
+d99d551930cf4b4b btf_encoder: Support btf_type_tag attribute
+3da248c3284ef905 man pages: Add missing --skip_encoding_btf_decl_tag entry
+a58ecca0a89b142b man pages: Add missing --skip_encoding_btf_type_tag entry
+b488c8d328845bd8 dwarf_loader: Support btf_type_tag attribute
+a0cc68687f1281cd dutil: Move DW_TAG_LLVM_annotation definition to dutil.h
+76401e9e46f07753 libbpf: Sync with latest libbpf repo to pick support for BTF_KIND_TYPE_TAG
+0135ccd632796ab3 dwarf_loader: Warn about DW_TAG_skeleton_unit and give a workaround
+433dc780ca48944b fprintf: Add DWARF5 tags added in elfutils 0.170
+7af9ed4aed182869 dwarf_loader: Print the hexadecimal value for unexpected tags in die__process()
+ec62499774c4bcac btf_encoder: generate BTF_KIND_DECL_TAGs for typedef btf_decl_tag attributes
+468b4196f65458e8 dwarf_loader: support typedef DW_TAG_LLVM_annotation
+696c62180455fd29 btf_loader: Use cacheline size to infer alignment
+48f4086b766d2214 btf_loader: Propagate struct conf_load
+772725a77d3323c6 dwarves_fprintf: Move cacheline_size into struct conf_fprintf
+cdd088c05cfed082 btfdiff: Suppress alignment tags with BTF as well as with DWARF
+836c139fdf6f2b13 btf_loader: Infer alignment info
+4db65fe0cd02b3cc core: Export tag__natural_alignment()
+43e8216c25ee767f fprintf: Fix __attribute__((__aligned__(N)) handling for struct members
+c52f6421f21146ad btf: Rename btf_tag to btf_decl_tag
+3433c67bbd158e1d manpages: Minor fixes
+e975d0fba833d02d btf_loader: Refactor class__fixup_btf_bitfields
+5282feee6d4d3a88 pahole: Add --skip_missing option
+6931e393f8f6d81f fprintf: Fix nested struct printing wrt attributes
+16a7acaba4466121 btf_encoder: Fix handling of percpu symbols on s390
+3cde0135ca51de73 dwarf_loader: Fix heap overflow when accessing variable specification
+a9c99e98815f06bd dwarves: Introduce conf_load->thread_exit() callback
+cc6c7d473d518324 Update libbpf to get API to combine BTF
+e38e89e8539b144a btf_encoder: Generate BTF_KIND_TAG from llvm annotations
+aa8c494e65a77fa5 dwarf_loader: Parse DWARF tag DW_TAG_LLVM_annotation
+3d20210d84f61ee2 CMakeList.txt: Don't download libbpf source when system library is used
+38fad22d669ab044 libbpf: Get latest libbpf
+88431099950ab3e8 CMakeList.txt: Make python optional
+
 v1.22:
 
 Mon Aug 23 2021

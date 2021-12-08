@@ -1,0 +1,56 @@
+DWARF loader:
+
+- Read DW_TAG_LLVM_annotation tags, associating it with variables, functions,
+  types. So far this is only being used by the BTF encoder, but the pretty
+  printer should use this as well in a future release, printing these
+  attributes when available.
+
+- Initial support for DW_TAG_skeleton_unit, so far just suggest looking up a
+  matching .dwo file to be used instead. Automagically doing this is in the
+  plans for a future release.
+
+- Fix heap overflow when accessing variable specification.
+
+BTF encoder:
+
+- Support the new BTF type tag attribute, encoding DW_TAG_LLVM_annotation DWARF
+  tags as BTF_KIND_TYPE_TAG and BTF_KIND_DECL_TAG.
+
+  This allows __attribute__((btf_type_tag("tag1"))) to be used for variables,
+  functions, typedefs, so that contextual information can be stored in BTF and
+  used by the kernel BPF verifier for more checks.
+
+  The --skip_encoding_btf_type_tag option can be used to suppress this.
+
+- Fix handling of percpu symbols on s390.
+
+BTF loader:
+
+- Use cacheline size to infer alignment.
+
+btfdiff:
+
+- Now that the BTF loader infers struct member alingment, and as that is just
+  an heuristic, suppress printing the alignment when pretty printing from BTF
+  info like is done when printing from DWARF.
+
+pahole:
+
+- Add --skip_missing so that we don't stop when not finding one of the types passed
+  to -C.
+
+Pretty printer:
+
+- Fix __attribute__((__aligned__(N)) printing alignment for struct members.
+
+- Fix nested __attribute__(__aligned__(N)) struct printing order, so that
+  rebuilding from the printed source circles back to the original source code
+  alignment semantics.
+
+Build:
+
+- No need to download libbpf source when using the system library (libbpf-devel).
+
+- Make python optional
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
