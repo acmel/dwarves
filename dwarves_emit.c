@@ -91,7 +91,7 @@ static int enumeration__emit_definitions(struct tag *tag,
 		return 0;
 	}
 
-	enumeration__fprintf(tag, conf, fp, false);
+	enumeration__fprintf(tag, conf, fp);
 	fputs(";\n", fp);
 	type_emissions__add_definition(emissions, etype);
 	return 1;
