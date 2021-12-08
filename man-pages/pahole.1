@@ -123,13 +123,6 @@ Expand class members. Useful to find in what member of inner structs where an
 offset from the beginning of a struct is.
 
 .TP
-.B \-\-inner_anon
-Allow making inner structs, enums and unions anonymous, so that when using -E
-to expand types we don't end up with multiple definitions for the expanded
-inner structs/enums/unions, allowing the resulting expanded struct to be
-compilable.
-
-.TP
 .B \-F, \-\-format_path
 Allows specifying a list of debugging formats to try, in order. Right now this
 includes "ctf" and "dwarf". The default format path used is equivalent to
