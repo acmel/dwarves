@@ -1390,4 +1390,8 @@ extern bool no_bitfield_type_recode;
 
 extern const char tabs[];
 
+#ifndef DW_TAG_skeleton_unit
+#define DW_TAG_skeleton_unit 0x4a
+#endif
+
 #endif /* _DWARVES_H_ */
