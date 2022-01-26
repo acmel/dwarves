@@ -2798,6 +2798,72 @@ out:
 
 static struct type_instance *header;
 
+struct thread_data {
+	struct btf *btf;
+	struct btf_encoder *encoder;
+};
+
+static int pahole_threads_prepare(struct conf_load *conf, int nr_threads, void **thr_data)
+{
+	int i;
+	struct thread_data *threads = calloc(sizeof(struct thread_data), nr_threads);
+
+	for (i = 0; i < nr_threads; i++)
+		thr_data[i] = threads + i;
+
+	return 0;
+}
+
+static int pahole_thread_exit(struct conf_load *conf, void *thr_data)
+{
+	struct thread_data *thread = thr_data;
+
+	if (thread == NULL)
+		return 0;
+
+	/*
+	 * Here we will call btf__dedup() here once we extend
+	 * btf__dedup().
+	 */
+
+	return 0;
+}
+
+static int pahole_threads_collect(struct conf_load *conf, int nr_threads, void **thr_data,
+				  int error)
+{
+	struct thread_data **threads = (struct thread_data **)thr_data;
+	int i;
+	int err = 0;
+
+	if (error)
+		goto out;
+
+	for (i = 0; i < nr_threads; i++) {
+		/*
+		 * Merge content of the btf instances of worker threads to the btf
+		 * instance of the primary btf_encoder.
+                */
+		if (!threads[i]->btf || threads[i]->encoder == btf_encoder)
+			continue; /* The primary btf_encoder */
+		err = btf__add_btf(btf_encoder__btf(btf_encoder), threads[i]->btf);
+		if (err < 0)
+			goto out;
+		btf_encoder__delete(threads[i]->encoder);
+		threads[i]->encoder = NULL;
+	}
+	err = 0;
+
+out:
+	for (i = 0; i < nr_threads; i++) {
+		if (threads[i]->encoder && threads[i]->encoder != btf_encoder)
+			btf_encoder__delete(threads[i]->encoder);
+	}
+	free(threads[0]);
+
+	return err;
+}
+
 static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   struct conf_load *conf_load,
 					   void *thr_data)
@@ -2819,6 +2885,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 
 	if (btf_encode) {
 		static pthread_mutex_t btf_lock = PTHREAD_MUTEX_INITIALIZER;
+		struct btf_encoder *encoder;
 
 		pthread_mutex_lock(&btf_lock);
 		/*
@@ -2828,21 +2895,58 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		 * point we'll have cu->elf setup...
 		 */
 		if (!btf_encoder) {
+			/*
+			 * btf_encoder is the primary encoder.
+			 * And, it is used by the thread
+			 * create it.
+			 */
 			btf_encoder = btf_encoder__new(cu, detached_btf_filename, conf_load->base_btf, skip_encoding_btf_vars,
 						       btf_encode_force, btf_gen_floats, global_verbose);
-			if (btf_encoder == NULL) {
-				ret = LSK__STOP_LOADING;
-				goto out_btf;
+			if (btf_encoder && thr_data) {
+				struct thread_data *thread = thr_data;
+
+				thread->encoder = btf_encoder;
+				thread->btf = btf_encoder__btf(btf_encoder);
 			}
 		}
+		pthread_mutex_unlock(&btf_lock);
 
-		if (btf_encoder__encode_cu(btf_encoder, cu)) {
+		if (!btf_encoder) {
+			ret = LSK__STOP_LOADING;
+			goto out_btf;
+		}
+
+		/*
+		 * thr_data keeps per-thread data for worker threads.  Each worker thread
+		 * has an encoder.  The main thread will merge the data collected by all
+		 * these encoders to btf_encoder.  However, the first thread reaching this
+		 * function creates btf_encoder and reuses it as its local encoder.  It
+		 * avoids copying the data collected by the first thread.
+		 */
+		if (thr_data) {
+			struct thread_data *thread = thr_data;
+
+			if (thread->encoder == NULL) {
+				thread->encoder =
+					btf_encoder__new(cu, detached_btf_filename,
+							 NULL,
+							 skip_encoding_btf_vars,
+							 btf_encode_force,
+							 btf_gen_floats,
+							 global_verbose);
+				thread->btf = btf_encoder__btf(thread->encoder);
+			}
+			encoder = thread->encoder;
+		} else {
+			encoder = btf_encoder;
+		}
+
+		if (btf_encoder__encode_cu(encoder, cu)) {
 			fprintf(stderr, "Encountered error while encoding BTF.\n");
 			exit(1);
 		}
 		ret = LSK__DELETE;
 out_btf:
-		pthread_mutex_unlock(&btf_lock);
 		return ret;
 	}
 #if 0
@@ -3207,6 +3311,9 @@ int main(int argc, char *argv[])
 	memset(tab, ' ', sizeof(tab) - 1);
 
 	conf_load.steal = pahole_stealer;
+	conf_load.thread_exit = pahole_thread_exit;
+	conf_load.threads_prepare = pahole_threads_prepare;
+	conf_load.threads_collect = pahole_threads_collect;
 
 	// Make 'pahole --header type < file' a shorter form of 'pahole -C type --count 1 < file'
 	if (conf.header_type && !class_name && prettify_input) {

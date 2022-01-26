@@ -29,4 +29,6 @@ struct btf_encoder *btf_encoders__first(struct list_head *encoders);
 
 struct btf_encoder *btf_encoders__next(struct btf_encoder *encoder);
 
+struct btf *btf_encoder__btf(struct btf_encoder *encoder);
+
 #endif /* _BTF_ENCODER_H_ */

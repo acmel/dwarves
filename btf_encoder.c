@@ -1529,3 +1529,8 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 out:
 	return err;
 }
+
+struct btf *btf_encoder__btf(struct btf_encoder *encoder)
+{
+	return encoder->btf;
+}
