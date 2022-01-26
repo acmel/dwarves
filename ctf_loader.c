@@ -722,7 +722,7 @@ int ctf__load_file(struct cus *cus, struct conf_load *conf,
 	 * The app stole this cu, possibly deleting it,
 	 * so forget about it
 	 */
-	if (conf && conf->steal && conf->steal(cu, conf))
+	if (conf && conf->steal && conf->steal(cu, conf, NULL))
 		return 0;
 
 	cus__add(cus, cu);

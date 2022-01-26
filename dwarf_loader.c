@@ -2686,7 +2686,7 @@ static int cu__finalize(struct cu *cu, struct conf_load *conf)
 {
 	cu__for_all_tags(cu, class_member__cache_byte_size, conf);
 	if (conf && conf->steal) {
-		return conf->steal(cu, conf);
+		return conf->steal(cu, conf, NULL);
 	}
 	return LSK__KEEPIT;
 }
@@ -2930,7 +2930,7 @@ static void *dwarf_cus__process_cu_thread(void *arg)
 			goto out_abort;
 	}
 
-	if (dcus->conf->thread_exit && dcus->conf->thread_exit() != 0)
+	if (dcus->conf->thread_exit && dcus->conf->thread_exit(dcus->conf, NULL) != 0)
 		goto out_abort;
 
 	return (void *)DWARF_CB_OK;

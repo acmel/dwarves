@@ -489,7 +489,9 @@ int elf_symtabs__show(char *filenames[])
 	return EXIT_SUCCESS;
 }
 
-static enum load_steal_kind pfunct_stealer(struct cu *cu, struct conf_load *conf_load __maybe_unused)
+static enum load_steal_kind pfunct_stealer(struct cu *cu,
+					   struct conf_load *conf_load __maybe_unused,
+					   void *thr_data __maybe_unused)
 {
 
 	if (function_name) {

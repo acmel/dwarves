@@ -48,8 +48,9 @@ struct conf_fprintf;
  */
 struct conf_load {
 	enum load_steal_kind	(*steal)(struct cu *cu,
-					 struct conf_load *conf);
-	int			(*thread_exit)(void);
+					 struct conf_load *conf,
+					 void *thr_data);
+	int			(*thread_exit)(struct conf_load *conf, void *thr_data);
 	void			*cookie;
 	char			*format_path;
 	int			nr_jobs;

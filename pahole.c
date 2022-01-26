@@ -2799,7 +2799,8 @@ out:
 static struct type_instance *header;
 
 static enum load_steal_kind pahole_stealer(struct cu *cu,
-					   struct conf_load *conf_load)
+					   struct conf_load *conf_load,
+					   void *thr_data)
 {
 	int ret = LSK__DELETE;
 
