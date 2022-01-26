@@ -172,7 +172,7 @@ __attribute ((format (printf, 5, 6)))
 static void btf__log_err(const struct btf *btf, int kind, const char *name,
 			 bool output_cr, const char *fmt, ...)
 {
-	fprintf(stderr, "[%u] %s %s", btf__get_nr_types(btf) + 1,
+	fprintf(stderr, "[%u] %s %s", btf__type_cnt(btf),
 		btf_kind_str[kind], name ?: "(anon)");
 
 	if (fmt && *fmt) {
@@ -203,7 +203,7 @@ static void btf_encoder__log_type(const struct btf_encoder *encoder, const struc
 	out = err ? stderr : stdout;
 
 	fprintf(out, "[%u] %s %s",
-		btf__get_nr_types(btf), btf_kind_str[kind],
+		btf__type_cnt(btf) - 1, btf_kind_str[kind],
 		btf__printable_name(btf, t->name_off));
 
 	if (fmt && *fmt) {
@@ -449,10 +449,10 @@ static int btf_encoder__add_field(struct btf_encoder *encoder, const char *name,
 	int err;
 
 	err = btf__add_field(btf, name, type, offset, bitfield_size);
-	t = btf__type_by_id(btf, btf__get_nr_types(btf));
+	t = btf__type_by_id(btf, btf__type_cnt(btf) - 1);
 	if (err) {
 		fprintf(stderr, "[%u] %s %s's field '%s' offset=%u bit_size=%u type=%u Error emitting field\n",
-			btf__get_nr_types(btf), btf_kind_str[btf_kind(t)],
+			btf__type_cnt(btf) - 1, btf_kind_str[btf_kind(t)],
 			btf__printable_name(btf, t->name_off),
 			name, offset, bitfield_size, type);
 	} else {
@@ -899,9 +899,9 @@ static int btf_encoder__write_raw_file(struct btf_encoder *encoder)
 	const void *raw_btf_data;
 	int fd, err;
 
-	raw_btf_data = btf__get_raw_data(encoder->btf, &raw_btf_size);
+	raw_btf_data = btf__raw_data(encoder->btf, &raw_btf_size);
 	if (raw_btf_data == NULL) {
-		fprintf(stderr, "%s: btf__get_raw_data failed!\n", __func__);
+		fprintf(stderr, "%s: btf__raw_data failed!\n", __func__);
 		return -1;
 	}
 
@@ -976,7 +976,7 @@ static int btf_encoder__write_elf(struct btf_encoder *encoder)
 		}
 	}
 
-	raw_btf_data = btf__get_raw_data(btf, &raw_btf_size);
+	raw_btf_data = btf__raw_data(btf, &raw_btf_size);
 
 	if (btf_data) {
 		/* Existing .BTF section found */
@@ -1043,10 +1043,10 @@ int btf_encoder__encode(struct btf_encoder *encoder)
 		btf_encoder__add_datasec(encoder, PERCPU_SECTION);
 
 	/* Empty file, nothing to do, so... done! */
-	if (btf__get_nr_types(encoder->btf) == 0)
+	if (btf__type_cnt(encoder->btf) == 1)
 		return 0;
 
-	if (btf__dedup(encoder->btf, NULL, NULL)) {
+	if (btf__dedup(encoder->btf, NULL)) {
 		fprintf(stderr, "%s: btf__dedup failed!\n", __func__);
 		return -1;
 	}
@@ -1403,7 +1403,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 
 int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 {
-	uint32_t type_id_off = btf__get_nr_types(encoder->btf);
+	uint32_t type_id_off = btf__type_cnt(encoder->btf) - 1;
 	struct llvm_annotation *annot;
 	int btf_type_id, tag_type_id;
 	uint32_t core_id;

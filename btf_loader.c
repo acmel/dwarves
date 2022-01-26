@@ -399,7 +399,7 @@ static int btf__load_types(struct btf *btf, struct cu *cu)
 	uint32_t type_index;
 	int err;
 
-	for (type_index = 1; type_index <= btf__get_nr_types(btf); type_index++) {
+	for (type_index = 1; type_index < btf__type_cnt(btf); type_index++) {
 		const struct btf_type *type_ptr = btf__type_by_id(btf, type_index);
 		uint32_t type = btf_kind(type_ptr);
 
