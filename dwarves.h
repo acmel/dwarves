@@ -71,6 +71,8 @@ struct conf_load {
 	const char		*kabi_prefix;
 	struct btf		*base_btf;
 	struct conf_fprintf	*conf_fprintf;
+	int			(*threads_prepare)(struct conf_load *conf, int nr_threads, void **thr_data);
+	int			(*threads_collect)(struct conf_load *conf, int nr_threads, void **thr_data, int error);
 };
 
 /** struct conf_fprintf - hints to the __fprintf routines

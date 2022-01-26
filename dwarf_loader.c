@@ -2682,18 +2682,18 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 	return 0;
 }
 
-static int cu__finalize(struct cu *cu, struct conf_load *conf)
+static int cu__finalize(struct cu *cu, struct conf_load *conf, void *thr_data)
 {
 	cu__for_all_tags(cu, class_member__cache_byte_size, conf);
 	if (conf && conf->steal) {
-		return conf->steal(cu, conf, NULL);
+		return conf->steal(cu, conf, thr_data);
 	}
 	return LSK__KEEPIT;
 }
 
-static int cus__finalize(struct cus *cus, struct cu *cu, struct conf_load *conf)
+static int cus__finalize(struct cus *cus, struct cu *cu, struct conf_load *conf, void *thr_data)
 {
-	int lsk = cu__finalize(cu, conf);
+	int lsk = cu__finalize(cu, conf, thr_data);
 	switch (lsk) {
 	case LSK__DELETE:
 		cu__delete(cu);
@@ -2862,7 +2862,13 @@ struct dwarf_cus {
 	struct dwarf_cu	    *type_dcu;
 };
 
-static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *cu_die, uint8_t pointer_size)
+struct dwarf_thread {
+	struct dwarf_cus	*dcus;
+	void			*data;
+};
+
+static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *cu_die,
+					    uint8_t pointer_size, void *thr_data)
 {
 	/*
 	 * DW_AT_name in DW_TAG_compile_unit can be NULL, first seen in:
@@ -2884,7 +2890,7 @@ static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *c
 	cu->dfops = &dwarf__ops;
 
 	if (die__process_and_recode(cu_die, cu, dcus->conf) != 0 ||
-	    cus__finalize(dcus->cus, cu, dcus->conf) == LSK__STOP_LOADING)
+	    cus__finalize(dcus->cus, cu, dcus->conf, thr_data) == LSK__STOP_LOADING)
 		return DWARF_CB_ABORT;
 
        return DWARF_CB_OK;
@@ -2918,7 +2924,8 @@ out_unlock:
 
 static void *dwarf_cus__process_cu_thread(void *arg)
 {
-	struct dwarf_cus *dcus = arg;
+	struct dwarf_thread *dthr = arg;
+	struct dwarf_cus *dcus = dthr->dcus;
 	uint8_t pointer_size, offset_size;
 	Dwarf_Die die_mem, *cu_die;
 
@@ -2926,11 +2933,13 @@ static void *dwarf_cus__process_cu_thread(void *arg)
 		if (cu_die == NULL)
 			break;
 
-		if (dwarf_cus__create_and_process_cu(dcus, cu_die, pointer_size) == DWARF_CB_ABORT)
+		if (dwarf_cus__create_and_process_cu(dcus, cu_die,
+						     pointer_size, dthr->data) == DWARF_CB_ABORT)
 			goto out_abort;
 	}
 
-	if (dcus->conf->thread_exit && dcus->conf->thread_exit(dcus->conf, NULL) != 0)
+	if (dcus->conf->thread_exit &&
+	    dcus->conf->thread_exit(dcus->conf, dthr->data) != 0)
 		goto out_abort;
 
 	return (void *)DWARF_CB_OK;
@@ -2941,10 +2950,26 @@ out_abort:
 static int dwarf_cus__threaded_process_cus(struct dwarf_cus *dcus)
 {
 	pthread_t threads[dcus->conf->nr_jobs];
+	struct dwarf_thread dthr[dcus->conf->nr_jobs];
+	void *thread_data[dcus->conf->nr_jobs];
+	int res;
 	int i;
 
+	if (dcus->conf->threads_prepare) {
+		res = dcus->conf->threads_prepare(dcus->conf, dcus->conf->nr_jobs, thread_data);
+		if (res != 0)
+			return res;
+	} else {
+		memset(thread_data, 0, sizeof(void *) * dcus->conf->nr_jobs);
+	}
+
 	for (i = 0; i < dcus->conf->nr_jobs; ++i) {
-		dcus->error = pthread_create(&threads[i], NULL, dwarf_cus__process_cu_thread, dcus);
+		dthr[i].dcus = dcus;
+		dthr[i].data = thread_data[i];
+
+		dcus->error = pthread_create(&threads[i], NULL,
+					     dwarf_cus__process_cu_thread,
+					     &dthr[i]);
 		if (dcus->error)
 			goto out_join;
 	}
@@ -2958,6 +2983,13 @@ out_join:
 
 		if (err == 0 && res != NULL)
 			dcus->error = (long)res;
+	}
+
+	if (dcus->conf->threads_collect) {
+		res = dcus->conf->threads_collect(dcus->conf, dcus->conf->nr_jobs,
+						  thread_data, dcus->error);
+		if (dcus->error == 0)
+			dcus->error = res;
 	}
 
 	return dcus->error;
@@ -2976,7 +3008,8 @@ static int __dwarf_cus__process_cus(struct dwarf_cus *dcus)
 		if (cu_die == NULL)
 			break;
 
-		if (dwarf_cus__create_and_process_cu(dcus, cu_die, pointer_size) == DWARF_CB_ABORT)
+		if (dwarf_cus__create_and_process_cu(dcus, cu_die,
+						     pointer_size, NULL) == DWARF_CB_ABORT)
 			return DWARF_CB_ABORT;
 
 		dcus->off = noff;
@@ -3070,7 +3103,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 	if (cu__resolve_func_ret_types(cu) != LSK__KEEPIT)
 		goto out_abort;
 
-	if (cus__finalize(cus, cu, conf) == LSK__STOP_LOADING)
+	if (cus__finalize(cus, cu, conf, NULL) == LSK__STOP_LOADING)
 		goto out_abort;
 
 	return 0;
@@ -3102,7 +3135,7 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 	}
 
 	if (type_cu != NULL) {
-		type_lsk = cu__finalize(type_cu, conf);
+		type_lsk = cu__finalize(type_cu, conf, NULL);
 		if (type_lsk == LSK__KEEPIT) {
 			cus__add(cus, type_cu);
 		}
