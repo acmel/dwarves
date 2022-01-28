@@ -148,10 +148,30 @@ static struct conf_fprintf conf_fprintf__defaults = {
 
 const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
+/*
+ * In dwarves_emit.c we can call type__emit() using a locally setup conf_fprintf for which
+ * the conf->cacheline_size member is not setup and is thus zero, so check for that and
+ * use the default one for that case.
+ *
+ * We really need to make the *_emit*() methods to receive a conf_fprintf pointer for
+ * which conf->cacheline_size is set, all tools call:
+ *
+ *   dwarves__resolve_cacheline_size(&conf_load, 0);
+ *
+ * To have a conf_load/conf_fprintf with that resolved, but that is not being passed to
+ * the *_emit*() routines, duh.
+ *
+ * Fixing this properly will entail a series of patches, so to fix this problem
+ * more quickly add this helper.
+ */
+static uint16_t conf_fprintf__cacheline_size(const struct conf_fprintf *conf)
+{
+	return conf->cacheline_size ?: conf_fprintf__defaults.cacheline_size;
+}
 
 size_t tag__nr_cachelines(const struct conf_fprintf *conf, const struct tag *tag, const struct cu *cu)
 {
-	return (tag__size(tag, cu) + conf->cacheline_size - 1) / conf->cacheline_size;
+	return (tag__size(tag, cu) + conf_fprintf__cacheline_size(conf) - 1) / conf_fprintf__cacheline_size(conf);
 }
 
 static const char *tag__accessibility(const struct tag *tag)
@@ -1316,11 +1336,11 @@ static size_t class__fprintf_cacheline_boundary(struct conf_fprintf *conf,
 						FILE *fp)
 {
 	int indent = conf->indent;
-	uint32_t cacheline = offset / conf->cacheline_size;
+	uint32_t cacheline = offset / conf_fprintf__cacheline_size(conf);
 	size_t printed = 0;
 
 	if (cacheline > *conf->cachelinep) {
-		const uint32_t cacheline_pos = offset % conf->cacheline_size;
+		const uint32_t cacheline_pos = offset % conf_fprintf__cacheline_size(conf);
 		const uint32_t cacheline_in_bytes = offset - cacheline_pos;
 
 		if (cacheline_pos == 0)
@@ -1762,7 +1782,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		}
 		printed += fprintf(fp, " */\n");
 	}
-	cacheline = (cconf.base_offset + type->size) % conf->cacheline_size;
+	cacheline = (cconf.base_offset + type->size) % conf_fprintf__cacheline_size(conf);
 	if (cacheline != 0)
 		printed += fprintf(fp, "%.*s/* last cacheline: %u bytes */\n",
 				   cconf.indent, tabs,
