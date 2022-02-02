@@ -2023,7 +2023,7 @@ void dwarves__resolve_cacheline_size(const struct conf_load *conf, uint16_t user
 	} else
 		size = user_cacheline_size;
 
-	if (conf)
+	if (conf && conf->conf_fprintf)
 		conf->conf_fprintf->cacheline_size = size;
 
 	conf_fprintf__defaults.cacheline_size = size;
