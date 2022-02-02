@@ -165,9 +165,8 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 		struct type *ctype = tag__type(type);
 
 		if (type__name(ctype) == NULL) {
-			if (type__emit_definitions(type, cu, emissions, fp))
-				type__emit(type, cu, "typedef",
-					   type__name(def), fp);
+			type__emit_definitions(type__tag(ctype), cu, emissions, fp);
+			type__emit(type__tag(ctype), cu, "typedef", type__name(def), fp);
 			goto out;
 		} else if (type__emit_definitions(type, cu, emissions, fp))
 			type__emit(type, cu, NULL, NULL, fp);
