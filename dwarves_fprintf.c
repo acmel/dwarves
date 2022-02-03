@@ -419,11 +419,20 @@ size_t enumeration__fprintf(const struct tag *tag, const struct conf_fprintf *co
 	struct type *type = tag__type(tag);
 	struct enumerator *pos;
 	int max_entry_name_len = enumeration__max_entry_name_len(type);
-	size_t printed = fprintf(fp, "enum%s%s {\n", type__name(type) ? " " : "", type__name(type) ?: "");
+	size_t printed = fprintf(fp, "enum%s%s", type__name(type) ? " " : "", type__name(type) ?: "");
 	int indent = conf->indent;
 
 	if (indent >= (int)sizeof(tabs))
 		indent = sizeof(tabs) - 1;
+
+	if (type->nr_members) {
+		printed += fprintf(fp, " {\n");
+	} else {
+		// enum x86_intercept_stage in the Linux kernel comes just as a forward
+		// declaration, but then BTF isn't setting the type->declaration to mark
+		// it as such, do the best we can and assume is a forward decl.
+		return printed;
+	}
 
 	type__for_each_enumerator(type, pos) {
 		printed += fprintf(fp, "%.*s\t%-*s = ", indent, tabs,
