@@ -9,6 +9,7 @@
 */
 
 #include <stdio.h>
+#include <stdint.h>
 #include "list.h"
 
 struct cu;
@@ -30,6 +31,6 @@ int type__emit_definitions(struct tag *tag, struct cu *cu,
 void type__emit(struct tag *tag_type, struct cu *cu,
 		const char *prefix, const char *suffix, FILE *fp);
 struct type *type_emissions__find_definition(const struct type_emissions *temissions,
-					     const char *name);
+					     uint16_t tag, const char *name);
 
 #endif /* _DWARVES_EMIT_H_ */

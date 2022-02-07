@@ -612,7 +612,7 @@ static void emit_list_of_types(struct list_head *list)
 		 * Lets look at the other CUs, perhaps we have already
 		 * emmited this one
 		 */
-		if (type_emissions__find_definition(&emissions, structure__name(pos))) {
+		if (type_emissions__find_definition(&emissions, type__tag(type)->tag, structure__name(pos))) {
 			type->definition_emitted = 1;
 			continue;
 		}
