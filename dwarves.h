@@ -1038,7 +1038,7 @@ struct type {
 	uint16_t	 member_prefix_len;
 	uint16_t	 max_tag_name_len;
 	uint16_t	 natural_alignment;
-	bool		 packed_attributes_inferred;
+	uint8_t		 packed_attributes_inferred:1;
 	uint8_t		 declaration:1;
 	uint8_t		 definition_emitted:1;
 	uint8_t		 fwd_decl_emitted:1;

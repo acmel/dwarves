@@ -1607,7 +1607,7 @@ void type__check_structs_at_unnatural_alignments(struct type *type, const struct
 			struct class *cls = tag__class(member_type);
 
 			cls->is_packed = true;
-			cls->type.packed_attributes_inferred = true;
+			cls->type.packed_attributes_inferred = 1;
 		}
        }
 }
@@ -1663,7 +1663,7 @@ bool class__infer_packed_attributes(struct class *cls, const struct cu *cu)
 		cls->is_packed = true;
 
 out:
-	ctype->packed_attributes_inferred = true;
+	ctype->packed_attributes_inferred = 1;
 
 	return cls->is_packed;
 }
@@ -1695,11 +1695,11 @@ void union__infer_packed_attributes(struct type *type, const struct cu *cu)
 			struct class *cls = tag__class(member_type);
 
 			cls->is_packed = true;
-			cls->type.packed_attributes_inferred = true;
+			cls->type.packed_attributes_inferred = 1;
 		}
 	}
 
-	type->packed_attributes_inferred = true;
+	type->packed_attributes_inferred = 1;
 }
 
 /** class__has_hole_ge - check if class has a hole greater or equal to @size
