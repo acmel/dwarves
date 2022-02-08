@@ -53,6 +53,33 @@ struct type *type_emissions__find_definition(const struct type_emissions *emissi
 	return NULL;
 }
 
+static bool type__can_have_shadow_definition(struct type *type)
+{
+	struct tag *tag = type__tag(type);
+
+	return tag__is_struct(tag) || tag__is_union(tag) || tag__is_enumeration(tag);
+}
+
+// Find if 'struct foo' is defined with a pre-existing 'enum foo', 'union foo', etc
+struct type *type_emissions__find_shadow_definition(const struct type_emissions *emissions,
+						    uint16_t tag, const char *name)
+{
+	struct type *pos;
+
+	if (name == NULL)
+		return NULL;
+
+	list_for_each_entry(pos, &emissions->definitions, node) {
+		if (type__tag(pos)->tag != tag &&
+		    type__name(pos) != NULL &&
+		    type__can_have_shadow_definition(pos) &&
+		    strcmp(type__name(pos), name) == 0)
+			return pos;
+	}
+
+	return NULL;
+}
+
 static struct type *type_emissions__find_fwd_decl(const struct type_emissions *emissions,
 						  const char *name)
 {
@@ -306,6 +333,34 @@ int type__emit_definitions(struct tag *tag, struct cu *cu,
 
 	if (tag__is_typedef(tag))
 		return typedef__emit_definitions(tag, cu, emissions, fp);
+
+	/*
+	 * vmlinux.h:120298:8: error: ‘irte’ defined as wrong kind of tag
+	 *
+	 * If we have a 'struct foo' and we then find a 'union foo', which happens
+	 * twice in the Linux kernel, for instance, then we need to disambiguate by
+	 * adding a suffix to the second type with the same name.
+	 *
+	 * That is the strategy used in:
+	 *
+	 *    btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
+	 */
+	if (type__can_have_shadow_definition(ctype)) {
+		if (type_emissions__find_shadow_definition(emissions, tag->tag, type__name(ctype))) {
+			ctype->suffix_disambiguation = 1;
+
+			char *disambiguated_name;
+
+			if (asprintf(&disambiguated_name, "%s__%u", type__name(ctype), ctype->suffix_disambiguation) == -1) {
+				fprintf(stderr, "emit: Not enough memory to allocate disambiguated type name for '%s'\n",
+					type__name(ctype));
+			} else {
+				// Will be deleted in type__delete() on noticing ctype->suffix_disambiguation != 0
+				tag__namespace(tag)->name = disambiguated_name;
+			}
+
+		}
+	}
 
 	type_emissions__add_definition(emissions, ctype);
 

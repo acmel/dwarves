@@ -1015,6 +1015,8 @@ struct tag_cu_node {
  * @nr_tags: number of tags
  * @alignment: DW_AT_alignement, zero if not present, gcc emits since circa 7.3.1
  * @natural_alignment: For inferring __packed__, normally the widest scalar in it, recursively
+ * @suffix_disambiguation: if we have both 'union foo' and 'struct foo' then we must disambiguate,
+ *                         useful to generate a vmlinux.h with all Linux types out of BTF data, for instance.
  * @sizeof_member: Use this to find the size of the record
  * @type_member: Use this to select a member from where to get an id on an enum to find a type
  * 		 to cast for, needs to be used with the upcoming type_enum.
@@ -1038,6 +1040,7 @@ struct type {
 	uint16_t	 member_prefix_len;
 	uint16_t	 max_tag_name_len;
 	uint16_t	 natural_alignment;
+	uint8_t		 suffix_disambiguation;
 	uint8_t		 packed_attributes_inferred:1;
 	uint8_t		 declaration:1;
 	uint8_t		 definition_emitted:1;

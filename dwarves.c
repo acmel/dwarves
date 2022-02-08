@@ -345,6 +345,7 @@ void __type__init(struct type *type)
 	type->sizeof_member = NULL;
 	type->member_prefix = NULL;
 	type->member_prefix_len = 0;
+	type->suffix_disambiguation = 0;
 }
 
 struct class_member *
@@ -1191,6 +1192,10 @@ void type__delete(struct type *type)
 		return;
 
 	type__delete_class_members(type);
+
+	if (type->suffix_disambiguation)
+		zfree(&type->namespace.name);
+
 	free(type);
 }
 
@@ -1210,6 +1215,9 @@ void enumeration__delete(struct type *type)
 		list_del_init(&pos->tag.node);
 		enumerator__delete(pos);
 	}
+
+	if (type->suffix_disambiguation)
+		zfree(&type->namespace.name);
 
 	free(type);
 }
