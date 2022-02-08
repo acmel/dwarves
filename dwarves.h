@@ -1039,7 +1039,7 @@ struct type {
 	uint16_t	 max_tag_name_len;
 	uint16_t	 natural_alignment;
 	bool		 packed_attributes_inferred;
-	uint8_t		 declaration; /* only one bit used */
+	uint8_t		 declaration:1;
 	uint8_t		 definition_emitted:1;
 	uint8_t		 fwd_decl_emitted:1;
 	uint8_t		 resized:1;
