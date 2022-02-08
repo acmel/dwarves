@@ -110,6 +110,18 @@ comparable when using using multiple threads to load DWARF data, when the order
 that the types in the compile units is processed is not deterministic.
 
 .TP
+.B \-\-compile
+Generate compileable code, with all definitions for all types, i.e.:
+.PP
+.nf
+$ pahole --compile > vmlinux.h
+.fi
+
+Produces a header that can be included in a C source file and built. In
+the example provided it will use the BTF info if available, otherwise will
+look for a DWARF file matching the running kernel build-id.
+
+.TP
 .B \-\-count=COUNT
 Pretty print the first COUNT records from input.
 

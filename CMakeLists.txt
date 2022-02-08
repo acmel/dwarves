@@ -149,7 +149,7 @@ target_link_libraries(dtagnames dwarves)
 
 set(pahole_SRCS pahole.c)
 add_executable(pahole ${pahole_SRCS})
-target_link_libraries(pahole dwarves dwarves_reorganize)
+target_link_libraries(pahole dwarves dwarves_emit dwarves_reorganize)
 
 set(pdwtags_SRCS pdwtags.c)
 add_executable(pdwtags ${pdwtags_SRCS})

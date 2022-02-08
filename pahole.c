@@ -24,6 +24,7 @@
 
 #include "dwarves_reorganize.h"
 #include "dwarves.h"
+#include "dwarves_emit.h"
 #include "dutil.h"
 //#include "ctf_encoder.h" FIXME: disabled, probably its better to move to Oracle's libctf
 #include "btf_encoder.h"
@@ -79,6 +80,9 @@ static int show_reorg_steps;
 static const char *class_name;
 static LIST_HEAD(class_names);
 static char separator = '\t';
+
+static bool compilable;
+static struct type_emissions emissions;
 
 static struct conf_fprintf conf = {
 	.emit_stats = 1,
@@ -437,7 +441,12 @@ static void class_formatter(struct class *class, struct cu *cu, uint32_t id)
 	} else
 		conf.prefix = conf.suffix = NULL;
 
-	tag__fprintf(tag, cu, &conf, stdout);
+	if (compilable) {
+		if (type__emit_definitions(tag, cu, &emissions, stdout))
+			type__emit(tag, cu, NULL, NULL, stdout);
+	} else {
+		tag__fprintf(tag, cu, &conf, stdout);
+	}
 
 	putchar('\n');
 }
@@ -1127,6 +1136,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_skip_encoding_btf_decl_tag 331
 #define ARGP_skip_missing          332
 #define ARGP_skip_encoding_btf_type_tag 333
+#define ARGP_compile		   334
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1456,6 +1466,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Allow using all the BTF features supported by pahole."
 	},
 	{
+		.name = "compile",
+		.key  = ARGP_compile,
+		.doc  = "Emit compilable types"
+	},
+	{
 		.name = "structs",
 		.key  = ARGP_just_structs,
 		.doc  = "Show just structs",
@@ -1598,6 +1613,12 @@ static error_t pahole__options_parser(int key, char *arg,
 			formatter = class_name_formatter;
 		break;
 	// case 'Z': ctf_encode = 1;			break; // FIXME: Disabled
+	case ARGP_compile:
+		  compilable = true;
+                  type_emissions__init(&emissions);
+                  conf.no_semicolon = true;
+                  conf.strip_inline = true;
+		  break;
 	case ARGP_flat_arrays: conf.flat_arrays = 1;	break;
 	case ARGP_suppress_aligned_attribute:
 		conf.suppress_aligned_attribute = 1;	break;
@@ -2869,6 +2890,11 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 					   void *thr_data)
 {
 	int ret = LSK__DELETE;
+
+	if (compilable && strcmp(cu->dfops->name, "btf")) {
+		fprintf(stderr, "pahole: --compile currently only works with BTF.\n");
+		return LSK__STOP_LOADING;
+	}
 
 	if (!cu__filter(cu))
 		goto filter_it;
