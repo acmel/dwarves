@@ -3268,7 +3268,9 @@ static int cus__process_file(struct cus *cus, struct conf_load *conf, int fd,
 	};
 
 	/* Process the one or more modules gleaned from this file. */
-	dwfl_getmodules(dwfl, cus__process_dwflmod, &parms, 0);
+	int err = dwfl_getmodules(dwfl, cus__process_dwflmod, &parms, 0);
+	if (err)
+		return -1;
 
 	// We can't call dwfl_end(dwfl) here, as we keep pointers to strings
 	// allocated by libdw that will be freed at dwfl_end(), so leave this for
