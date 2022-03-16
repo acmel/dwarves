@@ -2399,8 +2399,11 @@ int cus__load_files(struct cus *cus, struct conf_load *conf,
 	int i = 0;
 
 	while (filenames[i] != NULL) {
-		if (cus__load_file(cus, conf, filenames[i]))
+		int err = cus__load_file(cus, conf, filenames[i]);
+		if (err) {
+			errno = -err;
 			return -++i;
+		}
 		++i;
 	}
 
