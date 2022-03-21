@@ -31,4 +31,6 @@ struct btf_encoder *btf_encoders__next(struct btf_encoder *encoder);
 
 struct btf *btf_encoder__btf(struct btf_encoder *encoder);
 
+int btf_encoder__add_encoder(struct btf_encoder *encoder, struct btf_encoder *other);
+
 #endif /* _BTF_ENCODER_H_ */

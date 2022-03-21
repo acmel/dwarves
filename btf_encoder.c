@@ -606,6 +606,27 @@ static int32_t btf_encoder__add_var_secinfo(struct btf_encoder *encoder, uint32_
 	return gobuffer__add(&encoder->percpu_secinfo, &si, sizeof(si));
 }
 
+int32_t btf_encoder__add_encoder(struct btf_encoder *encoder, struct btf_encoder *other)
+{
+	struct gobuffer *var_secinfo_buf = &other->percpu_secinfo;
+	size_t sz = gobuffer__size(var_secinfo_buf);
+	uint16_t nr_var_secinfo = sz / sizeof(struct btf_var_secinfo);
+	uint32_t type_id;
+	uint32_t next_type_id = btf__type_cnt(encoder->btf);
+	int32_t i, id;
+	struct btf_var_secinfo *vsi;
+
+	for (i = 0; i < nr_var_secinfo; i++) {
+		vsi = (struct btf_var_secinfo *)var_secinfo_buf->entries + i;
+		type_id = next_type_id + vsi->type - 1; /* Type ID starts from 1 */
+		id = btf_encoder__add_var_secinfo(encoder, type_id, vsi->offset, vsi->size);
+		if (id < 0)
+			return id;
+	}
+
+	return btf__add_btf(encoder->btf, other->btf);
+}
+
 static int32_t btf_encoder__add_datasec(struct btf_encoder *encoder, const char *section_name)
 {
 	struct gobuffer *var_secinfo_buf = &encoder->percpu_secinfo;

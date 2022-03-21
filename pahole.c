@@ -2867,7 +2867,7 @@ static int pahole_threads_collect(struct conf_load *conf, int nr_threads, void *
                 */
 		if (!threads[i]->btf || threads[i]->encoder == btf_encoder)
 			continue; /* The primary btf_encoder */
-		err = btf__add_btf(btf_encoder__btf(btf_encoder), threads[i]->btf);
+		err = btf_encoder__add_encoder(btf_encoder, threads[i]->encoder);
 		if (err < 0)
 			goto out;
 		btf_encoder__delete(threads[i]->encoder);
