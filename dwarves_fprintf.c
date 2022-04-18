@@ -480,7 +480,8 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 			       const struct conf_fprintf *conf);
 
 static const char *tag__ptr_name(const struct tag *tag, const struct cu *cu,
-				 char *bf, size_t len, const char *ptr_suffix)
+				 char *bf, size_t len, const char *ptr_suffix,
+				 const struct conf_fprintf *conf)
 {
 	if (tag->type == 0) /* No type == void */
 		snprintf(bf, len, "void %s", ptr_suffix);
@@ -505,7 +506,7 @@ static const char *tag__ptr_name(const struct tag *tag, const struct cu *cu,
 
 			snprintf(bf, len, "%s %s%s",
 				 __tag__name(type, cu,
-					     tmpbf, sizeof(tmpbf), NULL),
+					     tmpbf, sizeof(tmpbf), conf),
 				 const_pointer,
 				 ptr_suffix);
 		}
@@ -539,9 +540,9 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 		strncpy(bf, function__name(tag__function(tag)), len);
 		break;
 	case DW_TAG_pointer_type:
-		return tag__ptr_name(tag, cu, bf, len, "*");
+		return tag__ptr_name(tag, cu, bf, len, "*", conf);
 	case DW_TAG_reference_type:
-		return tag__ptr_name(tag, cu, bf, len, "&");
+		return tag__ptr_name(tag, cu, bf, len, "&", conf);
 	case DW_TAG_ptr_to_member_type: {
 		char suffix[512];
 		type_id_t id = tag__ptr_to_member_type(tag)->containing_type;
@@ -556,7 +557,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 			snprintf(suffix + l, sizeof(suffix) - l, "::*");
 		}
 
-		return tag__ptr_name(tag, cu, bf, len, suffix);
+		return tag__ptr_name(tag, cu, bf, len, suffix, conf);
 	}
 	case DW_TAG_volatile_type:
 	case DW_TAG_const_type:
