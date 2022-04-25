@@ -2085,6 +2085,57 @@ int cus__load_file(struct cus *cus, struct conf_load *conf,
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
 
+int lang__str2int(const char *lang)
+{
+	static const char *languages[] = {
+	[DW_LANG_Ada83]		 = "ada83",
+	[DW_LANG_Ada95]		 = "ada95",
+	[DW_LANG_BLISS]		 = "bliss",
+	[DW_LANG_C11]		 = "c11",
+	[DW_LANG_C89]		 = "c89",
+	[DW_LANG_C99]		 = "c99",
+	[DW_LANG_C]		 = "c",
+	[DW_LANG_Cobol74]	 = "cobol74",
+	[DW_LANG_Cobol85]	 = "cobol85",
+	[DW_LANG_C_plus_plus_03] = "c++03",
+	[DW_LANG_C_plus_plus_11] = "c++11",
+	[DW_LANG_C_plus_plus_14] = "c++14",
+	[DW_LANG_C_plus_plus]	 = "c++",
+	[DW_LANG_D]		 = "d",
+	[DW_LANG_Dylan]		 = "dylan",
+	[DW_LANG_Fortran03]	 = "fortran03",
+	[DW_LANG_Fortran08]	 = "fortran08",
+	[DW_LANG_Fortran77]	 = "fortran77",
+	[DW_LANG_Fortran90]	 = "fortran90",
+	[DW_LANG_Fortran95]	 = "fortran95",
+	[DW_LANG_Go]		 = "go",
+	[DW_LANG_Haskell]	 = "haskell",
+	[DW_LANG_Java]		 = "java",
+	[DW_LANG_Julia]		 = "julia",
+	[DW_LANG_Modula2]	 = "modula2",
+	[DW_LANG_Modula3]	 = "modula3",
+	[DW_LANG_ObjC]		 = "objc",
+	[DW_LANG_ObjC_plus_plus] = "objc++",
+	[DW_LANG_OCaml]		 = "ocaml",
+	[DW_LANG_OpenCL]	 = "opencl",
+	[DW_LANG_Pascal83]	 = "pascal83",
+	[DW_LANG_PLI]		 = "pli",
+	[DW_LANG_Python]	 = "python",
+	[DW_LANG_RenderScript]	 = "renderscript",
+	[DW_LANG_Rust]		 = "rust",
+	[DW_LANG_Swift]		 = "swift",
+	[DW_LANG_UPC]		 = "upc",
+	};
+
+	// c89 is the first, bliss is the last, see /usr/include/dwarf.h
+	for (int id = DW_LANG_C89; id <= DW_LANG_BLISS; ++id)
+		if (languages[id] && strcasecmp(lang, languages[id]) == 0)
+			return id;
+
+	return -1;
+}
+
+
 static int sysfs__read_build_id(const char *filename, void *build_id, size_t size)
 {
 	int fd, err = -1;
