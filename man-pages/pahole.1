@@ -381,6 +381,13 @@ Supported languages:
 
 The linux kernel, for instance, is written in 'c89' circa 2022, use that in filters.
 
+.B \-\-lang_exclude=languages
+Don't process compilation units built from source code written in the specified languages.
+
+To filter out compilation units written in Rust, for instance, use:
+
+ pahole -j --btf_encode --lang_exclude rust
+
 .TP
 .B \-y, \-\-prefix_filter=PREFIX
 Include PREFIXed classes.

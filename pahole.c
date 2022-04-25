@@ -133,6 +133,7 @@ static struct {
 	char *str;
 	int  *entries;
 	int  nr_entries;
+	bool exclude;
 } languages;
 
 static int lang_id_cmp(const void *pa, const void *pb)
@@ -683,7 +684,9 @@ static struct cu *cu__filter(struct cu *cu)
 {
 	if (languages.nr_entries) {
 		bool in = languages__in(cu->language);
-		if (!in)
+
+		if ((!in && !languages.exclude) ||
+		    (in && languages.exclude))
 			return NULL;
 	}
 
@@ -1216,6 +1219,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_skip_encoding_btf_type_tag 333
 #define ARGP_compile		   334
 #define ARGP_languages		   335
+#define ARGP_languages_exclude	   336
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1613,6 +1617,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Only consider compilation units written in these languages"
 	},
 	{
+		.name = "lang_exclude",
+		.key  = ARGP_languages_exclude,
+		.arg  = "LANGUAGES",
+		.doc  = "Don't consider compilation units written in these languages"
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1772,6 +1782,9 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.skip_missing = true;          break;
 	case ARGP_skip_encoding_btf_type_tag:
 		conf_load.skip_encoding_btf_type_tag = true;	break;
+	case ARGP_languages_exclude:
+		languages.exclude = true;
+		/* fallthru */
 	case ARGP_languages:
 		languages.str = arg;			break;
 	default:
