@@ -129,6 +129,78 @@ static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
 static pthread_mutex_t structures_lock = PTHREAD_MUTEX_INITIALIZER;
 
+static struct {
+	char *str;
+	int  *entries;
+	int  nr_entries;
+} languages;
+
+static int lang_id_cmp(const void *pa, const void *pb)
+{
+	int a = *(int *)pa,
+	    b = *(int *)pb;
+	return a - b;
+}
+
+static int parse_languages(void)
+{
+	int nr_allocated = 4;
+	char *lang = languages.str;
+
+	languages.entries = malloc(sizeof(int) * nr_allocated);
+	if (languages.entries == NULL)
+		goto out_enomem;
+
+	while (1) {
+		char *sep = strchr(lang, ',');
+
+		if (sep)
+			*sep = '\0';
+
+		int id = lang__str2int(lang);
+
+		if (sep)
+			*sep = ',';
+
+		if (id < 0) {
+			fprintf(stderr, "pahole: unknown language \"%s\"\n", lang);
+			goto out_free;
+		}
+
+		if (languages.nr_entries >= nr_allocated) {
+			nr_allocated *= 2;
+			int *entries = realloc(languages.entries, nr_allocated);
+
+			if (entries == NULL)
+				goto out_enomem;
+
+			languages.entries = entries;
+		}
+
+		languages.entries[languages.nr_entries++] = id;
+
+		if (!sep)
+			break;
+
+		lang = sep + 1;
+	}
+
+	qsort(languages.entries, languages.nr_entries, sizeof(int), lang_id_cmp);
+
+	return 0;
+out_enomem:
+	fprintf(stderr, "pahole: not enough memory to parse --lang\n");
+out_free:
+	zfree(&languages.entries);
+	languages.nr_entries = 0;
+	return -1;
+}
+
+static bool languages__in(int lang)
+{
+	return bsearch(&lang, languages.entries, languages.nr_entries, sizeof(int), lang_id_cmp) != NULL;
+}
+
 static int type__compare_members_types(struct type *a, struct cu *cu_a, struct type *b, struct cu *cu_b)
 {
 	int ret = strcmp(type__name(a), type__name(b));
@@ -609,6 +681,12 @@ static void print_ordered_classes(void)
 
 static struct cu *cu__filter(struct cu *cu)
 {
+	if (languages.nr_entries) {
+		bool in = languages__in(cu->language);
+		if (!in)
+			return NULL;
+	}
+
 	if (cu__exclude_prefix != NULL &&
 	    (cu->name == NULL ||
 	     strncmp(cu__exclude_prefix, cu->name,
@@ -1137,6 +1215,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_skip_missing          332
 #define ARGP_skip_encoding_btf_type_tag 333
 #define ARGP_compile		   334
+#define ARGP_languages		   335
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1528,6 +1607,12 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Do not encode TAGs in BTF."
 	},
 	{
+		.name = "lang",
+		.key  = ARGP_languages,
+		.arg  = "LANGUAGES",
+		.doc  = "Only consider compilation units written in these languages"
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1687,6 +1772,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.skip_missing = true;          break;
 	case ARGP_skip_encoding_btf_type_tag:
 		conf_load.skip_encoding_btf_type_tag = true;	break;
+	case ARGP_languages:
+		languages.str = arg;			break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -3279,6 +3366,9 @@ int main(int argc, char *argv[])
 		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, argv[0]);
 		goto out;
 	}
+
+	if (languages.str && parse_languages())
+		return rc;
 
 	if (class_name != NULL && stats_formatter == nr_methods_formatter) {
 		fputs("pahole: -m/nr_methods doesn't work with --class/-C, it shows all classes and the number of its methods\n", stderr);
