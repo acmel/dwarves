@@ -1460,7 +1460,8 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 
 		bt.name = 0;
 		bt.bit_size = 32;
-		btf_encoder__add_base_type(encoder, &bt, "__ARRAY_SIZE_TYPE__");
+		bt.is_signed = true;
+		btf_encoder__add_base_type(encoder, &bt, "int");
 		encoder->has_index_type = true;
 	}
 
