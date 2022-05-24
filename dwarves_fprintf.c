@@ -1359,9 +1359,10 @@ static size_t class__fprintf_cacheline_boundary(struct conf_fprintf *conf,
 					   cacheline_in_bytes);
 		else
 			printed += fprintf(fp, "/* --- cacheline %u boundary "
-					   "(%u bytes) was %u bytes ago --- "
+					   "(%u bytes) was %u byte%s ago --- "
 					   "*/\n", cacheline,
-					   cacheline_in_bytes, cacheline_pos);
+					   cacheline_in_bytes, cacheline_pos,
+					   cacheline_pos > 1 ? "s" : "");
 
 		printed += fprintf(fp, "%.*s", indent, tabs);
 
