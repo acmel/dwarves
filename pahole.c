@@ -1220,6 +1220,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_compile		   334
 #define ARGP_languages		   335
 #define ARGP_languages_exclude	   336
+#define ARGP_skip_encoding_btf_enum64 337
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1623,6 +1624,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Don't consider compilation units written in these languages"
 	},
 	{
+		.name = "skip_encoding_btf_enum64",
+		.key  = ARGP_skip_encoding_btf_enum64,
+		.doc  = "Do not encode ENUM64sin BTF."
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1787,6 +1793,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		/* fallthru */
 	case ARGP_languages:
 		languages.str = arg;			break;
+	case ARGP_skip_encoding_btf_enum64:
+		conf_load.skip_encoding_btf_enum64 = true;	break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -3067,7 +3075,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			encoder = btf_encoder;
 		}
 
-		if (btf_encoder__encode_cu(encoder, cu)) {
+		if (btf_encoder__encode_cu(encoder, cu, conf_load)) {
 			fprintf(stderr, "Encountered error while encoding BTF.\n");
 			exit(1);
 		}

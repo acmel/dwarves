@@ -632,6 +632,18 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu, struct 
 	type->resized		 = 0;
 	type->nr_members	 = 0;
 	type->nr_static_members	 = 0;
+	type->is_signed_enum	 = 0;
+
+	Dwarf_Attribute attr;
+	if (dwarf_attr(die, DW_AT_type, &attr) != NULL) {
+		Dwarf_Die type_die;
+		if (dwarf_formref_die(&attr, &type_die) != NULL) {
+			uint64_t encoding = attr_numeric(&type_die, DW_AT_encoding);
+
+			if (encoding == DW_ATE_signed || encoding == DW_ATE_signed_char)
+				type->is_signed_enum = 1;
+		}
+	}
 }
 
 static struct type *type__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)

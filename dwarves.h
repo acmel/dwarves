@@ -65,6 +65,7 @@ struct conf_load {
 	bool			skip_encoding_btf_decl_tag;
 	bool			skip_missing;
 	bool			skip_encoding_btf_type_tag;
+	bool			skip_encoding_btf_enum64;
 	uint8_t			hashtable_bits;
 	uint8_t			max_hashtable_bits;
 	uint16_t		kabi_prefix_len;
@@ -1046,6 +1047,7 @@ struct type {
 	uint8_t		 definition_emitted:1;
 	uint8_t		 fwd_decl_emitted:1;
 	uint8_t		 resized:1;
+	uint8_t		 is_signed_enum:1;
 };
 
 void __type__init(struct type *type);
@@ -1365,7 +1367,7 @@ static inline struct string_type *tag__string_type(const struct tag *tag)
 struct enumerator {
 	struct tag	 tag;
 	const char	 *name;
-	uint32_t	 value;
+	uint64_t	 value;
 	struct tag_cu	 type_enum; // To cache the type_enum searches
 };
 

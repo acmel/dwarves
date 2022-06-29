@@ -144,6 +144,7 @@ static const char * const btf_kind_str[NR_BTF_KINDS] = {
 	[BTF_KIND_FLOAT]        = "FLOAT",
 	[BTF_KIND_DECL_TAG]     = "DECL_TAG",
 	[BTF_KIND_TYPE_TAG]     = "TYPE_TAG",
+	[BTF_KIND_ENUM64]	= "ENUM64",
 };
 
 static const char *btf__printable_name(const struct btf *btf, uint32_t offset)
@@ -490,34 +491,64 @@ static int32_t btf_encoder__add_struct(struct btf_encoder *encoder, uint8_t kind
 	return id;
 }
 
-static int32_t btf_encoder__add_enum(struct btf_encoder *encoder, const char *name, uint32_t bit_size)
+static int32_t btf_encoder__add_enum(struct btf_encoder *encoder, const char *name, struct type *etype,
+				     struct conf_load *conf_load)
 {
 	struct btf *btf = encoder->btf;
 	const struct btf_type *t;
 	int32_t id, size;
+	bool is_enum32;
 
-	size = BITS_ROUNDUP_BYTES(bit_size);
-	id = btf__add_enum(btf, name, size);
+	size = BITS_ROUNDUP_BYTES(etype->size);
+	is_enum32 = size <= 4 || conf_load->skip_encoding_btf_enum64;
+	if (is_enum32)
+		id = btf__add_enum(btf, name, size);
+	else
+		id = btf__add_enum64(btf, name, size, etype->is_signed_enum);
 	if (id > 0) {
 		t = btf__type_by_id(btf, id);
 		btf_encoder__log_type(encoder, t, false, true, "size=%u", t->size);
 	} else {
-		btf__log_err(btf, BTF_KIND_ENUM, name, true,
+		btf__log_err(btf, is_enum32 ? BTF_KIND_ENUM : BTF_KIND_ENUM64, name, true,
 			      "size=%u Error emitting BTF type", size);
 	}
 	return id;
 }
 
-static int btf_encoder__add_enum_val(struct btf_encoder *encoder, const char *name, int32_t value)
+static int btf_encoder__add_enum_val(struct btf_encoder *encoder, const char *name, int64_t value,
+				     struct type *etype, struct conf_load *conf_load)
 {
-	int err = btf__add_enum_value(encoder->btf, name, value);
+	const char *fmt_str;
+	int err;
+
+	/* If enum64 is not allowed, generate enum32 with unsigned int value. In enum64-supported
+	 * libbpf library, btf__add_enum_value() will set the kflag (sign bit) in common_type
+	 * if the value is negative.
+	 */
+	if (conf_load->skip_encoding_btf_enum64)
+		err = btf__add_enum_value(encoder->btf, name, (uint32_t)value);
+	else if (etype->size > 32)
+		err = btf__add_enum64_value(encoder->btf, name, value);
+	else
+		err = btf__add_enum_value(encoder->btf, name, value);
 
 	if (!err) {
-		if (encoder->verbose)
-			printf("\t%s val=%d\n", name, value);
+		if (encoder->verbose) {
+			if (conf_load->skip_encoding_btf_enum64) {
+				printf("\t%s val=%u\n", name, (uint32_t)value);
+			} else {
+				fmt_str = etype->is_signed_enum ? "\t%s val=%lld\n" : "\t%s val=%llu\n";
+				printf(fmt_str, name, (unsigned long long)value);
+			}
+		}
 	} else {
-		fprintf(stderr, "\t%s val=%d Error emitting BTF enum value\n",
-			name, value);
+		if (conf_load->skip_encoding_btf_enum64) {
+			fprintf(stderr, "\t%s val=%u Error emitting BTF enum value\n", name, (uint32_t)value);
+		} else {
+			fmt_str = etype->is_signed_enum ? "\t%s val=%lld Error emitting BTF enum value\n"
+							: "\t%s val=%llu Error emitting BTF enum value\n";
+			fprintf(stderr, fmt_str, name, (unsigned long long)value);
+		}
 	}
 	return err;
 }
@@ -844,27 +875,29 @@ static uint32_t array_type__nelems(struct tag *tag)
 	return nelem;
 }
 
-static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct tag *tag)
+static int32_t btf_encoder__add_enum_type(struct btf_encoder *encoder, struct tag *tag,
+					  struct conf_load *conf_load)
 {
 	struct type *etype = tag__type(tag);
 	struct enumerator *pos;
 	const char *name = type__name(etype);
 	int32_t type_id;
 
-	type_id = btf_encoder__add_enum(encoder, name, etype->size);
+	type_id = btf_encoder__add_enum(encoder, name, etype, conf_load);
 	if (type_id < 0)
 		return type_id;
 
 	type__for_each_enumerator(etype, pos) {
 		name = enumerator__name(pos);
-		if (btf_encoder__add_enum_val(encoder, name, pos->value))
+		if (btf_encoder__add_enum_val(encoder, name, pos->value, etype, conf_load))
 			return -1;
 	}
 
 	return type_id;
 }
 
-static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct tag *tag, uint32_t type_id_off)
+static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct tag *tag, uint32_t type_id_off,
+				   struct conf_load *conf_load)
 {
 	/* single out type 0 as it represents special type "void" */
 	uint32_t ref_type_id = tag->type == 0 ? 0 : type_id_off + tag->type;
@@ -903,7 +936,7 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct tag *tag,
 		encoder->need_index_type = true;
 		return btf_encoder__add_array(encoder, ref_type_id, encoder->array_index_id, array_type__nelems(tag));
 	case DW_TAG_enumeration_type:
-		return btf_encoder__add_enum_type(encoder, tag);
+		return btf_encoder__add_enum_type(encoder, tag, conf_load);
 	case DW_TAG_subroutine_type:
 		return btf_encoder__add_func_proto(encoder, tag__ftype(tag), type_id_off);
 	default:
@@ -1422,7 +1455,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	free(encoder);
 }
 
-int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
+int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct conf_load *conf_load)
 {
 	uint32_t type_id_off = btf__type_cnt(encoder->btf) - 1;
 	struct llvm_annotation *annot;
@@ -1446,7 +1479,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu)
 	}
 
 	cu__for_each_type(cu, core_id, pos) {
-		btf_type_id = btf_encoder__encode_tag(encoder, pos, type_id_off);
+		btf_type_id = btf_encoder__encode_tag(encoder, pos, type_id_off, conf_load);
 
 		if (btf_type_id < 0 ||
 		    tag__check_id_drift(pos, core_id, btf_type_id, type_id_off)) {

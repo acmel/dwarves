@@ -437,7 +437,11 @@ size_t enumeration__fprintf(const struct tag *tag, const struct conf_fprintf *co
 	type__for_each_enumerator(type, pos) {
 		printed += fprintf(fp, "%.*s\t%-*s = ", indent, tabs,
 				   max_entry_name_len, enumerator__name(pos));
-		printed += fprintf(fp, conf->hex_fmt ?  "%#x" : "%u", pos->value);
+		if (conf->hex_fmt)
+			printed += fprintf(fp, "%#llx", (unsigned long long)pos->value);
+		else
+			printed += fprintf(fp, type->is_signed_enum ?  "%lld" : "%llu",
+					   (unsigned long long)pos->value);
 		printed += fprintf(fp, ",\n");
 	}
 
