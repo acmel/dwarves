@@ -312,6 +312,49 @@ out_free:
 	return -ENOMEM;
 }
 
+static struct enumerator *enumerator__new64(const char *name, uint64_t value)
+{
+	struct enumerator *en = tag__alloc(sizeof(*en));
+
+	if (en != NULL) {
+		en->name = name;
+		en->value = value; // Value is already 64-bit, as this is used with DWARF as well
+		en->tag.tag = DW_TAG_enumerator;
+	}
+
+	return en;
+}
+
+static int create_new_enumeration64(struct cu *cu, const struct btf_type *tp, uint32_t id)
+{
+	struct btf_enum64 *ep = btf_enum64(tp);
+	uint16_t i, vlen = btf_vlen(tp);
+	struct type *enumeration = type__new(DW_TAG_enumeration_type,
+					     cu__btf_str(cu, tp->name_off),
+					     tp->size ? tp->size * 8 : (sizeof(int) * 8));
+
+	if (enumeration == NULL)
+		return -ENOMEM;
+
+	for (i = 0; i < vlen; i++) {
+		const char *name = cu__btf_str(cu, ep[i].name_off);
+		uint64_t value = btf_enum64_value(&ep[i]);
+		struct enumerator *enumerator = enumerator__new64(name, value);
+
+		if (enumerator == NULL)
+			goto out_free;
+
+		enumeration__add(enumeration, enumerator);
+	}
+
+	cu__add_tag_with_id(cu, &enumeration->namespace.tag, id);
+
+	return 0;
+out_free:
+	enumeration__delete(enumeration);
+	return -ENOMEM;
+}
+
 static int create_new_subroutine_type(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {
 	struct ftype *proto = tag__alloc(sizeof(*proto));
@@ -418,6 +461,9 @@ static int btf__load_types(struct btf *btf, struct cu *cu)
 			break;
 		case BTF_KIND_ENUM:
 			err = create_new_enumeration(cu, type_ptr, type_index);
+			break;
+		case BTF_KIND_ENUM64:
+			err = create_new_enumeration64(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_FWD:
 			err = create_new_forward_decl(cu, type_ptr, type_index);
