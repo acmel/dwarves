@@ -93,6 +93,7 @@ static const char *dwarf_tag_names[] = {
 	[DW_TAG_skeleton_unit]		  = "skeleton_unit",
 	[DW_TAG_immutable_type]		  = "immutable_type",
 #endif
+	[DW_TAG_atomic_type]		  = "atomic_type",
 };
 
 static const char *dwarf_gnu_tag_names[] = {
@@ -562,6 +563,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 	case DW_TAG_volatile_type:
 	case DW_TAG_const_type:
 	case DW_TAG_restrict_type:
+	case DW_TAG_atomic_type:
 	case DW_TAG_unspecified_type:
 		type = cu__type(cu, tag->type);
 		if (type == NULL && tag->type != 0)
@@ -576,6 +578,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 			case DW_TAG_volatile_type: prefix = "volatile "; break;
 			case DW_TAG_const_type:    prefix = "const ";	 break;
 			case DW_TAG_restrict_type: suffix = " restrict"; break;
+			case DW_TAG_atomic_type:   prefix = "_Atomic ";  break;
 			}
 			snprintf(bf, len, "%s%s%s ", prefix, type_str, suffix);
 		}
