@@ -268,6 +268,7 @@ next_indirection:
 	case DW_TAG_array_type:
 	case DW_TAG_const_type:
 	case DW_TAG_volatile_type:
+	case DW_TAG_atomic_type:
 		type = cu__type(cu, type->type);
 		if (type == NULL)
 			return 0;

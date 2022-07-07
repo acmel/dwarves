@@ -488,6 +488,11 @@ static inline bool tag__is_volatile(const struct tag *tag)
 	return tag->tag == DW_TAG_volatile_type;
 }
 
+static inline bool tag__is_atomic(const struct tag *tag)
+{
+	return tag->tag == DW_TAG_atomic_type;
+}
+
 static inline bool tag__is_restrict(const struct tag *tag)
 {
 	return tag->tag == DW_TAG_restrict_type;
@@ -497,7 +502,8 @@ static inline int tag__is_modifier(const struct tag *tag)
 {
 	return tag__is_const(tag) ||
 	       tag__is_volatile(tag) ||
-	       tag__is_restrict(tag);
+	       tag__is_restrict(tag) ||
+	       tag__is_atomic(tag);
 }
 
 static inline bool tag__has_namespace(const struct tag *tag)
@@ -540,6 +546,7 @@ static inline int tag__is_tag_type(const struct tag *tag)
 	       tag->tag == DW_TAG_subroutine_type ||
 	       tag->tag == DW_TAG_unspecified_type ||
 	       tag->tag == DW_TAG_volatile_type ||
+	       tag->tag == DW_TAG_atomic_type ||
 	       tag->tag == DW_TAG_LLVM_annotation;
 }
 
@@ -1397,6 +1404,10 @@ extern bool print_numeric_version;
 extern bool no_bitfield_type_recode;
 
 extern const char tabs[];
+
+#ifndef DW_TAG_atomic_type
+#define DW_TAG_atomic_type 0x47
+#endif
 
 #ifndef DW_TAG_skeleton_unit
 #define DW_TAG_skeleton_unit 0x4a

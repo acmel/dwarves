@@ -388,7 +388,8 @@ reevaluate:
 		case DW_TAG_const_type:
 		case DW_TAG_typedef:
 		case DW_TAG_rvalue_reference_type:
-		case DW_TAG_volatile_type: {
+		case DW_TAG_volatile_type:
+		case DW_TAG_atomic_type: {
 			struct tag *tag = cu__type(cu, type->type);
 			if (tag == NULL) {
 				tag__id_not_found_fprintf(stderr, type->type);

@@ -782,7 +782,8 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		break;
 
 	case DW_TAG_const_type:
-	case DW_TAG_volatile_type: {
+	case DW_TAG_volatile_type:
+	case DW_TAG_atomic_type: {
 		const struct dwarf_tag *dtag = tag->priv;
 		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
 
@@ -2002,6 +2003,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	case DW_TAG_restrict_type:
 	case DW_TAG_unspecified_type:
 	case DW_TAG_volatile_type:
+	case DW_TAG_atomic_type:
 		tag = die__create_new_tag(die, cu);		break;
 	case DW_TAG_pointer_type:
 		tag = die__create_new_pointer_tag(die, cu, conf);	break;
