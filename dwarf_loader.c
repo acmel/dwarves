@@ -560,7 +560,7 @@ static struct base_type *base_type__new(Dwarf_Die *die, struct cu *cu, struct co
 		bt->bit_size = attr_numeric(die, DW_AT_byte_size) * 8;
 		uint64_t encoding = attr_numeric(die, DW_AT_encoding);
 		bt->is_bool = encoding == DW_ATE_boolean;
-		bt->is_signed = encoding == DW_ATE_signed;
+		bt->is_signed = (encoding == DW_ATE_signed) || (encoding == DW_ATE_signed_char);
 		bt->is_varargs = false;
 		bt->name_has_encoding = true;
 		bt->float_type = encoding_to_float_type(encoding);
