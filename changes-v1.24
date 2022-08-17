@@ -1,0 +1,36 @@
+BTF encoder:
+
+- Add support to BTF_KIND_ENUM64 to represent enumeration entries
+  with more than 32 bits.
+
+- Support multithreaded encoding, in addition to DWARF
+  multithreaded loading, speeding up the process.
+
+  Selected just like DWARF multithreaded loading, using the
+  'pahole -j' option.
+
+- Encode 'char' type as signed.
+
+BTF Loader:
+
+- Add support to BTF_KIND_ENUM64.
+
+pahole:
+
+- Introduce --lang and --lang_exclude to specify the language the
+  DWARF compile units were originated from to use or filter.
+
+  Use case is to exclude Rust compile units while aspects of the
+  DWARF generated for it get sorted out in a way that the kernel
+  BPF verifier don't refuse loading the BTF generated from them.
+
+- Introduce --compile to generate compilable code in a similar fashion to:
+
+   bpftool btf dump file vmlinux format c > vmlinux.h
+
+  As with 'bpftool', this will notice type shadowing, i.e. multiple types
+  with the same name and will disambiguate by adding a suffix.
+
+- Don't segfault when processing bogus files.
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>

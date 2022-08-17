@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.23
+Version: 1.24
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -79,7 +79,7 @@ rm -Rf %{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
-%doc changes-v1.23
+%doc changes-v1.24
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -131,6 +131,21 @@ rm -Rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Wed Aug 17 2022 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.24-1
+- New release: v1.24
+- Add support to BTF_KIND_ENUM64.
+- Support multithreaded BTF encoding.
+- Encode char type as signed in BTF.
+- Introduce --lang and --lang_exclude to pahole.
+- Introduce --compile to pahole.
+- Don't segfault when processing bogus files.
+
+* Thu Jul 21 2022 Fedora Release Engineering <releng@fedoraproject.org> - 1.23-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_37_Mass_Rebuild
+
+* Thu Jan 20 2022 Fedora Release Engineering <releng@fedoraproject.org> - 1.23-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
+
 * Wed Dec  8 2021 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.23-1
 - New release: v1.23
 - Process DW_TAG_LLVM_annotation tags.
@@ -160,6 +175,12 @@ rm -Rf %{buildroot}
 - Support btfdiff with a detached BTF file.
 - Introduce sorted type output (--sort).
 - Disable incomplete CTF encoder.
+
+* Wed Jul 21 2021 Fedora Release Engineering <releng@fedoraproject.org> - 1.21-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_35_Mass_Rebuild
+
+* Mon May 10 2021 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.21-2 
+- Backport 0001-btf-Remove-ftrace-filter.patch from upstream
 
 * Fri Apr 9 2021 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.21-1
 - New release: v1.21

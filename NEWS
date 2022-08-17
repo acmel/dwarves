@@ -1,3 +1,39 @@
+v1.24
+
+Wed Aug 17 2022
+
+d6c952893b1bbea9 dwarf_loader: Encode char type as signed
+23342fef5e5f6070 dwarf_loader: Fix elfutils dwfl_getmodules() error checking
+9712d9ec929fb6b3 btf_loader: Add support to BTF_KIND_ENUM64
+35a11221b305a520 btf: Support BTF_KIND_ENUM64
+3aa68ba050d4ddc4 libbpf: Sync with latest libbpf repo
+c3d6522e0499c5b0 fprintf: Fix plural/singular when printing cacheline boundary
+384a16a011226163 btf_encoder: Normalize array index type for parallel dwarf loading case
+d9e36dd9dd2a526a libbpf: Sync with latest libbpf repo
+49358dfe2aaae4e9 pahole: Add --lang_exclude to allow skipping compilation units written in some languages
+8ee363790b743728 pahole: Introduce --lang to ask for only compilation units written in some languages
+c3f2fe2f6a81f13c core: Add string to id language lookup method
+3d0dfe0610517ff6 pahole: Don't try encode BTF when all CUs were filtered
+2730ef6965efd8e6 fprintf: preserve conf_fprintf pointer in tag__ptr_name
+1bc98ed290d2c833 btf_encoder: Collect info of per-cpu variables from threads
+31df013b70540072 dwarves: Set errno if load fails in cus__load_files()
+f952a6f69f9508c8 pahole: Avoid segfault when parsing bogus file
+65d7273668ded59b pahole: Introduce --compile to produce a compilable output
+4d004e2314f3252e core: Ditch 'dwarves__active_loader' extern declaration, it was nuked
+4f332dbfd02072e4 emit: Notice type shadowing, i.e. multiple types with the same name (enum, struct, union, etc)
+0a82f74ce25a5904 core: Make type->packed_attributes_inferred a one bit member
+fac821246c582299 core: type->declaration is just one bit, make it a bitfield member
+742f04f89da03665 emit: Search for data structures using its type in addition to its name
+32cc1481721c4b11 fprintf: Consider enumerations without members as forward declarations
+6afc296eeb180e25 emit: Fix printing typedef of nameless struct/union
+49a2dd657728675b fprintf: Check if conf->conf_fprintf is not NULL in when resolving cacheline_size
+46cec35ff0411e0f fprintf: Fix division by zero for uninitialized conf_fprintf->cacheline_size field
+73383b3a39afe86b libbpf: Update libbpf to the latest git HEAD
+21352753186ec582 pahole: Use per-thread btf instances to avoid mutex locking
+96d2c5c323255134 dwarf_loader: Prepare and pass per-thread data to worker threads
+724c8fddd71be1fe dwarf_loader: Receive per-thread data on worker threads
+2f7d61b2bfb59427 core: Define DW_TAG_skeleton_unit if not available on current dwarf.h
+
 v1.23
 
 Wed Dec  8 2021
