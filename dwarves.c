@@ -2085,6 +2085,118 @@ int cus__load_file(struct cus *cus, struct conf_load *conf,
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
 
+#ifndef DW_LANG_C89
+#define DW_LANG_C89		0x0001
+#endif
+#ifndef DW_LANG_C
+#define DW_LANG_C		0x0002
+#endif
+#ifndef DW_LANG_Ada83
+#define DW_LANG_Ada83		0x0003
+#endif
+#ifndef DW_LANG_C_plus_plus
+#define DW_LANG_C_plus_plus	0x0004
+#endif
+#ifndef DW_LANG_Cobol74
+#define DW_LANG_Cobol74		0x0005
+#endif
+#ifndef DW_LANG_Cobol85
+#define DW_LANG_Cobol85		0x0006
+#endif
+#ifndef DW_LANG_Fortran77
+#define DW_LANG_Fortran77	0x0007
+#endif
+#ifndef DW_LANG_Fortran90
+#define DW_LANG_Fortran90	0x0008
+#endif
+#ifndef DW_LANG_Pascal83
+#define DW_LANG_Pascal83	0x0009
+#endif
+#ifndef DW_LANG_Modula2
+#define DW_LANG_Modula2		0x000a
+#endif
+#ifndef DW_LANG_Java
+#define DW_LANG_Java		0x000b
+#endif
+#ifndef DW_LANG_C99
+#define DW_LANG_C99		0x000c
+#endif
+#ifndef DW_LANG_Ada95
+#define DW_LANG_Ada95		0x000d
+#endif
+#ifndef DW_LANG_Fortran95
+#define DW_LANG_Fortran95	0x000e
+#endif
+#ifndef DW_LANG_PLI
+#define DW_LANG_PLI		0x000f
+#endif
+#ifndef DW_LANG_ObjC
+#define DW_LANG_ObjC		0x0010
+#endif
+#ifndef DW_LANG_ObjC_plus_plus
+#define DW_LANG_ObjC_plus_plus	0x0011
+#endif
+#ifndef DW_LANG_UPC
+#define DW_LANG_UPC		0x0012
+#endif
+#ifndef DW_LANG_D
+#define DW_LANG_D		0x0013
+#endif
+#ifndef DW_LANG_Python
+#define DW_LANG_Python		0x0014
+#endif
+#ifndef DW_LANG_OpenCL
+#define DW_LANG_OpenCL		0x0015
+#endif
+#ifndef DW_LANG_Go
+#define DW_LANG_Go		0x0016
+#endif
+#ifndef DW_LANG_Modula3
+#define DW_LANG_Modula3		0x0017
+#endif
+#ifndef DW_LANG_Haskell
+#define DW_LANG_Haskell		0x0018
+#endif
+#ifndef DW_LANG_C_plus_plus_03
+#define DW_LANG_C_plus_plus_03	0x0019
+#endif
+#ifndef DW_LANG_C_plus_plus_11
+#define DW_LANG_C_plus_plus_11	0x001a
+#endif
+#ifndef DW_LANG_OCaml
+#define DW_LANG_OCaml		0x001b
+#endif
+#ifndef DW_LANG_Rust
+#define DW_LANG_Rust		0x001c
+#endif
+#ifndef DW_LANG_C11
+#define DW_LANG_C11		0x001d
+#endif
+#ifndef DW_LANG_Swift
+#define DW_LANG_Swift		0x001e
+#endif
+#ifndef DW_LANG_Julia
+#define DW_LANG_Julia		0x001f
+#endif
+#ifndef DW_LANG_Dylan
+#define DW_LANG_Dylan		0x0020
+#endif
+#ifndef DW_LANG_C_plus_plus_14
+#define DW_LANG_C_plus_plus_14	0x0021
+#endif
+#ifndef DW_LANG_Fortran03
+#define DW_LANG_Fortran03	0x0022
+#endif
+#ifndef DW_LANG_Fortran08
+#define DW_LANG_Fortran08	0x0023
+#endif
+#ifndef DW_LANG_RenderScript
+#define DW_LANG_RenderScript	0x0024
+#endif
+#ifndef DW_LANG_BLISS
+#define DW_LANG_BLISS		0x0025
+#endif
+
 int lang__str2int(const char *lang)
 {
 	static const char *languages[] = {
