@@ -9,12 +9,12 @@
   Copyright (C) Red Hat Inc
  */
 
+#include <linux/btf.h>
 #include "dwarves.h"
 #include "elf_symtab.h"
 #include "btf_encoder.h"
 #include "gobuffer.h"
 
-#include <linux/btf.h>
 #include <bpf/btf.h>
 #include <bpf/libbpf.h>
 #include <ctype.h> /* for isalpha() and isalnum() */
@@ -124,7 +124,7 @@ static int btf_var_secinfo_cmp(const void *a, const void *b)
 #define BITS_ROUNDDOWN_BYTES(bits) ((bits) >> 3)
 #define BITS_ROUNDUP_BYTES(bits) (BITS_ROUNDDOWN_BYTES(bits) + !!BITS_PER_BYTE_MASKED(bits))
 
-static const char * const btf_kind_str[NR_BTF_KINDS] = {
+static const char * const btf_kind_str[] = {
 	[BTF_KIND_UNKN]		= "UNKNOWN",
 	[BTF_KIND_INT]		= "INT",
 	[BTF_KIND_PTR]		= "PTR",
@@ -490,6 +490,29 @@ static int32_t btf_encoder__add_struct(struct btf_encoder *encoder, uint8_t kind
 
 	return id;
 }
+
+#if LIBBPF_MAJOR_VERSION < 1
+static inline int libbpf_err(int ret)
+{
+        if (ret < 0)
+                errno = -ret;
+        return ret;
+}
+
+static
+int btf__add_enum64(struct btf *btf __maybe_unused, const char *name __maybe_unused,
+		    __u32 byte_sz __maybe_unused, bool is_signed __maybe_unused)
+{
+	return  libbpf_err(-ENOTSUP);
+}
+
+static
+int btf__add_enum64_value(struct btf *btf __maybe_unused, const char *name __maybe_unused,
+			  __u64 value __maybe_unused)
+{
+	return  libbpf_err(-ENOTSUP);
+}
+#endif
 
 static int32_t btf_encoder__add_enum(struct btf_encoder *encoder, const char *name, struct type *etype,
 				     struct conf_load *conf_load)

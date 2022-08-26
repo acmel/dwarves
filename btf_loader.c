@@ -312,6 +312,7 @@ out_free:
 	return -ENOMEM;
 }
 
+#if LIBBPF_MAJOR_VERSION >= 1
 static struct enumerator *enumerator__new64(const char *name, uint64_t value)
 {
 	struct enumerator *en = tag__alloc(sizeof(*en));
@@ -354,6 +355,12 @@ out_free:
 	enumeration__delete(enumeration);
 	return -ENOMEM;
 }
+#else
+static int create_new_enumeration64(struct cu *cu __maybe_unused, const struct btf_type *tp __maybe_unused, uint32_t id __maybe_unused)
+{
+	return -ENOTSUP;
+}
+#endif
 
 static int create_new_subroutine_type(struct cu *cu, const struct btf_type *tp, uint32_t id)
 {

@@ -344,4 +344,8 @@ void __zfree(void **ptr);
 
 #define zfree(ptr) __zfree((void **)(ptr))
 
+#ifndef BTF_KIND_ENUM64
+#define BTF_KIND_ENUM64 19
+#endif
+
 #endif /* _DUTIL_H_ */
