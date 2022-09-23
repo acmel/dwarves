@@ -121,7 +121,13 @@ static int enumeration__emit_definitions(struct tag *tag,
 
 	enumeration__fprintf(tag, conf, fp);
 	fputs(";\n", fp);
-	type_emissions__add_definition(emissions, etype);
+
+	// See comment on enumeration__fprintf(), it seems this happens with DWARF as well
+	// or BTF doesn't have type->declaration set because DWARF didn't have it set.
+	// But we consider type->nr_members == 0 as just a forward declaration, so don't
+	// mark it as defined because we may need it to __really__ printf it later.
+	if (etype->nr_members != 0)
+		type_emissions__add_definition(emissions, etype);
 	return 1;
 }
 
