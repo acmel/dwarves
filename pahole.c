@@ -3217,7 +3217,7 @@ out_btf:
 			 * We don't need to print it for every compile unit
 			 * but the previous options need
 			 */
-			tag__fprintf(class, cu, &conf, stdout);
+			formatter(tag__class(class), cu, class_id);
 			putchar('\n');
 		}
 	}
