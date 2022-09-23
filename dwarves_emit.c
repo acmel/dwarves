@@ -357,6 +357,12 @@ int type__emit_definitions(struct tag *tag, struct cu *cu,
 			} else {
 				// Will be deleted in type__delete() on noticing ctype->suffix_disambiguation != 0
 				tag__namespace(tag)->name = disambiguated_name;
+
+				// Now look again if it was emitted in a previous CU with the disambiguated name
+				if (type_emissions__find_definition(emissions, tag->tag, type__name(ctype)) != NULL) {
+					ctype->definition_emitted = 1;
+					return 0;
+				}
 			}
 
 		}
