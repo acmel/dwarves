@@ -2999,11 +2999,6 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 {
 	int ret = LSK__DELETE;
 
-	if (compilable && strcmp(cu->dfops->name, "btf")) {
-		fprintf(stderr, "pahole: --compile currently only works with BTF.\n");
-		return LSK__STOP_LOADING;
-	}
-
 	if (!cu__filter(cu))
 		goto filter_it;
 
