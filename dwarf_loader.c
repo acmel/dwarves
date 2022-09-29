@@ -1485,7 +1485,12 @@ static struct tag *die__create_new_label(Dwarf_Die *die,
 	if (label == NULL)
 		return NULL;
 
-	lexblock__add_label(lexblock, label);
+	if (lexblock != NULL) {
+		// asm CUs have labels and they will be in the cu top level tag list
+		// See die__process_unit()
+		lexblock__add_label(lexblock, label);
+	}
+
 	return &label->ip.tag;
 }
 
@@ -2037,6 +2042,12 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 		 */
 		tag = &unsupported_tag;
 		break;
+	case DW_TAG_label:
+		if (conf->ignore_labels)
+			tag = &unsupported_tag; // callers will assume conf->ignore_labels is true
+		else // We can have labels in asm CUs, no lexblock
+			tag = die__create_new_label(die, NULL, cu, conf);
+		break;
 	}
 
 	if (tag != NULL)
@@ -2055,7 +2066,8 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *co
 		if (tag == &unsupported_tag) {
 			// XXX special case DW_TAG_dwarf_procedure, appears when looking at a recent ~/bin/perf
 			// Investigate later how to properly support this...
-			if (dwarf_tag(die) != DW_TAG_dwarf_procedure)
+			if (dwarf_tag(die) != DW_TAG_dwarf_procedure &&
+			    dwarf_tag(die) != DW_TAG_label) // conf->ignore_labels == true, see die__process_tag()
 				tag__print_not_supported(dwarf_tag(die));
 			continue;
 		}
