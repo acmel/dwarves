@@ -2240,6 +2240,9 @@ int lang__str2int(const char *lang)
 	[DW_LANG_UPC]		 = "upc",
 	};
 
+	if (strcasecmp(lang, "asm") == 0)
+		return DW_LANG_Mips_Assembler;
+
 	// c89 is the first, bliss is the last, see /usr/include/dwarf.h
 	for (int id = DW_LANG_C89; id <= DW_LANG_BLISS; ++id)
 		if (languages[id] && strcasecmp(lang, languages[id]) == 0)
