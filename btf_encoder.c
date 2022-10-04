@@ -963,8 +963,8 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct tag *tag,
 	case DW_TAG_subroutine_type:
 		return btf_encoder__add_func_proto(encoder, tag__ftype(tag), type_id_off);
 	default:
-		fprintf(stderr, "Unsupported DW_TAG_%s(0x%x)\n",
-			dwarf_tag_name(tag->tag), tag->tag);
+		fprintf(stderr, "Unsupported DW_TAG_%s(0x%x): type: 0x%x\n",
+			dwarf_tag_name(tag->tag), tag->tag, ref_type_id);
 		return -1;
 	}
 }
