@@ -871,19 +871,19 @@ static void class__resize_LP(struct tag *tag, struct cu *cu)
 		    	continue;
 
 		type = cu__type(cu, tag_pos->type);
-		tag__assert_search_result(type);
+		tag__assert_search_result(type, tag_pos->tag, class_member__name(tag__class_member(tag_pos)));
 		if (type->tag == DW_TAG_array_type) {
 			int i;
 			for (i = 0; i < tag__array_type(type)->dimensions; ++i)
 				array_multiplier *= tag__array_type(type)->nr_entries[i];
 
 			type = cu__type(cu, type->type);
-			tag__assert_search_result(type);
+			tag__assert_search_result(type, tag_pos->tag, class_member__name(tag__class_member(tag_pos)));
 		}
 
 		if (tag__is_typedef(type)) {
 			type = tag__follow_typedef(type, cu);
-			tag__assert_search_result(type);
+			tag__assert_search_result(type, tag_pos->tag, class_member__name(tag__class_member(tag_pos)));
 		}
 
 		switch (type->tag) {
@@ -953,7 +953,7 @@ static void union__find_new_size(struct tag *tag, struct cu *cu)
 		    	continue;
 
 		type = cu__type(cu, tag_pos->type);
-		tag__assert_search_result(type);
+		tag__assert_search_result(type, tag_pos->tag, class_member__name(tag__class_member(tag_pos)));
 		if (tag__is_typedef(type))
 			type = tag__follow_typedef(type, cu);
 
@@ -1096,7 +1096,7 @@ static void print_structs_with_pointer_to(struct cu *cu, uint32_t type)
 		type__for_each_member(&pos->type, pos_member) {
 			struct tag *ctype = cu__type(cu, pos_member->tag.type);
 
-			tag__assert_search_result(ctype);
+			tag__assert_search_result(ctype, pos_member->tag.tag, class_member__name(pos_member));
 			if (!tag__is_pointer_to(ctype, type))
 				continue;
 

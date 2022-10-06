@@ -64,7 +64,7 @@ static void emit_wrapper(struct function *f, struct cu *cu)
 		const type_id_t type_id = parm->tag.type;
 		struct tag *type = cu__type(cu, type_id);
 
-		tag__assert_search_result(type);
+		tag__assert_search_result(type, parm->tag.tag, parameter__name(parm));
 		if (type->tag == DW_TAG_base_type) {
 			struct base_type *bt = tag__base_type(type);
 			char bf[64];

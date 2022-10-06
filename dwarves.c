@@ -175,10 +175,10 @@ void tag__delete(struct tag *tag)
 	}
 }
 
-void tag__not_found_die(const char *file, int line, const char *func)
+void tag__not_found_die(const char *file, int line, const char *func, int tag, const char *name)
 {
-	fprintf(stderr, "%s::%s(%d): tag not found, please report to "
-			"acme@kernel.org\n", file, func, line);
+	fprintf(stderr, "%s::%s(%d, related to the type of tag DW_TAG_%s \"%s\"): tag not found, please report to "
+			"acme@kernel.org\n", file, func, line, dwarf_tag_name(tag), name);
 	exit(1);
 }
 

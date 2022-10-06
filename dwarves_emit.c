@@ -155,7 +155,7 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 	}
 
 	type = cu__type(cu, tdef->type);
-	tag__assert_search_result(type);
+	tag__assert_search_result(type, tdef->tag, type__name(def));
 
 	switch (type->tag) {
 	case DW_TAG_array_type:

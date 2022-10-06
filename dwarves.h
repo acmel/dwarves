@@ -581,11 +581,11 @@ size_t tag__fprintf(struct tag *tag, const struct cu *cu,
 
 const char *tag__name(const struct tag *tag, const struct cu *cu,
 		      char *bf, size_t len, const struct conf_fprintf *conf);
-void tag__not_found_die(const char *file, int line, const char *func);
+void tag__not_found_die(const char *file, int line, const char *func, int tag, const char *name);
 
-#define tag__assert_search_result(tag) \
-	do { if (!tag) tag__not_found_die(__FILE__,\
-					  __LINE__, __func__); } while (0)
+#define tag__assert_search_result(result, tag, name) \
+	do { if (!result) tag__not_found_die(__FILE__,\
+					  __LINE__, __func__, tag, name); } while (0)
 
 size_t tag__size(const struct tag *tag, const struct cu *cu);
 size_t tag__nr_cachelines(const struct conf_fprintf *conf, const struct tag *tag, const struct cu *cu);

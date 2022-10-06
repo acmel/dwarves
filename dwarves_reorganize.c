@@ -550,8 +550,8 @@ static int class__demote_bitfields(struct class *class, const struct cu *cu,
 				cu__find_base_type_of_size(cu, bytes_needed,
 							   &new_type_id);
 
-			tag__assert_search_result(old_type_tag);
-			tag__assert_search_result(new_type_tag);
+			tag__assert_search_result(old_type_tag, member->tag.tag, class_member__name(member));
+			tag__assert_search_result(new_type_tag, member->tag.tag, class_member__name(member));
 
 			if (verbose) {
 				char old_bf[64], new_bf[64];

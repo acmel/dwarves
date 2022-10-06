@@ -357,7 +357,7 @@ static struct class *class__clone_base_types(const struct tag *tag,
 	type__for_each_data_member_safe(&clone->type, pos, next) {
 		struct tag *member_type = cu__type(cu, pos->tag.type);
 
-		tag__assert_search_result(member_type);
+		tag__assert_search_result(member_type, pos->tag.tag, class_member__name(pos));
 		if (!tag__is_base_type(member_type, cu)) {
 			next = class__remove_member(clone, cu, pos);
 			class_member__delete(pos);
@@ -498,7 +498,7 @@ static struct tag *pointer_filter(struct tag *tag, struct cu *cu,
 	type__for_each_member(type, pos) {
 		struct tag *ctype = cu__type(cu, pos->tag.type);
 
-		tag__assert_search_result(ctype);
+		tag__assert_search_result(ctype, pos->tag.tag, class_member__name(pos));
 		if (tag__is_pointer_to(ctype, target_type_id))
 			return tag;
 	}
@@ -687,7 +687,7 @@ static int function__emit_probes(struct function *func, uint32_t function_id,
 	list_for_each_entry(pos, &func->proto.parms, tag.node) {
 		struct tag *type = cu__type(cu, pos->tag.type);
 
-		tag__assert_search_result(type);
+		tag__assert_search_result(type, pos->tag.tag, parameter__name(pos));
 		if (!tag__is_pointer_to(type, target_type_id))
 			continue;
 
@@ -762,7 +762,7 @@ static int cu_emit_pointer_probes_iterator(struct cu *cu, void *cookie)
 	type__for_each_member(tag__type(pointer), pos_member) {
 		struct tag *ctype = cu__type(cu, pos_member->tag.type);
 
-		tag__assert_search_result(ctype);
+		tag__assert_search_result(ctype, pos_member->tag.tag, class_member__name(pos_member));
 		if (tag__is_pointer_to(ctype, target_type_id))
 			break;
 	}
