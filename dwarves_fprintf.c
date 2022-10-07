@@ -767,6 +767,8 @@ inner_struct:
 		tconf.suppress_offset_comment = suppress_offset_comment;
 	}
 
+	const char *modifier;
+
 next_type:
 	switch (type->tag) {
 	case DW_TAG_pointer_type:
@@ -808,10 +810,15 @@ print_default:
 		printed += ftype__fprintf(tag__ftype(type), cu, name, 0, 0,
 					  tconf.type_spacing, true, &tconf, fp);
 		break;
-	case DW_TAG_const_type: {
-		size_t const_printed = fprintf(fp, "%s ", "const");
-		tconf.type_spacing -= const_printed;
-		printed		   += const_printed;
+	case DW_TAG_atomic_type:
+		modifier = "_Atomic";
+		goto print_modifier;
+	case DW_TAG_const_type:
+		modifier = "const";
+print_modifier: {
+		size_t modifier_printed = fprintf(fp, "%s ", modifier);
+		tconf.type_spacing -= modifier_printed;
+		printed		   += modifier_printed;
 
 		struct tag *ttype = cu__type(cu, type->type);
 		if (ttype) {
