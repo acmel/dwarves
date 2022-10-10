@@ -2006,10 +2006,12 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	case DW_TAG_imported_module:
 	case DW_TAG_reference_type:
 	case DW_TAG_restrict_type:
-	case DW_TAG_unspecified_type:
 	case DW_TAG_volatile_type:
 	case DW_TAG_atomic_type:
 		tag = die__create_new_tag(die, cu);		break;
+	case DW_TAG_unspecified_type:
+		cu->unspecified_type.tag =
+			tag = die__create_new_tag(die, cu);     break;
 	case DW_TAG_pointer_type:
 		tag = die__create_new_pointer_tag(die, cu, conf);	break;
 	case DW_TAG_ptr_to_member_type:
@@ -2077,6 +2079,8 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *co
 		cu__hash(cu, tag);
 		struct dwarf_tag *dtag = tag->priv;
 		dtag->small_id = id;
+		if (tag->tag == DW_TAG_unspecified_type)
+			cu->unspecified_type.type = id;
 	} while (dwarf_siblingof(die, die) == 0);
 
 	return 0;
@@ -2512,6 +2516,7 @@ static int cu__recode_dwarf_types_table(struct cu *cu,
 			if (tag__recode_dwarf_type(tag, cu))
 				return -1;
 	}
+
 	return 0;
 }
 

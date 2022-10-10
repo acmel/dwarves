@@ -230,6 +230,10 @@ struct debug_fmt_ops {
 	bool		   has_alignment_info;
 };
 
+/*
+ * unspecified_type: If this CU has a DW_TAG_unspecified_type, as BTF doesn't have a representation for this
+ * 		     and thus we need to check functions returning this to convert it to void.
+ */
 struct cu {
 	struct list_head node;
 	struct list_head tags;
@@ -238,6 +242,10 @@ struct cu {
 	struct ptr_table functions_table;
 	struct ptr_table tags_table;
 	struct rb_root	 functions;
+	struct {
+		struct tag	 *tag;
+		uint32_t	 type;
+	} unspecified_type;
 	char		 *name;
 	char		 *filename;
 	void 		 *priv;
