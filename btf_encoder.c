@@ -593,6 +593,19 @@ static int32_t btf_encoder__add_func_param(struct btf_encoder *encoder, const ch
 	}
 }
 
+static int32_t btf_encoder__tag_type(struct btf_encoder *encoder, uint32_t type_id_off, uint32_t tag_type)
+{
+	if (tag_type == 0)
+		return 0;
+
+	if (encoder->cu->unspecified_type.tag && tag_type == encoder->cu->unspecified_type.type) {
+		// No provision for encoding this, turn it into void.
+		return 0;
+	}
+
+	return type_id_off + tag_type;
+}
+
 static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct ftype *ftype, uint32_t type_id_off)
 {
 	struct btf *btf = encoder->btf;
@@ -603,7 +616,7 @@ static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct f
 
 	/* add btf_type for func_proto */
 	nr_params = ftype->nr_parms + (ftype->unspec_parms ? 1 : 0);
-	type_id = ftype->tag.type == 0 ? 0 : type_id_off + ftype->tag.type;
+	type_id = btf_encoder__tag_type(encoder, type_id_off, ftype->tag.type);
 
 	id = btf__add_func_proto(btf, type_id);
 	if (id > 0) {
@@ -966,6 +979,15 @@ static int btf_encoder__encode_tag(struct btf_encoder *encoder, struct tag *tag,
 		return btf_encoder__add_enum_type(encoder, tag, conf_load);
 	case DW_TAG_subroutine_type:
 		return btf_encoder__add_func_proto(encoder, tag__ftype(tag), type_id_off);
+        case DW_TAG_unspecified_type:
+		/* Just don't encode this for now, converting anything with this type to void (0) instead.
+		 *
+		 * If we end up needing to encode this, one possible hack is to do as follows, as "const void".
+		 *
+		 * Returning zero means we skipped encoding a DWARF type.
+		 */
+               // btf_encoder__add_ref_type(encoder, BTF_KIND_CONST, 0, NULL, false);
+               return 0;
 	default:
 		fprintf(stderr, "Unsupported DW_TAG_%s(0x%x): type: 0x%x\n",
 			dwarf_tag_name(tag->tag), tag->tag, ref_type_id);
@@ -1487,7 +1509,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 {
 	uint32_t type_id_off = btf__type_cnt(encoder->btf) - 1;
 	struct llvm_annotation *annot;
-	int btf_type_id, tag_type_id;
+	int btf_type_id, tag_type_id, skipped_types = 0;
 	uint32_t core_id;
 	struct function *fn;
 	struct tag *pos;
@@ -1510,8 +1532,13 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 	cu__for_each_type(cu, core_id, pos) {
 		btf_type_id = btf_encoder__encode_tag(encoder, pos, type_id_off, conf_load);
 
+		if (btf_type_id == 0) {
+			++skipped_types;
+			continue;
+		}
+
 		if (btf_type_id < 0 ||
-		    tag__check_id_drift(pos, core_id, btf_type_id, type_id_off)) {
+		    tag__check_id_drift(pos, core_id, btf_type_id + skipped_types, type_id_off)) {
 			err = -1;
 			goto out;
 		}
