@@ -155,7 +155,8 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 	}
 
 	type = cu__type(cu, tdef->type);
-	tag__assert_search_result(type, tdef->tag, type__name(def));
+	if (type == NULL) // void
+		goto emit;
 
 	switch (type->tag) {
 	case DW_TAG_array_type:
@@ -215,6 +216,7 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 	 * will thus be emitted before the function typedef, making a no go to
 	 * redefine the typedef after struct __wait_queue.
 	 */
+emit:
 	if (!def->definition_emitted) {
 		typedef__fprintf(tdef, cu, NULL, fp);
 		fputs(";\n", fp);
