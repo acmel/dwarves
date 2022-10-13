@@ -303,32 +303,29 @@ size_t typedef__fprintf(const struct tag *tag, const struct cu *cu,
 	const struct tag *ptr_type;
 	char bf[512];
 	int is_pointer = 0;
-	size_t printed;
+	size_t printed = fprintf(fp, "typedef ");
 
 	/*
 	 * Check for void (humm, perhaps we should have a fake void tag instance
 	 * to avoid all these checks?
 	 */
 	if (tag->type == 0)
-		return fprintf(fp, "typedef void %s", type__name(type));
+		return printed + fprintf(fp, "void %s", type__name(type));
 
 	tag_type = cu__type(cu, tag->type);
 	if (tag_type == NULL) {
-		printed = fprintf(fp, "typedef ");
 		printed += tag__id_not_found_fprintf(fp, tag->type);
 		return printed + fprintf(fp, " %s", type__name(type));
 	}
 
 	switch (tag_type->tag) {
 	case DW_TAG_array_type:
-		printed = fprintf(fp, "typedef ");
 		return printed + array_type__fprintf(tag_type, cu, type__name(type), pconf, fp);
 	case DW_TAG_pointer_type:
 		if (tag_type->type == 0) /* void pointer */
 			break;
 		ptr_type = cu__type(cu, tag_type->type);
 		if (ptr_type == NULL) {
-			printed = fprintf(fp, "typedef ");
 			printed += tag__id_not_found_fprintf(fp, tag_type->type);
 			return printed + fprintf(fp, " *%s", type__name(type));
 		}
@@ -338,7 +335,6 @@ size_t typedef__fprintf(const struct tag *tag, const struct cu *cu,
 		is_pointer = 1;
 		/* Fall thru */
 	case DW_TAG_subroutine_type:
-		printed = fprintf(fp, "typedef ");
 		return printed + ftype__fprintf(tag__ftype(tag_type), cu, type__name(type),
 						0, is_pointer, 0, true, pconf, fp);
 	case DW_TAG_class_type:
@@ -346,27 +342,27 @@ size_t typedef__fprintf(const struct tag *tag, const struct cu *cu,
 		struct type *ctype = tag__type(tag_type);
 
 		if (type__name(ctype) != NULL)
-			return fprintf(fp, "typedef struct %s %s", type__name(ctype), type__name(type));
+			return printed + fprintf(fp, "struct %s %s", type__name(ctype), type__name(type));
 
 		struct conf_fprintf tconf = *pconf;
 
 		tconf.suffix = type__name(type);
-		return fprintf(fp, "typedef ") + __class__fprintf(tag__class(tag_type), cu, &tconf, fp);
+		return printed + __class__fprintf(tag__class(tag_type), cu, &tconf, fp);
 	}
 	case DW_TAG_enumeration_type: {
 		struct type *ctype = tag__type(tag_type);
 
 		if (type__name(ctype) != NULL)
-			return fprintf(fp, "typedef enum %s %s", type__name(ctype), type__name(type));
+			return printed + fprintf(fp, "enum %s %s", type__name(ctype), type__name(type));
 
 		struct conf_fprintf tconf = *pconf;
 
 		tconf.suffix = type__name(type);
-		return fprintf(fp, "typedef ") + enumeration__fprintf(tag_type, &tconf, fp);
+		return printed + enumeration__fprintf(tag_type, &tconf, fp);
 	}
 	}
 
-	return fprintf(fp, "typedef %s %s",
+	return printed + fprintf(fp, "%s %s",
 		       tag__name(tag_type, cu, bf, sizeof(bf), pconf), type__name(type));
 }
 
