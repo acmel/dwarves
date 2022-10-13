@@ -161,6 +161,13 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 		goto emit;
 
 	switch (type->tag) {
+	case DW_TAG_atomic_type:
+		type = cu__type(cu, tdef->type);
+		if (type)
+			tag__emit_definitions(type, cu, emissions, fp);
+		else
+			fprintf(stderr, "%s: couldn't find the type pointed from _Atomic for '%s'\n", __func__, type__name(def));
+		break;
 	case DW_TAG_array_type:
 		tag__emit_definitions(type, cu, emissions, fp);
 		break;
