@@ -91,6 +91,7 @@ struct conf_load {
  * @suppress_force_paddings: This makes sense only if the debugging format has struct alignment information,
  *                           So allow for it to be disabled and disable it automatically for things like BTF,
  *                           that don't have such info.
+ * @skip_emitting_atomic_typedefs: Allow not emitting "typedef _Atomic int atomic_int;" and friends
  */
 struct conf_fprintf {
 	const char *prefix;
@@ -129,6 +130,7 @@ struct conf_fprintf {
 	uint8_t	   classes_as_structs:1;
 	uint8_t	   hex_fmt:1;
 	uint8_t	   strip_inline:1;
+	uint8_t	   skip_emitting_atomic_typedefs:1;
 };
 
 struct cus;

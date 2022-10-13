@@ -351,6 +351,8 @@ static int tag__emit_definitions(struct tag *tag, struct cu *cu,
 next_indirection:
 	switch (type->tag) {
 	case DW_TAG_base_type:
+		if (emissions->conf_fprintf && emissions->conf_fprintf->skip_emitting_atomic_typedefs)
+			return 0;
 		return base_type__emit_definitions(tag__base_type(type), emissions, fp);
 	case DW_TAG_pointer_type:
 	case DW_TAG_reference_type:
