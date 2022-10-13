@@ -311,7 +311,7 @@ size_t typedef__fprintf(const struct tag *tag, const struct cu *cu,
 	 */
 	if (tag->type == 0)
 		return printed + fprintf(fp, "void %s", type__name(type));
-
+next_type:
 	tag_type = cu__type(cu, tag->type);
 	if (tag_type == NULL) {
 		printed += tag__id_not_found_fprintf(fp, tag->type);
@@ -319,6 +319,10 @@ size_t typedef__fprintf(const struct tag *tag, const struct cu *cu,
 	}
 
 	switch (tag_type->tag) {
+	case DW_TAG_atomic_type:
+		printed += fprintf(fp, "_Atomic ");
+		tag = tag_type;
+		goto next_type;
 	case DW_TAG_array_type:
 		return printed + array_type__fprintf(tag_type, cu, type__name(type), pconf, fp);
 	case DW_TAG_pointer_type:
