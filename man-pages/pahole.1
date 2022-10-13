@@ -122,6 +122,14 @@ the example provided it will use the BTF info if available, otherwise will
 look for a DWARF file matching the running kernel build-id.
 
 .TP
+.B \-\-skip_emitting_atomic_typedefs
+Do not emit 'typedef _Atomic int atomic_int' & friends when used with options
+like --compile. Use it if the compiler provides these already, as of circa
+2022 with gcc 12.2.1 those are not encoded in DWARF so to generate compilable
+code we need emit those typedefs for the atomic types used in the data structures
+being emitted from debugging information.
+
+.TP
 .B \-\-count=COUNT
 Pretty print the first COUNT records from input.
 
