@@ -19,6 +19,7 @@ struct type;
 
 struct type_emissions {
 	struct list_head definitions; /* struct type entries */
+	struct list_head base_type_definitions; /* struct base_type entries */
 	struct list_head fwd_decls;   /* struct class entries */
 };
 

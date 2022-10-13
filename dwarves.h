@@ -1334,12 +1334,14 @@ enum base_type_float_type {
 struct base_type {
 	struct tag	tag;
 	const char	*name;
+	struct list_head node;
 	uint16_t	bit_size;
 	uint8_t		name_has_encoding:1;
 	uint8_t		is_signed:1;
 	uint8_t		is_bool:1;
 	uint8_t		is_varargs:1;
 	uint8_t		float_type:4;
+	uint8_t		definition_emitted:1;
 };
 
 static inline struct base_type *tag__base_type(const struct tag *tag)

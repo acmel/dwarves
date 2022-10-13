@@ -108,6 +108,7 @@ static struct base_type *base_type__new(const char *name, uint32_t attrs,
 		bt->is_bool = attrs & BTF_INT_BOOL;
 		bt->name_has_encoding = false;
 		bt->float_type = float_type;
+		INIT_LIST_HEAD(&bt->node);
 	}
 	return bt;
 }

@@ -564,6 +564,7 @@ static struct base_type *base_type__new(Dwarf_Die *die, struct cu *cu, struct co
 		bt->is_varargs = false;
 		bt->name_has_encoding = true;
 		bt->float_type = encoding_to_float_type(encoding);
+		INIT_LIST_HEAD(&bt->node);
 	}
 
 	return bt;
