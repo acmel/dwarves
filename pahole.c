@@ -1716,7 +1716,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	// case 'Z': ctf_encode = 1;			break; // FIXME: Disabled
 	case ARGP_compile:
 		  compilable = true;
-                  type_emissions__init(&emissions);
+                  type_emissions__init(&emissions, &conf);
                   conf.no_semicolon = true;
                   conf.strip_inline = true;
 		  break;

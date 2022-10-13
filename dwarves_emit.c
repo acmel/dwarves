@@ -13,11 +13,12 @@
 #include "dwarves_emit.h"
 #include "dwarves.h"
 
-void type_emissions__init(struct type_emissions *emissions)
+void type_emissions__init(struct type_emissions *emissions, struct conf_fprintf *conf_fprintf)
 {
 	INIT_LIST_HEAD(&emissions->base_type_definitions);
 	INIT_LIST_HEAD(&emissions->definitions);
 	INIT_LIST_HEAD(&emissions->fwd_decls);
+	emissions->conf_fprintf = conf_fprintf;
 }
 
 static void type_emissions__add_definition(struct type_emissions *emissions,

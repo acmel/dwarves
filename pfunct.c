@@ -658,7 +658,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 	case 'a': addr = strtoull(arg, NULL, 0);
 		  conf_load.get_addr_info = true;	 break;
 	case 'b': expand_types = true;
-		  type_emissions__init(&emissions);	 break;
+		  type_emissions__init(&emissions, &conf);	 break;
 	case 'c': class_name = arg;			 break;
 	case 'f': function_name = arg;			 break;
 	case 'F': conf_load.format_path = arg;		 break;
@@ -689,7 +689,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 	case ARGP_no_parm_names: conf.no_parm_names = 1; break;
 	case ARGP_compile:
 		  expand_types = true;
-		  type_emissions__init(&emissions);
+		  type_emissions__init(&emissions, &conf);
 		  compilable_output = true;
 		  conf.no_semicolon = true;
 		  conf.strip_inline = true;

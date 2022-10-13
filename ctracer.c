@@ -960,7 +960,7 @@ failure:
 		goto out;
 	}
 
-	type_emissions__init(&emissions);
+	type_emissions__init(&emissions, NULL);
 
         /*
          * Create the methods_cus (Compilation Units) object where we will
