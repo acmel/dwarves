@@ -626,7 +626,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id, int build_id_len,
 		   const char *filename, bool use_obstack)
 {
-	struct cu *cu = malloc(sizeof(*cu) + build_id_len);
+	struct cu *cu = zalloc(sizeof(*cu) + build_id_len);
 
 	if (cu != NULL) {
 		uint32_t void_id;
