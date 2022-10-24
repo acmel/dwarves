@@ -104,11 +104,10 @@ struct structure {
 
 static struct structure *structure__new(struct class *class, struct cu *cu, uint32_t id)
 {
-	struct structure *st = malloc(sizeof(*st));
+	struct structure *st = zalloc(sizeof(*st));
 
 	if (st != NULL) {
 		st->nr_files   = 1;
-		st->nr_methods = 0;
 		st->class      = class;
 		st->cu	       = cu;
 		st->id	       = id;
@@ -148,7 +147,7 @@ static int parse_languages(void)
 	int nr_allocated = 4;
 	char *lang = languages.str;
 
-	languages.entries = malloc(sizeof(int) * nr_allocated);
+	languages.entries = zalloc(sizeof(int) * nr_allocated);
 	if (languages.entries == NULL)
 		goto out_enomem;
 
@@ -2245,7 +2244,7 @@ static struct type_instance *type_instance__new(struct type *type, struct cu *cu
 	if (type == NULL)
 		return NULL;
 
-	struct type_instance *instance = malloc(sizeof(*instance) + type->size);
+	struct type_instance *instance = zalloc(sizeof(*instance) + type->size);
 
 	if (instance) {
 		instance->type = type;
@@ -2711,7 +2710,7 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 
 static struct class_member_filter *class_member_filter__new(struct type *type, char *sfilter)
 {
-	struct class_member_filter *filter = malloc(sizeof(*filter));
+	struct class_member_filter *filter = zalloc(sizeof(*filter));
 
 	if (filter && class_member_filter__parse(filter, type, sfilter)) {
 		free(filter);
@@ -2865,7 +2864,7 @@ static void prototype__delete(struct prototype *prototype)
 
 static struct tag_cu_node *tag_cu_node__new(struct tag *tag, struct cu *cu)
 {
-	struct tag_cu_node *tc = malloc(sizeof(*tc));
+	struct tag_cu_node *tc = zalloc(sizeof(*tc));
 
 	if (tc) {
 		tc->tc.tag = tag;
