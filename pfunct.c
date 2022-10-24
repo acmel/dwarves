@@ -53,7 +53,7 @@ struct fn_stats {
 
 static struct fn_stats *fn_stats__new(struct tag *tag, const struct cu *cu)
 {
-	struct fn_stats *stats = malloc(sizeof(*stats));
+	struct fn_stats *stats = zalloc(sizeof(*stats));
 
 	if (stats != NULL) {
 		const struct function *fn = tag__function(tag);
