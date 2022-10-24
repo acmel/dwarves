@@ -2586,12 +2586,9 @@ int cus__fprintf_load_files_err(struct cus *cus __maybe_unused, const char *tool
 
 struct cus *cus__new(void)
 {
-	struct cus *cus = malloc(sizeof(*cus));
+	struct cus *cus = zalloc(sizeof(*cus));
 
 	if (cus != NULL) {
-		cus->nr_entries  = 0;
-		cus->priv	 = NULL;
-		cus->loader_exit = NULL;
 		INIT_LIST_HEAD(&cus->cus);
 		pthread_mutex_init(&cus->mutex, NULL);
 	}
