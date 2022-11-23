@@ -232,6 +232,12 @@ struct debug_fmt_ops {
 	bool		   has_alignment_info;
 };
 
+struct tag_tables {
+	struct ptr_table types;
+	struct ptr_table functions;
+	struct ptr_table tags;
+};
+
 /*
  * unspecified_type: If this CU has a DW_TAG_unspecified_type, as BTF doesn't have a representation for this
  * 		     and thus we need to check functions returning this to convert it to void.
@@ -240,9 +246,7 @@ struct cu {
 	struct list_head node;
 	struct list_head tags;
 	struct list_head tool_list;	/* To be used by tools such as ctracer */
-	struct ptr_table types_table;
-	struct ptr_table functions_table;
-	struct ptr_table tags_table;
+	struct tag_tables *tables;
 	struct rb_root	 functions;
 	struct {
 		struct tag	 *tag;
@@ -330,8 +334,8 @@ int lang__str2int(const char *lang);
  * the NULL test (hint: CTF Unknown types)
  */
 #define cu__for_each_type(cu, id, pos)				\
-	for (id = 1; id < cu->types_table.nr_entries; ++id)	\
-		if (!(pos = cu->types_table.entries[id]))	\
+	for (id = 1; id < cu->tables->types.nr_entries; ++id)	\
+		if (!(pos = cu->tables->types.entries[id]))	\
 			continue;				\
 		else
 
@@ -342,8 +346,8 @@ int lang__str2int(const char *lang);
  * @id: type_id_t id
  */
 #define cu__for_each_struct(cu, id, pos)				\
-	for (id = 1; id < cu->types_table.nr_entries; ++id)		\
-		if (!(pos = tag__class(cu->types_table.entries[id])) || \
+	for (id = 1; id < cu->tables->types.nr_entries; ++id)		\
+		if (!(pos = tag__class(cu->tables->types.entries[id])) || \
 		    !tag__is_struct(class__tag(pos)))			\
 			continue;					\
 		else
@@ -355,8 +359,8 @@ int lang__str2int(const char *lang);
  * @id: type_id_t tag id
  */
 #define cu__for_each_struct_or_union(cu, id, pos)			\
-	for (id = 1; id < cu->types_table.nr_entries; ++id)		\
-		if (!(pos = tag__class(cu->types_table.entries[id])) || \
+	for (id = 1; id < cu->tables->types.nr_entries; ++id)		\
+		if (!(pos = tag__class(cu->tables->types.entries[id])) || \
 		    !(tag__is_struct(class__tag(pos)) || 		\
 		      tag__is_union(class__tag(pos))))			\
 			continue;					\
@@ -369,8 +373,8 @@ int lang__str2int(const char *lang);
  * @id: uint32_t tag id
  */
 #define cu__for_each_function(cu, id, pos)				     \
-	for (id = 0; id < cu->functions_table.nr_entries; ++id)		     \
-		if (!(pos = tag__function(cu->functions_table.entries[id]))) \
+	for (id = 0; id < cu->tables->functions.nr_entries; ++id)		     \
+		if (!(pos = tag__function(cu->tables->functions.entries[id]))) \
 			continue;					     \
 		else
 
@@ -381,8 +385,8 @@ int lang__str2int(const char *lang);
  * @id: uint32_t tag id
  */
 #define cu__for_each_variable(cu, id, pos)		\
-	for (id = 0; id < cu->tags_table.nr_entries; ++id) \
-		if (!(pos = cu->tags_table.entries[id]) || \
+	for (id = 0; id < cu->tables->tags.nr_entries; ++id) \
+		if (!(pos = cu->tables->tags.entries[id]) || \
 		    !tag__is_variable(pos))		\
 			continue;			\
 		else

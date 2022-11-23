@@ -2433,8 +2433,8 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 		return namespace__recode_dwarf_types(tag, cu);
 	/* Damn, DW_TAG_inlined_subroutine is an special case
            as dwarf_tag->id is in fact an abtract origin, i.e. must be
-	   looked up in the tags_table, not in the types_table.
-	   The others also point to routines, so are in tags_table */
+	   looked up in the tables->tags, not in the tables->types.
+	   The others also point to routines, so are in tables->tags */
 	case DW_TAG_inlined_subroutine:
 	case DW_TAG_imported_module:
 		dtype = dwarf_cu__find_tag_by_ref(cu->priv, &dtag->type);
@@ -2488,7 +2488,7 @@ out:
 
 static int cu__resolve_func_ret_types(struct cu *cu)
 {
-	struct ptr_table *pt = &cu->functions_table;
+	struct ptr_table *pt = &cu->tables->functions;
 	uint32_t i;
 
 	for (i = 0; i < pt->nr_entries; ++i) {
@@ -2531,9 +2531,9 @@ static int cu__recode_dwarf_types_table(struct cu *cu,
 
 static int cu__recode_dwarf_types(struct cu *cu)
 {
-	if (cu__recode_dwarf_types_table(cu, &cu->types_table, 1) ||
-	    cu__recode_dwarf_types_table(cu, &cu->tags_table, 0) ||
-	    cu__recode_dwarf_types_table(cu, &cu->functions_table, 0))
+	if (cu__recode_dwarf_types_table(cu, &cu->tables->types, 1) ||
+	    cu__recode_dwarf_types_table(cu, &cu->tables->tags, 0) ||
+	    cu__recode_dwarf_types_table(cu, &cu->tables->functions, 0))
 		return -1;
 	return 0;
 }

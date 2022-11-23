@@ -1525,7 +1525,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 			encoder->array_index_id = type_id_off + id;
 		} else {
 			encoder->has_index_type = false;
-			encoder->array_index_id = type_id_off + cu->types_table.nr_entries;
+			encoder->array_index_id = type_id_off + cu->tables->types.nr_entries;
 		}
 	}
 

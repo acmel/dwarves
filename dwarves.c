@@ -579,12 +579,12 @@ static void cu__insert_function(struct cu *cu, struct tag *tag)
 
 int cu__table_add_tag(struct cu *cu, struct tag *tag, uint32_t *type_id)
 {
-	struct ptr_table *pt = &cu->tags_table;
+	struct ptr_table *pt = &cu->tables->tags;
 
 	if (tag__is_tag_type(tag))
-		pt = &cu->types_table;
+		pt = &cu->tables->types;
 	else if (tag__is_function(tag)) {
-		pt = &cu->functions_table;
+		pt = &cu->tables->functions;
 		cu__insert_function(cu, tag);
 	}
 
@@ -593,7 +593,7 @@ int cu__table_add_tag(struct cu *cu, struct tag *tag, uint32_t *type_id)
 
 int cu__table_nullify_type_entry(struct cu *cu, uint32_t id)
 {
-	return ptr_table__add_with_id(&cu->types_table, NULL, id);
+	return ptr_table__add_with_id(&cu->tables->types, NULL, id);
 }
 
 int cu__add_tag(struct cu *cu, struct tag *tag, uint32_t *id)
@@ -608,12 +608,12 @@ int cu__add_tag(struct cu *cu, struct tag *tag, uint32_t *id)
 
 int cu__table_add_tag_with_id(struct cu *cu, struct tag *tag, uint32_t id)
 {
-	struct ptr_table *pt = &cu->tags_table;
+	struct ptr_table *pt = &cu->tables->tags;
 
 	if (tag__is_tag_type(tag)) {
-		pt = &cu->types_table;
+		pt = &cu->tables->types;
 	} else if (tag__is_function(tag)) {
-		pt = &cu->functions_table;
+		pt = &cu->tables->functions;
 		cu__insert_function(cu, tag);
 	}
 
@@ -638,11 +638,39 @@ int cus__fprintf_ptr_table_stats_csv_header(FILE *fp)
 int cu__fprintf_ptr_table_stats_csv(struct cu *cu, FILE *fp)
 {
 	int printed = fprintf(fp, "%s,%u,%u,%u,%u,%u,%u\n", cu->name,
-			      cu->tags_table.nr_entries, cu->tags_table.allocated_entries,
-			      cu->types_table.nr_entries, cu->types_table.allocated_entries,
-			      cu->functions_table.nr_entries, cu->functions_table.allocated_entries);
+			      cu->tables->tags.nr_entries, cu->tables->tags.allocated_entries,
+			      cu->tables->types.nr_entries, cu->tables->types.allocated_entries,
+			      cu->tables->functions.nr_entries, cu->tables->functions.allocated_entries);
 
 	return printed;
+}
+
+static void tag_tables__init(struct tag_tables *tables)
+{
+	ptr_table__init(&tables->tags);
+	ptr_table__init(&tables->types);
+	ptr_table__init(&tables->functions);
+}
+
+static struct tag_tables *tag_tables__new(void)
+{
+	struct tag_tables *tables = zalloc(sizeof(*tables));
+
+	if (tables != NULL)
+		tag_tables__init(tables);
+
+	return tables;
+}
+
+static void tag_tables__delete(struct tag_tables *tables)
+{
+	if (tables == NULL)
+		return;
+
+	ptr_table__exit(&tables->tags);
+	ptr_table__exit(&tables->types);
+	ptr_table__exit(&tables->functions);
+	free(tables);
 }
 
 struct cu *cu__new(const char *name, uint8_t addr_size,
@@ -666,15 +694,15 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		if (cu->filename == NULL)
 			goto out_free_name;
 
-		ptr_table__init(&cu->tags_table);
-		ptr_table__init(&cu->types_table);
-		ptr_table__init(&cu->functions_table);
+		cu->tables = tag_tables__new();
+		if (cu->tables == NULL)
+			goto out_free_filename;
 		/*
 		 * the first entry is historically associated with void,
 		 * so make sure we don't use it
 		 */
-		if (ptr_table__add(&cu->types_table, NULL, &void_id) < 0)
-			goto out_free_filename;
+		if (ptr_table__add(&cu->tables->types, NULL, &void_id) < 0)
+			goto out_free_tables;
 
 		cu->functions = RB_ROOT;
 
@@ -700,6 +728,9 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 
 	return cu;
 
+out_free_tables:
+	tag_tables__delete(cu->tables);
+	cu->tables = NULL;
 out_free_filename:
 	zfree(&cu->filename);
 out_free_name:
@@ -714,9 +745,9 @@ void cu__delete(struct cu *cu)
 	if (cu == NULL)
 		return;
 
-	ptr_table__exit(&cu->tags_table);
-	ptr_table__exit(&cu->types_table);
-	ptr_table__exit(&cu->functions_table);
+	tag_tables__delete(cu->tables);
+	cu->tables = NULL;
+
 	if (cu->dfops && cu->dfops->cu__delete)
 		cu->dfops->cu__delete(cu);
 
@@ -737,17 +768,17 @@ bool cu__same_build_id(const struct cu *cu, const struct cu *other)
 
 struct tag *cu__function(const struct cu *cu, const uint32_t id)
 {
-	return cu ? ptr_table__entry(&cu->functions_table, id) : NULL;
+	return cu ? ptr_table__entry(&cu->tables->functions, id) : NULL;
 }
 
 struct tag *cu__tag(const struct cu *cu, const uint32_t id)
 {
-	return cu ? ptr_table__entry(&cu->tags_table, id) : NULL;
+	return cu ? ptr_table__entry(&cu->tables->tags, id) : NULL;
 }
 
 struct tag *cu__type(const struct cu *cu, const type_id_t id)
 {
-	return cu ? ptr_table__entry(&cu->types_table, id) : NULL;
+	return cu ? ptr_table__entry(&cu->tables->types, id) : NULL;
 }
 
 struct tag *cu__find_first_typedef_of_type(const struct cu *cu,
