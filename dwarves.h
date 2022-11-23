@@ -282,6 +282,9 @@ struct cu {
 struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id, int build_id_len,
 		   const char *filename, bool use_obstack);
+struct cu *cu__new_build_id(const char *name, uint8_t addr_size,
+			    const unsigned char *build_id, int build_id_len,
+			    const char *filename, bool use_obstack);
 void cu__delete(struct cu *cu);
 
 void *cu__malloc(struct cu *cu, size_t size);

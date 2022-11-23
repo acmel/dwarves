@@ -2782,8 +2782,8 @@ static int __cus__load_debug_types(struct conf_load *conf, Dwfl_Module *mod, Dwa
 		if (*cup == NULL) {
 			struct cu *cu;
 
-			cu = cu__new("", pointer_size, build_id,
-				     build_id_len, filename, conf->use_obstack);
+			cu = cu__new_build_id("", pointer_size, build_id,
+					      build_id_len, filename, conf->use_obstack);
 			if (cu == NULL ||
 			    cu__set_common(cu, conf, mod, elf) != 0) {
 				return DWARF_CB_ABORT;
@@ -2916,7 +2916,7 @@ static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *c
 	 * /usr/libexec/gcc/x86_64-redhat-linux/4.3.2/ecj1.debug
 	 */
 	const char *name = attr_string(cu_die, DW_AT_name, dcus->conf);
-	struct cu *cu = cu__new(name ?: "", pointer_size, dcus->build_id, dcus->build_id_len, dcus->filename, dcus->conf->use_obstack);
+	struct cu *cu = cu__new_build_id(name ?: "", pointer_size, dcus->build_id, dcus->build_id_len, dcus->filename, dcus->conf->use_obstack);
 	if (cu == NULL || cu__set_common(cu, dcus->conf, dcus->mod, dcus->elf) != 0)
 		return DWARF_CB_ABORT;
 
@@ -3088,8 +3088,8 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 			break;
 
 		if (cu == NULL) {
-			cu = cu__new("", pointer_size, build_id, build_id_len,
-				     filename, conf->use_obstack);
+			cu = cu__new_build_id("", pointer_size, build_id, build_id_len,
+					      filename, conf->use_obstack);
 			if (cu == NULL || cu__set_common(cu, conf, mod, elf) != 0)
 				goto out_abort;
 

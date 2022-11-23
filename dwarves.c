@@ -752,6 +752,15 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 	return tables != NULL ? __cu__new(name, addr_size, build_id, build_id_len, filename, use_obstack, tables, /*delete_tables:*/ true) : NULL;
 }
 
+struct cu *cu__new_build_id(const char *name, uint8_t addr_size,
+			    const unsigned char *build_id, int build_id_len,
+			    const char *filename, bool use_obstack)
+{
+	struct tag_tables *tables = tag_tables__new();
+
+	return tables != NULL ? __cu__new(name, addr_size, build_id, build_id_len, filename, use_obstack, tables, /*delete_tables:*/ true) : NULL;
+}
+
 void cu__delete(struct cu *cu)
 {
 	if (cu == NULL)
