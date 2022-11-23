@@ -698,7 +698,7 @@ int ctf__load_file(struct cus *cus, struct conf_load *conf,
 	if (state == NULL)
 		return -1;
 
-	struct cu *cu = cu__new(filename, state->wordsize, NULL, 0, filename, false);
+	struct cu *cu = cu__new(filename, state->wordsize, filename, false);
 	if (cu == NULL)
 		return -1;
 
