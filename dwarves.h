@@ -261,6 +261,7 @@ struct cu {
 	struct obstack	 obstack;
 	uint32_t	 cached_symtab_nr_entries;
 	bool		 use_obstack;
+	bool		 delete_tables;
 	uint8_t		 addr_size;
 	uint8_t		 extra_dbg_info:1;
 	uint8_t		 has_addr_info:1;

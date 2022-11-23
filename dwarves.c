@@ -673,9 +673,9 @@ static void tag_tables__delete(struct tag_tables *tables)
 	free(tables);
 }
 
-struct cu *cu__new(const char *name, uint8_t addr_size,
-		   const unsigned char *build_id, int build_id_len,
-		   const char *filename, bool use_obstack)
+static struct cu *__cu__new(const char *name, uint8_t addr_size,
+		     const unsigned char *build_id, int build_id_len,
+		     const char *filename, bool use_obstack, struct tag_tables *tables, bool delete_tables)
 {
 	struct cu *cu = zalloc(sizeof(*cu) + build_id_len);
 
@@ -694,14 +694,16 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		if (cu->filename == NULL)
 			goto out_free_name;
 
-		cu->tables = tag_tables__new();
-		if (cu->tables == NULL)
-			goto out_free_filename;
+		cu->tables = tables;
+		cu->delete_tables = delete_tables;
 		/*
 		 * the first entry is historically associated with void,
-		 * so make sure we don't use it
+		 * so make sure we don't use it.
+		 *
+		 * But only if we are the creator of the tables, otherwise
+		 * we end up with two (or more) void entries.
 		 */
-		if (ptr_table__add(&cu->tables->types, NULL, &void_id) < 0)
+		if (delete_tables && ptr_table__add(&cu->tables->types, NULL, &void_id) < 0)
 			goto out_free_tables;
 
 		cu->functions = RB_ROOT;
@@ -729,9 +731,10 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 	return cu;
 
 out_free_tables:
-	tag_tables__delete(cu->tables);
+	if (delete_tables)
+		tag_tables__delete(cu->tables);
+
 	cu->tables = NULL;
-out_free_filename:
 	zfree(&cu->filename);
 out_free_name:
 	zfree(&cu->name);
@@ -740,12 +743,23 @@ out_free:
 	return NULL;
 }
 
+struct cu *cu__new(const char *name, uint8_t addr_size,
+		   const unsigned char *build_id, int build_id_len,
+		   const char *filename, bool use_obstack)
+{
+	struct tag_tables *tables = tag_tables__new();
+
+	return tables != NULL ? __cu__new(name, addr_size, build_id, build_id_len, filename, use_obstack, tables, /*delete_tables:*/ true) : NULL;
+}
+
 void cu__delete(struct cu *cu)
 {
 	if (cu == NULL)
 		return;
 
-	tag_tables__delete(cu->tables);
+	if (cu->delete_tables)
+		tag_tables__delete(cu->tables);
+
 	cu->tables = NULL;
 
 	if (cu->dfops && cu->dfops->cu__delete)
