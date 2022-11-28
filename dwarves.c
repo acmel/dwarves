@@ -757,6 +757,11 @@ struct cu *cu__new(const char *name, uint8_t addr_size, const char *filename, bo
 	return cu__new_build_id(name, addr_size, NULL, 0, filename, use_obstack);
 }
 
+struct cu *cu__new_merge_tables(struct tag_tables *tables, uint8_t addr_size, bool use_obstack)
+{
+	return __cu__new("", addr_size, NULL, 0, "", use_obstack, tables, /*delete_tables:*/ false);
+}
+
 void cu__delete(struct cu *cu)
 {
 	if (cu == NULL)

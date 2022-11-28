@@ -45,6 +45,8 @@ struct conf_fprintf;
  * @nr_jobs - -j argument, number of threads to use
  * @ptr_table_stats - print developer oriented ptr_table statistics.
  * @skip_missing - skip missing types rather than bailing out.
+ * @alt_dwarf - is this an alt DWARF? i.e. a .dwz file?
+ * @from_imported_unit_expansion_from_alt - is this from an the expansion we do when processing DW_TAG_imported_unit with a alt DWARF?
  */
 struct conf_load {
 	enum load_steal_kind	(*steal)(struct cu *cu,
@@ -55,6 +57,8 @@ struct conf_load {
 	char			*format_path;
 	int			nr_jobs;
 	bool			extra_dbg_info;
+	bool			alt_dwarf;
+	bool			from_imported_unit_expansion_from_alt;
 	bool			use_obstack;
 	bool			fixup_silly_bitfields;
 	bool			get_addr_info;
@@ -284,6 +288,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 struct cu *cu__new_build_id(const char *name, uint8_t addr_size,
 			    const unsigned char *build_id, int build_id_len,
 			    const char *filename, bool use_obstack);
+struct cu *cu__new_merge_tables(struct tag_tables *tables, uint8_t addr_size, bool use_obstack);
 void cu__delete(struct cu *cu);
 
 void *cu__malloc(struct cu *cu, size_t size);
