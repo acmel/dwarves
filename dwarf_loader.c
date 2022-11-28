@@ -209,7 +209,7 @@ static struct dwarf_tag *hashtags__find(const struct hlist_head *hashtable,
 	return NULL;
 }
 
-static void cu__hash(struct cu *cu, struct tag *tag)
+static void cu__hash(struct cu *cu, struct tag *tag, struct conf_load *conf __maybe_unused)
 {
 	struct dwarf_cu *dcu = cu->priv;
 	struct hlist_head *hashtable = tag__is_tag_type(tag) ?
@@ -1292,7 +1292,7 @@ static struct tag *die__create_new_pointer_tag(Dwarf_Die *die, struct cu *cu,
 
 		struct dwarf_tag *dtag = annot->tag.priv;
 		dtag->small_id = id;
-		cu__hash(cu, &annot->tag);
+		cu__hash(cu, &annot->tag, conf);
 
 		/* For a list of DW_TAG_LLVM_annotation like tag1 -> tag2 -> tag3,
 		 * the tag->tags contains tag3 -> tag2 -> tag1.
@@ -1554,7 +1554,7 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 		if (cu__table_add_tag(cu, tag, &id) < 0)
 			goto out_delete_tag;
 hash:
-		cu__hash(cu, tag);
+		cu__hash(cu, tag, conf);
 		struct dwarf_tag *dtag = tag->priv;
 		dtag->small_id = id;
 	} while (dwarf_siblingof(die, die) == 0);
@@ -1653,7 +1653,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			}
 
 			type__add_member(class, member);
-			cu__hash(cu, &member->tag);
+			cu__hash(cu, &member->tag, conf);
 			if (add_child_llvm_annotations(die, member_idx, conf, &class->namespace.annots))
 				return -ENOMEM;
 			member_idx++;
@@ -1685,7 +1685,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			dtag->small_id = id;
 
 			namespace__add_tag(&class->namespace, tag);
-			cu__hash(cu, tag);
+			cu__hash(cu, tag, conf);
 			if (tag__is_function(tag)) {
 				struct function *fself = tag__function(tag);
 
@@ -1722,7 +1722,7 @@ static int die__process_namespace(Dwarf_Die *die, struct namespace *namespace,
 		dtag->small_id = id;
 
 		namespace__add_tag(namespace, tag);
-		cu__hash(cu, tag);
+		cu__hash(cu, tag, conf);
 	} while (dwarf_siblingof(die, die) == 0);
 
 	return 0;
@@ -1829,7 +1829,7 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct lexblock *lexblo
 		if (cu__table_add_tag(cu, tag, &id) < 0)
 			goto out_delete_tag;
 hash:
-		cu__hash(cu, tag);
+		cu__hash(cu, tag, conf);
 		struct dwarf_tag *dtag = tag->priv;
 		dtag->small_id = id;
 	} while (dwarf_siblingof(die, die) == 0);
@@ -1963,7 +1963,7 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 		if (cu__table_add_tag(cu, tag, &id) < 0)
 			goto out_delete_tag;
 hash:
-		cu__hash(cu, tag);
+		cu__hash(cu, tag, conf);
 		struct dwarf_tag *dtag = tag->priv;
 		dtag->small_id = id;
 	} while (dwarf_siblingof(die, die) == 0);
@@ -2077,7 +2077,7 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *co
 
 		uint32_t id;
 		cu__add_tag(cu, tag, &id);
-		cu__hash(cu, tag);
+		cu__hash(cu, tag, conf);
 		struct dwarf_tag *dtag = tag->priv;
 		dtag->small_id = id;
 		if (tag->tag == DW_TAG_unspecified_type)
