@@ -7,6 +7,7 @@
   Copyright (C) 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
 */
 
+#include <assert.h>
 #include <string.h>
 
 #include "list.h"
@@ -284,17 +285,20 @@ static void base_type_emissions__add_definition(struct type_emissions *emissions
 	list_add_tail(&type->node, &emissions->base_type_definitions);
 }
 
-static const char *base_type__stdint2simple(const char *name)
+static const char *base_type__stdint2simple(struct base_type *type, const char *name)
 {
-	if (strcmp(name, "int32_t") == 0)
-		return "int";
-	if (strcmp(name, "int16_t") == 0)
-		return "short";
-	if (strcmp(name, "int8_t") == 0)
-		return "char";
-	if (strcmp(name, "int64_t") == 0)
-		return "long";
-	return name;
+	const int byte_size = type->bit_size / 8;
+
+	assert((type->bit_size % 8) == 0);
+
+	switch (byte_size) {
+	case sizeof(char):	return type->is_signed ? "signed char"  : "char";
+	case sizeof(short):	return type->is_signed ? "signed short" : "short";
+	case sizeof(int):	return type->is_signed ? "signed int"   : "int";
+	case sizeof(long):	return type->is_signed ? "signed long"  : "long";
+	}
+
+	return NULL;
 }
 
 static int base_type__emit_definitions(struct base_type *type, struct type_emissions *emissions, FILE *fp)
@@ -307,9 +311,12 @@ static int base_type__emit_definitions(struct base_type *type, struct type_emiss
 	if (type->definition_emitted)
 		return 0;
 
-	// We're only emitting for "atomic_" prefixed base types
-	if (strncmp(name, base_type__prefix, prefixlen) != 0)
+	bool is_atomic = strncmp(name, base_type__prefix, prefixlen) == 0;
+
+	if (!is_atomic && base_type__language_defined(type)) {
+		base_type_emissions__add_definition(emissions, type);
 		return 0;
+	}
 
 	// See if it was already emitted in another CU
 	if (base_type_emissions__find_definition(emissions, name)) {
@@ -317,9 +324,9 @@ static int base_type__emit_definitions(struct base_type *type, struct type_emiss
 		return 0;
 	}
 
-	const char *non_atomic_name = name + prefixlen;
+	const char *non_atomic_name = name + (is_atomic ? prefixlen : 0); 
 
-	fputs("typedef _Atomic", fp);
+	fprintf(fp, "typedef%s", is_atomic ? " _Atomic" : "");
 
 	if (non_atomic_name[0] == 's' &&
 	    non_atomic_name[1] != 'i' && non_atomic_name[1] != 'h') // exclude atomic_size_t and atomic_short
@@ -333,11 +340,11 @@ static int base_type__emit_definitions(struct base_type *type, struct type_emiss
 			if (non_atomic_name[2] == 'l')
 				fprintf(fp, " long");
 		} else
-			fprintf(fp, " %s", base_type__stdint2simple(non_atomic_name + 1));
+			fprintf(fp, " %s", base_type__stdint2simple(type, non_atomic_name + 1));
 	} else if (non_atomic_name[0] == 'b')
 		fprintf(fp, " _Bool");
 	else
-		fprintf(fp, " %s", base_type__stdint2simple(non_atomic_name));
+		fprintf(fp, " %s", base_type__stdint2simple(type, non_atomic_name));
 
 	fprintf(fp, " %s;\n", name);
 
