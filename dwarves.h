@@ -1362,6 +1362,8 @@ const char *base_type__name(const struct base_type *btype, char *bf, size_t len)
 
 size_t base_type__name_to_size(struct base_type *btype, struct cu *cu);
 
+bool base_type__language_defined(struct base_type *bt);
+
 struct array_type {
 	struct tag	tag;
 	uint32_t	*nr_entries;

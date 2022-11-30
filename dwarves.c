@@ -250,6 +250,29 @@ static struct ase_type_name_to_size {
 	{ .name = NULL },
 };
 
+bool base_type__language_defined(struct base_type *bt)
+{
+	int i = 0;
+	char bf[64];
+	const char *name;
+
+	if (bt->name_has_encoding)
+		name = bt->name;
+	else
+		name = base_type__name(bt, bf, sizeof(bf));
+
+	while (base_type_name_to_size_table[i].name != NULL) {
+		if (bt->name_has_encoding) {
+			if (strcmp(base_type_name_to_size_table[i].name, bt->name) == 0)
+				return true;
+		} else if (strcmp(base_type_name_to_size_table[i].name, name) == 0)
+			return true;
+		++i;
+	}
+
+	return false;
+}
+
 size_t base_type__name_to_size(struct base_type *bt, struct cu *cu)
 {
 	int i = 0;
