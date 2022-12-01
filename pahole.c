@@ -514,8 +514,10 @@ static void class_formatter(struct class *class, struct cu *cu, uint32_t id)
 		conf.prefix = conf.suffix = NULL;
 
 	if (compilable) {
-		if (type__emit_definitions(tag, cu, &emissions, stdout))
-			type__emit(tag, cu, NULL, NULL, stdout);
+		if (type__emit_definitions(tag, cu, &emissions, stdout)) {
+			tag__fprintf(tag, cu, &conf, stdout);
+			putchar(';');
+		}
 	} else {
 		tag__fprintf(tag, cu, &conf, stdout);
 	}
