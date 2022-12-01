@@ -1181,6 +1181,13 @@ static void print_containers(struct cu *cu, uint32_t type, int ident)
 	}
 }
 
+static int
+libbpf_print_all_levels(__maybe_unused enum libbpf_print_level level,
+			const char *format, va_list args)
+{
+	return vfprintf(stderr, format, args);
+}
+
 /* Name and version of program.  */
 ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
@@ -1704,7 +1711,9 @@ static error_t pahole__options_parser(int key, char *arg,
 		  formatter = NULL;			break;
 	case 't': separator = arg[0];			break;
 	case 'u': defined_in = 1;			break;
-	case 'V': global_verbose = 1;			break;
+	case 'V': global_verbose = 1;
+		  libbpf_set_print(libbpf_print_all_levels);
+		  break;
 	case 'w': word_size = atoi(arg);		break;
 	case 'X': cu__exclude_prefix = arg;
 		  cu__exclude_prefix_len = strlen(cu__exclude_prefix);
