@@ -2235,9 +2235,15 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 			lexblock__recode_dwarf_types(tag__lexblock(pos), cu);
 			continue;
 		case DW_TAG_inlined_subroutine:
-			dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->type);
+			if (dpos->type.off != 0)
+				dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->type);
+			else
+				dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->abstract_origin);
 			if (dtype == NULL) {
-				tag__print_type_not_found(pos);
+				if (dpos->type.off != 0)
+					tag__print_type_not_found(pos);
+				else
+					tag__print_abstract_origin_not_found(pos);
 				continue;
 			}
 			ftype__recode_dwarf_types(dtype->tag, cu);
