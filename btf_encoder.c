@@ -1530,6 +1530,11 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 	}
 
 	cu__for_each_type(cu, core_id, pos) {
+		if (pos->tag == DW_TAG_atomic_type) {
+			++skipped_types;
+			continue;
+		}
+
 		btf_type_id = btf_encoder__encode_tag(encoder, pos, type_id_off, conf_load);
 
 		if (btf_type_id == 0) {
