@@ -70,6 +70,7 @@ struct conf_load {
 	bool			skip_missing;
 	bool			skip_encoding_btf_type_tag;
 	bool			skip_encoding_btf_enum64;
+	bool			remove_atomic_qualifiers;
 	uint8_t			hashtable_bits;
 	uint8_t			max_hashtable_bits;
 	uint16_t		kabi_prefix_len;

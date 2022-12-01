@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
+#include <inttypes.h>
 #include <libelf.h>
 #include <limits.h>
 #include <pthread.h>
@@ -2604,10 +2605,59 @@ static int cu__resolve_func_ret_types(struct cu *cu)
 	return 0;
 }
 
+static int cu__remove_atomic_qualifiers(struct cu *cu, struct ptr_table *pt, uint32_t i)
+{
+	//fprintf(stderr, "> %s\n", __func__);
+
+	for (; i < pt->nr_entries; ++i) {
+		struct tag *tag = pt->entries[i];
+
+		if (tag == NULL) /* void, see cu__new */
+			continue;
+
+		struct tag *atomic_type = cu__type(cu, tag->type);
+
+		if (atomic_type == NULL || atomic_type->tag != DW_TAG_atomic_type)
+			continue;
+
+		struct dwarf_tag *dtag = tag->priv;
+		struct dwarf_tag *atomic_dtype = atomic_type->priv;
+
+		struct tag *type = cu__type(cu, atomic_type->type);
+		if (type == NULL) {
+			fprintf(stderr, "%s: DW_TAG_type_atomic type not found for DWARF offset %#" PRIx64
+					" used as type for tag %s at offset %#" PRIx64 "\n",
+					__func__, atomic_dtype->id, dwarf_tag_name(tag->tag),
+					dtag->id);
+			return -1;
+		}
+
+		struct dwarf_tag *dtype = type->priv;
+
+		//fprintf(stderr, "%s: DWARF offset %#" PRIx64 " was DW_TAG_atomic_type\n", __func__, atomic_dtype->id);
+
+		// Elliminate the DW_TAG_atomic_type by making the tag with such type point to where the DW_TAG_atomic_type points too
+		//
+		// Before:
+		//   tag->type -> DW_TAG_atomic_type -> type
+		// After
+		//   tag->type -> type
+
+		tag->type = dtag->small_id = dtype->small_id;
+		dtag->type = dtype->type;
+	}
+
+	//fprintf(stderr, "< %s Ok\n", __func__);
+
+	return 0;
+}
+
 static int cu__recode_dwarf_types_table(struct cu *cu,
 					struct ptr_table *pt,
-					uint32_t i)
+					uint32_t i, struct conf_load *conf)
 {
+	int orig_i = i;
+
 	for (; i < pt->nr_entries; ++i) {
 		struct tag *tag = pt->entries[i];
 
@@ -2616,14 +2666,17 @@ static int cu__recode_dwarf_types_table(struct cu *cu,
 				return -1;
 	}
 
+	if (conf->remove_atomic_qualifiers)
+		return cu__remove_atomic_qualifiers(cu, pt, orig_i);
+
 	return 0;
 }
 
-static int cu__recode_dwarf_types(struct cu *cu)
+static int cu__recode_dwarf_types(struct cu *cu, struct conf_load *conf)
 {
-	if (cu__recode_dwarf_types_table(cu, &cu->tables->types, 1) ||
-	    cu__recode_dwarf_types_table(cu, &cu->tables->tags, 0) ||
-	    cu__recode_dwarf_types_table(cu, &cu->tables->functions, 0))
+	if (cu__recode_dwarf_types_table(cu, &cu->tables->types, 1, conf) ||
+	    cu__recode_dwarf_types_table(cu, &cu->tables->tags, 0, conf) ||
+	    cu__recode_dwarf_types_table(cu, &cu->tables->functions, 0, conf))
 		return -1;
 	return 0;
 }
@@ -2688,7 +2741,7 @@ static int die__process_and_recode(Dwarf_Die *die, struct cu *cu, struct conf_lo
 	int ret = die__process(die, cu, conf);
 	if (ret != 0)
 		return ret;
-	ret = cu__recode_dwarf_types(cu);
+	ret = cu__recode_dwarf_types(cu, conf);
 	if (ret != 0)
 		return ret;
 
@@ -2890,7 +2943,7 @@ static int __cus__load_debug_types(struct conf_load *conf, Dwfl_Module *mod, Dwa
 		off = noff;
 	}
 
-	if (*cup != NULL && cu__recode_dwarf_types(*cup) != 0)
+	if (*cup != NULL && cu__recode_dwarf_types(*cup, conf) != 0)
 		return DWARF_CB_ABORT;
 
 	return 0;
@@ -3288,7 +3341,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 	}
 
 	/* process merged cu */
-	if (cu__recode_dwarf_types(cu) != LSK__KEEPIT)
+	if (cu__recode_dwarf_types(cu, conf) != LSK__KEEPIT)
 		goto out_abort;
 
 	/*
