@@ -1735,6 +1735,7 @@ static error_t pahole__options_parser(int key, char *arg,
                   type_emissions__init(&emissions, &conf);
                   conf.no_semicolon = true;
                   conf.strip_inline = true;
+                  conf.compilable   = true;
 		  break;
 	case ARGP_flat_arrays: conf.flat_arrays = 1;	break;
 	case ARGP_suppress_aligned_attribute:

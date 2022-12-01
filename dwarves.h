@@ -112,6 +112,7 @@ struct conf_fprintf {
 	uint32_t   skip;
 	uint16_t   cacheline_size;
 	uint8_t	   indent;
+	uint8_t	   compilable:1;
 	uint8_t	   expand_types:1;
 	uint8_t	   expand_pointers:1;
 	uint8_t    rel_offset:1;
