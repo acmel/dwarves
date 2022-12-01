@@ -2175,6 +2175,16 @@ static int namespace__recode_dwarf_types(struct tag *tag, struct cu *cu)
 	struct dwarf_cu *dcu = cu->priv;
 	struct namespace *ns = tag__namespace(tag);
 
+	// enumerations have types, i.e. we can't just assume it uses 4 bytes, packed,
+	// compiler decision with needs of max value enumerator.
+	if (tag->tag == DW_TAG_enumeration_type) {
+		struct dwarf_tag *dtag = tag->priv,
+				 *dtype = dwarf_cu__find_type_by_ref(dcu, &dtag->type);
+
+		if (dtype != NULL)
+			tag->type = dtype->small_id;
+	}
+
 	namespace__for_each_tag(ns, pos) {
 		struct dwarf_tag *dtype;
 		struct dwarf_tag *dpos = pos->priv;
