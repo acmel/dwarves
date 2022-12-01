@@ -867,10 +867,30 @@ print_modifier: {
 	case DW_TAG_enumeration_type:
 		ctype = tag__type(type);
 
-		if (type__name(ctype) != NULL)
-			printed += fprintf(fp, "enum %-*s %s", tconf.type_spacing - 5, type__name(ctype), name ?: "");
-		else
+		if (type__name(ctype) != NULL) {
+			if (ctype->nr_members > 0 || !conf->compilable) {
+fallback_enum_print:
+				printed += fprintf(fp, "enum %-*s %s", tconf.type_spacing - 5, type__name(ctype), name ?: "");
+			} else {
+				struct tag *bt = cu__type(cu, type->type);
+
+				if (bt == NULL) {
+					printed += fprintf(fp, "/* WARNING: couldn't find the type for this enum without entries! */");
+					goto fallback_enum_print;
+				}
+				const char *bt_name = __base_type__name(tag__base_type(bt)),
+					   *type_cname = type__name(ctype);
+				int type_cname_len = strlen(type_cname),
+				    bt_name_len = strlen(bt_name);
+
+				tconf.type_spacing -= 12;
+				printed += fprintf(fp, "/* enum %-*s */ ", tconf.type_spacing, type_cname);
+				tconf.type_spacing -= bt_name_len + type_cname_len;
+				printed += fprintf(fp, "%-*s %s", tconf.type_spacing, bt_name, name ?: "");
+			}
+		} else {
 			printed += enumeration__fprintf(type, &tconf, fp);
+		}
 		break;
 	}
 out:
