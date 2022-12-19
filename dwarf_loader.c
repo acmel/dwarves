@@ -174,16 +174,16 @@ static void dwarf_cu__delete(struct cu *cu)
 	cu->priv = NULL;
 }
 
-static void __tag__print_type_not_found(struct tag *tag, const char *func)
+static void __tag__print_type_not_found(struct tag *tag, const char *func, int line)
 {
 	struct dwarf_tag *dtag = tag->priv;
-	fprintf(stderr, "%s: couldn't find %#llx (dtag->type.from_alt=%u) type for %#llx (%s)!\n", func,
+	fprintf(stderr, "%s(%d): couldn't find %#llx (dtag->type.from_alt=%u) type for %#llx (%s)!\n", func, line,
 		(unsigned long long)dtag->type.off, dtag->type.from_alt, (unsigned long long)dtag->id,
 		dwarf_tag_name(tag->tag));
 }
 
 #define tag__print_type_not_found(tag) \
-	__tag__print_type_not_found(tag, __func__)
+	__tag__print_type_not_found(tag, __func__, __LINE__)
 
 static void hashtags__hash(struct hlist_head *hashtable,
 			   struct dwarf_tag *dtag)
