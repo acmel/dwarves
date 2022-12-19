@@ -2263,18 +2263,18 @@ static void type__recode_dwarf_specification(struct tag *tag, struct cu *cu)
 }
 
 static void __tag__print_abstract_origin_not_found(struct tag *tag,
-						   const char *func)
+						   const char *func, int line)
 {
 	struct dwarf_tag *dtag = tag->priv;
 	fprintf(stderr,
-		"%s: couldn't find %#llx abstract_origin for %#llx (%s)!\n",
-		func, (unsigned long long)dtag->abstract_origin.off,
+		"%s(%d): couldn't find %#llx abstract_origin for %#llx (%s)!\n",
+		func, line, (unsigned long long)dtag->abstract_origin.off,
 		(unsigned long long)dtag->id,
 		dwarf_tag_name(tag->tag));
 }
 
-#define tag__print_abstract_origin_not_found(tag ) \
-	__tag__print_abstract_origin_not_found(tag, __func__)
+#define tag__print_abstract_origin_not_found(tag) \
+	__tag__print_abstract_origin_not_found(tag, __func__, __LINE__)
 
 static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu)
 {
