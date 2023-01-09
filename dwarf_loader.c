@@ -3315,6 +3315,9 @@ static int dwarf__load_file(struct cus *cus, struct conf_load *conf,
 {
 	int fd, err;
 
+	if (conf == NULL)
+		return -1;
+
 	if (conf->max_hashtable_bits != 0) {
 		if (conf->max_hashtable_bits > 31)
 			return -E2BIG;
