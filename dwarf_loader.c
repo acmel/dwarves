@@ -2814,8 +2814,8 @@ static int __cus__load_debug_types(struct conf_load *conf, Dwfl_Module *mod, Dwa
 	return 0;
 }
 
-/* Match the define in linux:include/linux/elfnote.h */
-#define LINUX_ELFNOTE_BUILD_LTO		0x101
+/* Match the define in linux:include/linux/elfnote-lto.h */
+#define LINUX_ELFNOTE_LTO_INFO		0x101
 
 static bool cus__merging_cu(Dwarf *dw, Elf *elf)
 {
@@ -2833,7 +2833,7 @@ static bool cus__merging_cu(Dwarf *dw, Elf *elf)
 			size_t name_off, desc_off, offset = 0;
 			GElf_Nhdr hdr;
 			while ((offset = gelf_getnote(data, offset, &hdr, &name_off, &desc_off)) != 0) {
-				if (hdr.n_type != LINUX_ELFNOTE_BUILD_LTO)
+				if (hdr.n_type != LINUX_ELFNOTE_LTO_INFO)
 					continue;
 
 				/* owner is Linux */
