@@ -1231,6 +1231,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_skip_encoding_btf_enum64 337
 #define ARGP_skip_emitting_atomic_typedefs 338
 #define ARGP_btf_gen_optimized  339
+#define ARGP_skip_encoding_btf_inconsistent_proto 340
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1649,6 +1650,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Generate BTF for functions with optimization-related suffixes (.isra, .constprop).  BTF will only be generated if a function does not optimize out parameters."
 	},
 	{
+		.name = "skip_encoding_btf_inconsistent_proto",
+		.key = ARGP_skip_encoding_btf_inconsistent_proto,
+		.doc = "Skip functions that have multiple inconsistent function prototypes sharing the same name, or have optimized-out parameters."
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1821,6 +1827,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf.skip_emitting_atomic_typedefs = true;	break;
 	case ARGP_btf_gen_optimized:
 		conf_load.btf_gen_optimized = true;		break;
+	case ARGP_skip_encoding_btf_inconsistent_proto:
+		conf_load.skip_encoding_btf_inconsistent_proto = true; break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}

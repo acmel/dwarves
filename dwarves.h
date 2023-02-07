@@ -67,6 +67,7 @@ struct conf_load {
 	bool			skip_encoding_btf_type_tag;
 	bool			skip_encoding_btf_enum64;
 	bool			btf_gen_optimized;
+	bool			skip_encoding_btf_inconsistent_proto;
 	uint8_t			hashtable_bits;
 	uint8_t			max_hashtable_bits;
 	uint16_t		kabi_prefix_len;
@@ -834,6 +835,7 @@ struct ftype {
 	uint8_t		 unspec_parms:1; /* just one bit is needed */
 	uint8_t		 optimized_parms:1;
 	uint8_t		 processed:1;
+	uint8_t		 inconsistent_proto:1;
 };
 
 static inline struct ftype *tag__ftype(const struct tag *tag)

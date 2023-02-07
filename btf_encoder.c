@@ -33,9 +33,13 @@
 #include <search.h> /* for tsearch(), tfind() and tdestroy() */
 #include <pthread.h>
 
+#define BTF_ENCODER_MAX_PARAMETERS	12
+
 /* state used to do later encoding of saved functions */
 struct btf_encoder_state {
 	uint32_t type_id_off;
+	bool got_parameter_names;
+	const char *parameter_names[BTF_ENCODER_MAX_PARAMETERS];
 };
 
 struct elf_function {
@@ -800,6 +804,66 @@ static int32_t btf_encoder__add_decl_tag(struct btf_encoder *encoder, const char
 	return id;
 }
 
+static void parameter_names__get(struct ftype *ftype, size_t nr_parameters,
+				 const char **parameter_names)
+{
+	struct parameter *parameter;
+	int i = 0;
+
+	ftype__for_each_parameter(ftype, parameter) {
+		if (i >= nr_parameters)
+			return;
+		parameter_names[i++] = parameter__name(parameter);
+	}
+}
+
+static bool funcs__match(struct btf_encoder *encoder, struct elf_function *func, struct function *f2)
+{
+	const char *parameter_names[BTF_ENCODER_MAX_PARAMETERS];
+	struct function *f1 = func->function;
+	const char *name;
+	int i;
+
+	if (!f1)
+		return false;
+
+	name = function__name(f1);
+
+	if (f1->proto.nr_parms != f2->proto.nr_parms) {
+		if (encoder->verbose)
+			printf("function mismatch for '%s'(%s): %d params != %d params\n",
+			       name, f1->alias ?: name,
+			       f1->proto.nr_parms, f2->proto.nr_parms);
+		return false;
+	}
+	if (f1->proto.nr_parms == 0)
+		return true;
+
+	if (!func->state.got_parameter_names) {
+		parameter_names__get(&f1->proto, BTF_ENCODER_MAX_PARAMETERS,
+				     func->state.parameter_names);
+		func->state.got_parameter_names = true;
+	}
+	parameter_names__get(&f2->proto, BTF_ENCODER_MAX_PARAMETERS, parameter_names);
+	for (i = 0; i < f1->proto.nr_parms && i < BTF_ENCODER_MAX_PARAMETERS; i++) {
+		if (!func->state.parameter_names[i]) {
+			if (!parameter_names[i])
+				continue;
+		} else if (parameter_names[i]) {
+			if (strcmp(func->state.parameter_names[i], parameter_names[i]) == 0)
+				continue;
+		}
+		if (encoder->verbose) {
+			printf("function mismatch for '%s'(%s): parameter #%d '%s' != '%s'\n",
+			       name, f1->alias ?: name, i,
+			       func->state.parameter_names[i] ?: "<null>",
+			       parameter_names[i] ?: "<null>");
+		}
+		return false;
+	}
+	return true;
+}
+
 static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct function *fn, struct elf_function *func)
 {
 	if (func->function) {
@@ -807,12 +871,16 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 
 		/* If saving and we find an existing entry, we want to merge
 		 * observations across both functions, checking that the
-		 * "seen optimized parameters" status is reflected in the func
-		 * entry. If the entry is new, record encoder state required
+		 * "seen optimized parameters" and "inconsistent prototype"
+		 * status is reflected in the func entry.
+		 * If the entry is new, record encoder state required
 		 * to add the local function later (encoder + type_id_off)
 		 * such that we can add the function later.
 		 */
 		existing->proto.optimized_parms |= fn->proto.optimized_parms;
+		if (!existing->proto.optimized_parms && !existing->proto.inconsistent_proto &&
+		     !funcs__match(encoder, func, fn))
+			existing->proto.inconsistent_proto = 1;
 	} else {
 		func->state.type_id_off = encoder->type_id_off;
 		func->function = fn;
@@ -851,7 +919,8 @@ static void btf_encoder__add_saved_funcs(struct btf_encoder *encoder)
 	int i;
 
 	for (i = 0; i < encoder->functions.cnt; i++) {
-		struct function *fn = encoder->functions.entries[i].function;
+		struct elf_function *func = &encoder->functions.entries[i];
+		struct function *fn = func->function;
 		struct btf_encoder *other_encoder;
 
 		if (!fn || fn->proto.processed)
@@ -871,18 +940,23 @@ static void btf_encoder__add_saved_funcs(struct btf_encoder *encoder)
 			if (!other_fn)
 				continue;
 			fn->proto.optimized_parms |= other_fn->proto.optimized_parms;
+			if (other_fn->proto.inconsistent_proto)
+				fn->proto.inconsistent_proto = 1;
+			if (!fn->proto.optimized_parms && !fn->proto.inconsistent_proto &&
+			    !funcs__match(encoder, func, other_fn))
+				fn->proto.inconsistent_proto = 1;
 			other_fn->proto.processed = 1;
 		}
-		if (fn->proto.optimized_parms) {
+		if (fn->proto.optimized_parms || fn->proto.inconsistent_proto) {
 			if (encoder->verbose) {
 				const char *name = function__name(fn);
 
-				printf("skipping addition of '%s'(%s) due to optimized-out parameters\n",
-				       name, fn->alias ?: name);
+				printf("skipping addition of '%s'(%s) due to %s\n",
+				       name, fn->alias ?: name,
+				       fn->proto.optimized_parms ? "optimized-out parameters" :
+								   "multiple inconsistent function prototypes");
 			}
 		} else {
-			struct elf_function *func = &encoder->functions.entries[i];
-
 			encoder->type_id_off = func->state.type_id_off;
 			btf_encoder__add_func(encoder, fn);
 		}
@@ -1759,7 +1833,10 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 			if (func) {
 				if (func->generated)
 					continue;
-				func->generated = true;
+				if (conf_load->skip_encoding_btf_inconsistent_proto)
+					save = true;
+				else
+					func->generated = true;
 			} else if (encoder->functions.suffix_cnt &&
 				   conf_load->btf_gen_optimized) {
 				/* falling back to name.isra.0 match if no exact

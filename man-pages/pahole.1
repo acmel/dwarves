@@ -230,6 +230,11 @@ Do not encode enum64 in BTF.
 Do not encode type tags in BTF.
 
 .TP
+.B \-\-skip_encoding_btf_inconsistent_proto
+Do not encode functions with multiple inconsistent prototypes or optimized-out
+parameters.
+
+.TP
 .B \-j, \-\-jobs=N
 Run N jobs in parallel. Defaults to number of online processors + 10% (like
 the 'ninja' build system) if no argument is specified.
