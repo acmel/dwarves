@@ -1230,6 +1230,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_languages_exclude	   336
 #define ARGP_skip_encoding_btf_enum64 337
 #define ARGP_skip_emitting_atomic_typedefs 338
+#define ARGP_btf_gen_optimized  339
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1643,6 +1644,11 @@ static const struct argp_option pahole__options[] = {
 		.doc  = "Do not emit 'typedef _Atomic int atomic_int' & friends."
 	},
 	{
+		.name = "btf_gen_optimized",
+		.key  = ARGP_btf_gen_optimized,
+		.doc  = "Generate BTF for functions with optimization-related suffixes (.isra, .constprop).  BTF will only be generated if a function does not optimize out parameters."
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1813,6 +1819,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.skip_encoding_btf_enum64 = true;	break;
 	case ARGP_skip_emitting_atomic_typedefs:
 		conf.skip_emitting_atomic_typedefs = true;	break;
+	case ARGP_btf_gen_optimized:
+		conf_load.btf_gen_optimized = true;		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -2991,20 +2999,20 @@ static int pahole_threads_collect(struct conf_load *conf, int nr_threads, void *
 		 * Merge content of the btf instances of worker threads to the btf
 		 * instance of the primary btf_encoder.
                 */
-		if (!threads[i]->btf || threads[i]->encoder == btf_encoder)
-			continue; /* The primary btf_encoder */
+		if (!threads[i]->btf)
+			continue;
 		err = btf_encoder__add_encoder(btf_encoder, threads[i]->encoder);
 		if (err < 0)
 			goto out;
-		btf_encoder__delete(threads[i]->encoder);
-		threads[i]->encoder = NULL;
 	}
 	err = 0;
 
 out:
 	for (i = 0; i < nr_threads; i++) {
-		if (threads[i]->encoder && threads[i]->encoder != btf_encoder)
+		if (threads[i]->encoder && threads[i]->encoder != btf_encoder) {
 			btf_encoder__delete(threads[i]->encoder);
+			threads[i]->encoder = NULL;
+		}
 	}
 	free(threads[0]);
 
@@ -3088,11 +3096,11 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			encoder = btf_encoder;
 		}
 
-		if (btf_encoder__encode_cu(encoder, cu, conf_load)) {
+		ret = btf_encoder__encode_cu(encoder, cu, conf_load);
+		if (ret < 0) {
 			fprintf(stderr, "Encountered error while encoding BTF.\n");
 			exit(1);
 		}
-		ret = LSK__DELETE;
 out_btf:
 		return ret;
 	}

@@ -262,6 +262,11 @@ Allow producing BTF_KIND_FLOAT entries in systems where the vmlinux DWARF
 information has float types.
 
 .TP
+.B \-\-btf_gen_optimized
+Generate BTF for functions with optimization-related suffixes (.isra, .constprop).
+BTF will only be generated if a function does not optimize out parameters.
+
+.TP
 .B \-\-btf_gen_all
 Allow using all the BTF features supported by pahole.
 

@@ -66,6 +66,7 @@ struct conf_load {
 	bool			skip_missing;
 	bool			skip_encoding_btf_type_tag;
 	bool			skip_encoding_btf_enum64;
+	bool			btf_gen_optimized;
 	uint8_t			hashtable_bits;
 	uint8_t			max_hashtable_bits;
 	uint16_t		kabi_prefix_len;
@@ -832,6 +833,7 @@ struct ftype {
 	uint16_t	 nr_parms;
 	uint8_t		 unspec_parms:1; /* just one bit is needed */
 	uint8_t		 optimized_parms:1;
+	uint8_t		 processed:1;
 };
 
 static inline struct ftype *tag__ftype(const struct tag *tag)
@@ -884,6 +886,7 @@ struct function {
 	struct rb_node	 rb_node;
 	const char	 *name;
 	const char	 *linkage_name;
+	const char	 *alias;	/* name.isra.0 */
 	uint32_t	 cu_total_size_inline_expansions;
 	uint16_t	 cu_total_nr_inline_expansions;
 	uint8_t		 inlined:2;
