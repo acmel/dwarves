@@ -52,6 +52,10 @@
 #define DW_OP_addrx 0xa1
 #endif
 
+#ifndef EM_RISCV
+#define EM_RISCV	243
+#endif
+
 static pthread_mutex_t libdw__lock = PTHREAD_MUTEX_INITIALIZER;
 
 static uint32_t hashtags__bits = 12;
@@ -992,13 +996,98 @@ static struct class_member *class_member__new(Dwarf_Die *die, struct cu *cu,
 	return member;
 }
 
-static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
+/* How many function parameters are passed via registers?  Used below in
+ * determining if an argument has been optimized out or if it is simply
+ * an argument > cu__nr_register_params().  Making cu__nr_register_params()
+ * return 0 allows unsupported architectures to skip tagging optimized-out
+ * values.
+ */
+static int arch__nr_register_params(const GElf_Ehdr *ehdr)
+{
+	switch (ehdr->e_machine) {
+	case EM_S390:	 return 5;
+	case EM_SPARC:
+	case EM_SPARCV9:
+	case EM_X86_64:	 return 6;
+	case EM_AARCH64:
+	case EM_ARC:
+	case EM_ARM:
+	case EM_MIPS:
+	case EM_PPC:
+	case EM_PPC64:
+	case EM_RISCV:	 return 8;
+	default:	 break;
+	}
+
+	return 0;
+}
+
+static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
+					struct conf_load *conf, int param_idx)
 {
 	struct parameter *parm = tag__alloc(cu, sizeof(*parm));
 
 	if (parm != NULL) {
+		bool has_const_value;
+		Dwarf_Attribute attr;
+		struct location loc;
+
 		tag__init(&parm->tag, cu, die);
 		parm->name = attr_string(die, DW_AT_name, conf);
+
+		if (param_idx >= cu->nr_register_params || param_idx < 0)
+			return parm;
+		/* Parameters which use DW_AT_abstract_origin to point at
+		 * the original parameter definition (with no name in the DIE)
+		 * are the result of later DWARF generation during compilation
+		 * so often better take into account if arguments were
+		 * optimized out.
+		 *
+		 * By checking that locations for parameters that are expected
+		 * to be passed as registers are actually passed as registers,
+		 * we can spot optimized-out parameters.
+		 *
+		 * It can also be the case that a parameter DIE has
+		 * a constant value attribute reflecting optimization or
+		 * has no location attribute.
+		 *
+		 * From the DWARF spec:
+		 *
+		 * "4.1.10
+		 *
+		 * A DW_AT_const_value attribute for an entry describing a
+		 * variable or formal parameter whose value is constant and not
+		 * represented by an object in the address space of the program,
+		 * or an entry describing a named constant. (Note
+		 * that such an entry does not have a location attribute.)"
+		 *
+		 * So we can also use the absence of a location for a parameter
+		 * as evidence it has been optimized out.  This info will
+		 * need to be shared between a parameter and any abstract
+		 * origin references however, since gcc can have location
+		 * information in the parameter that refers back to the original
+		 * via abstract origin, so we need to share location presence
+		 * between these parameter representations.  See
+		 * ftype__recode_dwarf_types() below for how this is handled.
+		 */
+		parm->has_loc = dwarf_attr(die, DW_AT_location, &attr) != NULL;
+		has_const_value = dwarf_attr(die, DW_AT_const_value, &attr) != NULL;
+		if (parm->has_loc &&
+		    attr_location(die, &loc.expr, &loc.exprlen) == 0 &&
+			loc.exprlen != 0) {
+			Dwarf_Op *expr = loc.expr;
+
+			switch (expr->atom) {
+			case DW_OP_reg0 ... DW_OP_reg31:
+			case DW_OP_breg0 ... DW_OP_breg31:
+				break;
+			default:
+				parm->optimized = 1;
+				break;
+			}
+		} else if (has_const_value) {
+			parm->optimized = 1;
+		}
 	}
 
 	return parm;
@@ -1450,7 +1539,7 @@ static struct tag *die__create_new_parameter(Dwarf_Die *die,
 					     struct cu *cu, struct conf_load *conf,
 					     int param_idx)
 {
-	struct parameter *parm = parameter__new(die, cu, conf);
+	struct parameter *parm = parameter__new(die, cu, conf, param_idx);
 
 	if (parm == NULL)
 		return NULL;
@@ -2194,6 +2283,7 @@ static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu)
 
 	ftype__for_each_parameter(type, pos) {
 		struct dwarf_tag *dpos = pos->tag.priv;
+		struct parameter *opos;
 		struct dwarf_tag *dtype;
 
 		if (dpos->type.off == 0) {
@@ -2207,8 +2297,18 @@ static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu)
 				tag__print_abstract_origin_not_found(&pos->tag);
 				continue;
 			}
-			pos->name = tag__parameter(dtype->tag)->name;
+			opos = tag__parameter(dtype->tag);
+			pos->name = opos->name;
 			pos->tag.type = dtype->tag->type;
+			/* share location information between parameter and
+			 * abstract origin; if neither have location, we will
+			 * mark the parameter as optimized out.
+			 */
+			if (pos->has_loc)
+				opos->has_loc = pos->has_loc;
+
+			if (pos->optimized)
+				opos->optimized = pos->optimized;
 			continue;
 		}
 
@@ -2484,18 +2584,33 @@ out:
 	return 0;
 }
 
-static int cu__resolve_func_ret_types(struct cu *cu)
+static int cu__resolve_func_ret_types_optimized(struct cu *cu)
 {
 	struct ptr_table *pt = &cu->functions_table;
 	uint32_t i;
 
 	for (i = 0; i < pt->nr_entries; ++i) {
 		struct tag *tag = pt->entries[i];
+		struct parameter *pos;
+		struct function *fn = tag__function(tag);
+
+		/* mark function as optimized if parameter is, or
+		 * if parameter does not have a location; at this
+		 * point location presence has been marked in
+		 * abstract origins for cases where a parameter
+		 * location is not stored in the original function
+		 * parameter tag.
+		 */
+		ftype__for_each_parameter(&fn->proto, pos) {
+			if (pos->optimized || !pos->has_loc) {
+				fn->proto.optimized_parms = 1;
+				break;
+			}
+		}
 
 		if (tag == NULL || tag->type != 0)
 			continue;
 
-		struct function *fn = tag__function(tag);
 		if (!fn->abstract_origin)
 			continue;
 
@@ -2618,7 +2733,7 @@ static int die__process_and_recode(Dwarf_Die *die, struct cu *cu, struct conf_lo
 	if (ret != 0)
 		return ret;
 
-	return cu__resolve_func_ret_types(cu);
+	return cu__resolve_func_ret_types_optimized(cu);
 }
 
 static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
@@ -2759,6 +2874,7 @@ static int cu__set_common(struct cu *cu, struct conf_load *conf,
 		return DWARF_CB_ABORT;
 
 	cu->little_endian = ehdr.e_ident[EI_DATA] == ELFDATA2LSB;
+	cu->nr_register_params = arch__nr_register_params(&ehdr);
 	return 0;
 }
 
@@ -3138,7 +3254,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 	 * encoded in another subprogram through abstract_origin
 	 * tag. Let us visit all subprograms again to resolve this.
 	 */
-	if (cu__resolve_func_ret_types(cu) != LSK__KEEPIT)
+	if (cu__resolve_func_ret_types_optimized(cu) != LSK__KEEPIT)
 		goto out_abort;
 
 	if (cus__finalize(cus, cu, conf, NULL) == LSK__STOP_LOADING)
