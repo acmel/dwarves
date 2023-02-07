@@ -764,6 +764,31 @@ static int32_t btf_encoder__add_decl_tag(struct btf_encoder *encoder, const char
 	return id;
 }
 
+static int32_t btf_encoder__add_func(struct btf_encoder *encoder, struct function *fn)
+{
+	int btf_fnproto_id, btf_fn_id, tag_type_id;
+	struct llvm_annotation *annot;
+	const char *name;
+
+	btf_fnproto_id = btf_encoder__add_func_proto(encoder, &fn->proto);
+	name = function__name(fn);
+	btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id, name, false);
+	if (btf_fnproto_id < 0 || btf_fn_id < 0) {
+		printf("error: failed to encode function '%s'\n", function__name(fn));
+		return -1;
+	}
+	list_for_each_entry(annot, &fn->annots, node) {
+		tag_type_id = btf_encoder__add_decl_tag(encoder, annot->value, btf_fn_id,
+							annot->component_idx);
+		if (tag_type_id < 0) {
+			fprintf(stderr, "error: failed to encode tag '%s' to func %s with component_idx %d\n",
+				annot->value, name, annot->component_idx);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 /*
  * This corresponds to the same macro defined in
  * include/linux/kallsyms.h
@@ -1589,8 +1614,6 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 	}
 
 	cu__for_each_function(cu, core_id, fn) {
-		int btf_fnproto_id, btf_fn_id;
-		const char *name;
 
 		/*
 		 * Skip functions that:
@@ -1620,24 +1643,9 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 				continue;
 		}
 
-		btf_fnproto_id = btf_encoder__add_func_proto(encoder, &fn->proto);
-		name = function__name(fn);
-		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id, name, false);
-		if (btf_fnproto_id < 0 || btf_fn_id < 0) {
-			err = -1;
-			printf("error: failed to encode function '%s'\n", function__name(fn));
+		err = btf_encoder__add_func(encoder, fn);
+		if (err)
 			goto out;
-		}
-
-		list_for_each_entry(annot, &fn->annots, node) {
-			tag_type_id = btf_encoder__add_decl_tag(encoder, annot->value, btf_fn_id, annot->component_idx);
-			if (tag_type_id < 0) {
-				fprintf(stderr, "error: failed to encode tag '%s' to func %s with component_idx %d\n",
-					annot->value, name, annot->component_idx);
-				goto out;
-			}
-		}
-
 	}
 
 	if (!encoder->skip_encoding_vars)
