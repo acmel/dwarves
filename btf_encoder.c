@@ -1020,6 +1020,8 @@ static int btf_encoder__collect_function(struct btf_encoder *encoder, GElf_Sym *
 	}
 	encoder->functions.entries[encoder->functions.cnt].generated = false;
 	encoder->functions.entries[encoder->functions.cnt].function = NULL;
+	encoder->functions.entries[encoder->functions.cnt].state.got_parameter_names = false;
+	encoder->functions.entries[encoder->functions.cnt].state.type_id_off = 0;
 	encoder->functions.cnt++;
 	return 0;
 }
