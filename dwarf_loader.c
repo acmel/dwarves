@@ -2835,9 +2835,51 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 	return 0;
 }
 
+static bool cu__language_reorders_offsets(const struct cu *cu)
+{
+	return cu->language == DW_LANG_Rust;
+}
+
+static int type__sort_by_offset(struct tag *tag, struct cu *cu, void *cookie __maybe_unused)
+{
+	if (!tag__is_type(tag))
+		return 0;
+
+	struct type *type = tag__type(tag);
+	struct class_member *current_member;
+
+	// There may be more than DW_TAG_members entries in the type tags, so do a simple
+	// bubble sort for now, so that the other non tags stay where they are.
+restart:
+	type__for_each_data_member(type, current_member) {
+		if (list_is_last(&current_member->tag.node, &type->namespace.tags))
+		       break;
+
+		struct class_member *next_member = list_entry(current_member->tag.node.next, typeof(*current_member), tag.node);
+
+		if (current_member->byte_offset < next_member->byte_offset)
+			continue;
+
+		list_del(&current_member->tag.node);
+		list_add(&current_member->tag.node, &next_member->tag.node);
+		goto restart;
+	}
+
+	return 0;
+}
+
+static void cu__sort_types_by_offset(struct cu *cu, struct conf_load *conf)
+{
+	cu__for_all_tags(cu, type__sort_by_offset, conf);
+}
+
 static int cu__finalize(struct cu *cu, struct conf_load *conf, void *thr_data)
 {
 	cu__for_all_tags(cu, class_member__cache_byte_size, conf);
+
+	if (cu__language_reorders_offsets(cu))
+		cu__sort_types_by_offset(cu, conf);
+
 	if (conf && conf->steal) {
 		return conf->steal(cu, conf, thr_data);
 	}
