@@ -2857,7 +2857,7 @@ restart:
 
 		struct class_member *next_member = list_entry(current_member->tag.node.next, typeof(*current_member), tag.node);
 
-		if (current_member->byte_offset < next_member->byte_offset)
+		if (current_member->byte_offset <= next_member->byte_offset)
 			continue;
 
 		list_del(&current_member->tag.node);
