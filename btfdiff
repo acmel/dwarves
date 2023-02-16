@@ -30,6 +30,7 @@ ${pahole_bin} -F dwarf \
 	      --suppress_aligned_attribute \
 	      --suppress_force_paddings \
 	      --suppress_packed \
+	      --lang_exclude rust \
 	      --show_private_classes $dwarf_input > $dwarf_output
 ${pahole_bin} -F btf \
 	      --sort \
