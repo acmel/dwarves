@@ -871,14 +871,16 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 
 		/* If saving and we find an existing entry, we want to merge
 		 * observations across both functions, checking that the
-		 * "seen optimized parameters" and "inconsistent prototype"
-		 * status is reflected in the func entry.
+		 * "seen optimized parameters", "inconsistent prototype"
+		 * and "unexpected register" status is reflected in the
+		 * the func entry.
 		 * If the entry is new, record encoder state required
 		 * to add the local function later (encoder + type_id_off)
 		 * such that we can add the function later.
 		 */
 		existing->proto.optimized_parms |= fn->proto.optimized_parms;
-		if (!existing->proto.optimized_parms && !existing->proto.inconsistent_proto &&
+		existing->proto.unexpected_reg |= fn->proto.unexpected_reg;
+		if (!existing->proto.unexpected_reg && !existing->proto.inconsistent_proto &&
 		     !funcs__match(encoder, func, fn))
 			existing->proto.inconsistent_proto = 1;
 	} else {
@@ -940,20 +942,26 @@ static void btf_encoder__add_saved_funcs(struct btf_encoder *encoder)
 			if (!other_fn)
 				continue;
 			fn->proto.optimized_parms |= other_fn->proto.optimized_parms;
+			fn->proto.unexpected_reg |= other_fn->proto.unexpected_reg;
 			if (other_fn->proto.inconsistent_proto)
 				fn->proto.inconsistent_proto = 1;
-			if (!fn->proto.optimized_parms && !fn->proto.inconsistent_proto &&
+			if (!fn->proto.unexpected_reg && !fn->proto.inconsistent_proto &&
 			    !funcs__match(encoder, func, other_fn))
 				fn->proto.inconsistent_proto = 1;
 			other_fn->proto.processed = 1;
 		}
-		if (fn->proto.optimized_parms || fn->proto.inconsistent_proto) {
+		/* do not exclude functions with optimized-out parameters; they
+		 * may still be _called_ with the right parameter values, they
+		 * just do not _use_ them.  Only exclude functions with
+		 * unexpected register use or multiple inconsistent prototypes.
+		 */
+		if (fn->proto.unexpected_reg || fn->proto.inconsistent_proto) {
 			if (encoder->verbose) {
 				const char *name = function__name(fn);
 
 				printf("skipping addition of '%s'(%s) due to %s\n",
 				       name, fn->alias ?: name,
-				       fn->proto.optimized_parms ? "optimized-out parameters" :
+				       fn->proto.unexpected_reg ? "unexpected register used for parameter" :
 								   "multiple inconsistent function prototypes");
 			}
 		} else {
@@ -1856,7 +1864,9 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 						printf("matched function '%s' with '%s'%s\n",
 						       name, func->name,
 						       fn->proto.optimized_parms ?
-						       ", has optimized-out parameters" : "");
+						       ", has optimized-out parameters" :
+						       fn->proto.unexpected_reg ? ", has unexpected register use by params" :
+						       "");
 					fn->alias = func->name;
 				}
 			}
