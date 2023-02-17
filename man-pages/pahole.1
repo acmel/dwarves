@@ -231,8 +231,7 @@ Do not encode type tags in BTF.
 
 .TP
 .B \-\-skip_encoding_btf_inconsistent_proto
-Do not encode functions with multiple inconsistent prototypes or optimized-out
-parameters.
+Do not encode functions with multiple inconsistent prototypes or unexpected register use for their parameters, where the registers used do not match calling conventions.
 
 .TP
 .B \-j, \-\-jobs=N
@@ -269,7 +268,6 @@ information has float types.
 .TP
 .B \-\-btf_gen_optimized
 Generate BTF for functions with optimization-related suffixes (.isra, .constprop).
-BTF will only be generated if a function does not optimize out parameters.
 
 .TP
 .B \-\-btf_gen_all
