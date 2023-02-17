@@ -1647,12 +1647,12 @@ static const struct argp_option pahole__options[] = {
 	{
 		.name = "btf_gen_optimized",
 		.key  = ARGP_btf_gen_optimized,
-		.doc  = "Generate BTF for functions with optimization-related suffixes (.isra, .constprop).  BTF will only be generated if a function does not optimize out parameters."
+		.doc  = "Generate BTF for functions with optimization-related suffixes (.isra, .constprop)."
 	},
 	{
 		.name = "skip_encoding_btf_inconsistent_proto",
 		.key = ARGP_skip_encoding_btf_inconsistent_proto,
-		.doc = "Skip functions that have multiple inconsistent function prototypes sharing the same name, or have optimized-out parameters."
+		.doc = "Skip functions that have multiple inconsistent function prototypes sharing the same name, or that use unexpected registers for parameter values."
 	},
 	{
 		.name = NULL,
