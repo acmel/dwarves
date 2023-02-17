@@ -1022,6 +1022,51 @@ static int arch__nr_register_params(const GElf_Ehdr *ehdr)
 	return 0;
 }
 
+/* map from parameter index (0 for first, ...) to expected DW_OP_reg.
+ * This will allow us to identify cases where optimized-out parameters
+ * interfere with expectations about register contents on function
+ * entry.
+ */
+static void arch__set_register_params(const GElf_Ehdr *ehdr, struct cu *cu)
+{
+	memset(cu->register_params, -1, sizeof(cu->register_params));
+
+	switch (ehdr->e_machine) {
+	case EM_S390:
+		/* https://github.com/IBM/s390x-abi/releases/download/v1.6/lzsabi_s390x.pdf */
+		cu->register_params[0] = DW_OP_reg2;	// %r2
+		cu->register_params[1] = DW_OP_reg3;	// %r3
+		cu->register_params[2] = DW_OP_reg4;	// %r4
+		cu->register_params[3] = DW_OP_reg5;	// %r5
+		cu->register_params[4] = DW_OP_reg6;	// %r6
+		return;
+	case EM_X86_64:
+		/* //en.wikipedia.org/wiki/X86_calling_conventions#System_V_AMD64_ABI */
+		cu->register_params[0] = DW_OP_reg5;	// %rdi
+		cu->register_params[1] = DW_OP_reg4;	// %rsi
+		cu->register_params[2] = DW_OP_reg1;	// %rdx
+		cu->register_params[3] = DW_OP_reg2;	// %rcx
+		cu->register_params[4] = DW_OP_reg8;	// %r8
+		cu->register_params[5] = DW_OP_reg9;	// %r9
+		return;
+	case EM_ARM:
+		/* https://github.com/ARM-software/abi-aa/blob/main/aapcs32/aapcs32.rst#machine-registers */
+	case EM_AARCH64:
+		/* https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst#machine-registers */
+		cu->register_params[0] = DW_OP_reg0;
+		cu->register_params[1] = DW_OP_reg1;
+		cu->register_params[2] = DW_OP_reg2;
+		cu->register_params[3] = DW_OP_reg3;
+		cu->register_params[4] = DW_OP_reg4;
+		cu->register_params[5] = DW_OP_reg5;
+		cu->register_params[6] = DW_OP_reg6;
+		cu->register_params[7] = DW_OP_reg7;
+		return;
+	default:
+		return;
+	}
+}
+
 static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 					struct conf_load *conf, int param_idx)
 {
@@ -1075,18 +1120,28 @@ static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 		if (parm->has_loc &&
 		    attr_location(die, &loc.expr, &loc.exprlen) == 0 &&
 			loc.exprlen != 0) {
+			int expected_reg = cu->register_params[param_idx];
 			Dwarf_Op *expr = loc.expr;
 
 			switch (expr->atom) {
 			case DW_OP_reg0 ... DW_OP_reg31:
+				/* mark parameters that use an unexpected
+				 * register to hold a parameter; these will
+				 * be problematic for users of BTF as they
+				 * violate expectations about register
+				 * contents.
+				 */
+				if (expected_reg >= 0 && expected_reg != expr->atom)
+					parm->unexpected_reg = 1;
+				break;
 			case DW_OP_breg0 ... DW_OP_breg31:
 				break;
 			default:
-				parm->optimized = 1;
+				parm->unexpected_reg = 1;
 				break;
 			}
 		} else if (has_const_value) {
-			parm->optimized = 1;
+			parm->unexpected_reg = 1;
 		}
 	}
 
@@ -2302,13 +2357,17 @@ static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu)
 			pos->tag.type = dtype->tag->type;
 			/* share location information between parameter and
 			 * abstract origin; if neither have location, we will
-			 * mark the parameter as optimized out.
+			 * mark the parameter as optimized out.  Also share
+			 * info regarding unexpected register use for
+			 * parameters.
 			 */
 			if (pos->has_loc)
 				opos->has_loc = pos->has_loc;
 
 			if (pos->optimized)
 				opos->optimized = pos->optimized;
+			if (pos->unexpected_reg)
+				opos->unexpected_reg = pos->unexpected_reg;
 			continue;
 		}
 
@@ -2584,6 +2643,27 @@ out:
 	return 0;
 }
 
+static bool param__is_struct(struct cu *cu, struct tag *tag)
+{
+	const struct dwarf_tag *dtag = tag->priv;
+	struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
+	struct tag *type;
+
+	if (!dtype)
+		return false;
+	type = dtype->tag;
+
+	switch (type->tag) {
+	case DW_TAG_structure_type:
+		return true;
+	case DW_TAG_typedef:
+		/* handle "typedef struct" */
+		return param__is_struct(cu, type);
+	default:
+		return false;
+	}
+}
+
 static int cu__resolve_func_ret_types_optimized(struct cu *cu)
 {
 	struct ptr_table *pt = &cu->functions_table;
@@ -2593,6 +2673,7 @@ static int cu__resolve_func_ret_types_optimized(struct cu *cu)
 		struct tag *tag = pt->entries[i];
 		struct parameter *pos;
 		struct function *fn = tag__function(tag);
+		bool has_unexpected_reg = false, has_struct_param = false;
 
 		/* mark function as optimized if parameter is, or
 		 * if parameter does not have a location; at this
@@ -2600,12 +2681,29 @@ static int cu__resolve_func_ret_types_optimized(struct cu *cu)
 		 * abstract origins for cases where a parameter
 		 * location is not stored in the original function
 		 * parameter tag.
+		 *
+		 * Also mark functions which, due to optimization,
+		 * use an unexpected register for a parameter.
+		 * Exception is functions which have a struct
+		 * as a parameter, as multiple registers may
+		 * be used to represent it, throwing off register
+		 * to parameter mapping.
 		 */
 		ftype__for_each_parameter(&fn->proto, pos) {
-			if (pos->optimized || !pos->has_loc) {
+			if (pos->optimized || !pos->has_loc)
 				fn->proto.optimized_parms = 1;
-				break;
+
+			if (pos->unexpected_reg)
+				has_unexpected_reg = true;
+		}
+		if (has_unexpected_reg) {
+			ftype__for_each_parameter(&fn->proto, pos) {
+				has_struct_param = param__is_struct(cu, &pos->tag);
+				if (has_struct_param)
+					break;
 			}
+			if (!has_struct_param)
+				fn->proto.unexpected_reg = 1;
 		}
 
 		if (tag == NULL || tag->type != 0)
@@ -2917,6 +3015,7 @@ static int cu__set_common(struct cu *cu, struct conf_load *conf,
 
 	cu->little_endian = ehdr.e_ident[EI_DATA] == ELFDATA2LSB;
 	cu->nr_register_params = arch__nr_register_params(&ehdr);
+	arch__set_register_params(&ehdr, cu);
 	return 0;
 }
 
