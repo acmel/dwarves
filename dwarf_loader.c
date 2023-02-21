@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
+#include <elfutils/version.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
@@ -1073,6 +1074,7 @@ static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 	struct parameter *parm = tag__alloc(cu, sizeof(*parm));
 
 	if (parm != NULL) {
+		Dwarf_Addr base, start, end;
 		bool has_const_value;
 		Dwarf_Attribute attr;
 		struct location loc;
@@ -1115,10 +1117,18 @@ static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 		 * between these parameter representations.  See
 		 * ftype__recode_dwarf_types() below for how this is handled.
 		 */
-		parm->has_loc = dwarf_attr(die, DW_AT_location, &attr) != NULL;
 		has_const_value = dwarf_attr(die, DW_AT_const_value, &attr) != NULL;
+		parm->has_loc = dwarf_attr(die, DW_AT_location, &attr) != NULL;
+		/* dwarf_getlocations() handles location lists; here we are
+		 * only interested in the first expr.
+		 */
 		if (parm->has_loc &&
-		    attr_location(die, &loc.expr, &loc.exprlen) == 0 &&
+#if _ELFUTILS_PREREQ(0, 157)
+		    dwarf_getlocations(&attr, 0, &base, &start, &end,
+				       &loc.expr, &loc.exprlen) > 0 &&
+#else
+		    dwarf_getlocation(&attr, &loc.expr, &loc.exprlen) == 0 &&
+#endif
 			loc.exprlen != 0) {
 			int expected_reg = cu->register_params[param_idx];
 			Dwarf_Op *expr = loc.expr;
