@@ -1144,14 +1144,12 @@ static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 				if (expected_reg >= 0 && expected_reg != expr->atom)
 					parm->unexpected_reg = 1;
 				break;
-			case DW_OP_breg0 ... DW_OP_breg31:
-				break;
 			default:
-				parm->unexpected_reg = 1;
+				parm->optimized = 1;
 				break;
 			}
 		} else if (has_const_value) {
-			parm->unexpected_reg = 1;
+			parm->optimized = 1;
 		}
 	}
 
