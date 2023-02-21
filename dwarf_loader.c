@@ -2645,19 +2645,17 @@ out:
 
 static bool param__is_struct(struct cu *cu, struct tag *tag)
 {
-	const struct dwarf_tag *dtag = tag->priv;
-	struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
-	struct tag *type;
+	struct tag *type = cu__type(cu, tag->type);
 
-	if (!dtype)
+	if (!type)
 		return false;
-	type = dtype->tag;
 
 	switch (type->tag) {
 	case DW_TAG_structure_type:
 		return true;
+	case DW_TAG_const_type:
 	case DW_TAG_typedef:
-		/* handle "typedef struct" */
+		/* handle "typedef struct", const parameter */
 		return param__is_struct(cu, type);
 	default:
 		return false;
