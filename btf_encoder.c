@@ -69,7 +69,6 @@ struct btf_encoder {
 	const char	  *filename;
 	struct elf_symtab *symtab;
 	uint32_t	  type_id_off;
-	uint32_t	  unspecified_type;
 	int		  saved_func_cnt;
 	bool		  has_index_type,
 			  need_index_type,
@@ -634,11 +633,6 @@ static int32_t btf_encoder__tag_type(struct btf_encoder *encoder, uint32_t tag_t
 {
 	if (tag_type == 0)
 		return 0;
-
-	if (encoder->unspecified_type && tag_type == encoder->unspecified_type) {
-		// No provision for encoding this, turn it into void.
-		return 0;
-	}
 
 	return encoder->type_id_off + tag_type;
 }
@@ -1746,8 +1740,6 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 
 	encoder->cu = cu;
 	encoder->type_id_off = btf__type_cnt(encoder->btf) - 1;
-	if (encoder->cu->unspecified_type.tag)
-		encoder->unspecified_type = encoder->cu->unspecified_type.type;
 
 	if (!encoder->has_index_type) {
 		/* cu__find_base_type_by_name() takes "type_id_t *id" */

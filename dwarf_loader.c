@@ -2163,8 +2163,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	case DW_TAG_atomic_type:
 		tag = die__create_new_tag(die, cu);		break;
 	case DW_TAG_unspecified_type:
-		cu->unspecified_type.tag =
-			tag = die__create_new_tag(die, cu);     break;
+		tag = die__create_new_tag(die, cu);		break;
 	case DW_TAG_pointer_type:
 		tag = die__create_new_pointer_tag(die, cu, conf);	break;
 	case DW_TAG_ptr_to_member_type:
@@ -2227,13 +2226,27 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *co
 			continue;
 		}
 
-		uint32_t id;
-		cu__add_tag(cu, tag, &id);
+		uint32_t id = 0;
+		/* There is no BTF representation for unspecified types.
+		 * Currently we want such types to be represented as `void`
+		 * (and thus skip BTF encoding).
+		 *
+		 * As BTF encoding is skipped, such types must not be added to type table,
+		 * otherwise an ID for a type would be allocated and we would be forced
+		 * to put something in BTF at this ID.
+		 * Thus avoid `cu__add_tag()` call for such types.
+		 *
+		 * On the other hand, there might be references to this type from other
+		 * tags, so `dwarf_cu__find_tag_by_ref()` must return something.
+		 * Thus call `cu__hash()` for such types.
+		 *
+		 * Note, that small_id of zero would be assigned to unspecified type entry.
+		 */
+		if (tag->tag != DW_TAG_unspecified_type)
+			cu__add_tag(cu, tag, &id);
 		cu__hash(cu, tag);
 		struct dwarf_tag *dtag = tag->priv;
 		dtag->small_id = id;
-		if (tag->tag == DW_TAG_unspecified_type)
-			cu->unspecified_type.type = id;
 	} while (dwarf_siblingof(die, die) == 0);
 
 	return 0;
