@@ -138,6 +138,8 @@ const char *dwarf_tag_name(const uint32_t tag)
 #endif
 		)
 		return dwarf_gnu_tag_names[tag - DW_TAG_MIPS_loop];
+	else if (tag == DW_TAG_LLVM_annotation)
+		return "LLVM_annotation";
 	return "INVALID";
 }
 
