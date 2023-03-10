@@ -33,13 +33,13 @@
 #include <search.h> /* for tsearch(), tfind() and tdestroy() */
 #include <pthread.h>
 
-#define BTF_ENCODER_MAX_PARAMETERS	12
+#define BTF_ENCODER_MAX_PROTO	512
 
 /* state used to do later encoding of saved functions */
 struct btf_encoder_state {
 	uint32_t type_id_off;
-	bool got_parameter_names;
-	const char *parameter_names[BTF_ENCODER_MAX_PARAMETERS];
+	bool got_proto;
+	char proto[BTF_ENCODER_MAX_PROTO];
 };
 
 struct elf_function {
@@ -798,25 +798,25 @@ static int32_t btf_encoder__add_decl_tag(struct btf_encoder *encoder, const char
 	return id;
 }
 
-static void parameter_names__get(struct ftype *ftype, size_t nr_parameters,
-				 const char **parameter_names)
+static bool proto__get(struct function *func, char *proto, size_t len)
 {
-	struct parameter *parameter;
-	int i = 0;
+	const struct conf_fprintf conf = {
+						.name_spacing = 23,
+						.type_spacing = 26,
+						.emit_stats = 0,
+						.no_parm_names = 1,
+						.skip_emitting_errors = 1,
+						.skip_emitting_modifier = 1,
+					};
 
-	ftype__for_each_parameter(ftype, parameter) {
-		if (i >= nr_parameters)
-			return;
-		parameter_names[i++] = parameter__name(parameter);
-	}
+	return function__prototype_conf(func, func->priv, &conf, proto, len) != NULL;
 }
 
 static bool funcs__match(struct btf_encoder *encoder, struct elf_function *func, struct function *f2)
 {
-	const char *parameter_names[BTF_ENCODER_MAX_PARAMETERS];
+	char proto[BTF_ENCODER_MAX_PROTO];
 	struct function *f1 = func->function;
 	const char *name;
-	int i;
 
 	if (!f1)
 		return false;
@@ -833,33 +833,27 @@ static bool funcs__match(struct btf_encoder *encoder, struct elf_function *func,
 	if (f1->proto.nr_parms == 0)
 		return true;
 
-	if (!func->state.got_parameter_names) {
-		parameter_names__get(&f1->proto, BTF_ENCODER_MAX_PARAMETERS,
-				     func->state.parameter_names);
-		func->state.got_parameter_names = true;
-	}
-	parameter_names__get(&f2->proto, BTF_ENCODER_MAX_PARAMETERS, parameter_names);
-	for (i = 0; i < f1->proto.nr_parms && i < BTF_ENCODER_MAX_PARAMETERS; i++) {
-		if (!func->state.parameter_names[i]) {
-			if (!parameter_names[i])
-				continue;
-		} else if (parameter_names[i]) {
-			if (strcmp(func->state.parameter_names[i], parameter_names[i]) == 0)
-				continue;
+	if (f1->proto.tag.type == f2->proto.tag.type)
+		return true;
+
+	if (!func->state.got_proto)
+		func->state.got_proto = proto__get(f1, func->state.proto, sizeof(func->state.proto));
+
+	if (proto__get(f2, proto, sizeof(proto))) {
+		if (strcmp(func->state.proto, proto) != 0) {
+			if (encoder->verbose)
+				printf("function mismatch for '%s'('%s'): '%s' != '%s'\n",
+				       name, f1->alias ?: name,
+				       func->state.proto, proto);
+			return false;
 		}
-		if (encoder->verbose) {
-			printf("function mismatch for '%s'(%s): parameter #%d '%s' != '%s'\n",
-			       name, f1->alias ?: name, i,
-			       func->state.parameter_names[i] ?: "<null>",
-			       parameter_names[i] ?: "<null>");
-		}
-		return false;
 	}
 	return true;
 }
 
 static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct function *fn, struct elf_function *func)
 {
+	fn->priv = encoder->cu;
 	if (func->function) {
 		struct function *existing = func->function;
 
@@ -1022,7 +1016,8 @@ static int btf_encoder__collect_function(struct btf_encoder *encoder, GElf_Sym *
 	}
 	encoder->functions.entries[encoder->functions.cnt].generated = false;
 	encoder->functions.entries[encoder->functions.cnt].function = NULL;
-	encoder->functions.entries[encoder->functions.cnt].state.got_parameter_names = false;
+	encoder->functions.entries[encoder->functions.cnt].state.got_proto = false;
+	encoder->functions.entries[encoder->functions.cnt].state.proto[0] = '\0';
 	encoder->functions.entries[encoder->functions.cnt].state.type_id_off = 0;
 	encoder->functions.cnt++;
 	return 0;
