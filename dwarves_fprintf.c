@@ -1102,19 +1102,31 @@ static size_t union__fprintf(struct type *type, const struct cu *cu,
 				 conf->suffix ? " " : "", conf->suffix ?: "");
 }
 
-const char *function__prototype(const struct function *func,
-				const struct cu *cu, char *bf, size_t len)
+const char *function__prototype_conf(const struct function *func,
+				     const struct cu *cu,
+				     const struct conf_fprintf *conf,
+				     char *bf, size_t len)
 {
 	FILE *bfp = fmemopen(bf, len, "w");
 
 	if (bfp != NULL) {
-		ftype__fprintf(&func->proto, cu, NULL, 0, 0, 0, true,
-			       &conf_fprintf__defaults, bfp);
+		ftype__fprintf(&func->proto, cu, NULL, 0, 0, 0, true, conf,
+			       bfp);
 		fclose(bfp);
-	} else
+	} else {
+		if (conf->skip_emitting_errors)
+			return NULL;
 		snprintf(bf, len, "<ERROR(%s): fmemopen failed!>", __func__);
+	}
 
 	return bf;
+}
+
+const char *function__prototype(const struct function *func,
+				const struct cu *cu, char *bf, size_t len)
+{
+	return function__prototype_conf(func, cu, &conf_fprintf__defaults,
+					bf, len);
 }
 
 size_t ftype__fprintf_parms(const struct ftype *ftype,

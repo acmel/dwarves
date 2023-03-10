@@ -133,6 +133,7 @@ struct conf_fprintf {
 	uint8_t	   hex_fmt:1;
 	uint8_t	   strip_inline:1;
 	uint8_t	   skip_emitting_atomic_typedefs:1;
+	uint8_t	   skip_emitting_errors:1;
 };
 
 struct cus;
@@ -944,6 +945,10 @@ size_t function__fprintf_stats(const struct tag *tag_func,
 			       FILE *fp);
 const char *function__prototype(const struct function *func,
 				const struct cu *cu, char *bf, size_t len);
+const char *function__prototype_conf(const struct function *func,
+				     const struct cu *cu,
+				     const struct conf_fprintf *conf,
+				     char *bf, size_t len);
 
 static __pure inline uint64_t function__addr(const struct function *func)
 {
