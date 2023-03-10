@@ -506,7 +506,8 @@ static const char *tag__ptr_name(const struct tag *tag, const struct cu *cu,
 				struct tag *next_type = cu__type(cu, type->type);
 
 				if (next_type && tag__is_pointer(next_type)) {
-					const_pointer = "const ";
+					if (!(conf && conf->skip_emitting_modifier))
+						const_pointer = "const ";
 					type = next_type;
 				}
 			}
@@ -580,13 +581,16 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 				   *type_str = __tag__name(type, cu, tmpbf,
 							   sizeof(tmpbf),
 							   pconf);
-			switch (tag->tag) {
-			case DW_TAG_volatile_type: prefix = "volatile "; break;
-			case DW_TAG_const_type:    prefix = "const ";	 break;
-			case DW_TAG_restrict_type: suffix = " restrict"; break;
-			case DW_TAG_atomic_type:   prefix = "_Atomic ";  break;
+			if (!pconf->skip_emitting_modifier) {
+				switch (tag->tag) {
+				case DW_TAG_volatile_type: prefix = "volatile "; break;
+				case DW_TAG_const_type: prefix = "const "; break;
+				case DW_TAG_restrict_type: suffix = " restrict"; break;
+				case DW_TAG_atomic_type:   prefix = "_Atomic ";  break;
+				}
 			}
-			snprintf(bf, len, "%s%s%s ", prefix, type_str, suffix);
+			snprintf(bf, len, "%s%s%s%s", prefix, type_str, suffix,
+				 pconf->no_parm_names ? "" : " ");
 		}
 		break;
 	case DW_TAG_array_type:
@@ -818,9 +822,11 @@ print_default:
 	case DW_TAG_const_type:
 		modifier = "const";
 print_modifier: {
-		size_t modifier_printed = fprintf(fp, "%s ", modifier);
-		tconf.type_spacing -= modifier_printed;
-		printed		   += modifier_printed;
+		if (!conf->skip_emitting_modifier) {
+			size_t modifier_printed = fprintf(fp, "%s ", modifier);
+			tconf.type_spacing -= modifier_printed;
+			printed		   += modifier_printed;
+		}
 
 		struct tag *ttype = cu__type(cu, type->type);
 		if (ttype) {

@@ -134,6 +134,7 @@ struct conf_fprintf {
 	uint8_t	   strip_inline:1;
 	uint8_t	   skip_emitting_atomic_typedefs:1;
 	uint8_t	   skip_emitting_errors:1;
+	uint8_t    skip_emitting_modifier:1;
 };
 
 struct cus;
