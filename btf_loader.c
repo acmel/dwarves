@@ -429,10 +429,11 @@ static int create_new_tag(struct cu *cu, int type, const struct btf_type *tp, ui
 		return -ENOMEM;
 
 	switch (type) {
-	case BTF_KIND_CONST:	tag->tag = DW_TAG_const_type;	 break;
-	case BTF_KIND_PTR:	tag->tag = DW_TAG_pointer_type;  break;
-	case BTF_KIND_RESTRICT:	tag->tag = DW_TAG_restrict_type; break;
-	case BTF_KIND_VOLATILE:	tag->tag = DW_TAG_volatile_type; break;
+	case BTF_KIND_CONST:	tag->tag = DW_TAG_const_type;	   break;
+	case BTF_KIND_PTR:	tag->tag = DW_TAG_pointer_type;    break;
+	case BTF_KIND_RESTRICT:	tag->tag = DW_TAG_restrict_type;   break;
+	case BTF_KIND_VOLATILE:	tag->tag = DW_TAG_volatile_type;   break;
+	case BTF_KIND_TYPE_TAG:	tag->tag = DW_TAG_LLVM_annotation; break;
 	default:
 		free(tag);
 		printf("%s: Unknown type %d\n\n", __func__, type);
@@ -489,6 +490,12 @@ static int btf__load_types(struct btf *btf, struct cu *cu)
 		case BTF_KIND_PTR:
 		case BTF_KIND_CONST:
 		case BTF_KIND_RESTRICT:
+		/* For type tag it's a bit of a lie.
+		 * In DWARF it is encoded as a child tag of whatever type it
+		 * applies to. Here we load it as a standalone tag with a pointer
+		 * to a next type only to have a valid ID in the types table.
+		 */
+		case BTF_KIND_TYPE_TAG:
 			err = create_new_tag(cu, type, type_ptr, type_index);
 			break;
 		case BTF_KIND_UNKN:
