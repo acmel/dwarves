@@ -572,6 +572,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 	case DW_TAG_restrict_type:
 	case DW_TAG_atomic_type:
 	case DW_TAG_unspecified_type:
+	case DW_TAG_LLVM_annotation:
 		type = cu__type(cu, tag->type);
 		if (type == NULL && tag->type != 0)
 			tag__id_not_found_snprintf(bf, len, tag->type);
@@ -786,6 +787,10 @@ next_type:
 			n = tag__has_type_loop(type, ptype, NULL, 0, fp);
 			if (n)
 				return printed + n;
+			if (ptype->tag == DW_TAG_LLVM_annotation) {
+				type = ptype;
+				goto next_type;
+			}
 			if (ptype->tag == DW_TAG_subroutine_type) {
 				printed += ftype__fprintf(tag__ftype(ptype),
 							  cu, name, 0, 1,
@@ -880,6 +885,14 @@ print_modifier: {
 		else
 			printed += enumeration__fprintf(type, &tconf, fp);
 		break;
+	case DW_TAG_LLVM_annotation: {
+		struct tag *ttype = cu__type(cu, type->type);
+		if (ttype) {
+			type = ttype;
+			goto next_type;
+		}
+		goto out_type_not_found;
+	}
 	}
 out:
 	if (type_expanded)
