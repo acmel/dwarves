@@ -572,7 +572,6 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 	case DW_TAG_restrict_type:
 	case DW_TAG_atomic_type:
 	case DW_TAG_unspecified_type:
-	case DW_TAG_LLVM_annotation:
 		type = cu__type(cu, tag->type);
 		if (type == NULL && tag->type != 0)
 			tag__id_not_found_snprintf(bf, len, tag->type);
@@ -617,6 +616,13 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 		break;
 	case DW_TAG_variable:
 		snprintf(bf, len, "%s", variable__name(tag__variable(tag)));
+		break;
+	case DW_TAG_LLVM_annotation:
+		type = cu__type(cu, tag->type);
+		if (type == NULL && tag->type != 0)
+			tag__id_not_found_snprintf(bf, len, tag->type);
+		else if (!tag__has_type_loop(tag, type, bf, len, NULL))
+			__tag__name(type, cu, bf, len, conf);
 		break;
 	default:
 		snprintf(bf, len, "%s%s", tag__prefix(cu, tag->tag, pconf),
@@ -675,6 +681,22 @@ static size_t type__fprintf_stats(struct type *type, const struct cu *cu,
 		printed += fprintf(fp, " */\n");
 
 	return printed;
+}
+
+static type_id_t skip_llvm_annotations(const struct cu *cu, type_id_t id)
+{
+	struct tag *type;
+
+	for (;;) {
+		if (id == 0)
+			break;
+		type = cu__type(cu, id);
+		if (type == NULL || type->tag != DW_TAG_LLVM_annotation || type->type == id)
+			break;
+		id = type->type;
+	}
+
+	return id;
 }
 
 static size_t union__fprintf(struct type *type, const struct cu *cu,
@@ -778,19 +800,17 @@ inner_struct:
 
 next_type:
 	switch (type->tag) {
-	case DW_TAG_pointer_type:
-		if (type->type != 0) {
+	case DW_TAG_pointer_type: {
+		type_id_t ptype_id = skip_llvm_annotations(cu, type->type);
+
+		if (ptype_id != 0) {
 			int n;
-			struct tag *ptype = cu__type(cu, type->type);
+			struct tag *ptype = cu__type(cu, ptype_id);
 			if (ptype == NULL)
 				goto out_type_not_found;
 			n = tag__has_type_loop(type, ptype, NULL, 0, fp);
 			if (n)
 				return printed + n;
-			if (ptype->tag == DW_TAG_LLVM_annotation) {
-				type = ptype;
-				goto next_type;
-			}
 			if (ptype->tag == DW_TAG_subroutine_type) {
 				printed += ftype__fprintf(tag__ftype(ptype),
 							  cu, name, 0, 1,
@@ -811,6 +831,7 @@ next_type:
 			}
 		}
 		/* Fall Thru */
+	}
 	default:
 print_default:
 		printed += fprintf(fp, "%-*s %s", tconf.type_spacing,
