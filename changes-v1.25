@@ -1,0 +1,58 @@
+DWARF loader:
+
+- Support for DW_TAG_unspecified_type more generally, that in binutils 2.40 is used
+  for assembly functions, resulting in BTF encoding problems when building the Linux
+  kernel.
+
+- Make sure struct member offsets are in ascending order. This is part of the set of
+  changes to support encoding BTF for Rust for use with the Linux kernel, where the
+  BTF verifier considers invalid offset unordered struct members.
+
+- Support C atomic types (DW_TAG_atomic_type), that are not used in the Linux kernel but
+  is present in user space components such as Open VSwitch.
+
+BTF loader:
+
+- Initial support for DW_TAG_LLVM_annotation, used for BTF type tags, to encode things
+  like __rcu, __user annotations in the Linux kernel. This is still in flux with changes
+  in how these are encoded that resulted from the discussion to support this in gcc in
+  addition to in clang, where it was first designed.
+
+BTF encoder:
+
+- Exclude functions with the same name (static functions in different CUs),
+  inconsistent prototypes or not following calling convention.
+
+- Allow generation of BTF for optimized functions, those that end with a .isra*
+  suffix (inter procedural scalar replacement of aggregates) or .constprop*
+  (constant propagation).
+
+Pretty printer:
+
+- For now the DW_TAG_LLVM_annotation tags are being suppressed, so the output from
+  BTF and DWARF matches, further work is planned to support it so that the output
+  matches the original source code and can be recompilable, resulting in the same
+  DWARF info.
+
+- Support C atomic types, allowing the generation of source code that can be
+  compiled with resulting DWARF info matching the original source code.
+
+pahole:
+
+- Support --lang=/--lang_exclude=asm, the DW_LANG_ define for assembly is out
+  of order, special case it to support asking for CUs written in assembly to be
+  selected or excluded.
+
+- Support suppressing the atomic type modifiers/attributes.
+
+- Allow filtering out functions optimized by the compiler, where the calling convention isn't
+  the one expected by BPF or arguments are optimized out.
+
+- Support --compile from DWARF in addition to from BTF, this allows user space components
+  such as Open VSwitch to use pahole to generate compilable code for its data structures.
+
+btfdiff:
+
+- Exclude RUST CUs, as those are not yet being BTF encoded.
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>

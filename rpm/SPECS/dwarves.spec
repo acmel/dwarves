@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.24
+Version: 1.25
 Release: 1%{?dist}
 License: GPLv2
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -79,7 +79,7 @@ rm -Rf %{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
-%doc changes-v1.24
+%doc changes-v1.25
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -131,6 +131,18 @@ rm -Rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Sat Apr  8 2023 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.25-1
+- New release: v1.25
+- Support for DW_TAG_unspecified_type more generally.
+- Make sure struct member offsets are in ascending order. Rust BTF needs this.
+- Support C atomic types (DW_TAG_atomic_type).
+- Initial support for DW_TAG_LLVM_annotation, used for BTF type tags, for __rcu, __user, etc
+- Exclude functions with the same name (static functions in different CUs), inconsistent prototypes or not following calling convention.
+- Allow generation of BTF for optimized functions, those that end with a .isra*, .constprop*.
+- Support 'pahole --lang=/--lang_exclude=asm'
+- Support --compile from DWARF in addition to from BTF.
+- Exclude RUST CUs in 'btfdiff', as those are not yet being BTF encoded.
+
 * Wed Aug 17 2022 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.24-1
 - New release: v1.24
 - Add support to BTF_KIND_ENUM64.
