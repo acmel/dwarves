@@ -67,6 +67,11 @@ static int cu__emit_tags(struct cu *cu)
 		printf(" /* size: %zd */\n\n", tag__size(tag, cu));
 	}
 
+	puts("\n\n/* Constants: */\n");
+	cu__for_each_constant(cu, i, tag) {
+		tag__fprintf(tag, cu, NULL, stdout);
+		printf(" /* size: %zd */\n\n", tag__size(tag, cu));
+	}
 
 	return 0;
 }
