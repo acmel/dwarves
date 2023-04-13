@@ -1930,6 +1930,24 @@ static size_t variable__fprintf(const struct tag *tag, const struct cu *cu,
 	return printed;
 }
 
+static size_t constant__fprintf(const struct tag *tag, const struct cu *cu,
+				const struct conf_fprintf *conf, FILE *fp)
+{
+	struct constant *constant = tag__constant(tag);
+	const char *name = constant__name(constant);
+	size_t printed = 0;
+
+	if (name != NULL) {
+		struct tag *type = cu__type(cu, constant->tag.type);
+		if (type != NULL) {
+			printed += fprintf(fp, "const ");
+			printed += type__fprintf(type, cu, name, conf, fp);
+			printed += fprintf(fp, " = %" PRIu64, constant__value(constant));
+		}
+	}
+	return printed;
+}
+
 static size_t namespace__fprintf(const struct tag *tag, const struct cu *cu,
 				 const struct conf_fprintf *conf, FILE *fp)
 {
@@ -2018,6 +2036,9 @@ size_t tag__fprintf(struct tag *tag, const struct cu *cu,
 		break;
 	case DW_TAG_variable:
 		printed += variable__fprintf(tag, cu, pconf, fp);
+		break;
+	case DW_TAG_constant: // First seen in a Go CU
+		printed += constant__fprintf(tag, cu, pconf, fp);
 		break;
 	case DW_TAG_imported_declaration:
 		printed += imported_declaration__fprintf(tag, cu, fp);
