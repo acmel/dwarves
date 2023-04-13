@@ -752,6 +752,19 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu, struct conf
 	return var;
 }
 
+static struct constant *constant__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
+{
+	struct constant *constant = tag__alloc(cu, sizeof(*constant));
+
+	if (constant != NULL) {
+		tag__init(&constant->tag, cu, die);
+		constant->name = attr_string(die, DW_AT_name, conf);
+		constant->value = attr_numeric(die, DW_AT_const_value);
+	}
+
+	return constant;
+}
+
 static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t bit_size)
 {
 	int id;
@@ -1657,6 +1670,16 @@ static struct tag *die__create_new_variable(Dwarf_Die *die, struct cu *cu, struc
 	return &var->ip.tag;
 }
 
+static struct tag *die__create_new_constant(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
+{
+	struct constant *constant = constant__new(die, cu, conf);
+
+	if (constant == NULL)
+		return NULL;
+
+	return &constant->tag;
+}
+
 static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 						   struct cu *cu, struct conf_load *conf)
 {
@@ -2187,6 +2210,8 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 		tag = die__create_new_union(die, cu, conf);	break;
 	case DW_TAG_variable:
 		tag = die__create_new_variable(die, cu, conf);	break;
+	case DW_TAG_constant: // First seen in a Go CU
+		tag = die__create_new_constant(die, cu, conf);	break;
 	default:
 		__cu__tag_not_handled(die, fn);
 		/* fall thru */

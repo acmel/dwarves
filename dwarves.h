@@ -387,6 +387,19 @@ int lang__str2int(const char *lang);
 			continue;			\
 		else
 
+/**
+ * cu__for_each_constant - iterate thru all the global constant tags
+ * @cu: struct cu instance to iterate
+ * @pos: struct tag iterator
+ * @id: uint32_t tag id
+ */
+#define cu__for_each_constant(cu, id, pos)		\
+	for (id = 0; id < cu->tags_table.nr_entries; ++id) \
+		if (!(pos = cu->tags_table.entries[id]) || \
+		    !tag__is_constant(pos))		\
+			continue;			\
+		else
+
 int cu__add_tag(struct cu *cu, struct tag *tag, uint32_t *id);
 int cu__add_tag_with_id(struct cu *cu, struct tag *tag, uint32_t id);
 int cu__table_add_tag(struct cu *cu, struct tag *tag, uint32_t *id);
@@ -491,6 +504,11 @@ static inline int tag__is_pointer_to(const struct tag *tag, type_id_t type)
 static inline bool tag__is_variable(const struct tag *tag)
 {
 	return tag->tag == DW_TAG_variable;
+}
+
+static inline bool tag__is_constant(const struct tag *tag)
+{
+	return tag->tag == DW_TAG_constant;
 }
 
 static inline bool tag__is_volatile(const struct tag *tag)
@@ -774,6 +792,27 @@ const char *variable__name(const struct variable *var);
 
 const char *variable__type_name(const struct variable *var,
 				const struct cu *cu, char *bf, size_t len);
+
+struct constant {
+	struct tag tag;
+	const char *name;
+	uint64_t   value;
+};
+
+static inline struct constant *tag__constant(const struct tag *tag)
+{
+	return (struct constant *)tag;
+}
+
+static inline const char *constant__name(const struct constant *constant)
+{
+	return constant->name;
+}
+
+static inline uint64_t constant__value(const struct constant *constant)
+{
+	return constant->value;
+}
 
 struct lexblock {
 	struct ip_tag	 ip;
