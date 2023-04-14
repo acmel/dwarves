@@ -1286,6 +1286,7 @@ static void ftype__init(struct ftype *ftype, Dwarf_Die *die, struct cu *cu)
 	assert(tag == DW_TAG_subprogram || tag == DW_TAG_subroutine_type);
 #endif
 	tag__init(&ftype->tag, cu, die);
+	ftype->byte_size = attr_numeric(die, DW_AT_byte_size);
 	INIT_LIST_HEAD(&ftype->parms);
 	ftype->nr_parms	    = 0;
 	ftype->unspec_parms = 0;

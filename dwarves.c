@@ -1136,6 +1136,7 @@ size_t tag__size(const struct tag *tag, const struct cu *cu)
 	case DW_TAG_reference_type:	return cu->addr_size;
 	case DW_TAG_base_type:		return base_type__size(tag);
 	case DW_TAG_enumeration_type:	return tag__type(tag)->size / 8;
+	case DW_TAG_subroutine_type:	return tag__ftype(tag)->byte_size ?: cu->addr_size;
 	}
 
 	if (tag->type == 0) { /* struct class: unions, structs */

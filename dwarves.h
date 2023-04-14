@@ -868,6 +868,7 @@ static inline const char *parameter__name(const struct parameter *parm)
 struct ftype {
 	struct tag	 tag;
 	struct list_head parms;
+	size_t		 byte_size; // First seen in DW_TAG_subroutine_type in a Go CU
 	uint16_t	 nr_parms;
 	uint8_t		 unspec_parms:1; /* just one bit is needed */
 	uint8_t		 optimized_parms:1;
