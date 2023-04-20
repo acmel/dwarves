@@ -18,19 +18,6 @@ cmake Options:
     Default is to install to /usr/local, use -DCMAKE_INSTALL_PREFIX=
     when invoking cmake to specify another install location.
 
-Known to work scenarios:
+You may need to update the libbpf git submodule:
 
-Mandriva Cooker:
-
-cmake 2.4.5-1mdv2007.1
-libelfutils1-devel 0.123-1mdv2007.1
-
-Debian Unstable:
-
-cmake 2.4.5-1
-libdw-dev 0.123-2
-
-Fedora Core 6:
-
-cmake 2.4.5-2.fc6
-elfutils-devel 0.126-1.fc6
+git submodule update --init --recursive
