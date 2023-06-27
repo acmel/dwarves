@@ -3,8 +3,8 @@
 
 Name: dwarves
 Version: 1.25
-Release: 1%{?dist}
-License: GPLv2
+Release: 2%{?dist}
+License: GPL-2.0-only
 Summary: Debugging Information Manipulation Tools (pahole & friends)
 URL: http://acmel.wordpress.com
 Source: http://fedorapeople.org/~acme/dwarves/%{name}-%{version}.tar.xz
@@ -131,6 +131,9 @@ rm -Rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Wed Jun 14 2023 Viktor Malik <vmalik@redhat.com> - 1.25-2
+- Migrate license to SPDX
+
 * Sat Apr  8 2023 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.25-1
 - New release: v1.25
 - Support for DW_TAG_unspecified_type more generally.
