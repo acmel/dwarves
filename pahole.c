@@ -673,10 +673,10 @@ static void print_ordered_classes(void)
 	if (!need_resort) {
 		__print_ordered_classes(&structures__tree);
 	} else {
-		struct rb_root resorted = RB_ROOT;
+		structures__tree = RB_ROOT;
 
-		resort_classes(&resorted, &structures__list);
-		__print_ordered_classes(&resorted);
+		resort_classes(&structures__tree, &structures__list);
+		__print_ordered_classes(&structures__tree);
 	}
 }
 
