@@ -1229,6 +1229,128 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_skip_emitting_atomic_typedefs 338
 #define ARGP_btf_gen_optimized  339
 #define ARGP_skip_encoding_btf_inconsistent_proto 340
+#define ARGP_btf_features	341
+
+/* --btf_features=feature1[,feature2,..] allows us to specify
+ * a list of requested BTF features or "all" to enable all features.
+ * These are translated into the appropriate conf_load values via a
+ * struct btf_feature which specifies the associated conf_load
+ * boolean field and whether its default (representing the feature being
+ * off) is false or true.
+ *
+ * btf_features is for opting _into_ features so for a case like
+ * conf_load->btf_gen_floats, the translation is simple; the presence
+ * of the "float" feature in --btf_features sets conf_load->btf_gen_floats
+ * to true.
+ *
+ * The more confusing case is for features that are enabled unless
+ * skipping them is specified; for example
+ * conf_load->skip_encoding_btf_type_tag.  By default - to support
+ * the opt-in model of only enabling features the user asks for -
+ * conf_load->skip_encoding_btf_type_tag is set to true (meaning no
+ * type_tags) and it is only set to false if --btf_features contains
+ * the "type_tag" keyword.
+ *
+ * So from the user perspective, all features specified via
+ * --btf_features are enabled, and if a feature is not specified,
+ * it is disabled.
+ *
+ * If --btf_features is not used, the usual pahole defaults for
+ * BTF encoding apply; we encode type/decl tags, do not encode
+ * floats, etc.  This ensures backwards compatibility.
+ */
+#define BTF_FEATURE(name, alias, default_value)			\
+	{ #name, #alias, &conf_load.alias, default_value }
+
+struct btf_feature {
+	const char      *name;
+	const char      *option_alias;
+	bool		*conf_value;
+	bool		default_value;
+} btf_features[] = {
+	BTF_FEATURE(encode_force, btf_encode_force, false),
+	BTF_FEATURE(var, skip_encoding_btf_vars, true),
+	BTF_FEATURE(float, btf_gen_floats, false),
+	BTF_FEATURE(decl_tag, skip_encoding_btf_decl_tag, true),
+	BTF_FEATURE(type_tag, skip_encoding_btf_type_tag, true),
+	BTF_FEATURE(enum64, skip_encoding_btf_enum64, true),
+	BTF_FEATURE(optimized_func, btf_gen_optimized, false),
+	BTF_FEATURE(consistent_func, skip_encoding_btf_inconsistent_proto, false),
+};
+
+#define BTF_MAX_FEATURE_STR	1024
+
+bool set_btf_features_defaults;
+
+static void init_btf_features(void)
+{
+	int i;
+
+	/* Only set default values once, as multiple --btf_features=
+	 * may be specified on command-line, and setting defaults
+	 * again could clobber values.   The aim is to enable
+	 * all features set across all --btf_features options.
+	 */
+	if (set_btf_features_defaults)
+		return;
+	for (i = 0; i < ARRAY_SIZE(btf_features); i++)
+		*btf_features[i].conf_value = btf_features[i].default_value;
+	set_btf_features_defaults = true;
+}
+
+static struct btf_feature *find_btf_feature(char *name)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(btf_features); i++) {
+		if (strcmp(name, btf_features[i].name) == 0)
+			return &btf_features[i];
+	}
+	return NULL;
+}
+
+static void enable_btf_feature(struct btf_feature *feature)
+{
+	/* switch "default-off" features on, and "default-on" features
+	 * off; i.e. negate the default value.
+	 */
+	*feature->conf_value = !feature->default_value;
+}
+
+/* Translate --btf_features=feature1[,feature2] into conf_load values.
+ * Explicitly ignores unrecognized features to allow future specification
+ * of new opt-in features.
+ */
+static void parse_btf_features(const char *features)
+{
+	char *saveptr = NULL, *s, *feature_name;
+	char f[BTF_MAX_FEATURE_STR];
+
+	init_btf_features();
+
+	if (strcmp(features, "all") == 0) {
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(btf_features); i++)
+			enable_btf_feature(&btf_features[i]);
+		return;
+	}
+
+	strncpy(f, features, sizeof(f));
+	s = f;
+	while ((feature_name = strtok_r(s, ",", &saveptr)) != NULL) {
+		struct btf_feature *feature = find_btf_feature(feature_name);
+
+		if (!feature) {
+			if (global_verbose)
+				fprintf(stderr, "Ignoring unsupported feature '%s'\n",
+					feature_name);
+		} else {
+			enable_btf_feature(feature);
+		}
+		s = NULL;
+	}
+}
 
 static const struct argp_option pahole__options[] = {
 	{
@@ -1652,6 +1774,12 @@ static const struct argp_option pahole__options[] = {
 		.doc = "Skip functions that have multiple inconsistent function prototypes sharing the same name, or that use unexpected registers for parameter values."
 	},
 	{
+		.name = "btf_features",
+		.key = ARGP_btf_features,
+		.arg = "FEATURE_LIST",
+		.doc = "Specify supported BTF features in FEATURE_LIST or 'all' for all supported features. See the pahole manual page for the list of supported features."
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1796,7 +1924,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_btf_gen_floats:
 		conf_load.btf_gen_floats = true;	break;
 	case ARGP_btf_gen_all:
-		conf_load.btf_gen_floats = true;	break;
+		parse_btf_features("all");		break;
 	case ARGP_with_flexible_array:
 		show_with_flexible_array = true;	break;
 	case ARGP_prettify_input_filename:
@@ -1826,6 +1954,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.btf_gen_optimized = true;		break;
 	case ARGP_skip_encoding_btf_inconsistent_proto:
 		conf_load.skip_encoding_btf_inconsistent_proto = true; break;
+	case ARGP_btf_features:
+		parse_btf_features(arg);		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}

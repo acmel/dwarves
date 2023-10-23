@@ -274,6 +274,30 @@ Generate BTF for functions with optimization-related suffixes (.isra, .constprop
 Allow using all the BTF features supported by pahole.
 
 .TP
+.B \-\-btf_features=FEATURE_LIST
+Encode BTF using the specified feature list, or specify 'all' for all features supported.  This option can be used as an alternative to unsing multiple BTF-related options. Supported features are
+
+.nf
+	encode_force       Ignore invalid symbols when encoding BTF; for example
+	                   if a symbol has an invalid name, it will be ignored
+	                   and BTF encoding will continue.
+	var                Encode variables using BTF_KIND_VAR in BTF.
+	float              Encode floating-point types in BTF.
+	decl_tag           Encode declaration tags using BTF_KIND_DECL_TAG.
+	type_tag           Encode type tags using BTF_KIND_TYPE_TAG.
+	enum64             Encode enum64 values with BTF_KIND_ENUM64.
+	optimized_func     Encode representations of optimized functions
+	                   with suffixes like ".isra.0".
+	consistent_func    Avoid encoding inconsistent static functions.
+	                   These occur when a parameter is optimized out
+	                   in some CUs and not others, or when the same
+	                   function name has inconsistent BTF descriptions
+	                   in different CUs.
+.fi
+
+So for example, specifying \-\-btf_encode=var,enum64 will result in a BTF encoding that (as well as encoding basic BTF information) will contain variables and enum64 values.
+
+.TP
 .B \-l, \-\-show_first_biggest_size_base_type_member
 Show first biggest size base_type member.
 
