@@ -32,13 +32,10 @@
 static struct btf_encoder *btf_encoder;
 static char *detached_btf_filename;
 static bool btf_encode;
-static bool btf_gen_floats;
 static bool ctf_encode;
 static bool sort_output;
 static bool need_resort;
 static bool first_obj_only;
-static bool skip_encoding_btf_vars;
-static bool btf_encode_force;
 static const char *base_btf_file;
 
 static const char *prettify_input_filename;
@@ -1786,9 +1783,9 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_header_type:
 		conf.header_type = arg;			break;
 	case ARGP_skip_encoding_btf_vars:
-		skip_encoding_btf_vars = true;		break;
+		conf_load.skip_encoding_btf_vars = true;	break;
 	case ARGP_btf_encode_force:
-		btf_encode_force = true;		break;
+		conf_load.btf_encode_force = true;	break;
 	case ARGP_btf_base:
 		base_btf_file = arg;			break;
 	case ARGP_kabi_prefix:
@@ -1797,9 +1794,9 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_numeric_version:
 		print_numeric_version = true;		break;
 	case ARGP_btf_gen_floats:
-		btf_gen_floats = true;			break;
+		conf_load.btf_gen_floats = true;	break;
 	case ARGP_btf_gen_all:
-		btf_gen_floats = true;			break;
+		conf_load.btf_gen_floats = true;	break;
 	case ARGP_with_flexible_array:
 		show_with_flexible_array = true;	break;
 	case ARGP_prettify_input_filename:
@@ -3063,8 +3060,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			 * And, it is used by the thread
 			 * create it.
 			 */
-			btf_encoder = btf_encoder__new(cu, detached_btf_filename, conf_load->base_btf, skip_encoding_btf_vars,
-						       btf_encode_force, btf_gen_floats, global_verbose);
+			btf_encoder = btf_encoder__new(cu, detached_btf_filename, conf_load->base_btf,
+						       global_verbose, conf_load);
 			if (btf_encoder && thr_data) {
 				struct thread_data *thread = thr_data;
 
@@ -3093,10 +3090,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 				thread->encoder =
 					btf_encoder__new(cu, detached_btf_filename,
 							 NULL,
-							 skip_encoding_btf_vars,
-							 btf_encode_force,
-							 btf_gen_floats,
-							 global_verbose);
+							 global_verbose,
+							 conf_load);
 				thread->btf = btf_encoder__btf(thread->encoder);
 			}
 			encoder = thread->encoder;
