@@ -1231,6 +1231,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_skip_encoding_btf_inconsistent_proto 340
 #define ARGP_btf_features	341
 #define ARGP_supported_btf_features 342
+#define ARGP_btf_features_strict 343
 
 /* --btf_features=feature1[,feature2,..] allows us to specify
  * a list of requested BTF features or "all" to enable all features.
@@ -1334,7 +1335,7 @@ static void show_supported_btf_features(FILE *output)
  * Explicitly ignores unrecognized features to allow future specification
  * of new opt-in features.
  */
-static void parse_btf_features(const char *features)
+static void parse_btf_features(const char *features, bool strict)
 {
 	char *saveptr = NULL, *s, *feature_name;
 	char f[BTF_MAX_FEATURE_STR];
@@ -1355,6 +1356,12 @@ static void parse_btf_features(const char *features)
 		struct btf_feature *feature = find_btf_feature(feature_name);
 
 		if (!feature) {
+			if (strict) {
+				fprintf(stderr, "Feature '%s' in '%s' is not supported.  Supported BTF features are:\n",
+					feature_name, features);
+				show_supported_btf_features(stderr);
+				exit(EXIT_FAILURE);
+			}
 			if (global_verbose)
 				fprintf(stderr, "Ignoring unsupported feature '%s'\n",
 					feature_name);
@@ -1798,6 +1805,12 @@ static const struct argp_option pahole__options[] = {
 		.doc = "Show list of btf_features supported by pahole and exit."
 	},
 	{
+		.name = "btf_features_strict",
+		.key = ARGP_btf_features_strict,
+		.arg = "FEATURE_LIST_STRICT",
+		.doc = "Specify supported BTF features in FEATURE_LIST_STRICT or 'all' for all supported features.  Unlike --btf_features, unrecognized features will trigger an error."
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1942,7 +1955,7 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_btf_gen_floats:
 		conf_load.btf_gen_floats = true;	break;
 	case ARGP_btf_gen_all:
-		parse_btf_features("all");		break;
+		parse_btf_features("all", false);	break;
 	case ARGP_with_flexible_array:
 		show_with_flexible_array = true;	break;
 	case ARGP_prettify_input_filename:
@@ -1973,9 +1986,11 @@ static error_t pahole__options_parser(int key, char *arg,
 	case ARGP_skip_encoding_btf_inconsistent_proto:
 		conf_load.skip_encoding_btf_inconsistent_proto = true; break;
 	case ARGP_btf_features:
-		parse_btf_features(arg);		break;
+		parse_btf_features(arg, false);		break;
 	case ARGP_supported_btf_features:
 		show_supported_btf_features(stdout);	exit(0);
+	case ARGP_btf_features_strict:
+		parse_btf_features(arg, true);		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
