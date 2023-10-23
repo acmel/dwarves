@@ -298,6 +298,10 @@ Encode BTF using the specified feature list, or specify 'all' for all features s
 So for example, specifying \-\-btf_encode=var,enum64 will result in a BTF encoding that (as well as encoding basic BTF information) will contain variables and enum64 values.
 
 .TP
+.B \-\-supported_btf_features
+Show set of BTF features supported by \-\-btf_features option and exit.  Useful for checking which features are supported since \-\-btf_features will not emit an error if an unrecognized feature is specified.
+
+.TP
 .B \-l, \-\-show_first_biggest_size_base_type_member
 Show first biggest size base_type member.
 

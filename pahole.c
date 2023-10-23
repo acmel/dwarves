@@ -1230,6 +1230,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_btf_gen_optimized  339
 #define ARGP_skip_encoding_btf_inconsistent_proto 340
 #define ARGP_btf_features	341
+#define ARGP_supported_btf_features 342
 
 /* --btf_features=feature1[,feature2,..] allows us to specify
  * a list of requested BTF features or "all" to enable all features.
@@ -1315,6 +1316,18 @@ static void enable_btf_feature(struct btf_feature *feature)
 	 * off; i.e. negate the default value.
 	 */
 	*feature->conf_value = !feature->default_value;
+}
+
+static void show_supported_btf_features(FILE *output)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(btf_features); i++) {
+		if (i > 0)
+			fprintf(output, ",");
+		fprintf(output, "%s", btf_features[i].name);
+	}
+	fprintf(output, "\n");
 }
 
 /* Translate --btf_features=feature1[,feature2] into conf_load values.
@@ -1780,6 +1793,11 @@ static const struct argp_option pahole__options[] = {
 		.doc = "Specify supported BTF features in FEATURE_LIST or 'all' for all supported features. See the pahole manual page for the list of supported features."
 	},
 	{
+		.name = "supported_btf_features",
+		.key = ARGP_supported_btf_features,
+		.doc = "Show list of btf_features supported by pahole and exit."
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1956,6 +1974,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.skip_encoding_btf_inconsistent_proto = true; break;
 	case ARGP_btf_features:
 		parse_btf_features(arg);		break;
+	case ARGP_supported_btf_features:
+		show_supported_btf_features(stdout);	exit(0);
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
