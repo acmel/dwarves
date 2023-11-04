@@ -347,7 +347,7 @@ next_type:
 	case DW_TAG_structure_type: {
 		struct type *ctype = tag__type(tag_type);
 
-		if (type__name(ctype) != NULL)
+		if (type__name(ctype) != NULL && conf->expand_types != true)
 			return printed + fprintf(fp, "struct %s %s", type__name(ctype), type__name(type));
 
 		struct conf_fprintf tconf = *pconf;
