@@ -1338,7 +1338,7 @@ static void show_supported_btf_features(FILE *output)
 static void parse_btf_features(const char *features, bool strict)
 {
 	char *saveptr = NULL, *s, *feature_name;
-	char f[BTF_MAX_FEATURE_STR];
+	char f[BTF_MAX_FEATURE_STR + 1];
 
 	init_btf_features();
 
@@ -1350,7 +1350,7 @@ static void parse_btf_features(const char *features, bool strict)
 		return;
 	}
 
-	strncpy(f, features, sizeof(f));
+	strncpy(f, features, BTF_MAX_FEATURE_STR)[BTF_MAX_FEATURE_STR] = '\0';
 	s = f;
 	while ((feature_name = strtok_r(s, ",", &saveptr)) != NULL) {
 		struct btf_feature *feature = find_btf_feature(feature_name);
