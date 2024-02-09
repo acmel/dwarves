@@ -1465,7 +1465,9 @@ out:
 struct member_types_holes {
 	uint16_t nr_paddings;
 	uint16_t nr_with_holes;
+	uint16_t nr_with_bit_holes;
 	uint16_t total_nr_holes;
+	uint16_t total_nr_bit_holes;
 	uint32_t sum_paddings;
 };
 
@@ -1475,7 +1477,7 @@ static size_t class__fprintf_member_type_holes(struct class *class, const struct
 {
 	size_t printed = 0;
 	uint16_t padding;
-	uint8_t nr_holes;
+	uint8_t nr_holes, nr_bit_holes;
 	bool first = true;
 	/*
 	 * We may not yet have looked for holes and paddings in this member's
@@ -1486,8 +1488,9 @@ static size_t class__fprintf_member_type_holes(struct class *class, const struct
 
 	padding = class->padding;
 	nr_holes = class->nr_holes;
+	nr_bit_holes = class->nr_bit_holes;
 
-	if (!padding && !nr_holes)
+	if (!padding && !nr_holes && !nr_bit_holes)
 		return 0;
 
 	if (!(*newline)++) {
@@ -1510,6 +1513,14 @@ static size_t class__fprintf_member_type_holes(struct class *class, const struct
 		holes->total_nr_holes += nr_holes;
 
 		printed += fprintf(fp, "%s %d hole%s", first ? "" : ",", nr_holes, nr_holes != 1 ? "s" : "");
+		first = false;
+	}
+
+	if (nr_bit_holes) {
+		++holes->nr_with_bit_holes;
+		holes->total_nr_bit_holes += nr_bit_holes;
+
+		printed += fprintf(fp, "%s %d bit hole%s", first ? "" : ",", nr_bit_holes, nr_bit_holes != 1 ? "s" : "");
 	}
 
 	return printed + fprintf(fp, " */");
@@ -1873,10 +1884,21 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		printed += fprintf(fp, "%.*s/* padding: %u */\n",
 				   cconf.indent,
 				   tabs, class->padding);
-	if (member_types_holes.nr_with_holes > 0) {
-		printed += fprintf(fp, "%.*s/* member types with holes: %u, total of those holes: %u */\n",
-				   cconf.indent, tabs,
-				   member_types_holes.nr_with_holes, member_types_holes.total_nr_holes);
+
+	if (member_types_holes.nr_with_holes > 0 || member_types_holes.nr_with_bit_holes > 0) {
+		bool first = true;
+
+		printed += fprintf(fp, "%.*s/* member types with ", cconf.indent, tabs);
+		if (member_types_holes.nr_with_holes > 0) {
+			printed += fprintf(fp, "holes: %u, total: %u",
+					   member_types_holes.nr_with_holes, member_types_holes.total_nr_holes);
+			first = false;
+		}
+		if (member_types_holes.nr_with_bit_holes > 0) {
+			printed += fprintf(fp, "%sbit holes: %u, total: %u", first ? "" : ", ",
+					   member_types_holes.nr_with_bit_holes, member_types_holes.total_nr_bit_holes);
+		}
+		printed += fprintf(fp, " */\n");
 	}
 	if (member_types_holes.nr_paddings > 0)
 		printed += fprintf(fp, "%.*s/* paddings: %u, sum paddings: "
