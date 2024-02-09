@@ -1462,19 +1462,23 @@ out:
 	return printed;
 }
 
+struct member_types_holes {
+	uint16_t nr_paddings;
+	uint32_t sum_paddings;
+};
+
 static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			       const struct conf_fprintf *conf, FILE *fp)
 {
 	struct type *type = &class->type;
 	size_t last_size = 0, size;
 	uint8_t newline = 0;
-	uint16_t nr_paddings = 0;
 	uint16_t nr_forced_alignments = 0, nr_forced_alignment_holes = 0;
 	uint32_t sum_forced_alignment_holes = 0;
 	uint32_t sum_bytes = 0, sum_bits = 0;
 	uint32_t sum_holes = 0;
-	uint32_t sum_paddings = 0;
 	uint32_t sum_bit_holes = 0;
+	struct member_types_holes member_types_holes = { 0, };
 	uint32_t cacheline = 0;
 	int size_diff = 0;
 	int first = 1;
@@ -1693,8 +1697,8 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 
 			padding = tclass->padding;
 			if (padding > 0) {
-				++nr_paddings;
-				sum_paddings += padding;
+				++member_types_holes.nr_paddings;
+				member_types_holes.sum_paddings += padding;
 				if (!newline++) {
 					fputc('\n', fp);
 					++printed;
@@ -1841,11 +1845,11 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		printed += fprintf(fp, "%.*s/* padding: %u */\n",
 				   cconf.indent,
 				   tabs, class->padding);
-	if (nr_paddings > 0)
+	if (member_types_holes.nr_paddings > 0)
 		printed += fprintf(fp, "%.*s/* paddings: %u, sum paddings: "
 				   "%u */\n",
 				   cconf.indent, tabs,
-				   nr_paddings, sum_paddings);
+				   member_types_holes.nr_paddings, member_types_holes.sum_paddings);
 	if (class->bit_padding > 0)
 		printed += fprintf(fp, "%.*s/* bit_padding: %u bits */\n",
 				   cconf.indent, tabs,
