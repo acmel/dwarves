@@ -1467,6 +1467,40 @@ struct member_types_holes {
 	uint32_t sum_paddings;
 };
 
+static size_t class__fprintf_member_type_holes(struct class *class, const struct cu *cu,
+					       struct member_types_holes *holes,
+					       uint8_t *newline, const struct conf_fprintf *conf, FILE *fp)
+{
+	size_t printed = 0;
+	uint16_t padding;
+	/*
+	 * We may not yet have looked for holes and paddings in this member's
+	 * struct type.
+	 */
+	class__find_holes(class);
+	class__infer_packed_attributes(class, cu);
+
+	padding = class->padding;
+	if (!padding)
+		return 0;
+
+	if (!(*newline)++) {
+		fputc('\n', fp);
+		++printed;
+	}
+
+	printed += fprintf(fp, "\n%.*s/* XXX last struct has", conf->indent, tabs);
+
+	if (padding) {
+		++holes->nr_paddings;
+		holes->sum_paddings += padding;
+
+		printed += fprintf(fp, " %d byte%s of padding", padding, padding != 1 ? "s" : "");
+	}
+
+	return printed + fprintf(fp, " */");
+}
+
 static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			       const struct conf_fprintf *conf, FILE *fp)
 {
@@ -1687,29 +1721,9 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 
 		if (tag__is_struct(pos_type) && !cconf.suppress_comments) {
 			struct class *tclass = tag__class(pos_type);
-			uint16_t padding;
-			/*
-			 * We may not yet have looked for holes and paddings
-			 * in this member's struct type.
-			 */
-			class__find_holes(tclass);
-			class__infer_packed_attributes(tclass, cu);
 
-			padding = tclass->padding;
-			if (padding > 0) {
-				++member_types_holes.nr_paddings;
-				member_types_holes.sum_paddings += padding;
-				if (!newline++) {
-					fputc('\n', fp);
-					++printed;
-				}
-
-				printed += fprintf(fp, "\n%.*s/* XXX last "
-						   "struct has %d byte%s of "
-						   "padding */", cconf.indent,
-						   tabs, padding,
-						   padding != 1 ? "s" : "");
-			}
+			printed += class__fprintf_member_type_holes(tclass, cu, &member_types_holes,
+								    &newline, &cconf, fp);
 		}
 
 		if (pos->bit_hole != 0 && !cconf.suppress_comments) {
