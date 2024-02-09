@@ -1464,11 +1464,13 @@ out:
 
 struct member_types_holes {
 	uint16_t nr_paddings;
+	uint16_t nr_with_bit_paddings;
 	uint16_t nr_with_holes;
 	uint16_t nr_with_bit_holes;
 	uint16_t total_nr_holes;
 	uint16_t total_nr_bit_holes;
 	uint32_t sum_paddings;
+	uint32_t sum_bit_paddings;
 };
 
 static size_t class__fprintf_member_type_holes(struct class *class, const struct cu *cu,
@@ -1477,7 +1479,7 @@ static size_t class__fprintf_member_type_holes(struct class *class, const struct
 {
 	size_t printed = 0;
 	uint16_t padding;
-	uint8_t nr_holes, nr_bit_holes;
+	uint8_t nr_holes, nr_bit_holes, bit_padding;
 	bool first = true;
 	/*
 	 * We may not yet have looked for holes and paddings in this member's
@@ -1487,10 +1489,11 @@ static size_t class__fprintf_member_type_holes(struct class *class, const struct
 	class__infer_packed_attributes(class, cu);
 
 	padding = class->padding;
+	bit_padding = class->bit_padding;
 	nr_holes = class->nr_holes;
 	nr_bit_holes = class->nr_bit_holes;
 
-	if (!padding && !nr_holes && !nr_bit_holes)
+	if (!padding && !bit_padding && !nr_holes && !nr_bit_holes)
 		return 0;
 
 	if (!(*newline)++) {
@@ -1505,6 +1508,14 @@ static size_t class__fprintf_member_type_holes(struct class *class, const struct
 		holes->sum_paddings += padding;
 
 		printed += fprintf(fp, " %d byte%s of padding", padding, padding != 1 ? "s" : "");
+		first = false;
+	}
+
+	if (bit_padding) {
+		++holes->nr_with_bit_paddings;
+		holes->sum_bit_paddings += bit_padding;
+
+		printed += fprintf(fp, "%s %d bit%s of padding", first ? "" : ",",  bit_padding, bit_padding != 1 ? "s" : "");
 		first = false;
 	}
 
@@ -1885,7 +1896,9 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 				   cconf.indent,
 				   tabs, class->padding);
 
-	if (member_types_holes.nr_with_holes > 0 || member_types_holes.nr_with_bit_holes > 0) {
+	if (member_types_holes.nr_with_holes > 0 ||
+	    member_types_holes.nr_with_bit_holes > 0 ||
+	    member_types_holes.nr_with_bit_paddings > 0) {
 		bool first = true;
 
 		printed += fprintf(fp, "%.*s/* member types with ", cconf.indent, tabs);
@@ -1897,6 +1910,13 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		if (member_types_holes.nr_with_bit_holes > 0) {
 			printed += fprintf(fp, "%sbit holes: %u, total: %u", first ? "" : ", ",
 					   member_types_holes.nr_with_bit_holes, member_types_holes.total_nr_bit_holes);
+			first = false;
+		}
+		if (member_types_holes.nr_with_bit_paddings > 0) {
+			printed += fprintf(fp, "%sbit paddings: %u, total: %u bit%s", first ? "" : ", ",
+					   member_types_holes.nr_with_bit_paddings,
+					   member_types_holes.sum_bit_paddings,
+					   member_types_holes.sum_bit_paddings > 1 ? "s" : "");
 		}
 		printed += fprintf(fp, " */\n");
 	}
