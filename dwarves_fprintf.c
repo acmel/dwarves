@@ -970,7 +970,7 @@ static size_t class_member__fprintf(struct class_member *member, bool union_memb
 	    tag__is_enumeration(type)) {
 		printed += type__fprintf(type, cu, NULL, &sconf, fp);
 		if (name) {
-			if (!type__name(tag__type(type)))
+			if (!type__name(tag__type(type)) || sconf.expand_types)
 				printed += fprintf(fp, " ");
 			printed += fprintf(fp, "%s", name);
 		}
