@@ -393,6 +393,8 @@ next_type:
 		tconf.suffix = type__name(type);
 		return printed + __class__fprintf(cclass, cu, &tconf, fp);
 	}
+	case DW_TAG_union_type:
+		return printed + union_decl__fprintf(tag_type, cu, type__name(type), pconf, fp);
 	case DW_TAG_enumeration_type: {
 		struct type *ctype = tag__type(tag_type);
 
