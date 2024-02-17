@@ -31,12 +31,16 @@ ${pahole_bin} -F dwarf \
 	      --suppress_force_paddings \
 	      --suppress_packed \
 	      --lang_exclude rust \
-	      --show_private_classes $dwarf_input > $dwarf_output
+	      --show_private_classes $dwarf_input > $dwarf_output &
+dwarf=$!
+
 ${pahole_bin} -F btf \
 	      --sort \
 	      --suppress_aligned_attribute \
 	      --suppress_packed \
 	      $btf_input > $btf_output
+
+wait $dwarf
 
 diff -up $dwarf_output $btf_output
 
