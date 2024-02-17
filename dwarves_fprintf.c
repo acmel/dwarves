@@ -151,6 +151,9 @@ static struct conf_fprintf conf_fprintf__defaults = {
 
 const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
+static size_t union__fprintf(struct type *type, const struct cu *cu,
+			     const struct conf_fprintf *conf, FILE *fp);
+
 /*
  * In dwarves_emit.c we can call type__emit() using a locally setup conf_fprintf for which
  * the conf->cacheline_size member is not setup and is thus zero, so check for that and
@@ -294,6 +297,36 @@ static size_t string_type__fprintf(const struct tag *tag, const char *name,
 	struct string_type *st = tag__string_type(tag);
 
 	return fprintf(fp, "string %*s[%u]", conf->type_spacing - 5, name, st->nr_entries);
+}
+
+/*
+ * Here we're printing either:
+ *
+ * union bar baz;
+ *
+ * I.e. a variable or a class member, or:
+ *
+ * union {
+ * 	u32 a;
+ * 	u16 b;
+ * } baz;
+ *
+ * I.e. a "inline" union, with or without that 'baz' name (unnamed union member),
+ * or we are expanding unions, i.e. using 'pahole -E/--expand_types'.
+ */
+static size_t union_decl__fprintf(const struct tag *type, const struct cu *cu, const char *name,
+				  const struct conf_fprintf *conf, FILE *fp)
+{
+	struct type *ctype = tag__type(type);
+
+	if (type__name(ctype) != NULL && !conf->expand_types)
+		return fprintf(fp, "union %-*s %s", conf->type_spacing - 6, type__name(ctype), name ?: "");
+
+	struct conf_fprintf tconf = *conf;
+	tconf.type_spacing -= 8;
+	tconf.suffix = name;
+
+	return union__fprintf(ctype, cu, &tconf, fp);
 }
 
 size_t typedef__fprintf(const struct tag *tag, const struct cu *cu,
@@ -704,9 +737,6 @@ static type_id_t skip_llvm_annotations(const struct cu *cu, type_id_t id)
 	return id;
 }
 
-static size_t union__fprintf(struct type *type, const struct cu *cu,
-			     const struct conf_fprintf *conf, FILE *fp);
-
 static size_t type__fprintf(struct tag *type, const struct cu *cu,
 			    const char *name, const struct conf_fprintf *conf,
 			    FILE *fp)
@@ -894,14 +924,7 @@ print_modifier: {
 		}
 		break;
 	case DW_TAG_union_type:
-		ctype = tag__type(type);
-
-		if (type__name(ctype) != NULL && !expand_types) {
-			printed += fprintf(fp, "union %-*s %s", tconf.type_spacing - 6, type__name(ctype), name ?: "");
-		} else {
-			tconf.type_spacing -= 8;
-			printed += union__fprintf(ctype, cu, &tconf, fp);
-		}
+		printed += union_decl__fprintf(type, cu, name, &tconf, fp);
 		break;
 	case DW_TAG_enumeration_type:
 		ctype = tag__type(type);
