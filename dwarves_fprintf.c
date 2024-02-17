@@ -347,13 +347,18 @@ next_type:
 	case DW_TAG_structure_type: {
 		struct type *ctype = tag__type(tag_type);
 
-		if (type__name(ctype) != NULL)
+		if (type__name(ctype) != NULL && !pconf->expand_types)
 			return printed + fprintf(fp, "struct %s %s", type__name(ctype), type__name(type));
 
 		struct conf_fprintf tconf = *pconf;
+		struct class *cclass = tag__class(tag_type);
 
+		if (!tconf.suppress_comments)
+			class__find_holes(cclass);
+
+		tconf.type_spacing -= 8;
 		tconf.suffix = type__name(type);
-		return printed + __class__fprintf(tag__class(tag_type), cu, &tconf, fp);
+		return printed + __class__fprintf(cclass, cu, &tconf, fp);
 	}
 	case DW_TAG_enumeration_type: {
 		struct type *ctype = tag__type(tag_type);
