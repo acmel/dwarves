@@ -382,6 +382,19 @@ int lang__str2int(const char *lang);
 		else
 
 /**
+ * cu__for_each_enumeration - iterate thru all the enumeration tags
+ * @cu: enumeration cu instance to iterate
+ * @pos: enumeration iterator
+ * @id: type_id_t id
+ */
+#define cu__for_each_enumeration(cu, id, pos)				\
+	for (id = 1; id < cu->types_table.nr_entries; ++id)		\
+		if (!(pos = tag__type(cu->types_table.entries[id])) ||	\
+		    !tag__is_enumeration(type__tag(pos)))		\
+			continue;					\
+		else
+
+/**
  * cu__for_each_function - iterate thru all the function tags
  * @cu: struct cu instance to iterate
  * @pos: struct function iterator
