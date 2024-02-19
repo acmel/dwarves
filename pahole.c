@@ -2163,35 +2163,36 @@ static struct enumerator *enumerations__lookup_entry_from_value(struct list_head
 	return NULL;
 }
 
-static int64_t enumeration__lookup_enumerator(struct type *enumeration, const char *enumerator)
+static struct enumerator *enumeration__find_enumerator(struct type *enumeration, const char *name)
 {
 	struct enumerator *entry;
 
 	type__for_each_enumerator(enumeration, entry) {
 		const char *entry_name = enumerator__name(entry);
 
-		if (!strcmp(entry_name, enumerator))
-			return entry->value;
+		if (!strcmp(entry_name, name))
+			return entry;
 
 		if (enumeration->member_prefix_len &&
-		    !strcmp(entry_name + enumeration->member_prefix_len, enumerator))
-			return entry->value;
+		    !strcmp(entry_name + enumeration->member_prefix_len, name))
+			return entry;
 	}
 
-	return -1;
+	return NULL;
 }
 
-static int64_t enumerations__lookup_enumerator(struct list_head *enumerations, const char *enumerator)
+static struct enumerator *enumerations__find_enumerator(struct list_head *enumerations, const char *name)
 {
 	struct tag_cu_node *pos;
 
 	list_for_each_entry(pos, enumerations, node) {
-		int64_t value = enumeration__lookup_enumerator(tag__type(pos->tc.tag), enumerator);
-		if (value != -1)
-			return value;
+		struct enumerator *enumerator = enumeration__find_enumerator(tag__type(pos->tc.tag), name);
+
+		if (enumerator != NULL)
+			return enumerator;
 	}
 
-	return -1;
+	return NULL;
 }
 
 static int base_type__fprintf_enum_value(void *instance, int _sizeof, struct list_head *enumerations, FILE *fp)
@@ -2883,16 +2884,16 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 
 	enumerations__calc_prefix(&type->type_enum);
 
-	int64_t enumerator_value = enumerations__lookup_enumerator(&type->type_enum, value);
+	struct enumerator * enumerator = enumerations__find_enumerator(&type->type_enum, value);
 
-	if (enumerator_value < 0) {
+	if (enumerator == NULL) {
 		if (global_verbose)
 			fprintf(stderr, "Couldn't resolve right operand ('%s') in '%s' with the specified 'type=%s' and type_enum' \n",
 				value, sfilter, class_member__name(type->type_member));
 		return -1;
 	}
 
-	filter->right = enumerator_value;
+	filter->right = enumerator->value;
 
 	return 0;
 }
