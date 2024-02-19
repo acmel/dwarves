@@ -23,7 +23,7 @@ btf_output=$(mktemp /tmp/btfdiff.btf.XXXXXX)
 dwarf_output=$(mktemp /tmp/btfdiff.dwarf.XXXXXX)
 pahole_bin=${PAHOLE-"pahole"}
 
-${pahole_bin} -F dwarf \
+${pahole_bin} -E -F dwarf \
 	      --flat_arrays \
 	      --sort \
 	      --jobs \
@@ -34,7 +34,7 @@ ${pahole_bin} -F dwarf \
 	      --show_private_classes $dwarf_input > $dwarf_output &
 dwarf=$!
 
-${pahole_bin} -F btf \
+${pahole_bin} -E -F btf \
 	      --sort \
 	      --suppress_aligned_attribute \
 	      --suppress_packed \
