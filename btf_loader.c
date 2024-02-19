@@ -270,7 +270,7 @@ out_free:
 	return -ENOMEM;
 }
 
-static struct enumerator *enumerator__new(const char *name, uint32_t value)
+static struct enumerator *enumerator__new(const char *name, uint64_t value)
 {
 	struct enumerator *en = tag__alloc(sizeof(*en));
 
@@ -294,9 +294,15 @@ static int create_new_enumeration(struct cu *cu, const struct btf_type *tp, uint
 	if (enumeration == NULL)
 		return -ENOMEM;
 
+	enumeration->is_signed_enum = !!btf_kflag(tp);
+
 	for (i = 0; i < vlen; i++) {
 		const char *name = cu__btf_str(cu, ep[i].name_off);
-		uint32_t value = ep[i].val;
+		uint64_t value = ep[i].val;
+
+		if (!enumeration->is_signed_enum)
+			value = (uint32_t)ep[i].val;
+
 		struct enumerator *enumerator = enumerator__new(name, value);
 
 		if (enumerator == NULL)
@@ -337,6 +343,8 @@ static int create_new_enumeration64(struct cu *cu, const struct btf_type *tp, ui
 
 	if (enumeration == NULL)
 		return -ENOMEM;
+
+	enumeration->is_signed_enum = !!btf_kflag(tp);
 
 	for (i = 0; i < vlen; i++) {
 		const char *name = cu__btf_str(cu, ep[i].name_off);
