@@ -181,6 +181,21 @@ Show the struct layout at each reorganization step.
 Show classes that contains CLASS_NAME.
 
 .TP
+.B \-\-contains_enumerator=ENUMERATOR_NAME
+Show enumeration that contains ENUMERATOR_NAME.
+.PP
+.nf
+  $ pahole --contains_enumerator S_VERSION
+  enum file_time_flags {
+	  S_ATIME   = 1,
+	  S_MTIME   = 2,
+	  S_CTIME   = 4,
+	  S_VERSION = 8,
+  }
+  $
+.fi
+
+.TP
 .B \-a, \-\-anon_include
 Include anonymous classes.
 

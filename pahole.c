@@ -66,6 +66,7 @@ static uint8_t global_verbose;
 static uint8_t recursive;
 static size_t cacheline_size;
 static uint8_t find_containers;
+static bool find_enumeration_with_enumerator;
 static uint8_t find_pointers_in_structs;
 static int reorganize;
 static bool show_private_classes;
@@ -75,6 +76,7 @@ static bool just_structs;
 static bool just_packed_structs;
 static int show_reorg_steps;
 static const char *class_name;
+static const char *enumerator_name;
 static LIST_HEAD(class_names);
 static char separator = '\t';
 
@@ -1232,6 +1234,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_btf_features	341
 #define ARGP_supported_btf_features 342
 #define ARGP_btf_features_strict 343
+#define ARGP_contains_enumerator 344
 
 /* --btf_features=feature1[,feature2,..] allows us to specify
  * a list of requested BTF features or "all" to enable all features.
@@ -1444,6 +1447,12 @@ static const struct argp_option pahole__options[] = {
 		.key  = 'i',
 		.arg  = "CLASS_NAME",
 		.doc  = "Show classes that contains CLASS_NAME"
+	},
+	{
+		.name = "contains_enumerator",
+		.key  = ARGP_contains_enumerator,
+		.arg  = "ENUMERATOR",
+		.doc  = "Show enumerations that contains ENUMERATOR"
 	},
 	{
 		.name = "show_decl_info",
@@ -1841,6 +1850,9 @@ static error_t pahole__options_parser(int key, char *arg,
 		  conf_load.extra_dbg_info = 1;		break;
 	case 'i': find_containers = 1;
 		  class_name = arg;			break;
+	case ARGP_contains_enumerator:
+		  find_enumeration_with_enumerator = true;
+		  enumerator_name = arg;		break;
 	case 'j':
 #if _ELFUTILS_PREREQ(0, 178)
 		  conf_load.nr_jobs = arg ? atoi(arg) :
@@ -3124,6 +3136,22 @@ out:
 
 static struct type_instance *header;
 
+static bool print_enumeration_with_enumerator(struct cu *cu, const char *name)
+{
+	struct type *enumeration;
+	uint32_t id;
+
+	cu__for_each_enumeration(cu, id, enumeration) {
+		if (enumeration__find_enumerator(enumeration, name) != NULL) {
+			enumeration__fprintf(type__tag(enumeration), &conf, stdout);
+			fputc('\n', stdout);
+			return true;
+		}
+	}
+
+	return false;
+}
+
 struct thread_data {
 	struct btf *btf;
 	struct btf_encoder *encoder;
@@ -3208,6 +3236,10 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 		}
 		cu__fprintf_ptr_table_stats_csv(cu, stderr);
 	}
+
+	if (find_enumeration_with_enumerator &&
+	    print_enumeration_with_enumerator(cu, enumerator_name))
+		return LSK__DELETE; // Maybe we can find this in several CUs, so don't stop it
 
 	if (btf_encode) {
 		static pthread_mutex_t btf_lock = PTHREAD_MUTEX_INITIALIZER;
