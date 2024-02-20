@@ -3397,8 +3397,10 @@ out_btf:
 			}
 		}
 
-		if (prototype->type_enum) {
+		if (prototype->type_enum && !prototype->type_enum_resolved) {
 			prototype->type_enum_resolved = type__find_type_enum(type, cu, prototype->type_enum) == 0;
+			if (!prototype->type_enum_resolved)
+				return ret;
 		}
 
 		if (prototype->filter) {
