@@ -2839,7 +2839,7 @@ out:
 	return printed;
 }
 
-static int class_member_filter__parse(struct class_member_filter *filter, struct type *type, char *sfilter)
+static int class_member_filter__parse(struct class_member_filter *filter, struct type *type, const struct cu *cu, char *sfilter)
 {
 	const char *member_name = sfilter;
 	char *sep = strstr(sfilter, "==");
@@ -2888,9 +2888,17 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 
 	// If t he filter member is the 'type=' one:
 
-	if (list_empty(&type->type_enum) || type->type_member != filter->left) {
+	if (list_empty(&type->type_enum)) {
+		if (global_verbose) {
+			fprintf(stderr, "Symbolic right operand in '%s' but no way to resolve it to a number (type_enum empty or hasn't found any so far) at CU '%s')\n",
+				sfilter, cu->name);
+		}
+		return -1;
+	}
+
+	if (type->type_member != filter->left) {
 		if (global_verbose)
-			fprintf(stderr, "Symbolic right operand in '%s' but no way to resolve it to a number (type= + type_enum= so far)\n", sfilter);
+			fprintf(stderr, "type->type_member (%p) != filter->left (%p)\n", type->type_member, filter->left);
 		return -1;
 	}
 
@@ -2910,11 +2918,11 @@ static int class_member_filter__parse(struct class_member_filter *filter, struct
 	return 0;
 }
 
-static struct class_member_filter *class_member_filter__new(struct type *type, char *sfilter)
+static struct class_member_filter *class_member_filter__new(struct type *type, const struct cu *cu, char *sfilter)
 {
 	struct class_member_filter *filter = zalloc(sizeof(*filter));
 
-	if (filter && class_member_filter__parse(filter, type, sfilter)) {
+	if (filter && class_member_filter__parse(filter, type, cu, sfilter)) {
 		free(filter);
 		filter = NULL;
 	}
@@ -3394,7 +3402,7 @@ out_btf:
 		}
 
 		if (prototype->filter) {
-			type->filter = class_member_filter__new(type, prototype->filter);
+			type->filter = class_member_filter__new(type, cu, prototype->filter);
 			if (type->filter == NULL) {
 				fprintf(stderr, "pahole: invalid filter '%s' for '%s'\n",
 					prototype->filter, prototype->name);
