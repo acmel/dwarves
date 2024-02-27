@@ -1,3 +1,70 @@
+v1.25
+
+Thu Apr 13 2023
+
+eab23ebd2ce22b3a fprintf: Fix `*` not being printed for pointers with btf_type_tag
+c969e4969ccd2e7c btf_loader: A hack for BTF import of btf_type_tag attributes
+40ebd8b9e3312d0a fprintf: Correct names for types with btf_type_tag attribute
+4d17096076b2351f btf_encoder: Compare functions via prototypes not parameter names
+82730394195276ac fprintf: Support skipping modifier
+d184aaa125ea40ff fprintf: Generalize function prototype print to support passing conf
+a9498899109d3be1 dwarf_loader: Fix for BTF id drift caused by adding unspecified types
+eeeab1c9e8b85fc7 fprintf: Support DW_TAG_LLVM_annotation in dwarf_tag_name()
+4ec4b64bd501986b CMakeLists.txt: Call cmake_minimum_required() before project()
+111dfd2cee118892 dwarf_loader: Only mark parameter as using an unexpected register when it does
+5851040e2468ba04 dwarf_loader: Fix parameter location retrieval for location lists
+721ca66d5be462b2 dwarf_loader: Fix detection of struct parameters
+ef68019c357845b4 pahole: Update man page for options also
+d58c61498ea78064 pahole: Update descriptions for btf_gen_optimized, skip_encoding_btf_inconsistent_proto
+9b2abc1c7a16c39d btf_encoder: Exclude functions with unexpected param register use not optimizations
+a53c58158b761f8f dwarf_loader: Mark functions that do not use expected registers for params
+431df45378ef00f3 btfdiff: Exclude Rust CUs since those are not yet being converted to BTF on the Linux kernel
+1231b6b9b4d88e00 dwarf_loader: Fix sorting of Rust structs
+c4eb1897d1f3841d core: Check that we're adding DW_TAG_member sorted by byte offset
+b53d430aeab416e7 btf_encoder: Ensure ELF function representation is fully initialized
+a3b47e41656d21e7 CMakeList.txt: Bump version to the upcoming 1.25 release, not out of the door yet
+f104790698ae93f9 btf_encoder: Support delaying function addition to check for function prototype inconsistencies
+6d95d162c6c804c4 btf_encoder: Represent "."-suffixed functions (".isra.0") in BTF
+c8e8dbcd71507618 btf_encoder: Rework btf_encoders__*() API to allow traversal of encoders
+d381cc7458c53fdf btf_encoder: Refactor function addition into dedicated btf_encoder__add_func
+52b25808e44a8e7f btf_encoder: Store type_id_off, unspecified type in encoder
+75939e655a797896 dwarf_loader: Help spotting functions with optimized-out parameters
+2b5cb9bc0e905811 pahole: Sync with libbpf-1.1
+45c044860c2abce7 dwarf_loader: Sync with LINUX_ELFNOTE_LTO_INFO macro from kernel
+74f21ed08e4313f0 pahole: Set libbpf debug printer in -V mode
+bc1538dcb14bc4d9 pahole: Use type__fprintf() directly for --compile
+51643cb290f91425 core: Introduce base_type__language_defined()
+ba4bdc73806101dc dwarf_loader: DW_TAG_inlined_subroutine needs recoding by DW_AT_abstract_origin
+02d67c51765dfbd5 pfunct: Use zalloc() to make the code more robust
+cd4d2d251e9a7f98 pahole: Use zalloc() to make the code more robust
+e5e24ada4f5578ae core: Use zalloc() to make the code more robust
+b72f5188856df0ab dwarves: Zero-initialize struct cu in cu__new() to prevent incorrect BTF types
+d85b86ecc1df4076 emit: Support DW_TAG_atomic_type when emitting definitions for a typedef
+7d0bc9334d2f1143 fprintf: Support _Atomic typedefs
+8894c04f00e4c702 fprintf: Move the "typedef " invariant printf to the start of typedef__fprintf()
+3836623af1b5ff1f pahole: Allow skipping the emission of atomic typedefs
+6bb5a1fa990f5bd6 emit: Allow skip emitting the atomic typedefs
+8d2e166dd3d168d9 emit: Optionally pass a conf_fprintf struct to type_emissions__init
+8c2b37ec71423067 emit: Emit typedefs for atomic_ prefixed base types
+a4f3a79da8d4ed8b emit: cu__type() == NULL means "void"
+bcc648a10cbcd0b9 btf_encoder: Encode DW_TAG_unspecified_type returning routines as void
+cffe5e1f75e1612e core: Record if a CU has a DW_TAG_unspecified_type
+75e0fe28bb02036d core: Add DW_TAG_unspecified_type to tag__is_tag_type() set
+121a46a026afac19 btf_encoder: Store the CU being processed to avoid changing many functions
+56bcfa9135312ffe fprintf: Emit "_Atomic" modifiers for DW_TAG_atomic_type
+cf27a2b805f21356 core: Print more info on tag__assert_search_result()
+d5012f7be79f1b81 btf_encoder: Add extra debug info for unsupported DWARF tags
+79d9a783ea74797a pahole: Support '--lang/--lang_exclude=asm'
+e819d737de88dc1f pahole: Add "btf" to the format-path option man page
+f01e5f3a849558b8 dwarf_loader: Support DW_TAG_label outside DW_TAG_lexblock
+b84120772df33f93 pahole: Allow --compile to work with DWARF in addition to with BTF
+6fdb0140692acff0 dwarves: support DW_TAG_atomic_type
+d7507140eab4bf9f emit: Don't mark a enum with nr_members == 0 as printed, its just a fwd decl
+843fe9bfab4859b4 emit: Check if disambiguated struct/enum/union name was already emitted in a previous CU
+f5857bd34b220a64 pahole: Honour --compile when -C is used
+2bb968b567011f8a btf: Fix building with system libbpf
+ea30d58a2329764b core: Conditionally define language encodings
+
 v1.24
 
 Sat Apr  8 2023
