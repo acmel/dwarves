@@ -1,3 +1,45 @@
+v1.26
+
+Tue Feb 27 2024
+
+ba8f6eb0b6b67c6e NEWS: Add missing list of changes for v1.25
+90201c2bde4b0ca8 prefcnt: cus__load_files() requires a non NULL conf_load
+f86ed770b5396cd5 dtagnames: cus__load_files() requires a non NULL conf_load
+b2e0f084eca03613 syscse: cus__load_files() requires a non NULL conf_load
+461f61ebaf8f3108 dwarf_loader: Print the line number in addition to the function when not finding the abstract origin
+6e665da56c78d436 pahole: Wait to find a DWARF CU with both the class and the type_enum
+be638365781ed0c8 pahole: Improve error message when not resolving symbolic names in filters
+e18ef2fed1b1a2c5 pahole: Implement --contains_enumerator=ENUMERATOR_NAME
+7146ad04b72b08a5 pahole: Do not use -1 to mean that a enumerator wasn't found in an enumeration
+97dce38eae062cf9 core: Introduce cu__for_each_enumeration()
+786ed0aa2ff5fe67 btfdiff: Do type expansion to cover "private" types and enumerations
+9661c589cae83c6b btf_loader: Fix loading of 32-bit signed enums
+a25293a66b737263 btfdiff: Parallelize loading BTF and DWARF
+e52cf114039af8f3 fprintf: When expanding types do it for union typedefs as well
+d05d4f528d08da06 fprintf: Factor out the fprintf of a union declaration, for reuse
+f97c080d4aac4f8f fprintf: When expanding types do it for struct typedefs as well
+eb4f49bca27fcca2 fprintf: Add missing space after expanding a structure for a struct member
+0064b74c5ef0f358 fprintf: When expanding types do it for enums as well
+1fd08c0f0021e7fb fprintf: Print number of bit paddings in class member types
+4fa81a30b9ca3b78 fprintf: Print number of bit holes in class member types
+85bdd96404efca19 fprintf: Print number of holes in class member types
+08fc8e3285733ec8 fprintf: Introduce method to print info about type of last member
+bd8d0536b4352b5d fprintf: Introduce struct to account holes in class member types
+fdd815151054d840 pahole: Make sure the features string is NUL terminated
+884c43ea82a154ce CMakeList.txt: Bump version to the upcoming 1.26 release, not out of the door yet
+c129fa7579483bba pahole: Add --btf_features_strict to reject unknown BTF features
+74a238a4368223c9 pahole: Add --supported_btf_features
+7bc9b9975545ab53 pahole: Add --btf_features support
+79e9df515e4d3e89 dwarves: Move ARRAY_SIZE() to dwarves.h
+f5c6c1365e7bb3dc btf_encoder, pahole: Move BTF encoding options into 'struct conf_load'
+37e3bf08e0314efa pahole: Don't keep structs in multiple RB trees
+d65499a8605c224b README: Remove old comments about ancient distros and add 'git submodule' instruction
+0a1944b19569c4f9 spec: Migrate license to a SPDX standardized one
+31bc0d7410572f6e dwarf_loader: DW_TAG_subroutine_type may have a DW_AT_byte_size
+bfa033b07f50a202 pdwtags: Print DW_TAG_constant tags
+afca84ff989d9729 fprintf: Add DW_TAG_constant pretty printer (constant__fprintf)
+cb7eb753694be3e8 dwarf_loader: Add support for DW_TAG_constant
+
 v1.25
 
 Thu Apr 13 2023
