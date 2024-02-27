@@ -18,6 +18,12 @@
 static const char *prefix = "sys_";
 static size_t prefix_len = 4;
 
+static struct conf_fprintf conf;
+
+static struct conf_load conf_load = {
+        .conf_fprintf = &conf,
+};
+
 static bool filter(struct function *f)
 {
 	if (f->proto.nr_parms != 0) {
@@ -156,7 +162,7 @@ int main(int argc, char *argv[])
                 argp_help(&argp, stderr, ARGP_HELP_SEE, argv[0]);
                 return EXIT_FAILURE;
 	}
-	err = cus__load_files(cus, NULL, argv + remaining);
+	err = cus__load_files(cus, &conf_load, argv + remaining);
 	if (err != 0) {
 		cus__fprintf_load_files_err(cus, "syscse", argv + remaining, err, stderr);
 		return EXIT_FAILURE;
