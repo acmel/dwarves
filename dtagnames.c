@@ -11,6 +11,12 @@
 #include "dwarves.h"
 #include "dutil.h"
 
+static struct conf_fprintf conf;
+
+static struct conf_load conf_load = {
+	.conf_fprintf = &conf,
+};
+
 static int class__tag_name(struct tag *tag, struct cu *cu __maybe_unused,
 			   void *cookie __maybe_unused)
 {
@@ -40,7 +46,7 @@ int main(int argc __maybe_unused, char *argv[])
 	}
 	dwarves__resolve_cacheline_size(NULL, 0);
 
-	err = cus__load_files(cus, NULL, argv + 1);
+	err = cus__load_files(cus, &conf_load, argv + 1);
 	if (err != 0) {
 		cus__fprintf_load_files_err(cus, "dtagnames", argv + 1, err, stderr);
 		goto out;
