@@ -14,6 +14,12 @@
 #include "dwarves.h"
 #include "dutil.h"
 
+static struct conf_fprintf conf;
+
+static struct conf_load conf_load = {
+	.conf_fprintf = &conf,
+};
+
 static void refcnt_tag(struct tag *tag, const struct cu *cu);
 
 static void refcnt_member(struct class_member *member, const struct cu *cu)
@@ -143,7 +149,7 @@ int main(int argc __maybe_unused, char *argv[])
 
 	dwarves__resolve_cacheline_size(NULL, 0);
 
-	err = cus__load_files(cus, NULL, argv + 1);
+	err = cus__load_files(cus, &conf_load, argv + 1);
 	if (err != 0) {
 		cus__fprintf_load_files_err(cus, "prefcnt", argv + 1, err, stderr);
 		return EXIT_FAILURE;
