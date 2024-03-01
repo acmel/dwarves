@@ -50,8 +50,6 @@ struct elf_function {
 	struct btf_encoder_state state;
 };
 
-#define MAX_PERCPU_VAR_CNT 4096
-
 struct var_info {
 	uint64_t    addr;
 	const char *name;
@@ -80,8 +78,9 @@ struct btf_encoder {
 			  is_rel;
 	uint32_t	  array_index_id;
 	struct {
-		struct var_info vars[MAX_PERCPU_VAR_CNT];
+		struct var_info *vars;
 		int		var_cnt;
+		int		allocated;
 		uint32_t	shndx;
 		uint64_t	base_addr;
 		uint64_t	sec_sz;
@@ -983,6 +982,16 @@ static int functions_cmp(const void *_a, const void *_b)
 #define max(x, y) ((x) < (y) ? (y) : (x))
 #endif
 
+static void *reallocarray_grow(void *ptr, int *nmemb, size_t size)
+{
+	int new_nmemb = max(1000, *nmemb * 3 / 2);
+	void *new = realloc(ptr, new_nmemb * size);
+
+	if (new)
+		*nmemb = new_nmemb;
+	return new;
+}
+
 static int btf_encoder__collect_function(struct btf_encoder *encoder, GElf_Sym *sym)
 {
 	struct elf_function *new;
@@ -995,8 +1004,9 @@ static int btf_encoder__collect_function(struct btf_encoder *encoder, GElf_Sym *
 		return 0;
 
 	if (encoder->functions.cnt == encoder->functions.allocated) {
-		encoder->functions.allocated = max(1000, encoder->functions.allocated * 3 / 2);
-		new = realloc(encoder->functions.entries, encoder->functions.allocated * sizeof(*encoder->functions.entries));
+		new = reallocarray_grow(encoder->functions.entries,
+					&encoder->functions.allocated,
+					sizeof(*encoder->functions.entries));
 		if (!new) {
 			/*
 			 * The cleanup - delete_functions is called
@@ -1439,10 +1449,17 @@ static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym
 	if (!encoder->is_rel)
 		addr -= encoder->percpu.base_addr;
 
-	if (encoder->percpu.var_cnt == MAX_PERCPU_VAR_CNT) {
-		fprintf(stderr, "Reached the limit of per-CPU variables: %d\n",
-			MAX_PERCPU_VAR_CNT);
-		return -1;
+	if (encoder->percpu.var_cnt == encoder->percpu.allocated) {
+		struct var_info *new;
+
+		new = reallocarray_grow(encoder->percpu.vars,
+					&encoder->percpu.allocated,
+					sizeof(*encoder->percpu.vars));
+		if (!new) {
+			fprintf(stderr, "Failed to allocate memory for variables\n");
+			return -1;
+		}
+		encoder->percpu.vars = new;
 	}
 	encoder->percpu.vars[encoder->percpu.var_cnt].addr = addr;
 	encoder->percpu.vars[encoder->percpu.var_cnt].sz = size;
@@ -1720,6 +1737,9 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	encoder->functions.allocated = encoder->functions.cnt = 0;
 	free(encoder->functions.entries);
 	encoder->functions.entries = NULL;
+	encoder->percpu.allocated = encoder->percpu.var_cnt = 0;
+	free(encoder->percpu.vars);
+	encoder->percpu.vars = NULL;
 
 	free(encoder);
 }
