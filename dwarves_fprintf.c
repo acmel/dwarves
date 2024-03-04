@@ -1820,8 +1820,12 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		++printed;
 
 		/* XXX for now just skip these */
-		if (tag_pos->tag == DW_TAG_inheritance)
+		if (tag_pos->tag == DW_TAG_inheritance) {
+			// But do it for the sum_bytes, otherwised we'll get a BFA
+			// by missing the size of the ancestors.
+			sum_bytes += pos->byte_size;
 			continue;
+		}
 #if 0
 		/*
  		 * This one was being skipped but caused problems with:
