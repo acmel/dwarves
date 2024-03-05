@@ -1824,7 +1824,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			// But do it for the sum_bytes, otherwised we'll get a BFA
 			// by missing the size of the ancestors.
 			sum_bytes += pos->byte_size;
-			continue;
+			goto next_member;
 		}
 #if 0
 		/*
@@ -1833,7 +1833,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
  		 * http://www.spinics.net/lists/dwarves/msg00119.html
  		 */
 		if (pos->virtuality == DW_VIRTUALITY_virtual)
-			continue;
+			goto next_member;
 #endif
 
 		if (pos->bitfield_size) {
