@@ -1712,7 +1712,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 				if (pos_type == NULL) {
 					printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 					printed += tag__id_not_found_fprintf(fp, pos->tag.type);
-					continue;
+					goto next_member;
 				}
 				/*
 				 * Now check if this isn't something like 'unsigned :N' with N > 0,
@@ -1775,7 +1775,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		if (pos_type == NULL) {
 			printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 			printed += tag__id_not_found_fprintf(fp, pos->tag.type);
-			continue;
+			goto next_member;
 		}
 
 		cconf.last_member = list_is_last(&tag_pos->node, &type->namespace.tags);
@@ -1870,7 +1870,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 			 */
 			last_size = size;
 		}
-
+next_member:
 		last = pos;
 	}
 
