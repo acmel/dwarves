@@ -1058,7 +1058,10 @@ static inline int function__inlined(const struct function *func)
  * @alignment - DW_AT_alignement, zero if not present, gcc emits since circa 7.3.1
  * @accessibility - DW_ACCESS_{public,protected,private}
  * @virtuality - DW_VIRTUALITY_{none,virtual,pure_virtual}
- * @hole - If there is a hole before the next one (or the end of the struct)
+ * @hole - If there is a hole before the next one (or the end of the struct).
+ * 	   A negative hole may happen when there is padding on an DW_TAG_inheritance,
+ * 	   i.e. in a ancestor type and the compiler puts the class member of the
+ * 	   derived class to use that padding.
  * @has_bit_offset: Don't recalcule this, it came from the debug info (DWARF5's DW_AT_data_bit_offset)
  */
 struct class_member {
@@ -1067,6 +1070,7 @@ struct class_member {
 	uint32_t	 bit_offset;
 	uint32_t	 bit_size;
 	uint32_t	 byte_offset;
+	int		 hole;
 	size_t		 byte_size;
 	int8_t		 bitfield_offset;
 	uint8_t		 bitfield_size;
@@ -1079,7 +1083,6 @@ struct class_member {
 	uint8_t		 has_bit_offset:1;
 	uint8_t		 accessibility:2;
 	uint8_t		 virtuality:2;
-	uint16_t	 hole;
 };
 
 void class_member__delete(struct class_member *member);

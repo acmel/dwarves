@@ -1528,7 +1528,7 @@ void class__find_holes(struct class *class)
 		}
 		if (bit_holes)
 			class->nr_bit_holes++;
-		if (byte_holes)
+		if (byte_holes > 0)
 			class->nr_holes++;
 
 		last = pos;

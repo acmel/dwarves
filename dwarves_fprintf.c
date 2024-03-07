@@ -1747,8 +1747,11 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 							   cconf.indent, tabs);
 				}
 			} else {
-				const ssize_t cc_last_size = ((ssize_t)pos->byte_offset -
-							      (ssize_t)last->byte_offset);
+				ssize_t cc_last_size = ((ssize_t)pos->byte_offset -
+							(ssize_t)last->byte_offset);
+				// Are we using the padding of an ancestor class (DW_TAG_inheritance)?
+				if (last->tag.tag == DW_TAG_inheritance && last->hole < 0)
+					cc_last_size += last->hole;
 
 				if (cc_last_size > 0 &&
 				   (size_t)cc_last_size < last_size) {
@@ -1782,6 +1785,11 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		cconf.first_member = last == NULL;
 
 		size = pos->byte_size;
+		if (tag_pos->tag == DW_TAG_inheritance && pos->hole < 0) {
+			// Using the padding of an ancestor class
+			size += pos->hole;
+		}
+
 		printed += fprintf(fp, "%.*s", cconf.indent, tabs);
 		printed += struct_member__fprintf(pos, pos_type, cu, &cconf, fp);
 
@@ -1818,14 +1826,6 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 
 		fputc('\n', fp);
 		++printed;
-
-		/* XXX for now just skip these */
-		if (tag_pos->tag == DW_TAG_inheritance) {
-			// But do it for the sum_bytes, otherwised we'll get a BFA
-			// by missing the size of the ancestors.
-			sum_bytes += pos->byte_size;
-			goto next_member;
-		}
 #if 0
 		/*
  		 * This one was being skipped but caused problems with:
@@ -1839,7 +1839,7 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 		if (pos->bitfield_size) {
 			sum_bits += pos->bitfield_size;
 		} else {
-			sum_bytes += pos->byte_size;
+			sum_bytes += size;
 		}
 
 		if (last == NULL || /* First member */
