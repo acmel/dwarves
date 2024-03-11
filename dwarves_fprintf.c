@@ -1747,12 +1747,8 @@ static size_t __class__fprintf(struct class *class, const struct cu *cu,
 							   cconf.indent, tabs);
 				}
 			} else {
-				ssize_t cc_last_size = ((ssize_t)pos->byte_offset -
-							(ssize_t)last->byte_offset);
-				// Are we using the padding of an ancestor class (DW_TAG_inheritance)?
-				if (last->tag.tag == DW_TAG_inheritance && last->hole < 0)
-					cc_last_size += last->hole;
-
+				const ssize_t cc_last_size = ((ssize_t)pos->byte_offset -
+							      (ssize_t)last->byte_offset);
 				if (cc_last_size > 0 &&
 				   (size_t)cc_last_size < last_size) {
 					if (!cconf.suppress_comments) {
