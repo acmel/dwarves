@@ -21,6 +21,8 @@ void __gobuffer__delete(struct gobuffer *gb);
 
 void gobuffer__copy(const struct gobuffer *gb, void *dest);
 
+void gobuffer__sort(struct gobuffer *gb, unsigned int size, int (*compar)(const void *, const void *));
+
 int gobuffer__add(struct gobuffer *gb, const void *s, unsigned int len);
 int gobuffer__allocate(struct gobuffer *gb, unsigned int len);
 

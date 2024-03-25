@@ -102,6 +102,11 @@ void gobuffer__copy(const struct gobuffer *gb, void *dest)
 	}
 }
 
+void gobuffer__sort(struct gobuffer *gb, unsigned int size, int (*compar)(const void *, const void *))
+{
+	qsort(gb->entries, gb->nr_entries, size, compar);
+}
+
 const void *gobuffer__compress(struct gobuffer *gb, unsigned int *size)
 {
 	z_stream z = {
