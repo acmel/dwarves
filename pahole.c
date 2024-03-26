@@ -3173,6 +3173,14 @@ struct thread_data {
 	struct btf_encoder *encoder;
 };
 
+static int pahole_threads_prepare_reproducible_build(struct conf_load *conf, int nr_threads, void **thr_data)
+{
+	for (int i = 0; i < nr_threads; i++)
+		thr_data[i] = NULL;
+
+	return 0;
+}
+
 static int pahole_threads_prepare(struct conf_load *conf, int nr_threads, void **thr_data)
 {
 	int i;
@@ -3283,7 +3291,10 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 				thread->btf = btf_encoder__btf(btf_encoder);
 			}
 		}
-		pthread_mutex_unlock(&btf_lock);
+
+		// Reproducible builds don't have multiple btf_encoders, so we need to keep the lock until we encode BTF for this CU.
+		if (thr_data)
+			pthread_mutex_unlock(&btf_lock);
 
 		if (!btf_encoder) {
 			ret = LSK__STOP_LOADING;
@@ -3319,6 +3330,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			exit(1);
 		}
 out_btf:
+		if (!thr_data) // See comment about reproducibe_build above
+			pthread_mutex_unlock(&btf_lock);
 		return ret;
 	}
 #if 0
@@ -3689,8 +3702,14 @@ int main(int argc, char *argv[])
 
 	conf_load.steal = pahole_stealer;
 	conf_load.thread_exit = pahole_thread_exit;
-	conf_load.threads_prepare = pahole_threads_prepare;
-	conf_load.threads_collect = pahole_threads_collect;
+
+	if (conf_load.reproducible_build) {
+		conf_load.threads_prepare = pahole_threads_prepare_reproducible_build;
+		conf_load.threads_collect = NULL;
+	} else {
+		conf_load.threads_prepare = pahole_threads_prepare;
+		conf_load.threads_collect = pahole_threads_collect;
+	}
 
 	// Make 'pahole --header type < file' a shorter form of 'pahole -C type --count 1 < file'
 	if (conf.header_type && !class_name && prettify_input) {
