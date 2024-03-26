@@ -3207,8 +3207,7 @@ struct dwarf_thread {
 	void			*data;
 };
 
-static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *cu_die,
-					    uint8_t pointer_size, void *thr_data)
+static struct dwarf_cu *dwarf_cus__create_cu(struct dwarf_cus *dcus, Dwarf_Die *cu_die, uint8_t pointer_size)
 {
 	/*
 	 * DW_AT_name in DW_TAG_compile_unit can be NULL, first seen in:
@@ -3218,16 +3217,31 @@ static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *c
 	const char *name = attr_string(cu_die, DW_AT_name, dcus->conf);
 	struct cu *cu = cu__new(name ?: "", pointer_size, dcus->build_id, dcus->build_id_len, dcus->filename, dcus->conf->use_obstack);
 	if (cu == NULL || cu__set_common(cu, dcus->conf, dcus->mod, dcus->elf) != 0)
-		return DWARF_CB_ABORT;
+		return NULL;
 
 	struct dwarf_cu *dcu = dwarf_cu__new(cu);
 
-	if (dcu == NULL)
-		return DWARF_CB_ABORT;
+	if (dcu == NULL) {
+		cu__delete(cu);
+		return NULL;
+	}
 
 	dcu->type_unit = dcus->type_dcu;
 	cu->priv = dcu;
 	cu->dfops = &dwarf__ops;
+
+	return dcu;
+}
+
+static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *cu_die,
+					    uint8_t pointer_size, void *thr_data)
+{
+	struct dwarf_cu *dcu = dwarf_cus__create_cu(dcus, cu_die, pointer_size);
+
+	if (dcu == NULL)
+		return DWARF_CB_ABORT;
+
+	struct cu *cu = dcu->cu;
 
 	if (die__process_and_recode(cu_die, cu, dcus->conf) != 0 ||
 	    cus__finalize(dcus->cus, cu, dcus->conf, thr_data) == LSK__STOP_LOADING)
