@@ -3233,6 +3233,16 @@ static struct dwarf_cu *dwarf_cus__create_cu(struct dwarf_cus *dcus, Dwarf_Die *
 	return dcu;
 }
 
+static int dwarf_cus__process_cu(struct dwarf_cus *dcus, Dwarf_Die *cu_die,
+				 struct cu *cu, void *thr_data)
+{
+	if (die__process_and_recode(cu_die, cu, dcus->conf) != 0 ||
+	    cus__finalize(dcus->cus, cu, dcus->conf, thr_data) == LSK__STOP_LOADING)
+		return DWARF_CB_ABORT;
+
+       return DWARF_CB_OK;
+}
+
 static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *cu_die,
 					    uint8_t pointer_size, void *thr_data)
 {
@@ -3241,13 +3251,7 @@ static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *c
 	if (dcu == NULL)
 		return DWARF_CB_ABORT;
 
-	struct cu *cu = dcu->cu;
-
-	if (die__process_and_recode(cu_die, cu, dcus->conf) != 0 ||
-	    cus__finalize(dcus->cus, cu, dcus->conf, thr_data) == LSK__STOP_LOADING)
-		return DWARF_CB_ABORT;
-
-       return DWARF_CB_OK;
+	return dwarf_cus__process_cu(dcus, cu_die, dcu->cu, thr_data);
 }
 
 static int dwarf_cus__nextcu(struct dwarf_cus *dcus, Dwarf_Die *die_mem, Dwarf_Die **cu_die, uint8_t *pointer_size, uint8_t *offset_size)
