@@ -1235,6 +1235,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_supported_btf_features 342
 #define ARGP_btf_features_strict 343
 #define ARGP_contains_enumerator 344
+#define ARGP_reproducible_build 345
 
 /* --btf_features=feature1[,feature2,..] allows us to specify
  * a list of requested BTF features or "all" to enable all features.
@@ -1820,6 +1821,11 @@ static const struct argp_option pahole__options[] = {
 		.doc = "Specify supported BTF features in FEATURE_LIST_STRICT or 'all' for all supported features.  Unlike --btf_features, unrecognized features will trigger an error."
 	},
 	{
+		.name = "reproducible_build",
+		.key = ARGP_reproducible_build,
+		.doc = "Generate reproducile BTF output"
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -1997,6 +2003,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.btf_gen_optimized = true;		break;
 	case ARGP_skip_encoding_btf_inconsistent_proto:
 		conf_load.skip_encoding_btf_inconsistent_proto = true; break;
+	case ARGP_reproducible_build:
+		conf_load.reproducible_build = true;	break;
 	case ARGP_btf_features:
 		parse_btf_features(arg, false);		break;
 	case ARGP_supported_btf_features:
