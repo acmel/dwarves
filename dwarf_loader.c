@@ -3254,7 +3254,9 @@ static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *c
 	return dwarf_cus__process_cu(dcus, cu_die, dcu->cu, thr_data);
 }
 
-static int dwarf_cus__nextcu(struct dwarf_cus *dcus, Dwarf_Die *die_mem, Dwarf_Die **cu_die, uint8_t *pointer_size, uint8_t *offset_size)
+static int dwarf_cus__nextcu(struct dwarf_cus *dcus, struct dwarf_cu **dcu,
+			     Dwarf_Die *die_mem, Dwarf_Die **cu_die,
+			     uint8_t *pointer_size, uint8_t *offset_size)
 {
 	Dwarf_Off noff;
 	size_t cuhl;
@@ -3274,6 +3276,15 @@ static int dwarf_cus__nextcu(struct dwarf_cus *dcus, Dwarf_Die *die_mem, Dwarf_D
 			dcus->off = noff;
 	}
 
+	if (ret == 0 && *cu_die != NULL) {
+		*dcu = dwarf_cus__create_cu(dcus, *cu_die, *pointer_size);
+		if (*dcu == NULL) {
+			dcus->error = ENOMEM;
+			ret = -1;
+			goto out_unlock;
+		}
+	}
+
 out_unlock:
 	cus__unlock(dcus->cus);
 
@@ -3286,13 +3297,13 @@ static void *dwarf_cus__process_cu_thread(void *arg)
 	struct dwarf_cus *dcus = dthr->dcus;
 	uint8_t pointer_size, offset_size;
 	Dwarf_Die die_mem, *cu_die;
+	struct dwarf_cu *dcu;
 
-	while (dwarf_cus__nextcu(dcus, &die_mem, &cu_die, &pointer_size, &offset_size) == 0) {
+	while (dwarf_cus__nextcu(dcus, &dcu, &die_mem, &cu_die, &pointer_size, &offset_size) == 0) {
 		if (cu_die == NULL)
 			break;
 
-		if (dwarf_cus__create_and_process_cu(dcus, cu_die,
-						     pointer_size, dthr->data) == DWARF_CB_ABORT)
+		if (dwarf_cus__process_cu(dcus, cu_die, dcu->cu, dthr->data) == DWARF_CB_ABORT)
 			goto out_abort;
 	}
 
