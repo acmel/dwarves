@@ -3034,12 +3034,12 @@ static int cus__finalize(struct cus *cus, struct cu *cu, struct conf_load *conf,
 	int lsk = cu__finalize(cu, conf, thr_data);
 	switch (lsk) {
 	case LSK__DELETE:
+		cus__remove(cus, cu);
 		cu__delete(cu);
 		break;
 	case LSK__STOP_LOADING:
 		break;
 	case LSK__KEEPIT:
-		cus__add(cus, cu);
 		break;
 	}
 	return lsk;
@@ -3064,7 +3064,7 @@ static int cu__set_common(struct cu *cu, struct conf_load *conf,
 	return 0;
 }
 
-static int __cus__load_debug_types(struct conf_load *conf, Dwfl_Module *mod, Dwarf *dw, Elf *elf,
+static int __cus__load_debug_types(struct cus *cus, struct conf_load *conf, Dwfl_Module *mod, Dwarf *dw, Elf *elf,
 				   const char *filename, const unsigned char *build_id,
 				   int build_id_len, struct cu **cup, struct dwarf_cu *dcup)
 {
@@ -3098,6 +3098,7 @@ static int __cus__load_debug_types(struct conf_load *conf, Dwfl_Module *mod, Dwa
 			cu->dfops = &dwarf__ops;
 
 			*cup = cu;
+			cus__add(cus, cu);
 		}
 
 		Dwarf_Die die_mem;
@@ -3250,6 +3251,8 @@ static int dwarf_cus__create_and_process_cu(struct dwarf_cus *dcus, Dwarf_Die *c
 	if (dcu == NULL)
 		return DWARF_CB_ABORT;
 
+	cus__add(dcus->cus, dcu->cu);
+
 	return dwarf_cus__process_cu(dcus, cu_die, dcu->cu, NULL);
 }
 
@@ -3282,6 +3285,9 @@ static int dwarf_cus__nextcu(struct dwarf_cus *dcus, struct dwarf_cu **dcu,
 			ret = -1;
 			goto out_unlock;
 		}
+		// Do it here to keep all CUs in cus->cus in the same
+		// order as in the DWARF file being loaded (e.g. vmlinux)
+		__cus__add(dcus->cus, (*dcu)->cu);
 	}
 
 out_unlock:
@@ -3496,15 +3502,15 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 	struct dwarf_cu type_dcu;
 	int type_lsk = LSK__KEEPIT;
 
-	int res = __cus__load_debug_types(conf, mod, dw, elf, filename, build_id, build_id_len, &type_cu, &type_dcu);
+	int res = __cus__load_debug_types(cus, conf, mod, dw, elf, filename, build_id, build_id_len, &type_cu, &type_dcu);
 	if (res != 0) {
 		return res;
 	}
 
 	if (type_cu != NULL) {
 		type_lsk = cu__finalize(type_cu, conf, NULL);
-		if (type_lsk == LSK__KEEPIT) {
-			cus__add(cus, type_cu);
+		if (type_lsk == LSK__DELETE) {
+			cus__remove(cus, type_cu);
 		}
 	}
 
