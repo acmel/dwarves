@@ -173,6 +173,10 @@ int cus__load_dir(struct cus *cus, struct conf_load *conf,
 		  const int recursive);
 void __cus__add(struct cus *cus, struct cu *cu);
 void cus__add(struct cus *cus, struct cu *cu);
+
+void __cus__remove(struct cus *cus, struct cu *cu);
+void cus__remove(struct cus *cus, struct cu *cu);
+
 void cus__print_error_msg(const char *progname, const struct cus *cus,
 			  const char *filename, const int err);
 struct cu *cus__find_pair(struct cus *cus, const char *name);

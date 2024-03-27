@@ -479,6 +479,19 @@ uint32_t cus__nr_entries(const struct cus *cus)
 	return cus->nr_entries;
 }
 
+void __cus__remove(struct cus *cus, struct cu *cu)
+{
+	cus->nr_entries--;
+	list_del_init(&cu->node);
+}
+
+void cus__remove(struct cus *cus, struct cu *cu)
+{
+	cus__lock(cus);
+	__cus__remove(cus, cu);
+	cus__unlock(cus);
+}
+
 void __cus__add(struct cus *cus, struct cu *cu)
 {
 	cus->nr_entries++;
