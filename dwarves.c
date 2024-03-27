@@ -479,13 +479,16 @@ uint32_t cus__nr_entries(const struct cus *cus)
 	return cus->nr_entries;
 }
 
+void __cus__add(struct cus *cus, struct cu *cu)
+{
+	cus->nr_entries++;
+	list_add_tail(&cu->node, &cus->cus);
+}
+
 void cus__add(struct cus *cus, struct cu *cu)
 {
 	cus__lock(cus);
-
-	cus->nr_entries++;
-	list_add_tail(&cu->node, &cus->cus);
-
+	__cus__add(cus, cu);
 	cus__unlock(cus);
 
 	cu__find_class_holes(cu);

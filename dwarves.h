@@ -171,6 +171,7 @@ int cus__fprintf_load_files_err(struct cus *cus, const char *tool,
 int cus__load_dir(struct cus *cus, struct conf_load *conf,
 		  const char *dirname, const char *filename_mask,
 		  const int recursive);
+void __cus__add(struct cus *cus, struct cu *cu);
 void cus__add(struct cus *cus, struct cu *cu);
 void cus__print_error_msg(const char *progname, const struct cus *cus,
 			  const char *filename, const int err);
