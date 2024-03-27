@@ -3016,12 +3016,14 @@ static void cu__sort_types_by_offset(struct cu *cu, struct conf_load *conf)
 	cu__for_all_tags(cu, type__sort_by_offset, conf);
 }
 
-static int cu__finalize(struct cu *cu, struct conf_load *conf, void *thr_data)
+static int cu__finalize(struct cu *cu, struct cus *cus, struct conf_load *conf, void *thr_data)
 {
 	cu__for_all_tags(cu, class_member__cache_byte_size, conf);
 
 	if (cu__language_reorders_offsets(cu))
 		cu__sort_types_by_offset(cu, conf);
+
+	cus__set_cu_state(cus, cu, CU__LOADED);
 
 	if (conf && conf->steal) {
 		return conf->steal(cu, conf, thr_data);
@@ -3031,7 +3033,7 @@ static int cu__finalize(struct cu *cu, struct conf_load *conf, void *thr_data)
 
 static int cus__finalize(struct cus *cus, struct cu *cu, struct conf_load *conf, void *thr_data)
 {
-	int lsk = cu__finalize(cu, conf, thr_data);
+	int lsk = cu__finalize(cu, cus, conf, thr_data);
 	switch (lsk) {
 	case LSK__DELETE:
 		cus__remove(cus, cu);
@@ -3508,7 +3510,7 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 	}
 
 	if (type_cu != NULL) {
-		type_lsk = cu__finalize(type_cu, conf, NULL);
+		type_lsk = cu__finalize(type_cu, cus, conf, NULL);
 		if (type_lsk == LSK__DELETE) {
 			cus__remove(cus, type_cu);
 		}

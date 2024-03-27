@@ -43,6 +43,12 @@ enum load_steal_kind {
 	LSK__STOP_LOADING,
 };
 
+enum cu_state {
+	CU__UNPROCESSED,
+	CU__LOADED,
+	CU__PROCESSING,
+};
+
 /*
  * BTF combines all the types into one big CU using btf_dedup(), so for something
  * like a allyesconfig vmlinux kernel we can get over 65535 types.
@@ -177,6 +183,10 @@ void cus__add(struct cus *cus, struct cu *cu);
 void __cus__remove(struct cus *cus, struct cu *cu);
 void cus__remove(struct cus *cus, struct cu *cu);
 
+struct cu *cus__get_next_processable_cu(struct cus *cus);
+
+void cus__set_cu_state(struct cus *cus, struct cu *cu, enum cu_state state);
+
 void cus__print_error_msg(const char *progname, const struct cus *cus,
 			  const char *filename, const int err);
 struct cu *cus__find_pair(struct cus *cus, const char *name);
@@ -287,6 +297,7 @@ struct cu {
 	uint8_t		 little_endian:1;
 	uint8_t		 nr_register_params;
 	int		 register_params[ARCH_MAX_REGISTER_PARAMS];
+	enum cu_state	 state;
 	uint16_t	 language;
 	unsigned long	 nr_inline_expansions;
 	size_t		 size_inline_expansions;
