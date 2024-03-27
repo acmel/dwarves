@@ -31,6 +31,7 @@
 
 static struct btf_encoder *btf_encoder;
 static char *detached_btf_filename;
+struct cus *cus;
 static bool btf_encode;
 static bool ctf_encode;
 static bool sort_output;
@@ -3324,10 +3325,31 @@ static enum load_steal_kind pahole_stealer(struct cu *cu,
 			encoder = btf_encoder;
 		}
 
+		// Since we don't have yet a way to parallelize the BTF encoding, we
+		// need to ask the loader for the next CU that we can process, one
+		// that is loaded and is in order, if the next one isn't yet loaded,
+		// then return to let the DWARF loader thread to load the next one,
+		// eventually all will get processed, even if when all DWARF loading
+		// threads finish.
+		if (conf_load->reproducible_build) {
+			ret = LSK__KEEPIT; // we're not processing the cu passed to this
+					  // function, so keep it.
+			cu = cus__get_next_processable_cu(cus);
+			if (cu == NULL)
+				goto out_btf;
+		}
+
 		ret = btf_encoder__encode_cu(encoder, cu, conf_load);
 		if (ret < 0) {
 			fprintf(stderr, "Encountered error while encoding BTF.\n");
 			exit(1);
+		}
+
+		if (conf_load->reproducible_build) {
+			ret = LSK__KEEPIT; // we're not processing the cu passed to this function, so keep it.
+			// Kinda equivalent to LSK__DELETE since we processed this, but we can't delete it
+			// as we stash references to entries in CUs for 'struct function' in btf_encoder__add_saved_funcs()
+			// and btf_encoder__save_func(), so we can't delete them here. - Alan Maguire
 		}
 out_btf:
 		if (!thr_data) // See comment about reproducibe_build above
@@ -3632,6 +3654,24 @@ out_free:
 	return ret;
 }
 
+static int cus__flush_reproducible_build(struct cus *cus, struct btf_encoder *encoder, struct conf_load *conf_load)
+{
+	int err = 0;
+
+	while (true) {
+		struct cu *cu = cus__get_next_processable_cu(cus);
+
+		if (cu == NULL)
+			break;
+
+		err = btf_encoder__encode_cu(encoder, cu, conf_load);
+		if (err < 0)
+			break;
+	}
+
+	return err;
+}
+
 int main(int argc, char *argv[])
 {
 	int err, remaining, rc = EXIT_FAILURE;
@@ -3692,7 +3732,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	struct cus *cus = cus__new();
+	cus = cus__new();
 	if (cus == NULL) {
 		fputs("pahole: insufficient memory\n", stderr);
 		goto out_dwarves_exit;
@@ -3797,6 +3837,12 @@ try_sole_arg_as_class_names:
 	header = NULL;
 
 	if (btf_encode && btf_encoder) { // maybe all CUs were filtered out and thus we don't have an encoder?
+		if (conf_load.reproducible_build &&
+		    cus__flush_reproducible_build(cus, btf_encoder, &conf_load) < 0) {
+			fprintf(stderr, "Encountered error while encoding BTF.\n");
+			exit(1);
+		}
+
 		err = btf_encoder__encode(btf_encoder);
 		if (err) {
 			fputs("Failed to encode BTF\n", stderr);

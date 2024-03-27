@@ -489,8 +489,12 @@ struct cu *cus__get_next_processable_cu(struct cus *cus)
 			cu->state = CU__PROCESSING;
 			goto found;
 		case CU__PROCESSING:
-			// This will only happen when we get to parallel
-			// reproducible BTF encoding, libbpf dedup work needed here.
+			// This will happen when we get to parallel
+			// reproducible BTF encoding, libbpf dedup work needed
+			// here. The other possibility is when we're flushing
+			// the DWARF processed CUs when the parallel DWARF
+			// loading stoped and we still have CUs to encode to
+			// BTF because of ordering requirements.
 			continue;
 		case CU__UNPROCESSED:
 			// The first entry isn't loaded, signal the
