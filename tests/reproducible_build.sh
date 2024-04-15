@@ -5,6 +5,17 @@
 # Arnaldo Carvalho de Melo <acme@redhat.com> (C) 2024-
 
 vmlinux=$1
+
+if [ -z "$vmlinux" ] ; then
+	echo "Please specify a vmlinux file to operate on"
+	exit 1
+fi
+
+if [ ! -f "$vmlinux" ] ; then
+	echo "$vmlinux file not available, please specify another"
+	exit 1
+fi
+
 outdir=$(mktemp -d /tmp/reproducible_build.sh.XXXXXX)
 
 echo -n "Parallel reproducible DWARF Loading/Serial BTF encoding: "
