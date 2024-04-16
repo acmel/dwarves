@@ -1266,23 +1266,26 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
  * BTF encoding apply; we encode type/decl tags, do not encode
  * floats, etc.  This ensures backwards compatibility.
  */
-#define BTF_FEATURE(name, alias, default_value)			\
-	{ #name, #alias, &conf_load.alias, default_value }
+#define BTF_FEATURE(name, alias, default_value, enable_for_all)		\
+	{ #name, #alias, &conf_load.alias, default_value, enable_for_all }
 
 struct btf_feature {
 	const char      *name;
 	const char      *option_alias;
 	bool		*conf_value;
 	bool		default_value;
+	bool		enable_for_all;	/* some nonstandard features may not
+					 * be enabled for --btf_features=all
+					 */
 } btf_features[] = {
-	BTF_FEATURE(encode_force, btf_encode_force, false),
-	BTF_FEATURE(var, skip_encoding_btf_vars, true),
-	BTF_FEATURE(float, btf_gen_floats, false),
-	BTF_FEATURE(decl_tag, skip_encoding_btf_decl_tag, true),
-	BTF_FEATURE(type_tag, skip_encoding_btf_type_tag, true),
-	BTF_FEATURE(enum64, skip_encoding_btf_enum64, true),
-	BTF_FEATURE(optimized_func, btf_gen_optimized, false),
-	BTF_FEATURE(consistent_func, skip_encoding_btf_inconsistent_proto, false),
+	BTF_FEATURE(encode_force, btf_encode_force, false, true),
+	BTF_FEATURE(var, skip_encoding_btf_vars, true, true),
+	BTF_FEATURE(float, btf_gen_floats, false, true),
+	BTF_FEATURE(decl_tag, skip_encoding_btf_decl_tag, true, true),
+	BTF_FEATURE(type_tag, skip_encoding_btf_type_tag, true, true),
+	BTF_FEATURE(enum64, skip_encoding_btf_enum64, true, true),
+	BTF_FEATURE(optimized_func, btf_gen_optimized, false, true),
+	BTF_FEATURE(consistent_func, skip_encoding_btf_inconsistent_proto, false, true),
 };
 
 #define BTF_MAX_FEATURE_STR	1024
@@ -1350,8 +1353,10 @@ static void parse_btf_features(const char *features, bool strict)
 	if (strcmp(features, "all") == 0) {
 		int i;
 
-		for (i = 0; i < ARRAY_SIZE(btf_features); i++)
-			enable_btf_feature(&btf_features[i]);
+		for (i = 0; i < ARRAY_SIZE(btf_features); i++) {
+			if (btf_features[i].enable_for_all)
+				enable_btf_feature(&btf_features[i]);
+		}
 		return;
 	}
 
@@ -1361,7 +1366,12 @@ static void parse_btf_features(const char *features, bool strict)
 		struct btf_feature *feature = find_btf_feature(feature_name);
 
 		if (!feature) {
-			if (strict) {
+			/* --btf_features=all,nonstandard_feature should be
+			 * allowed.
+			 */
+			if (strcmp(feature_name, "all") == 0) {
+				parse_btf_features(feature_name, strict);
+			} else if (strict) {
 				fprintf(stderr, "Feature '%s' in '%s' is not supported.  Supported BTF features are:\n",
 					feature_name, features);
 				show_supported_btf_features(stderr);
