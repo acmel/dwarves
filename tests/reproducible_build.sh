@@ -29,7 +29,7 @@ nr_proc=$(getconf _NPROCESSORS_ONLN)
 
 for threads in $(seq $nr_proc) ; do
 	test -n "$VERBOSE" && echo $threads threads encoding
-	pahole -j$threads --reproducible_build --btf_features=all --btf_encode_detached=$outdir/vmlinux.btf.parallel.reproducible $vmlinux &
+	pahole -j$threads --btf_features=all,reproducible_build --btf_encode_detached=$outdir/vmlinux.btf.parallel.reproducible $vmlinux &
 	pahole=$!
 	# HACK: Wait a bit for pahole to start its threads
 	sleep 0.3s
