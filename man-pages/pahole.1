@@ -310,6 +310,14 @@ Encode BTF using the specified feature list, or specify 'all' for all standard f
 	                   in different CUs.
 .fi
 
+Supported non-standard features (not enabled for 'all')
+
+.nf
+	reproducible_build Ensure generated BTF is consistent every time;
+	                   without this parallel BTF encoding can result in
+	                   inconsistent BTF ids.
+.fi
+
 So for example, specifying \-\-btf_encode=var,enum64 will result in a BTF encoding that (as well as encoding basic BTF information) will contain variables and enum64 values.
 
 .TP
