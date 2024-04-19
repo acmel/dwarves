@@ -1343,6 +1343,14 @@ static void show_supported_btf_features(FILE *output)
 	fprintf(output, "\n");
 }
 
+static void btf_features__enable_default(void)
+{
+	for (int i = 0; i < ARRAY_SIZE(btf_features); i++) {
+		if (btf_features[i].default_enabled)
+			enable_btf_feature(&btf_features[i]);
+	}
+}
+
 /* Translate --btf_features=feature1[,feature2] into conf_load values.
  * Explicitly ignores unrecognized features to allow future specification
  * of new opt-in features.
@@ -1355,12 +1363,7 @@ static void parse_btf_features(const char *features, bool strict)
 	init_btf_features();
 
 	if (strcmp(features, "default") == 0) {
-		int i;
-
-		for (i = 0; i < ARRAY_SIZE(btf_features); i++) {
-			if (btf_features[i].default_enabled)
-				enable_btf_feature(&btf_features[i]);
-		}
+		btf_features__enable_default();
 		return;
 	}
 
@@ -1374,7 +1377,7 @@ static void parse_btf_features(const char *features, bool strict)
 			 * allowed.
 			 */
 			if (strcmp(feature_name, "default") == 0) {
-				parse_btf_features(feature_name, strict);
+				btf_features__enable_default();
 			} else if (strict) {
 				fprintf(stderr, "Feature '%s' in '%s' is not supported.  Supported BTF features are:\n",
 					feature_name, features);
