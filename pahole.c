@@ -1367,6 +1367,12 @@ static void parse_btf_features(const char *features, bool strict)
 		return;
 	}
 
+	// Adding extra features to the set of standard features.
+	if (strstarts(features, "+")) {
+		btf_features__enable_default();
+		++features;
+	}
+
 	strncpy(f, features, BTF_MAX_FEATURE_STR)[BTF_MAX_FEATURE_STR] = '\0';
 	s = f;
 	while ((feature_name = strtok_r(s, ",", &saveptr)) != NULL) {

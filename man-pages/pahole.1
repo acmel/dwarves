@@ -320,6 +320,12 @@ Supported non-standard features (not enabled for 'default')
 
 So for example, specifying \-\-btf_encode=var,enum64 will result in a BTF encoding that (as well as encoding basic BTF information) will contain variables and enum64 values.
 
+.fi
+
+If one wants to add an extra feature to the set of standard ones, the '+' prefix can be used, i.e.:
+\-\-btf_features=+reproducible_build will add all default features plus the 'reproducible_build' extra
+feature.
+
 .TP
 .B \-\-btf_features_strict
 Identical to \-\-btf_features above, but pahole will exit if it encounters an unrecognized feature.
