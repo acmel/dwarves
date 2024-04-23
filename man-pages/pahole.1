@@ -290,7 +290,7 @@ Allow using all the BTF features supported by pahole.
 
 .TP
 .B \-\-btf_features=FEATURE_LIST
-Encode BTF using the specified feature list, or specify 'all' for all standard features supported.  This option can be used as an alternative to unsing multiple BTF-related options. Supported standard features are
+Encode BTF using the specified feature list, or specify 'default' for all standard features supported.  This option can be used as an alternative to unsing multiple BTF-related options. Supported standard features are
 
 .nf
 	encode_force       Ignore invalid symbols when encoding BTF; for example
@@ -310,7 +310,7 @@ Encode BTF using the specified feature list, or specify 'all' for all standard f
 	                   in different CUs.
 .fi
 
-Supported non-standard features (not enabled for 'all')
+Supported non-standard features (not enabled for 'default')
 
 .nf
 	reproducible_build Ensure generated BTF is consistent every time;

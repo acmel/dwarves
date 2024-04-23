@@ -1239,11 +1239,11 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_reproducible_build 345
 
 /* --btf_features=feature1[,feature2,..] allows us to specify
- * a list of requested BTF features or "all" to enable all features.
- * These are translated into the appropriate conf_load values via a
- * struct btf_feature which specifies the associated conf_load
- * boolean field and whether its default (representing the feature being
- * off) is false or true.
+ * a list of requested BTF features or "default" to enable all default
+ * features. These are translated into the appropriate conf_load values
+ * via a struct btf_feature which specifies the associated conf_load
+ * boolean field and whether its initial value (representing the feature
+ * being off) is false or true.
  *
  * btf_features is for opting _into_ features so for a case like
  * conf_load->btf_gen_floats, the translation is simple; the presence
@@ -1262,51 +1262,54 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
  * --btf_features are enabled, and if a feature is not specified,
  * it is disabled.
  *
- * If --btf_features is not used, the usual pahole defaults for
+ * If --btf_features is not used, the usual pahole values for
  * BTF encoding apply; we encode type/decl tags, do not encode
  * floats, etc.  This ensures backwards compatibility.
  */
-#define BTF_FEATURE(name, alias, default_value, enable_for_all)		\
-	{ #name, #alias, &conf_load.alias, default_value, enable_for_all }
+#define BTF_DEFAULT_FEATURE(name, alias, initial_value)		\
+	{ #name, #alias, &conf_load.alias, initial_value, true }
+
+#define BTF_NON_DEFAULT_FEATURE(name, alias, initial_value)	\
+	{ #name, #alias, &conf_load.alias, initial_value, false }
 
 struct btf_feature {
 	const char      *name;
 	const char      *option_alias;
 	bool		*conf_value;
-	bool		default_value;
-	bool		enable_for_all;	/* some nonstandard features may not
-					 * be enabled for --btf_features=all
-					 */
+	bool		initial_value;
+	bool		default_enabled;	/* some nonstandard features may not
+						 * be enabled for --btf_features=default
+						 */
 } btf_features[] = {
-	BTF_FEATURE(encode_force, btf_encode_force, false, true),
-	BTF_FEATURE(var, skip_encoding_btf_vars, true, true),
-	BTF_FEATURE(float, btf_gen_floats, false, true),
-	BTF_FEATURE(decl_tag, skip_encoding_btf_decl_tag, true, true),
-	BTF_FEATURE(type_tag, skip_encoding_btf_type_tag, true, true),
-	BTF_FEATURE(enum64, skip_encoding_btf_enum64, true, true),
-	BTF_FEATURE(optimized_func, btf_gen_optimized, false, true),
-	BTF_FEATURE(consistent_func, skip_encoding_btf_inconsistent_proto, false, true),
-	BTF_FEATURE(reproducible_build, reproducible_build, false, false),
+	BTF_DEFAULT_FEATURE(encode_force, btf_encode_force, false),
+	BTF_DEFAULT_FEATURE(var, skip_encoding_btf_vars, true),
+	BTF_DEFAULT_FEATURE(float, btf_gen_floats, false),
+	BTF_DEFAULT_FEATURE(decl_tag, skip_encoding_btf_decl_tag, true),
+	BTF_DEFAULT_FEATURE(type_tag, skip_encoding_btf_type_tag, true),
+	BTF_DEFAULT_FEATURE(enum64, skip_encoding_btf_enum64, true),
+	BTF_DEFAULT_FEATURE(optimized_func, btf_gen_optimized, false),
+	BTF_DEFAULT_FEATURE(consistent_func, skip_encoding_btf_inconsistent_proto, false),
+	BTF_NON_DEFAULT_FEATURE(reproducible_build, reproducible_build, false),
 };
 
 #define BTF_MAX_FEATURE_STR	1024
 
-bool set_btf_features_defaults;
+bool set_btf_features_initial;
 
 static void init_btf_features(void)
 {
 	int i;
 
-	/* Only set default values once, as multiple --btf_features=
-	 * may be specified on command-line, and setting defaults
+	/* Only set initial values once, as multiple --btf_features=
+	 * may be specified on command-line, and setting values
 	 * again could clobber values.   The aim is to enable
 	 * all features set across all --btf_features options.
 	 */
-	if (set_btf_features_defaults)
+	if (set_btf_features_initial)
 		return;
 	for (i = 0; i < ARRAY_SIZE(btf_features); i++)
-		*btf_features[i].conf_value = btf_features[i].default_value;
-	set_btf_features_defaults = true;
+		*btf_features[i].conf_value = btf_features[i].initial_value;
+	set_btf_features_initial = true;
 }
 
 static struct btf_feature *find_btf_feature(char *name)
@@ -1322,10 +1325,10 @@ static struct btf_feature *find_btf_feature(char *name)
 
 static void enable_btf_feature(struct btf_feature *feature)
 {
-	/* switch "default-off" features on, and "default-on" features
-	 * off; i.e. negate the default value.
+	/* switch "initial-off" features on, and "initial-on" features
+	 * off; i.e. negate the initial value.
 	 */
-	*feature->conf_value = !feature->default_value;
+	*feature->conf_value = !feature->initial_value;
 }
 
 static void show_supported_btf_features(FILE *output)
@@ -1351,11 +1354,11 @@ static void parse_btf_features(const char *features, bool strict)
 
 	init_btf_features();
 
-	if (strcmp(features, "all") == 0) {
+	if (strcmp(features, "default") == 0) {
 		int i;
 
 		for (i = 0; i < ARRAY_SIZE(btf_features); i++) {
-			if (btf_features[i].enable_for_all)
+			if (btf_features[i].default_enabled)
 				enable_btf_feature(&btf_features[i]);
 		}
 		return;
@@ -1367,10 +1370,10 @@ static void parse_btf_features(const char *features, bool strict)
 		struct btf_feature *feature = find_btf_feature(feature_name);
 
 		if (!feature) {
-			/* --btf_features=all,nonstandard_feature should be
+			/* --btf_features=default,nonstandard_feature should be
 			 * allowed.
 			 */
-			if (strcmp(feature_name, "all") == 0) {
+			if (strcmp(feature_name, "default") == 0) {
 				parse_btf_features(feature_name, strict);
 			} else if (strict) {
 				fprintf(stderr, "Feature '%s' in '%s' is not supported.  Supported BTF features are:\n",
@@ -1819,7 +1822,7 @@ static const struct argp_option pahole__options[] = {
 		.name = "btf_features",
 		.key = ARGP_btf_features,
 		.arg = "FEATURE_LIST",
-		.doc = "Specify supported BTF features in FEATURE_LIST or 'all' for all supported features. See the pahole manual page for the list of supported features."
+		.doc = "Specify supported BTF features in FEATURE_LIST or 'default' for default set of supported features. See the pahole manual page for the list of supported, default features."
 	},
 	{
 		.name = "supported_btf_features",
@@ -1830,7 +1833,7 @@ static const struct argp_option pahole__options[] = {
 		.name = "btf_features_strict",
 		.key = ARGP_btf_features_strict,
 		.arg = "FEATURE_LIST_STRICT",
-		.doc = "Specify supported BTF features in FEATURE_LIST_STRICT or 'all' for all supported features.  Unlike --btf_features, unrecognized features will trigger an error."
+		.doc = "Specify supported BTF features in FEATURE_LIST_STRICT or 'default' for default set of supported features.  Unlike --btf_features, unrecognized features will trigger an error."
 	},
 	{
 		.name = "reproducible_build",
