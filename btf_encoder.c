@@ -393,7 +393,7 @@ static int32_t btf_encoder__add_base_type(struct btf_encoder *encoder, const str
 	 * these non-regular int types to avoid libbpf/kernel complaints.
 	 */
 	byte_sz = BITS_ROUNDUP_BYTES(bt->bit_size);
-	if (!byte_sz || (byte_sz & (byte_sz - 1))) {
+	if (!byte_sz || (byte_sz & (byte_sz - 1)) || byte_sz > 16) {
 		name = "__SANITIZED_FAKE_INT__";
 		byte_sz = 4;
 	}
