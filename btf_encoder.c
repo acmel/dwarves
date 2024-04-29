@@ -64,6 +64,7 @@ struct btf_encoder {
 	struct btf        *btf;
 	struct cu         *cu;
 	struct gobuffer   percpu_secinfo;
+	const char	  *source_filename;
 	const char	  *filename;
 	struct elf_symtab *symtab;
 	uint32_t	  type_id_off;
@@ -1648,8 +1649,9 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 
 	if (encoder) {
 		encoder->raw_output = detached_filename != NULL;
+		encoder->source_filename = strdup(cu->filename);
 		encoder->filename = strdup(encoder->raw_output ? detached_filename : cu->filename);
-		if (encoder->filename == NULL)
+		if (encoder->source_filename == NULL || encoder->filename == NULL)
 			goto out_delete;
 
 		encoder->btf = btf__new_empty_split(base_btf);
@@ -1730,6 +1732,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	btf_encoders__delete(encoder);
 	__gobuffer__delete(&encoder->percpu_secinfo);
 	zfree(&encoder->filename);
+	zfree(&encoder->source_filename);
 	btf__free(encoder->btf);
 	encoder->btf = NULL;
 	elf_symtab__delete(encoder->symtab);
