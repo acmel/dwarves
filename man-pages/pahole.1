@@ -308,7 +308,6 @@ Encode BTF using the specified feature list, or specify 'default' for all standa
 	                   in some CUs and not others, or when the same
 	                   function name has inconsistent BTF descriptions
 	                   in different CUs.
-	decl_tag_kfuncs    Inject a BTF_KIND_DECL_TAG for each discovered kfunc.
 .fi
 
 Supported non-standard features (not enabled for 'default')
@@ -317,6 +316,7 @@ Supported non-standard features (not enabled for 'default')
 	reproducible_build Ensure generated BTF is consistent every time;
 	                   without this parallel BTF encoding can result in
 	                   inconsistent BTF ids.
+	decl_tag_kfuncs    Inject a BTF_KIND_DECL_TAG for each discovered kfunc.
 .fi
 
 So for example, specifying \-\-btf_encode=var,enum64 will result in a BTF encoding that (as well as encoding basic BTF information) will contain variables and enum64 values.
