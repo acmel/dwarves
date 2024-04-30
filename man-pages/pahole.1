@@ -290,7 +290,7 @@ Allow using all the BTF features supported by pahole.
 
 .TP
 .B \-\-btf_features=FEATURE_LIST
-Encode BTF using the specified feature list, or specify 'default' for all standard features supported.  This option can be used as an alternative to unsing multiple BTF-related options. Supported standard features are
+Encode BTF using the specified feature list, or specify 'default' for all standard features supported.  This option can be used as an alternative to using multiple BTF-related options, and 'default' represents the standard set of BTF features that are in use for kernel BTF generation, so is useful as a shortcut for testing the latest set of standard features.  However kernel builds will call out specific features rather than using 'default' to ensure that the desired features are enabled regardless of pahole version and associated 'default' set.  Supported standard features are
 
 .nf
 	encode_force       Ignore invalid symbols when encoding BTF; for example
