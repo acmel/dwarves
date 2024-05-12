@@ -498,6 +498,7 @@ static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 
 	dtag->abstract_origin = attr_type(die, DW_AT_abstract_origin);
 	tag->recursivity_level = 0;
+	tag->attribute = NULL;
 
 	if (cu->extra_dbg_info) {
 		pthread_mutex_lock(&libdw__lock);

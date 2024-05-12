@@ -493,6 +493,7 @@ struct tag {
 	bool		 top_level;
 	bool		 has_btf_type_tag;
 	uint16_t	 recursivity_level;
+	const char	 *attribute;
 	void		 *priv;
 };
 

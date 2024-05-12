@@ -1406,6 +1406,9 @@ static size_t function__fprintf(const struct tag *tag, const struct cu *cu,
 	size_t printed = 0;
 	bool inlined = !conf->strip_inline && function__declared_inline(func);
 
+	if (tag->attribute)
+		printed += fprintf(fp, "%s ", tag->attribute);
+
 	if (func->virtuality == DW_VIRTUALITY_virtual ||
 	    func->virtuality == DW_VIRTUALITY_pure_virtual)
 		printed += fprintf(fp, "virtual ");

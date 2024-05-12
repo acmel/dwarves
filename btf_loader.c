@@ -454,6 +454,34 @@ static int create_new_tag(struct cu *cu, int type, const struct btf_type *tp, ui
 	return 0;
 }
 
+static int process_decl_tag(struct cu *cu, const struct btf_type *tp)
+{
+	struct tag *tag = cu__type(cu, tp->type);
+
+	if (tag == NULL)
+		tag = cu__function(cu, tp->type);
+
+	if (tag == NULL)
+		tag = cu__tag(cu, tp->type);
+
+	if (tag == NULL) {
+		printf("WARNING: BTF_KIND_DECL_TAG for unknown BTF id %d\n", tp->type);
+		return 0;
+	}
+
+	const char *attribute = cu__btf_str(cu, tp->name_off);
+
+	if (tag->attribute != NULL) {
+		char bf[128];
+		printf("WARNING: still unsuported BTF_KIND_DECL_TAG(%s) for %s already with attribute (%s), ignoring\n",
+		       attribute, tag__name(tag, cu, bf, sizeof(bf), NULL), tag->attribute);
+	} else {
+		tag->attribute = attribute;
+	}
+
+	return 0;
+}
+
 static int btf__load_types(struct btf *btf, struct cu *cu)
 {
 	uint32_t type_index;
@@ -521,6 +549,9 @@ static int btf__load_types(struct btf *btf, struct cu *cu)
 			break;
 		case BTF_KIND_FLOAT:
 			err = create_new_float_type(cu, type_ptr, type_index);
+			break;
+		case BTF_KIND_DECL_TAG:
+			err = process_decl_tag(cu, type_ptr);
 			break;
 		default:
 			fprintf(stderr, "BTF: idx: %d, Unknown kind %d\n", type_index, type);
