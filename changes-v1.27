@@ -1,0 +1,39 @@
+BTF encoder:
+
+- Inject kfunc decl tags into BTF from the BTF IDs ELF section in the Linux
+  kernel vmlinux file.
+
+  This allows tools such as bpftools and pfunct to enumerate the available kfuncs
+  and to gets its function signature, the type of its return and of its
+  arguments. See the example in the BTF loader changes description, below.
+
+- Support parallel reproducible builds, where it doesn't matter how many
+  threads are used, the end BTF encoding result is the same.
+
+- Sanitize unsupported DWARF int type with greater-than-16 byte, as BTF doesn't
+  support it.
+
+BTF loader:
+
+- Initial support for BTF_KIND_DECL_TAG:
+
+  $ pfunct --prototypes -F btf vmlinux.btf.decl_tag,decl_tag_kfuncs | grep ^bpf_kfunc | head
+  bpf_kfunc void cubictcp_init(struct sock * sk);
+  bpf_kfunc void cubictcp_cwnd_event(struct sock * sk, enum tcp_ca_event event);
+  bpf_kfunc void cubictcp_cong_avoid(struct sock * sk, u32 ack, u32 acked);
+  bpf_kfunc u32 cubictcp_recalc_ssthresh(struct sock * sk);
+  bpf_kfunc void cubictcp_state(struct sock * sk, u8 new_state);
+  bpf_kfunc void cubictcp_acked(struct sock * sk, const struct ack_sample  * sample);
+  bpf_kfunc int bpf_iter_css_new(struct bpf_iter_css * it, struct cgroup_subsys_state * start, unsigned int flags);
+  bpf_kfunc struct cgroup_subsys_state * bpf_iter_css_next(struct bpf_iter_css * it);
+  bpf_kfunc void bpf_iter_css_destroy(struct bpf_iter_css * it);
+  bpf_kfunc s64 bpf_map_sum_elem_count(const struct bpf_map  * map);
+  $ pfunct --prototypes -F btf vmlinux.btf.decl_tag,decl_tag_kfuncs | grep ^bpf_kfunc | wc -l
+  116
+  $
+
+pretty printing:
+
+- Fix hole discovery with inheritance in C++.
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>

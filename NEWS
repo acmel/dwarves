@@ -1,3 +1,45 @@
+v1.27
+
+Tue Jun 11 2024
+
+f62409e1190c2cb4 dwarf_loader: Show the DIE offset when finding unexpected tag in die__process()
+a9ae414fef421bde btf_loader: Initial support for BTF_KIND_DECL_TAG
+d08776019ef6a561 pfunct: Disable collecting fn_stats when processing BTF
+72e88f29c6f7e142 pahole: Inject kfunc decl tags into BTF
+ce4d0bc0200e322b pahole: Add --btf_feature=decl_tag_kfuncs feature
+e3b1c322503269d3 pahole: Save input filename separate from output
+d5847615d0a5c082 pahole: Describe expected use of 'default' in the man page
+912a8e3f3d19fa76 btf_encoder: Fix DWARF int type with greater-than-16 byte issue
+a1f684fa018ddbfa pahole: Allow asking for extra features using the '+' prefix in --btf_features
+31c6ec74952898a6 pahole: Factor out routine to process "--btf_features=default"
+2046cc50578beb44 gobuffer: Add gobuffer__sort() helper
+9aba4c9220eebf81 tests: update reproducible_build test to use "default"
+0a9eceb3e5453aee pahole: Replace use of "all" with "default" for --btf_features
+2a6b7ec7ce981c3d tests/reproducible_build: use --btf_features=all,reproducible_build
+43bd3efa85656565 pahole: Add reproducible_build to --btf_features
+e78c82db744eab77 pahole: Allow --btf_features to not participate in "all"
+a9738ddc828d5ea0 tests/reproducible_build: Use --btf_features=all when encoding
+d7edf9ae0388fb97 tests/reproducible_build: Validate the vmlinux file
+c933676ce2780325 tests: Add a BTF reproducible generation test
+dba7b5e847529cde pahole: Encode BTF serially in a reproducible build
+edc23a0dae4f8996 core/dwarf_loader: Add functions to set state of CU processing
+f632e757f7ba3f21 dwarf_loader: Add the cu to the cus list early, remove on LSK_DELETE
+7ddb9cfb91cd3d65 core: Add cus__remove(), counterpart of cus__add()
+6fa064b96853897c core: Add unlocked cus__add() variant
+a7dee0e323ac5eef dwarf_loader: Remove unused 'thr_data' arg from dwarf_cus__create_and_process_cu()
+620d419a430f8fd8 dwarf_loader: Create the cu/dcu pair in dwarf_cus__nextcu()
+941cd9a15d09dd3c dwarf_loader: Introduce dwarf_cus__process_cu()
+7a2509e7ea639014 dwarf_loader: Separate creating the cu/dcu pair from processing it
+2d633d93cd4faf19 pahole: Disable BTF multithreaded encoded when doing reproducible builds
+d6e05fd33cb9dc52 core: Allow asking for a reproducible build
+4faf35b97c3427d1 fprintf: Remove bogus deduction of negative hole from size of previous field
+47e83035c12c153b core: The padding in ancestor classes may be used in descendants
+9442420a8c204460 fprintf: Update 'last' variable for DW_TAG_inheritance as well
+c52e4b7af88da5ab fprintf: Update the 'last' member when not finding the type for the current member
+1ecde473f9a07ac8 fprintf: Don't ignore DW_TAG_inheritance in the sum of members check
+f32ec0c79f3e8065 btf_encoder: Dynamically allocate the vars array for percpu variables
+554c5e6a2736e0b6 PKG-MAINTAINERS: Add file with known pahole distro package maintainers
+
 v1.26
 
 Tue Feb 27 2024

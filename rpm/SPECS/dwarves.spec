@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.26
+Version: 1.27
 Release: 1%{?dist}
 License: GPL-2.0-only
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -79,7 +79,7 @@ rm -Rf %{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
-%doc changes-v1.26
+%doc changes-v1.27
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -131,6 +131,14 @@ rm -Rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Tue Jun 11 2024 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.27-1
+- New release: v1.27
+- Reproducible parallel builds: multiple runs with different number of loading/encoding threads produce the same result.
+- Inject kfunc decl tags into BTF from the BTF IDs ELF section in the Linux kernel vmlinux file.
+- Sanitize unsupported DWARF int type with greater-than-16 byte, as BTF doesn't support it.
+- Initial support for BTF_KIND_DECL_TAG in the BTF loader, adding support in pfunct output.
+- Fix hole discovery with inheritance in C++.
+
 * Tue Feb 27 2024 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.26-1
 - New release: v1.26
 - When expanding types using 'pahole -E' do it for union and struct typedefs and for enums too.
