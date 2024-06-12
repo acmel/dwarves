@@ -3705,6 +3705,10 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
+	/* This being set means whoever called us tries to do a reproducible build */
+	if (getenv("SOURCE_DATE_EPOCH"))
+		conf_load.reproducible_build = true;
+
 	if (languages.str && parse_languages())
 		return rc;
 
