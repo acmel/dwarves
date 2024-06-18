@@ -3452,6 +3452,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 			cu->priv = dcu;
 			cu->dfops = &dwarf__ops;
 			cu->language = attr_numeric(cu_die, DW_AT_language);
+			cus__add(cus, cu);
 		}
 
 		Dwarf_Die child;
