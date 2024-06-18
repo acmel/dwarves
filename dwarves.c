@@ -739,6 +739,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		cu->dfops	= NULL;
 		INIT_LIST_HEAD(&cu->tags);
 		INIT_LIST_HEAD(&cu->tool_list);
+		INIT_LIST_HEAD(&cu->node);
 
 		cu->addr_size = addr_size;
 		cu->extra_dbg_info = 0;
