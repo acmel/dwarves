@@ -83,8 +83,8 @@ static void __tag__print_not_supported(uint32_t tag, const char *func)
 		tag, dwarf_tag_name(tag));
 }
 
-#define tag__print_not_supported(tag) \
-	__tag__print_not_supported(tag, __func__)
+#define tag__print_not_supported(die) \
+	__tag__print_not_supported(dwarf_tag(die), __func__)
 
 struct dwarf_off_ref {
 	unsigned int	from_types : 1;
@@ -1701,7 +1701,7 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 
 		switch (dwarf_tag(die)) {
 		case DW_TAG_subrange_type: // ADA stuff
-			tag__print_not_supported(dwarf_tag(die));
+			tag__print_not_supported(die);
 			continue;
 		case DW_TAG_formal_parameter:
 			tag = die__create_new_parameter(die, ftype, NULL, cu, conf, -1);
@@ -1715,7 +1715,7 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 				goto out_delete;
 
 			if (tag == &unsupported_tag) {
-				tag__print_not_supported(dwarf_tag(die));
+				tag__print_not_supported(die);
 				continue;
 			}
 
@@ -1808,7 +1808,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			 * See:
 			 * https://gcc.gnu.org/wiki/TemplateParmsDwarf
 			 */
-			tag__print_not_supported(dwarf_tag(die));
+			tag__print_not_supported(die);
 			continue;
 		case DW_TAG_inheritance:
 		case DW_TAG_member: {
@@ -1847,7 +1847,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 				return -ENOMEM;
 
 			if (tag == &unsupported_tag) {
-				tag__print_not_supported(dwarf_tag(die));
+				tag__print_not_supported(die);
 				continue;
 			}
 
@@ -1887,7 +1887,7 @@ static int die__process_namespace(Dwarf_Die *die, struct namespace *namespace,
 			goto out_enomem;
 
 		if (tag == &unsupported_tag) {
-			tag__print_not_supported(dwarf_tag(die));
+			tag__print_not_supported(die);
 			continue;
 		}
 
@@ -1991,7 +1991,7 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct lexblock *lexblo
 				goto out_enomem;
 
 			if (tag == &unsupported_tag) {
-				tag__print_not_supported(dwarf_tag(die));
+				tag__print_not_supported(die);
 				continue;
 			}
 
@@ -2081,7 +2081,7 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			/* FIXME: probably we'll have to attach this as a list of
  			 * template parameters to use at class__fprintf time... 
  			 * See die__process_class */
-			tag__print_not_supported(dwarf_tag(die));
+			tag__print_not_supported(die);
 			continue;
 		case DW_TAG_formal_parameter:
 			tag = die__create_new_parameter(die, ftype, lexblock, cu, conf, param_idx++);
@@ -2124,7 +2124,7 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 				goto out_enomem;
 
 			if (tag == &unsupported_tag) {
-				tag__print_not_supported(dwarf_tag(die));
+				tag__print_not_supported(die);
 				continue;
 			}
 
@@ -2249,7 +2249,7 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *co
 			// Investigate later how to properly support this...
 			if (dwarf_tag(die) != DW_TAG_dwarf_procedure &&
 			    dwarf_tag(die) != DW_TAG_label) // conf->ignore_labels == true, see die__process_tag()
-				tag__print_not_supported(dwarf_tag(die));
+				tag__print_not_supported(die);
 			continue;
 		}
 
