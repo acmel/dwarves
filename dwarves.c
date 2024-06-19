@@ -1516,7 +1516,7 @@ void class__find_holes(struct class *class)
 	type__for_each_member(ctype, pos) {
 		/* XXX for now just skip these */
 		if (pos->tag.tag == DW_TAG_inheritance &&
-		    pos->virtuality == DW_VIRTUALITY_virtual)
+		   (pos->virtuality == DW_VIRTUALITY_virtual || pos->byte_size == 0))
 			continue;
 
 		if (pos->is_static)
