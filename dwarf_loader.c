@@ -69,7 +69,7 @@ static uint32_t hashtags__fn(Dwarf_Off key)
 
 bool no_bitfield_type_recode = true;
 
-static void __tag__print_not_supported(uint32_t tag, const char *func)
+static void __tag__print_not_supported(uint32_t tag, const char *func, unsigned long long offset)
 {
 	static bool dwarf_tags_warned[DW_TAG_GNU_call_site_parameter + 64];
 
@@ -79,12 +79,12 @@ static void __tag__print_not_supported(uint32_t tag, const char *func)
 		dwarf_tags_warned[tag] = true;
 	}
 
-	fprintf(stderr, "%s: tag not supported %#x (%s)!\n", func,
-		tag, dwarf_tag_name(tag));
+	fprintf(stderr, "%s: tag not supported %#x (%s) at <%llx>!\n", func,
+		tag, dwarf_tag_name(tag), offset);
 }
 
 #define tag__print_not_supported(die) \
-	__tag__print_not_supported(dwarf_tag(die), __func__)
+	__tag__print_not_supported(dwarf_tag(die), __func__, dwarf_dieoffset(die))
 
 struct dwarf_off_ref {
 	unsigned int	from_types : 1;
