@@ -1094,6 +1094,20 @@ static struct template_type_param *template_type_param__new(Dwarf_Die *die, stru
 	return ttparm;
 }
 
+static struct template_value_param *template_value_param__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
+{
+	struct template_value_param *tvparm = tag__alloc(cu, sizeof(*tvparm));
+
+	if (tvparm != NULL) {
+		tag__init(&tvparm->tag, cu, die);
+		tvparm->name = attr_string(die, DW_AT_name, conf);
+		tvparm->const_value = attr_numeric(die, DW_AT_const_value);
+		tvparm->default_value = attr_numeric(die, DW_AT_default_value);
+	}
+
+	return tvparm;
+}
+
 static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 					struct conf_load *conf, int param_idx)
 {
@@ -1302,6 +1316,7 @@ static void ftype__init(struct ftype *ftype, Dwarf_Die *die, struct cu *cu)
 	ftype->byte_size = attr_numeric(die, DW_AT_byte_size);
 	INIT_LIST_HEAD(&ftype->parms);
 	INIT_LIST_HEAD(&ftype->template_type_params);
+	INIT_LIST_HEAD(&ftype->template_value_params);
 	ftype->nr_parms	    = 0;
 	ftype->unspec_parms = 0;
 }
@@ -1813,14 +1828,6 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 		case DW_TAG_GNU_template_parameter_pack:
 		case DW_TAG_GNU_template_template_param:
 #endif
-		case DW_TAG_template_value_parameter:
-			/*
-			 * FIXME: probably we'll have to attach this as a list of
-			 * template parameters to use at class__fprintf time...
-			 *
-			 * See:
-			 * https://gcc.gnu.org/wiki/TemplateParmsDwarf
-			 */
 			tag__print_not_supported(die);
 			continue;
 		case DW_TAG_template_type_parameter: {
@@ -1830,6 +1837,22 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 				return -ENOMEM;
 
 			type__add_template_type_param(class, ttparm);
+			continue;
+		}
+		case DW_TAG_template_value_parameter: {
+			/*
+			 * FIXME: probably we'll have to attach this as a list of
+			 * template parameters to use at class__fprintf time...
+			 *
+			 * See:
+			 * https://gcc.gnu.org/wiki/TemplateParmsDwarf
+			 */
+			struct template_value_param *tvparm = template_value_param__new(die, cu, conf);
+
+			if (tvparm == NULL)
+				return -ENOMEM;
+
+			type__add_template_value_param(class, tvparm);
 			continue;
 		}
 		case DW_TAG_inheritance:
@@ -2098,10 +2121,6 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 		case DW_TAG_GNU_template_parameter_pack:
 		case DW_TAG_GNU_template_template_param:
 #endif
-		case DW_TAG_template_value_parameter:
-			/* FIXME: probably we'll have to attach this as a list of
- 			 * template parameters to use at class__fprintf time... 
- 			 * See die__process_class */
 			tag__print_not_supported(die);
 			continue;
 		case DW_TAG_template_type_parameter: {
@@ -2111,6 +2130,18 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 				return -ENOMEM;
 
 			ftype__add_template_type_param(ftype, ttparm);
+			continue;
+		}
+		case DW_TAG_template_value_parameter: {
+			/* FIXME: probably we'll have to attach this as a list of
+			 * template parameters to use at class__fprintf time... 
+			 * See die__process_class */
+			struct template_value_param *tvparm = template_value_param__new(die, cu, conf);
+
+			if (tvparm == NULL)
+				return -ENOMEM;
+
+			ftype__add_template_value_param(ftype, tvparm);
 			continue;
 		}
 		case DW_TAG_formal_parameter:

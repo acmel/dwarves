@@ -366,6 +366,7 @@ void __type__init(struct type *type)
 	INIT_LIST_HEAD(&type->node);
 	INIT_LIST_HEAD(&type->type_enum);
 	INIT_LIST_HEAD(&type->template_type_params);
+	INIT_LIST_HEAD(&type->template_value_params);
 	type->sizeof_member = NULL;
 	type->member_prefix = NULL;
 	type->member_prefix_len = 0;
@@ -1335,6 +1336,11 @@ void type__add_template_type_param(struct type *type, struct template_type_param
 	list_add_tail(&ttparam->tag.node, &type->template_type_params);
 }
 
+void type__add_template_value_param(struct type *type, struct template_value_param *tvparam)
+{
+	list_add_tail(&tvparam->tag.node, &type->template_value_params);
+}
+
 struct class_member *type__last_member(struct type *type)
 {
 	struct class_member *pos;
@@ -1462,6 +1468,11 @@ void ftype__add_parameter(struct ftype *ftype, struct parameter *parm)
 void ftype__add_template_type_param(struct ftype *ftype, struct template_type_param *param)
 {
 	list_add_tail(&param->tag.node, &ftype->template_type_params);
+}
+
+void ftype__add_template_value_param(struct ftype *ftype, struct template_value_param *param)
+{
+	list_add_tail(&param->tag.node, &ftype->template_value_params);
 }
 
 void lexblock__add_tag(struct lexblock *block, struct tag *tag)

@@ -922,6 +922,15 @@ struct template_type_param {
 
 void template_type_param__delete(struct template_type_param *ttparam);
 
+struct template_value_param {
+	struct tag	 tag;
+	const char	 *name;
+	uint64_t	 const_value;
+	uint64_t	 default_value;
+};
+
+void template_value_param__delete(struct template_value_param *ttparam);
+
 /*
  * tag.tag can be DW_TAG_subprogram_type or DW_TAG_subroutine_type.
  */
@@ -936,6 +945,7 @@ struct ftype {
 	uint8_t		 processed:1;
 	uint8_t		 inconsistent_proto:1;
 	struct list_head template_type_params;
+	struct list_head template_value_params;
 };
 
 static inline struct ftype *tag__ftype(const struct tag *tag)
@@ -973,6 +983,7 @@ void ftype__delete(struct ftype *ftype);
 
 void ftype__add_parameter(struct ftype *ftype, struct parameter *parm);
 void ftype__add_template_type_param(struct ftype *ftype, struct template_type_param *param);
+void ftype__add_template_value_param(struct ftype *ftype, struct template_value_param *param);
 
 size_t ftype__fprintf(const struct ftype *ftype, const struct cu *cu,
 		      const char *name, const int inlined,
@@ -1185,6 +1196,7 @@ struct type {
 	uint8_t		 resized:1;
 	uint8_t		 is_signed_enum:1;
 	struct list_head template_type_params;
+	struct list_head template_value_params;
 };
 
 void __type__init(struct type *type);
@@ -1303,6 +1315,7 @@ static inline struct class_member *class_member__next(struct class_member *membe
 
 void type__add_member(struct type *type, struct class_member *member);
 void type__add_template_type_param(struct type *type, struct template_type_param *ttparm);
+void type__add_template_value_param(struct type *type, struct template_value_param *tvparam);
 
 struct class_member *
 	type__find_first_biggest_size_base_type_member(struct type *type,
