@@ -1082,6 +1082,18 @@ static void arch__set_register_params(const GElf_Ehdr *ehdr, struct cu *cu)
 	}
 }
 
+static struct template_type_param *template_type_param__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
+{
+	struct template_type_param *ttparm = tag__alloc(cu, sizeof(*ttparm));
+
+	if (ttparm != NULL) {
+		tag__init(&ttparm->tag, cu, die);
+		ttparm->name = attr_string(die, DW_AT_name, conf);
+	}
+
+	return ttparm;
+}
+
 static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 					struct conf_load *conf, int param_idx)
 {
@@ -1800,7 +1812,6 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 		case DW_TAG_GNU_template_parameter_pack:
 		case DW_TAG_GNU_template_template_param:
 #endif
-		case DW_TAG_template_type_parameter:
 		case DW_TAG_template_value_parameter:
 			/*
 			 * FIXME: probably we'll have to attach this as a list of
@@ -1811,6 +1822,15 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			 */
 			tag__print_not_supported(die);
 			continue;
+		case DW_TAG_template_type_parameter: {
+			struct template_type_param *ttparm = template_type_param__new(die, cu, conf);
+
+			if (ttparm == NULL)
+				return -ENOMEM;
+
+			type__add_template_type_param(class, ttparm);
+			continue;
+		}
 		case DW_TAG_inheritance:
 		case DW_TAG_member: {
 			struct class_member *member = class_member__new(die, cu, is_union, conf);

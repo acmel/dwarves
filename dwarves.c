@@ -365,6 +365,7 @@ void __type__init(struct type *type)
 {
 	INIT_LIST_HEAD(&type->node);
 	INIT_LIST_HEAD(&type->type_enum);
+	INIT_LIST_HEAD(&type->template_type_params);
 	type->sizeof_member = NULL;
 	type->member_prefix = NULL;
 	type->member_prefix_len = 0;
@@ -1327,6 +1328,11 @@ void type__add_member(struct type *type, struct class_member *member)
 	else
 		++type->nr_members;
 	namespace__add_tag(&type->namespace, &member->tag);
+}
+
+void type__add_template_type_param(struct type *type, struct template_type_param *ttparam)
+{
+	list_add_tail(&ttparam->tag.node, &type->template_type_params);
 }
 
 struct class_member *type__last_member(struct type *type)

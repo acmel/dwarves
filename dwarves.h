@@ -1121,6 +1121,15 @@ static __pure inline int tag__is_class_member(const struct tag *tag)
 	return tag->tag == DW_TAG_member;
 }
 
+/* struct template_type_param - parameters to a template, stored in 'struct type'
+ */
+struct template_type_param {
+	struct tag	 tag;
+	const char	 *name;
+};
+
+void template_type_param__delete(struct template_type_param *ttparam);
+
 int tag__is_base_type(const struct tag *tag, const struct cu *cu);
 bool tag__is_array(const struct tag *tag, const struct cu *cu);
 
@@ -1172,6 +1181,7 @@ struct type {
 	uint8_t		 fwd_decl_emitted:1;
 	uint8_t		 resized:1;
 	uint8_t		 is_signed_enum:1;
+	struct list_head template_type_params;
 };
 
 void __type__init(struct type *type);
@@ -1289,6 +1299,8 @@ static inline struct class_member *class_member__next(struct class_member *membe
 	list_for_each_entry_safe_reverse(pos, n, &(type)->namespace.tags, tag.node)
 
 void type__add_member(struct type *type, struct class_member *member);
+void type__add_template_type_param(struct type *type, struct template_type_param *ttparm);
+
 struct class_member *
 	type__find_first_biggest_size_base_type_member(struct type *type,
 						       const struct cu *cu);
