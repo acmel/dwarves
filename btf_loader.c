@@ -53,6 +53,7 @@ static int cu__load_ftype(struct cu *cu, struct ftype *proto, uint32_t tag, cons
 	proto->tag.tag	= tag;
 	proto->tag.type = tp->type;
 	INIT_LIST_HEAD(&proto->parms);
+	INIT_LIST_HEAD(&proto->template_type_params);
 
 	for (i = 0; i < vlen; ++i, param++) {
 		if (param->type == 0)

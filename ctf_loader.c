@@ -40,6 +40,7 @@ static int ctf__load_ftype(struct ctf *ctf, struct ftype *proto, uint16_t tag,
 	proto->tag.tag	= tag;
 	proto->tag.type = type;
 	INIT_LIST_HEAD(&proto->parms);
+	INIT_LIST_HEAD(&proto->template_type_params);
 
 	int i;
 	for (i = 0; i < vlen; i++) {

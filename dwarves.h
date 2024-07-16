@@ -913,6 +913,15 @@ static inline const char *parameter__name(const struct parameter *parm)
 	return parm->name;
 }
 
+/* struct template_type_param - parameters to a template, stored in 'struct type'
+ */
+struct template_type_param {
+	struct tag	 tag;
+	const char	 *name;
+};
+
+void template_type_param__delete(struct template_type_param *ttparam);
+
 /*
  * tag.tag can be DW_TAG_subprogram_type or DW_TAG_subroutine_type.
  */
@@ -926,6 +935,7 @@ struct ftype {
 	uint8_t		 unexpected_reg:1;
 	uint8_t		 processed:1;
 	uint8_t		 inconsistent_proto:1;
+	struct list_head template_type_params;
 };
 
 static inline struct ftype *tag__ftype(const struct tag *tag)
@@ -962,6 +972,8 @@ void ftype__delete(struct ftype *ftype);
 	list_for_each_entry_safe_reverse(pos, n, &(ftype)->parms, tag.node)
 
 void ftype__add_parameter(struct ftype *ftype, struct parameter *parm);
+void ftype__add_template_type_param(struct ftype *ftype, struct template_type_param *param);
+
 size_t ftype__fprintf(const struct ftype *ftype, const struct cu *cu,
 		      const char *name, const int inlined,
 		      const int is_pointer, const int type_spacing, bool is_prototype,
@@ -1120,15 +1132,6 @@ static __pure inline int tag__is_class_member(const struct tag *tag)
 {
 	return tag->tag == DW_TAG_member;
 }
-
-/* struct template_type_param - parameters to a template, stored in 'struct type'
- */
-struct template_type_param {
-	struct tag	 tag;
-	const char	 *name;
-};
-
-void template_type_param__delete(struct template_type_param *ttparam);
 
 int tag__is_base_type(const struct tag *tag, const struct cu *cu);
 bool tag__is_array(const struct tag *tag, const struct cu *cu);

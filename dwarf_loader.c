@@ -1301,6 +1301,7 @@ static void ftype__init(struct ftype *ftype, Dwarf_Die *die, struct cu *cu)
 	tag__init(&ftype->tag, cu, die);
 	ftype->byte_size = attr_numeric(die, DW_AT_byte_size);
 	INIT_LIST_HEAD(&ftype->parms);
+	INIT_LIST_HEAD(&ftype->template_type_params);
 	ftype->nr_parms	    = 0;
 	ftype->unspec_parms = 0;
 }
@@ -2097,13 +2098,21 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 		case DW_TAG_GNU_template_parameter_pack:
 		case DW_TAG_GNU_template_template_param:
 #endif
-		case DW_TAG_template_type_parameter:
 		case DW_TAG_template_value_parameter:
 			/* FIXME: probably we'll have to attach this as a list of
  			 * template parameters to use at class__fprintf time... 
  			 * See die__process_class */
 			tag__print_not_supported(die);
 			continue;
+		case DW_TAG_template_type_parameter: {
+			struct template_type_param *ttparm = template_type_param__new(die, cu, conf);
+
+			if (ttparm == NULL)
+				return -ENOMEM;
+
+			ftype__add_template_type_param(ftype, ttparm);
+			continue;
+		}
 		case DW_TAG_formal_parameter:
 			tag = die__create_new_parameter(die, ftype, lexblock, cu, conf, param_idx++);
 			break;
