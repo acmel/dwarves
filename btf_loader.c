@@ -55,6 +55,7 @@ static int cu__load_ftype(struct cu *cu, struct ftype *proto, uint32_t tag, cons
 	INIT_LIST_HEAD(&proto->parms);
 	INIT_LIST_HEAD(&proto->template_type_params);
 	INIT_LIST_HEAD(&proto->template_value_params);
+	proto->template_parameter_pack = NULL;
 
 	for (i = 0; i < vlen; ++i, param++) {
 		if (param->type == 0)
@@ -122,6 +123,7 @@ static void type__init(struct type *type, uint32_t tag, const char *name, size_t
 	type->size = size;
 	type->namespace.tag.tag = tag;
 	type->namespace.name = name;
+	type->template_parameter_pack = NULL;
 }
 
 static struct type *type__new(uint16_t tag, const char *name, size_t size)

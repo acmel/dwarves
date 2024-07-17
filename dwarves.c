@@ -149,6 +149,25 @@ void lexblock__delete(struct lexblock *block)
 	free(block);
 }
 
+static void template_parameter_pack__delete_tags(struct template_parameter_pack *pack)
+{
+	struct tag *pos, *n;
+
+	list_for_each_entry_safe_reverse(pos, n, &pack->params, node) {
+		list_del_init(&pos->node);
+		tag__delete(pos);
+	}
+}
+
+void template_parameter_pack__delete(struct template_parameter_pack *pack)
+{
+	if (pack == NULL)
+		return;
+
+	template_parameter_pack__delete_tags(pack);
+	free(pack);
+}
+
 void tag__delete(struct tag *tag)
 {
 	if (tag == NULL)
@@ -170,6 +189,8 @@ void tag__delete(struct tag *tag)
 		function__delete(tag__function(tag));	break;
 	case DW_TAG_lexical_block:
 		lexblock__delete(tag__lexblock(tag));	break;
+	case DW_TAG_GNU_template_parameter_pack:
+		template_parameter_pack__delete(tag__template_parameter_pack(tag));	break;
 	default:
 		free(tag);
 	}
@@ -367,6 +388,7 @@ void __type__init(struct type *type)
 	INIT_LIST_HEAD(&type->type_enum);
 	INIT_LIST_HEAD(&type->template_type_params);
 	INIT_LIST_HEAD(&type->template_value_params);
+	type->template_parameter_pack = NULL;
 	type->sizeof_member = NULL;
 	type->member_prefix = NULL;
 	type->member_prefix_len = 0;
@@ -1284,6 +1306,9 @@ void type__delete(struct type *type)
 	if (type->suffix_disambiguation)
 		zfree(&type->namespace.name);
 
+	template_parameter_pack__delete(type->template_parameter_pack);
+	type->template_parameter_pack = NULL;
+
 	free(type);
 }
 
@@ -1424,6 +1449,10 @@ void ftype__delete(struct ftype *type)
 		list_del_init(&pos->tag.node);
 		parameter__delete(pos);
 	}
+
+	template_parameter_pack__delete(type->template_parameter_pack);
+	type->template_parameter_pack = NULL;
+
 	free(type);
 }
 
@@ -1473,6 +1502,11 @@ void ftype__add_template_type_param(struct ftype *ftype, struct template_type_pa
 void ftype__add_template_value_param(struct ftype *ftype, struct template_value_param *param)
 {
 	list_add_tail(&param->tag.node, &ftype->template_value_params);
+}
+
+void template_parameter_pack__add(struct template_parameter_pack *pack, struct template_type_param *param)
+{
+	list_add_tail(&param->tag.node, &pack->params);
 }
 
 void lexblock__add_tag(struct lexblock *block, struct tag *tag)

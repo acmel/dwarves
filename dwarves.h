@@ -931,6 +931,24 @@ struct template_value_param {
 
 void template_value_param__delete(struct template_value_param *ttparam);
 
+/* struct template_parameter_pack - list of DW_TAG_template_type_param
+ */
+
+struct template_parameter_pack {
+	struct tag	 tag;
+	const char	 *name;
+	struct list_head params;
+};
+
+void template_parameter_pack__delete(struct template_parameter_pack *pack);
+
+static inline struct template_parameter_pack *tag__template_parameter_pack(const struct tag *tag)
+{
+	return (struct template_parameter_pack *)tag;
+}
+
+void template_parameter_pack__add(struct template_parameter_pack *pack, struct template_type_param *param);
+
 /*
  * tag.tag can be DW_TAG_subprogram_type or DW_TAG_subroutine_type.
  */
@@ -946,6 +964,7 @@ struct ftype {
 	uint8_t		 inconsistent_proto:1;
 	struct list_head template_type_params;
 	struct list_head template_value_params;
+	struct template_parameter_pack *template_parameter_pack;
 };
 
 static inline struct ftype *tag__ftype(const struct tag *tag)
@@ -1197,6 +1216,7 @@ struct type {
 	uint8_t		 is_signed_enum:1;
 	struct list_head template_type_params;
 	struct list_head template_value_params;
+	struct template_parameter_pack *template_parameter_pack;
 };
 
 void __type__init(struct type *type);

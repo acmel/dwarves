@@ -1121,6 +1121,50 @@ static struct template_value_param *template_value_param__new(Dwarf_Die *die, st
 	return tvparm;
 }
 
+static int template_parameter_pack__load_params(struct template_parameter_pack *pack, Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
+{
+	Dwarf_Die child;
+
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
+		return 0;
+
+	die = &child;
+	do {
+		if (dwarf_tag(die) != DW_TAG_template_type_parameter) {
+			cu__tag_not_handled(die);
+			continue;
+		}
+
+		struct template_type_param *param = template_type_param__new(die, cu, conf);
+
+		if (param == NULL)
+			return -1;
+
+		template_parameter_pack__add(pack, param);
+	} while (dwarf_siblingof(die, die) == 0);
+
+	return 0;
+}
+
+static struct template_parameter_pack *template_parameter_pack__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
+{
+	struct template_parameter_pack *pack = tag__alloc(cu, sizeof(*pack));
+
+	if (pack != NULL) {
+		tag__init(&pack->tag, cu, die);
+
+		pack->name = attr_string(die, DW_AT_name, conf);
+		INIT_LIST_HEAD(&pack->params);
+
+		if (template_parameter_pack__load_params(pack, die, cu, conf)) {
+			template_parameter_pack__delete(pack);
+			pack = NULL;
+		}
+	}
+
+	return pack;
+}
+
 static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 					struct conf_load *conf, int param_idx)
 {
@@ -1332,6 +1376,7 @@ static void ftype__init(struct ftype *ftype, Dwarf_Die *die, struct cu *cu)
 	INIT_LIST_HEAD(&ftype->template_value_params);
 	ftype->nr_parms	    = 0;
 	ftype->unspec_parms = 0;
+	ftype->template_parameter_pack = NULL;
 }
 
 static struct ftype *ftype__new(Dwarf_Die *die, struct cu *cu)
@@ -1821,13 +1866,19 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 
 	do {
 		switch (dwarf_tag(die)) {
-		case DW_TAG_subrange_type: // XXX: ADA stuff, its a type tho, will have other entries referencing it...
-		case DW_TAG_variant_part: // XXX: Rust stuff
 #ifdef STB_GNU_UNIQUE
-		case DW_TAG_GNU_formal_parameter_pack:
 		case DW_TAG_GNU_template_parameter_pack:
+			class->template_parameter_pack = template_parameter_pack__new(die, cu, conf);
+
+			if (class->template_parameter_pack == NULL)
+				return -ENOMEM;
+
+			continue;
+		case DW_TAG_GNU_formal_parameter_pack:
 		case DW_TAG_GNU_template_template_param:
 #endif
+		case DW_TAG_subrange_type: // XXX: ADA stuff, its a type tho, will have other entries referencing it...
+		case DW_TAG_variant_part: // XXX: Rust stuff
 			tag__print_not_supported(die);
 			continue;
 		case DW_TAG_template_type_parameter: {
@@ -2117,8 +2168,14 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			 */
 			continue;
 #ifdef STB_GNU_UNIQUE
-		case DW_TAG_GNU_formal_parameter_pack:
 		case DW_TAG_GNU_template_parameter_pack:
+			ftype->template_parameter_pack = template_parameter_pack__new(die, cu, conf);
+
+			if (ftype->template_parameter_pack == NULL)
+				return -ENOMEM;
+
+			continue;
+		case DW_TAG_GNU_formal_parameter_pack:
 		case DW_TAG_GNU_template_template_param:
 #endif
 			tag__print_not_supported(die);
