@@ -86,6 +86,19 @@ static void __tag__print_not_supported(uint32_t tag, const char *func, unsigned 
 #define tag__print_not_supported(die) \
 	__tag__print_not_supported(dwarf_tag(die), __func__, dwarf_dieoffset(die))
 
+static void __cu__tag_not_handled(Dwarf_Die *die, const char *fn)
+{
+	uint32_t tag = dwarf_tag(die);
+
+	fprintf(stderr, "%s: DW_TAG_%s (%#x) @ <%#llx> not handled!\n",
+		fn, dwarf_tag_name(tag), tag,
+		(unsigned long long)dwarf_dieoffset(die));
+}
+
+static struct tag unsupported_tag;
+
+#define cu__tag_not_handled(die) __cu__tag_not_handled(die, __FUNCTION__)
+
 struct dwarf_off_ref {
 	unsigned int	from_types : 1;
 	Dwarf_Off	off;
@@ -1382,19 +1395,6 @@ static uint64_t attr_upper_bound(Dwarf_Die *die)
 
 	return 0;
 }
-
-static void __cu__tag_not_handled(Dwarf_Die *die, const char *fn)
-{
-	uint32_t tag = dwarf_tag(die);
-
-	fprintf(stderr, "%s: DW_TAG_%s (%#x) @ <%#llx> not handled!\n",
-		fn, dwarf_tag_name(tag), tag,
-		(unsigned long long)dwarf_dieoffset(die));
-}
-
-static struct tag unsupported_tag;
-
-#define cu__tag_not_handled(die) __cu__tag_not_handled(die, __FUNCTION__)
 
 static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 				      int toplevel, const char *fn, struct conf_load *conf);
