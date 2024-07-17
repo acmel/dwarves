@@ -168,6 +168,25 @@ void template_parameter_pack__delete(struct template_parameter_pack *pack)
 	free(pack);
 }
 
+static void formal_parameter_pack__delete_tags(struct formal_parameter_pack *pack)
+{
+	struct tag *pos, *n;
+
+	list_for_each_entry_safe_reverse(pos, n, &pack->params, node) {
+		list_del_init(&pos->node);
+		tag__delete(pos);
+	}
+}
+
+void formal_parameter_pack__delete(struct formal_parameter_pack *pack)
+{
+	if (pack == NULL)
+		return;
+
+	formal_parameter_pack__delete_tags(pack);
+	free(pack);
+}
+
 void tag__delete(struct tag *tag)
 {
 	if (tag == NULL)
@@ -191,6 +210,8 @@ void tag__delete(struct tag *tag)
 		lexblock__delete(tag__lexblock(tag));	break;
 	case DW_TAG_GNU_template_parameter_pack:
 		template_parameter_pack__delete(tag__template_parameter_pack(tag));	break;
+	case DW_TAG_GNU_formal_parameter_pack:
+		formal_parameter_pack__delete(tag__formal_parameter_pack(tag));	break;
 	default:
 		free(tag);
 	}
@@ -1505,6 +1526,11 @@ void ftype__add_template_value_param(struct ftype *ftype, struct template_value_
 }
 
 void template_parameter_pack__add(struct template_parameter_pack *pack, struct template_type_param *param)
+{
+	list_add_tail(&param->tag.node, &pack->params);
+}
+
+void formal_parameter_pack__add(struct formal_parameter_pack *pack, struct parameter *param)
 {
 	list_add_tail(&param->tag.node, &pack->params);
 }

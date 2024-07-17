@@ -1253,6 +1253,49 @@ static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 	return parm;
 }
 
+static int formal_parameter_pack__load_params(struct formal_parameter_pack *pack, Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
+{
+	Dwarf_Die child;
+
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
+		return 0;
+
+	die = &child;
+	do {
+		if (dwarf_tag(die) != DW_TAG_formal_parameter) {
+			cu__tag_not_handled(die);
+			continue;
+		}
+
+		struct parameter *param = parameter__new(die, cu, conf, -1);
+
+		if (param == NULL)
+			return -1;
+
+		formal_parameter_pack__add(pack, param);
+	} while (dwarf_siblingof(die, die) == 0);
+
+	return 0;
+}
+
+static struct formal_parameter_pack *formal_parameter_pack__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
+{
+	struct formal_parameter_pack *pack = tag__alloc(cu, sizeof(*pack));
+
+	if (pack != NULL) {
+		tag__init(&pack->tag, cu, die);
+
+		INIT_LIST_HEAD(&pack->params);
+
+		if (formal_parameter_pack__load_params(pack, die, cu, conf)) {
+			formal_parameter_pack__delete(pack);
+			pack = NULL;
+		}
+	}
+
+	return pack;
+}
+
 static struct inline_expansion *inline_expansion__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 {
 	struct inline_expansion *exp = tag__alloc(cu, sizeof(*exp));
@@ -2176,6 +2219,12 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 
 			continue;
 		case DW_TAG_GNU_formal_parameter_pack:
+			ftype->formal_parameter_pack = formal_parameter_pack__new(die, cu, conf);
+
+			if (ftype->formal_parameter_pack == NULL)
+				return -ENOMEM;
+
+			continue;
 		case DW_TAG_GNU_template_template_param:
 #endif
 			tag__print_not_supported(die);

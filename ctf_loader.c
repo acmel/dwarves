@@ -43,6 +43,7 @@ static int ctf__load_ftype(struct ctf *ctf, struct ftype *proto, uint16_t tag,
 	INIT_LIST_HEAD(&proto->template_type_params);
 	INIT_LIST_HEAD(&proto->template_value_params);
 	proto->template_parameter_pack = NULL;
+	proto->formal_parameter_pack = NULL;
 
 	int i;
 	for (i = 0; i < vlen; i++) {

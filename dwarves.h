@@ -949,6 +949,23 @@ static inline struct template_parameter_pack *tag__template_parameter_pack(const
 
 void template_parameter_pack__add(struct template_parameter_pack *pack, struct template_type_param *param);
 
+/* struct formal_parameter_pack - list of DW_TAG_formal_parameter
+ */
+
+struct formal_parameter_pack {
+	struct tag	 tag;
+	struct list_head params;
+};
+
+void formal_parameter_pack__delete(struct formal_parameter_pack *pack);
+
+static inline struct formal_parameter_pack *tag__formal_parameter_pack(const struct tag *tag)
+{
+	return (struct formal_parameter_pack *)tag;
+}
+
+void formal_parameter_pack__add(struct formal_parameter_pack *pack, struct parameter *param);
+
 /*
  * tag.tag can be DW_TAG_subprogram_type or DW_TAG_subroutine_type.
  */
@@ -965,6 +982,7 @@ struct ftype {
 	struct list_head template_type_params;
 	struct list_head template_value_params;
 	struct template_parameter_pack *template_parameter_pack;
+	struct formal_parameter_pack *formal_parameter_pack;
 };
 
 static inline struct ftype *tag__ftype(const struct tag *tag)
