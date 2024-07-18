@@ -73,6 +73,20 @@ static int cu__emit_tags(struct cu *cu)
 		printf(" /* size: %zd */\n\n", tag__size(tag, cu));
 	}
 
+	bool first_namespace = true;
+
+	cu__for_each_namespace(cu, i, tag) {
+		if (!tag->top_level)
+			continue;
+
+		if (first_namespace) {
+			puts("\n\n/* Namespaces: */\n");
+			first_namespace = false;
+		}
+		tag__fprintf(tag, cu, NULL, stdout);
+		puts("\n");
+	}
+
 	return 0;
 }
 
