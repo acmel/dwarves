@@ -69,6 +69,11 @@ static uint32_t hashtags__fn(Dwarf_Off key)
 
 bool no_bitfield_type_recode = true;
 
+static inline struct dwarf_tag *tag__dwarf(const struct tag *tag)
+{
+	return tag->priv;
+}
+
 static void __tag__print_not_supported(uint32_t tag, const char *func, unsigned long long offset)
 {
 	static bool dwarf_tags_warned[DW_TAG_GNU_call_site_parameter + 64];
@@ -192,7 +197,7 @@ static void dwarf_cu__delete(struct cu *cu)
 
 static void __tag__print_type_not_found(struct tag *tag, const char *func)
 {
-	struct dwarf_tag *dtag = tag->priv;
+	struct dwarf_tag *dtag = tag__dwarf(tag);
 	fprintf(stderr, "%s: couldn't find %#llx type for %#llx (%s)!\n", func,
 		(unsigned long long)dtag->type.off, (unsigned long long)dtag->id,
 		dwarf_tag_name(tag->tag));
@@ -233,7 +238,7 @@ static void cu__hash(struct cu *cu, struct tag *tag)
 	struct hlist_head *hashtable = tag__is_tag_type(tag) ?
 							dcu->hash_types :
 							dcu->hash_tags;
-	hashtags__hash(hashtable, tag->priv);
+	hashtags__hash(hashtable, tag__dwarf(tag));
 }
 
 static struct dwarf_tag *dwarf_cu__find_tag_by_ref(const struct dwarf_cu *cu,
@@ -497,7 +502,7 @@ static void *tag__alloc_with_spec(struct cu *cu, size_t size)
 
 static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 {
-	struct dwarf_tag *dtag = tag->priv;
+	struct dwarf_tag *dtag = tag__dwarf(tag);
 
 	tag->tag = dwarf_tag(die);
 
@@ -552,7 +557,7 @@ static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die,
 
 	if (ptr != NULL) {
 		tag__init(&ptr->tag, cu, die);
-		struct dwarf_tag *dtag = ptr->tag.priv;
+		struct dwarf_tag *dtag = tag__dwarf(&ptr->tag);
 		dtag->containing_type = attr_type(die, DW_AT_containing_type);
 	}
 
@@ -645,7 +650,7 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu, struct 
 	type->size		 = attr_numeric(die, DW_AT_byte_size);
 	type->alignment		 = attr_alignment(die, conf);
 	type->declaration	 = attr_numeric(die, DW_AT_declaration);
-	dwarf_tag__set_spec(type->namespace.tag.priv,
+	dwarf_tag__set_spec(tag__dwarf(&type->namespace.tag),
 			    attr_type(die, DW_AT_specification));
 	type->definition_emitted = 0;
 	type->fwd_decl_emitted	 = 0;
@@ -758,7 +763,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu, struct conf
 		if (!var->declaration && cu->has_addr_info)
 			var->scope = dwarf__location(die, &var->ip.addr, &var->location);
 		if (has_specification) {
-			dwarf_tag__set_spec(var->ip.tag.priv,
+			dwarf_tag__set_spec(tag__dwarf(&var->ip.tag),
 					    attr_type(die, DW_AT_specification));
 		}
 	}
@@ -789,7 +794,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 
 	switch (tag->tag) {
 	case DW_TAG_typedef: {
-		const struct dwarf_tag *dtag = tag->priv;
+		const struct dwarf_tag *dtag = tag__dwarf(tag);
 		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
 
 		if (dtype == NULL) {
@@ -817,7 +822,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 	case DW_TAG_const_type:
 	case DW_TAG_volatile_type:
 	case DW_TAG_atomic_type: {
-		const struct dwarf_tag *dtag = tag->priv;
+		const struct dwarf_tag *dtag = tag__dwarf(tag);
 		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
 
 		if (dtype == NULL) {
@@ -951,7 +956,7 @@ static int add_child_llvm_annotations(Dwarf_Die *die, int component_idx,
 int class_member__dwarf_recode_bitfield(struct class_member *member,
 					struct cu *cu)
 {
-	struct dwarf_tag *dtag = member->tag.priv;
+	struct dwarf_tag *dtag = tag__dwarf(&member->tag);
 	struct dwarf_tag *type = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
 	int recoded_type_id;
 
@@ -1301,7 +1306,7 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die, struct cu 
 	struct inline_expansion *exp = tag__alloc(cu, sizeof(*exp));
 
 	if (exp != NULL) {
-		struct dwarf_tag *dtag = exp->ip.tag.priv;
+		struct dwarf_tag *dtag = tag__dwarf(&exp->ip.tag);
 
 		tag__init(&exp->ip.tag, cu, die);
 		dtag->decl_file = attr_string(die, DW_AT_call_file, conf);
@@ -1445,7 +1450,7 @@ static struct function *function__new(Dwarf_Die *die, struct cu *cu, struct conf
 		func->declaration     = dwarf_hasattr(die, DW_AT_declaration);
 		func->external	      = dwarf_hasattr(die, DW_AT_external);
 		func->abstract_origin = dwarf_hasattr(die, DW_AT_abstract_origin);
-		dwarf_tag__set_spec(func->proto.tag.priv,
+		dwarf_tag__set_spec(tag__dwarf(&func->proto.tag),
 				    attr_type(die, DW_AT_specification));
 		func->accessibility   = attr_numeric(die, DW_AT_accessibility);
 		func->virtuality      = attr_numeric(die, DW_AT_virtuality);
@@ -1573,7 +1578,7 @@ static struct tag *die__create_new_pointer_tag(Dwarf_Die *die, struct cu *cu,
 		if (cu__table_add_tag(cu, &annot->tag, &id) < 0)
 			return NULL;
 
-		struct dwarf_tag *dtag = annot->tag.priv;
+		struct dwarf_tag *dtag = tag__dwarf(&annot->tag);
 		dtag->small_id = id;
 		cu__hash(cu, &annot->tag);
 
@@ -1848,7 +1853,7 @@ static struct tag *die__create_new_subroutine_type(Dwarf_Die *die,
 			goto out_delete_tag;
 hash:
 		cu__hash(cu, tag);
-		struct dwarf_tag *dtag = tag->priv;
+		struct dwarf_tag *dtag = tag__dwarf(tag);
 		dtag->small_id = id;
 	} while (dwarf_siblingof(die, die) == 0);
 out:
@@ -1964,7 +1969,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 					return -ENOMEM;
 				}
 
-				struct dwarf_tag *dtag = member->tag.priv;
+				struct dwarf_tag *dtag = tag__dwarf(&member->tag);
 				dtag->small_id = id;
 			}
 
@@ -1997,7 +2002,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 				return -ENOMEM;
 			}
 
-			struct dwarf_tag *dtag = tag->priv;
+			struct dwarf_tag *dtag = tag__dwarf(tag);
 			dtag->small_id = id;
 
 			namespace__add_tag(&class->namespace, tag);
@@ -2034,7 +2039,7 @@ static int die__process_namespace(Dwarf_Die *die, struct namespace *namespace,
 		if (cu__table_add_tag(cu, tag, &id) < 0)
 			goto out_delete_tag;
 
-		struct dwarf_tag *dtag = tag->priv;
+		struct dwarf_tag *dtag = tag__dwarf(tag);
 		dtag->small_id = id;
 
 		namespace__add_tag(namespace, tag);
@@ -2146,7 +2151,7 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct lexblock *lexblo
 			goto out_delete_tag;
 hash:
 		cu__hash(cu, tag);
-		struct dwarf_tag *dtag = tag->priv;
+		struct dwarf_tag *dtag = tag__dwarf(tag);
 		dtag->small_id = id;
 	} while (dwarf_siblingof(die, die) == 0);
 
@@ -2308,7 +2313,7 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			goto out_delete_tag;
 hash:
 		cu__hash(cu, tag);
-		struct dwarf_tag *dtag = tag->priv;
+		struct dwarf_tag *dtag = tag__dwarf(tag);
 		dtag->small_id = id;
 	} while (dwarf_siblingof(die, die) == 0);
 
@@ -2439,7 +2444,7 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *co
 		if (tag->tag != DW_TAG_unspecified_type)
 			cu__add_tag(cu, tag, &id);
 		cu__hash(cu, tag);
-		struct dwarf_tag *dtag = tag->priv;
+		struct dwarf_tag *dtag = tag__dwarf(tag);
 		dtag->small_id = id;
 	} while (dwarf_siblingof(die, die) == 0);
 
@@ -2456,7 +2461,7 @@ static int namespace__recode_dwarf_types(struct tag *tag, struct cu *cu)
 
 	namespace__for_each_tag(ns, pos) {
 		struct dwarf_tag *dtype;
-		struct dwarf_tag *dpos = pos->priv;
+		struct dwarf_tag *dpos = tag__dwarf(pos);
 
 		if (tag__has_namespace(pos)) {
 			if (namespace__recode_dwarf_types(pos, cu))
@@ -2512,7 +2517,7 @@ static void type__recode_dwarf_specification(struct tag *tag, struct cu *cu)
 {
 	struct dwarf_tag *dtype;
 	struct type *t = tag__type(tag);
-	dwarf_off_ref specification = dwarf_tag__spec(tag->priv);
+	dwarf_off_ref specification = dwarf_tag__spec(tag__dwarf(tag));
 
 	if (t->namespace.name != 0 || specification.off == 0)
 		return;
@@ -2521,7 +2526,7 @@ static void type__recode_dwarf_specification(struct tag *tag, struct cu *cu)
 	if (dtype != NULL)
 		t->namespace.name = tag__namespace(dtype->tag)->name;
 	else {
-		struct dwarf_tag *dtag = tag->priv;
+		struct dwarf_tag *dtag = tag__dwarf(tag);
 
 		fprintf(stderr,
 			"%s: couldn't find name for "
@@ -2534,7 +2539,7 @@ static void type__recode_dwarf_specification(struct tag *tag, struct cu *cu)
 static void __tag__print_abstract_origin_not_found(struct tag *tag,
 						   const char *func, int line)
 {
-	struct dwarf_tag *dtag = tag->priv;
+	struct dwarf_tag *dtag = tag__dwarf(tag);
 	fprintf(stderr,
 		"%s(%d): couldn't find %#llx abstract_origin for %#llx (%s)!\n",
 		func, line, (unsigned long long)dtag->abstract_origin.off,
@@ -2552,7 +2557,7 @@ static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu)
 	struct ftype *type = tag__ftype(tag);
 
 	ftype__for_each_parameter(type, pos) {
-		struct dwarf_tag *dpos = pos->tag.priv;
+		struct dwarf_tag *dpos = tag__dwarf(&pos->tag);
 		struct parameter *opos;
 		struct dwarf_tag *dtype;
 
@@ -2601,7 +2606,7 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 	struct dwarf_cu *dcu = cu->priv;
 
 	list_for_each_entry(pos, &tag->tags, node) {
-		struct dwarf_tag *dpos = pos->priv;
+		struct dwarf_tag *dpos = tag__dwarf(pos);
 		struct dwarf_tag *dtype;
 
 		switch (pos->tag) {
@@ -2719,7 +2724,7 @@ static void dwarf_cu__recode_btf_type_tag_ptr(struct btf_type_tag_ptr_type *tag,
 	 */
 	prev_tag = &tag->tag;
 	list_for_each_entry(annot, &tag->tags, node) {
-		annot_dtag = annot->tag.priv;
+		annot_dtag = tag__dwarf(&annot->tag);
 		prev_tag->type = annot_dtag->small_id;
 		prev_tag = &annot->tag;
 	}
@@ -2728,7 +2733,7 @@ static void dwarf_cu__recode_btf_type_tag_ptr(struct btf_type_tag_ptr_type *tag,
 
 static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 {
-	struct dwarf_tag *dtag = tag->priv;
+	struct dwarf_tag *dtag = tag__dwarf(tag);
 	struct dwarf_tag *dtype;
 
 	/* Check if this is an already recoded bitfield */
@@ -2925,7 +2930,7 @@ static int cu__resolve_func_ret_types_optimized(struct cu *cu)
 		if (!fn->abstract_origin)
 			continue;
 
-		struct dwarf_tag *dtag = tag->priv;
+		struct dwarf_tag *dtag = tag__dwarf(tag);
 		struct dwarf_tag *dfunc;
 		dfunc = dwarf_cu__find_tag_by_ref(cu->priv, &dtag->abstract_origin);
 		if (dfunc == NULL) {
@@ -2965,21 +2970,21 @@ static int cu__recode_dwarf_types(struct cu *cu)
 static const char *dwarf_tag__decl_file(const struct tag *tag,
 					const struct cu *cu)
 {
-	struct dwarf_tag *dtag = tag->priv;
+	struct dwarf_tag *dtag = tag__dwarf(tag);
 	return cu->extra_dbg_info ? dtag->decl_file : NULL;
 }
 
 static uint32_t dwarf_tag__decl_line(const struct tag *tag,
 				     const struct cu *cu)
 {
-	struct dwarf_tag *dtag = tag->priv;
+	struct dwarf_tag *dtag = tag__dwarf(tag);
 	return cu->extra_dbg_info ? dtag->decl_line : 0;
 }
 
 static unsigned long long dwarf_tag__orig_id(const struct tag *tag,
 					       const struct cu *cu)
 {
-	struct dwarf_tag *dtag = tag->priv;
+	struct dwarf_tag *dtag = tag__dwarf(tag);
 	return cu->extra_dbg_info ? dtag->id : 0;
 }
 
