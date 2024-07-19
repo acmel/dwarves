@@ -119,6 +119,7 @@ struct dwarf_tag {
 		dwarf_off_ref abstract_origin;
 		dwarf_off_ref containing_type;
 	};
+	dwarf_off_ref	 specification;
 	struct tag	 *tag;
 	uint32_t         small_id;
 	uint16_t         decl_line;
@@ -132,12 +133,12 @@ static inline struct tag *dtag__tag(struct dwarf_tag *dtag)
 
 static dwarf_off_ref dwarf_tag__spec(struct dwarf_tag *dtag)
 {
-	return *(dwarf_off_ref *)(dtag + 1);
+	return dtag->specification;
 }
 
 static void dwarf_tag__set_spec(struct dwarf_tag *dtag, dwarf_off_ref spec)
 {
-	*(dwarf_off_ref *)(dtag + 1) = spec;
+	dtag->specification = spec;
 }
 
 struct dwarf_cu {
@@ -475,14 +476,14 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 	return 1;
 }
 
-static void *__tag__alloc(struct dwarf_cu *dcu, size_t size, bool spec)
+static void *tag__alloc(struct cu *cu, size_t size)
 {
-	struct dwarf_tag *dtag = cu__zalloc(dcu->cu, (sizeof(*dtag) + (spec ? sizeof(dwarf_off_ref) : 0)));
+	struct dwarf_tag *dtag = cu__zalloc(cu, sizeof(*dtag));
 
 	if (dtag == NULL)
 		return NULL;
 
-	struct tag *tag = cu__zalloc(dcu->cu, size);
+	struct tag *tag = cu__zalloc(cu, size);
 
 	if (tag == NULL)
 		return NULL;
@@ -493,16 +494,6 @@ static void *__tag__alloc(struct dwarf_cu *dcu, size_t size, bool spec)
 	tag->top_level = 0;
 
 	return tag;
-}
-
-static void *tag__alloc(struct cu *cu, size_t size)
-{
-	return __tag__alloc(cu->priv, size, false);
-}
-
-static void *tag__alloc_with_spec(struct cu *cu, size_t size)
-{
-	return __tag__alloc(cu->priv, size, true);
 }
 
 static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
@@ -678,7 +669,7 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu, struct 
 
 static struct type *type__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 {
-	struct type *type = tag__alloc_with_spec(cu, sizeof(*type));
+	struct type *type = tag__alloc(cu, sizeof(*type));
 
 	if (type != NULL)
 		type__init(type, die, cu, conf);
@@ -744,15 +735,8 @@ const char *variable__scope_str(const struct variable *var)
 
 static struct variable *variable__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 {
-	struct variable *var;
-	bool has_specification;
-
-	has_specification = dwarf_hasattr(die, DW_AT_specification);
-	if (has_specification) {
-		var = tag__alloc_with_spec(cu, sizeof(*var));
-	} else {
-		var = tag__alloc(cu, sizeof(*var));
-	}
+	bool has_specification = dwarf_hasattr(die, DW_AT_specification);
+	struct variable *var = tag__alloc(cu, sizeof(*var));
 
 	if (var != NULL) {
 		tag__init(&var->ip.tag, cu, die);
@@ -1366,7 +1350,7 @@ static struct label *label__new(Dwarf_Die *die, struct cu *cu, struct conf_load 
 
 static struct class *class__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 {
-	struct class *class = tag__alloc_with_spec(cu, sizeof(*class));
+	struct class *class = tag__alloc(cu, sizeof(*class));
 
 	if (class != NULL) {
 		type__init(&class->type, die, cu, conf);
@@ -1444,7 +1428,7 @@ static struct ftype *ftype__new(Dwarf_Die *die, struct cu *cu)
 
 static struct function *function__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 {
-	struct function *func = tag__alloc_with_spec(cu, sizeof(*func));
+	struct function *func = tag__alloc(cu, sizeof(*func));
 
 	if (func != NULL) {
 		ftype__init(&func->proto, die, cu);
@@ -1517,7 +1501,7 @@ static struct btf_type_tag_ptr_type *die__create_new_btf_type_tag_ptr_type(Dwarf
 {
 	struct btf_type_tag_ptr_type *tag;
 
-	tag  = tag__alloc_with_spec(cu, sizeof(struct btf_type_tag_ptr_type));
+	tag  = tag__alloc(cu, sizeof(struct btf_type_tag_ptr_type));
 	if (tag == NULL)
 		return NULL;
 
@@ -1532,7 +1516,7 @@ static struct btf_type_tag_type *die__create_new_btf_type_tag_type(Dwarf_Die *di
 {
 	struct btf_type_tag_type *tag;
 
-	tag  = tag__alloc_with_spec(cu, sizeof(struct btf_type_tag_type));
+	tag  = tag__alloc(cu, sizeof(struct btf_type_tag_type));
 	if (tag == NULL)
 		return NULL;
 
