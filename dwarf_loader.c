@@ -125,6 +125,11 @@ struct dwarf_tag {
 	const char	 *decl_file;
 };
 
+static inline struct tag *dtag__tag(struct dwarf_tag *dtag)
+{
+	return dtag->tag;
+}
+
 static dwarf_off_ref dwarf_tag__spec(struct dwarf_tag *dtag)
 {
 	return *(dwarf_off_ref *)(dtag + 1);
@@ -802,7 +807,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 			return -ENOENT;
 		}
 
-		struct tag *type = dtype->tag;
+		struct tag *type = dtag__tag(dtype);
 
 		id = tag__recode_dwarf_bitfield(type, cu, bit_size);
 		if (id < 0)
@@ -830,7 +835,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 			return -ENOENT;
 		}
 
-		struct tag *type = dtype->tag;
+		struct tag *type = dtag__tag(dtype);
 
 		id = tag__recode_dwarf_bitfield(type, cu, bit_size);
 		if (id >= 0 && (uint32_t)id == tag->type)
@@ -963,7 +968,7 @@ int class_member__dwarf_recode_bitfield(struct class_member *member,
 	if (type == NULL)
 		return -ENOENT;
 
-	recoded_type_id = tag__recode_dwarf_bitfield(type->tag, cu, member->bitfield_size);
+	recoded_type_id = tag__recode_dwarf_bitfield(dtag__tag(type), cu, member->bitfield_size);
 	if (recoded_type_id < 0)
 		return recoded_type_id;
 
@@ -2524,7 +2529,7 @@ static void type__recode_dwarf_specification(struct tag *tag, struct cu *cu)
 
 	dtype = dwarf_cu__find_type_by_ref(cu->priv, &specification);
 	if (dtype != NULL)
-		t->namespace.name = tag__namespace(dtype->tag)->name;
+		t->namespace.name = tag__namespace(dtag__tag(dtype))->name;
 	else {
 		struct dwarf_tag *dtag = tag__dwarf(tag);
 
@@ -2572,9 +2577,9 @@ static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu)
 				tag__print_abstract_origin_not_found(&pos->tag);
 				continue;
 			}
-			opos = tag__parameter(dtype->tag);
+			opos = tag__parameter(dtag__tag(dtype));
 			pos->name = opos->name;
-			pos->tag.type = dtype->tag->type;
+			pos->tag.type = dtag__tag(dtype)->type;
 			/* share location information between parameter and
 			 * abstract origin; if neither have location, we will
 			 * mark the parameter as optimized out.  Also share
@@ -2625,7 +2630,7 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 					tag__print_abstract_origin_not_found(pos);
 				continue;
 			}
-			ftype__recode_dwarf_types(dtype->tag, cu);
+			ftype__recode_dwarf_types(dtag__tag(dtype), cu);
 			continue;
 
 		case DW_TAG_formal_parameter:
@@ -2639,8 +2644,8 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 				tag__print_abstract_origin_not_found(pos);
 				continue;
 			}
-			fp->name = tag__parameter(dtype->tag)->name;
-			pos->type = dtype->tag->type;
+			fp->name = tag__parameter(dtag__tag(dtype))->name;
+			pos->type = dtag__tag(dtype)->type;
 			continue;
 
 		case DW_TAG_variable:
@@ -2664,8 +2669,8 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 				tag__print_abstract_origin_not_found(pos);
 				continue;
 			}
-			var->name = tag__variable(dtype->tag)->name;
-			pos->type = dtype->tag->type;
+			var->name = tag__variable(dtag__tag(dtype))->name;
+			pos->type = dtag__tag(dtype)->type;
 			continue;
 
 		case DW_TAG_label: {
@@ -2676,7 +2681,7 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 
 			dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->abstract_origin);
 			if (dtype != NULL)
-				l->name = tag__label(dtype->tag)->name;
+				l->name = tag__label(dtag__tag(dtype))->name;
 			else
 				tag__print_abstract_origin_not_found(pos);
 		}
@@ -2765,7 +2770,7 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 			if (dtype == NULL)
 				dtype = dwarf_cu__find_tag_by_ref(cu->priv, &specification);
 			if (dtype != NULL)
-				fn->name = tag__function(dtype->tag)->name;
+				fn->name = tag__function(dtag__tag(dtype))->name;
 			else {
 				fprintf(stderr,
 					"%s: couldn't find name for "
@@ -2832,7 +2837,7 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 				dtype = dwarf_cu__find_tag_by_ref(cu->priv,
 								  &specification);
 				if (dtype)
-					var->spec = tag__variable(dtype->tag);
+					var->spec = tag__variable(dtag__tag(dtype));
 			}
 		}
 	}
@@ -2938,7 +2943,7 @@ static int cu__resolve_func_ret_types_optimized(struct cu *cu)
 			return -1;
 		}
 
-		tag->type = dfunc->tag->type;
+		tag->type = dtag__tag(dfunc)->type;
 	}
 	return 0;
 }
