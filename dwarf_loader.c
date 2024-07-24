@@ -104,26 +104,25 @@ static struct tag unsupported_tag;
 
 #define cu__tag_not_handled(die) __cu__tag_not_handled(die, __FUNCTION__)
 
-struct dwarf_off_ref {
-	unsigned int	from_types : 1;
-	Dwarf_Off	off;
-};
-
-typedef struct dwarf_off_ref dwarf_off_ref;
-
 struct dwarf_tag {
 	struct hlist_node hash_node;
-	dwarf_off_ref	 type;
+	Dwarf_Off	 type;
 	Dwarf_Off	 id;
 	union {
-		dwarf_off_ref abstract_origin;
-		dwarf_off_ref containing_type;
+		Dwarf_Off abstract_origin;
+		Dwarf_Off containing_type;
 	};
-	dwarf_off_ref	 specification;
-	struct tag	 *tag;
-	uint32_t         small_id;
+	Dwarf_Off	 specification;
+	struct {
+		bool		 type:1;
+		bool		 abstract_origin:1;
+		bool		 containing_type:1;
+		bool		 specification:1;
+	} from_types_section;
 	uint16_t         decl_line;
+	uint32_t         small_id;
 	const char	 *decl_file;
+	struct tag	 *tag;
 };
 
 static inline struct tag *dtag__tag(struct dwarf_tag *dtag)
@@ -195,7 +194,7 @@ static void __tag__print_type_not_found(struct tag *tag, const char *func)
 {
 	struct dwarf_tag *dtag = tag__dwarf(tag);
 	fprintf(stderr, "%s: couldn't find %#llx type for %#llx (%s)!\n", func,
-		(unsigned long long)dtag->type.off, (unsigned long long)dtag->id,
+		(unsigned long long)dtag->type, (unsigned long long)dtag->id,
 		dwarf_tag_name(tag->tag));
 }
 
@@ -237,39 +236,45 @@ static void cu__hash(struct cu *cu, struct tag *tag)
 	hashtags__hash(hashtable, tag__dwarf(tag));
 }
 
-static struct dwarf_tag *dwarf_cu__find_tag_by_ref(const struct dwarf_cu *cu,
-						   const struct dwarf_off_ref *ref)
+static struct dwarf_tag *__dwarf_cu__find_tag_by_ref(const struct dwarf_cu *cu,
+						     const Dwarf_Off ref, bool from_types)
 {
 	if (cu == NULL)
 		return NULL;
-	if (ref->from_types) {
+	if (from_types) {
 		return NULL;
 	}
-	return hashtags__find(cu->hash_tags, ref->off);
+	return hashtags__find(cu->hash_tags, ref);
 }
 
-static struct dwarf_tag *dwarf_cu__find_type_by_ref(struct dwarf_cu *dcu,
-						    const struct dwarf_off_ref *ref)
+#define dwarf_cu__find_tag_by_ref(cu, dtag, field) \
+	__dwarf_cu__find_tag_by_ref(cu, dtag->field, dtag->from_types_section.field)
+
+static struct dwarf_tag *__dwarf_cu__find_type_by_ref(struct dwarf_cu *dcu,
+						      const Dwarf_Off ref, bool from_types)
 {
 	if (dcu == NULL)
 		return NULL;
-	if (ref->from_types) {
+	if (from_types) {
 		dcu = dcu->type_unit;
 		if (dcu == NULL) {
 			return NULL;
 		}
 	}
 
-	if (dcu->last_type_lookup->id == ref->off)
+	if (dcu->last_type_lookup->id == ref)
 		return dcu->last_type_lookup;
 
-	struct dwarf_tag *dtag = hashtags__find(dcu->hash_types, ref->off);
+	struct dwarf_tag *dtag = hashtags__find(dcu->hash_types, ref);
 
 	if (dtag)
 		dcu->last_type_lookup = dtag;
 
 	return dtag;
 }
+
+#define dwarf_cu__find_type_by_ref(dcu, dtag, field) \
+	__dwarf_cu__find_type_by_ref(dcu, dtag->field, dtag->from_types_section.field)
 
 static void *memdup(const void *src, size_t len, struct cu *cu)
 {
@@ -428,20 +433,19 @@ static const char *attr_string(Dwarf_Die *die, uint32_t name, struct conf_load *
 	return str;
 }
 
-static struct dwarf_off_ref attr_type(Dwarf_Die *die, uint32_t attr_name)
+static bool attr_type(Dwarf_Die *die, uint32_t attr_name, Dwarf_Off *offset)
 {
 	Dwarf_Attribute attr;
-	struct dwarf_off_ref ref;
+
 	if (dwarf_attr(die, attr_name, &attr) != NULL) {
 		Dwarf_Die type_die;
 		if (dwarf_formref_die(&attr, &type_die) != NULL) {
-			ref.from_types = attr.form == DW_FORM_ref_sig8;
-			ref.off = dwarf_dieoffset(&type_die);
-			return ref;
+			*offset = dwarf_dieoffset(&type_die);
+			return attr.form == DW_FORM_ref_sig8;
 		}
 	}
-	memset(&ref, 0, sizeof(ref));
-	return ref;
+	*offset = 0;
+	return 0;
 }
 
 static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
@@ -486,6 +490,9 @@ static void *tag__alloc(struct cu *cu, size_t size)
 	return tag;
 }
 
+#define dwarf_tag__set_attr_type(dtag, field, die, attr_name) \
+	dtag->from_types_section.field = attr_type(die, attr_name, &dtag->field)
+
 static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 {
 	struct dwarf_tag *dtag = tag__dwarf(tag);
@@ -494,13 +501,12 @@ static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 
 	dtag->id  = dwarf_dieoffset(die);
 
-	if (tag->tag == DW_TAG_imported_module ||
-	    tag->tag == DW_TAG_imported_declaration)
-		dtag->type = attr_type(die, DW_AT_import);
+	if (tag->tag == DW_TAG_imported_module || tag->tag == DW_TAG_imported_declaration)
+		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_import);
 	else
-		dtag->type = attr_type(die, DW_AT_type);
+		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_type);
 
-	dtag->abstract_origin = attr_type(die, DW_AT_abstract_origin);
+	dwarf_tag__set_attr_type(dtag, abstract_origin, die, DW_AT_abstract_origin);
 	tag->recursivity_level = 0;
 	tag->attribute = NULL;
 
@@ -538,7 +544,8 @@ static struct tag *tag__new(Dwarf_Die *die, struct cu *cu)
 
 static void tag__set_spec(struct tag *tag, Dwarf_Die *die)
 {
-	tag__dwarf(tag)->specification = attr_type(die, DW_AT_specification);
+	struct dwarf_tag *dtag = tag__dwarf(tag);
+	dwarf_tag__set_attr_type(dtag, specification, die, DW_AT_specification);
 }
 
 static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die,
@@ -549,7 +556,7 @@ static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die,
 	if (ptr != NULL) {
 		tag__init(&ptr->tag, cu, die);
 		struct dwarf_tag *dtag = tag__dwarf(&ptr->tag);
-		dtag->containing_type = attr_type(die, DW_AT_containing_type);
+		dwarf_tag__set_attr_type(dtag, containing_type, die, DW_AT_containing_type);
 	}
 
 	return ptr;
@@ -776,7 +783,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 	switch (tag->tag) {
 	case DW_TAG_typedef: {
 		const struct dwarf_tag *dtag = tag__dwarf(tag);
-		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
+		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, dtag, type);
 
 		if (dtype == NULL) {
 			tag__print_type_not_found(tag);
@@ -804,7 +811,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 	case DW_TAG_volatile_type:
 	case DW_TAG_atomic_type: {
 		const struct dwarf_tag *dtag = tag__dwarf(tag);
-		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
+		struct dwarf_tag *dtype = dwarf_cu__find_type_by_ref(cu->priv, dtag, type);
 
 		if (dtype == NULL) {
 			tag__print_type_not_found(tag);
@@ -938,7 +945,7 @@ int class_member__dwarf_recode_bitfield(struct class_member *member,
 					struct cu *cu)
 {
 	struct dwarf_tag *dtag = tag__dwarf(&member->tag);
-	struct dwarf_tag *type = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
+	struct dwarf_tag *type = dwarf_cu__find_type_by_ref(cu->priv, dtag, type);
 	int recoded_type_id;
 
 	if (type == NULL)
@@ -1292,7 +1299,7 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die, struct cu 
 		tag__init(&exp->ip.tag, cu, die);
 		dtag->decl_file = attr_string(die, DW_AT_call_file, conf);
 		dtag->decl_line = attr_numeric(die, DW_AT_call_line);
-		dtag->type = attr_type(die, DW_AT_abstract_origin);
+		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_abstract_origin);
 		exp->ip.addr = 0;
 		exp->high_pc = 0;
 
@@ -2468,20 +2475,20 @@ static int namespace__recode_dwarf_types(struct tag *tag, struct cu *cu)
 			ftype__recode_dwarf_types(pos, cu);
 			break;
 		case DW_TAG_imported_module:
-			dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->type);
+			dtype = dwarf_cu__find_tag_by_ref(dcu, dpos, type);
 			goto check_type;
 		/* Can be for both types and non types */
 		case DW_TAG_imported_declaration:
-			dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->type);
+			dtype = dwarf_cu__find_tag_by_ref(dcu, dpos, type);
 			if (dtype != NULL)
 				goto next;
 			goto find_type;
 		}
 
-		if (dpos->type.off == 0) /* void */
+		if (dpos->type == 0) /* void */
 			continue;
 find_type:
-		dtype = dwarf_cu__find_type_by_ref(dcu, &dpos->type);
+		dtype = dwarf_cu__find_type_by_ref(dcu, dpos, type);
 check_type:
 		if (dtype == NULL) {
 			tag__print_type_not_found(pos);
@@ -2498,12 +2505,11 @@ static void type__recode_dwarf_specification(struct tag *tag, struct cu *cu)
 	struct dwarf_tag *dtype;
 	struct type *t = tag__type(tag);
 	struct dwarf_tag *dtag = tag__dwarf(tag);
-	dwarf_off_ref specification = dtag->specification;
 
-	if (t->namespace.name != 0 || specification.off == 0)
+	if (t->namespace.name != 0 || dtag->specification == 0)
 		return;
 
-	dtype = dwarf_cu__find_type_by_ref(cu->priv, &specification);
+	dtype = dwarf_cu__find_type_by_ref(cu->priv, dtag, specification);
 	if (dtype != NULL)
 		t->namespace.name = tag__namespace(dtag__tag(dtype))->name;
 	else {
@@ -2511,7 +2517,7 @@ static void type__recode_dwarf_specification(struct tag *tag, struct cu *cu)
 			"%s: couldn't find name for "
 			"class %#llx, specification=%#llx\n", __func__,
 			(unsigned long long)dtag->id,
-			(unsigned long long)specification.off);
+			(unsigned long long)dtag->specification);
 	}
 }
 
@@ -2521,7 +2527,7 @@ static void __tag__print_abstract_origin_not_found(struct tag *tag,
 	struct dwarf_tag *dtag = tag__dwarf(tag);
 	fprintf(stderr,
 		"%s(%d): couldn't find %#llx abstract_origin for %#llx (%s)!\n",
-		func, line, (unsigned long long)dtag->abstract_origin.off,
+		func, line, (unsigned long long)dtag->abstract_origin,
 		(unsigned long long)dtag->id,
 		dwarf_tag_name(tag->tag));
 }
@@ -2540,13 +2546,13 @@ static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu)
 		struct parameter *opos;
 		struct dwarf_tag *dtype;
 
-		if (dpos->type.off == 0) {
-			if (dpos->abstract_origin.off == 0) {
+		if (dpos->type == 0) {
+			if (dpos->abstract_origin == 0) {
 				/* Function without parameters */
 				pos->tag.type = 0;
 				continue;
 			}
-			dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->abstract_origin);
+			dtype = dwarf_cu__find_tag_by_ref(dcu, dpos, abstract_origin);
 			if (dtype == NULL) {
 				tag__print_abstract_origin_not_found(&pos->tag);
 				continue;
@@ -2570,7 +2576,7 @@ static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu)
 			continue;
 		}
 
-		dtype = dwarf_cu__find_type_by_ref(dcu, &dpos->type);
+		dtype = dwarf_cu__find_type_by_ref(dcu, dpos, type);
 		if (dtype == NULL) {
 			tag__print_type_not_found(&pos->tag);
 			continue;
@@ -2593,12 +2599,12 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 			lexblock__recode_dwarf_types(tag__lexblock(pos), cu);
 			continue;
 		case DW_TAG_inlined_subroutine:
-			if (dpos->type.off != 0)
-				dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->type);
+			if (dpos->type != 0)
+				dtype = dwarf_cu__find_tag_by_ref(dcu, dpos, type);
 			else
-				dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->abstract_origin);
+				dtype = dwarf_cu__find_tag_by_ref(dcu, dpos, abstract_origin);
 			if (dtype == NULL) {
-				if (dpos->type.off != 0)
+				if (dpos->type != 0)
 					tag__print_type_not_found(pos);
 				else
 					tag__print_abstract_origin_not_found(pos);
@@ -2608,12 +2614,11 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 			continue;
 
 		case DW_TAG_formal_parameter:
-			if (dpos->type.off != 0)
+			if (dpos->type != 0)
 				break;
 
 			struct parameter *fp = tag__parameter(pos);
-			dtype = dwarf_cu__find_tag_by_ref(dcu,
-							  &dpos->abstract_origin);
+			dtype = dwarf_cu__find_tag_by_ref(dcu, dpos, abstract_origin);
 			if (dtype == NULL) {
 				tag__print_abstract_origin_not_found(pos);
 				continue;
@@ -2623,12 +2628,12 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 			continue;
 
 		case DW_TAG_variable:
-			if (dpos->type.off != 0)
+			if (dpos->type != 0)
 				break;
 
 			struct variable *var = tag__variable(pos);
 
-			if (dpos->abstract_origin.off == 0) {
+			if (dpos->abstract_origin == 0) {
 				/*
 				 * DW_TAG_variable completely empty was
 				 * found on libQtGui.so.4.3.4.debug
@@ -2637,8 +2642,7 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 				continue;
 			}
 
-			dtype = dwarf_cu__find_tag_by_ref(dcu,
-							  &dpos->abstract_origin);
+			dtype = dwarf_cu__find_tag_by_ref(dcu, dpos, abstract_origin);
 			if (dtype == NULL) {
 				tag__print_abstract_origin_not_found(pos);
 				continue;
@@ -2650,10 +2654,10 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 		case DW_TAG_label: {
 			struct label *l = tag__label(pos);
 
-			if (dpos->abstract_origin.off == 0)
+			if (dpos->abstract_origin == 0)
 				continue;
 
-			dtype = dwarf_cu__find_tag_by_ref(dcu, &dpos->abstract_origin);
+			dtype = dwarf_cu__find_tag_by_ref(dcu, dpos, abstract_origin);
 			if (dtype != NULL)
 				l->name = tag__label(dtag__tag(dtype))->name;
 			else
@@ -2662,7 +2666,7 @@ static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 			continue;
 		}
 
-		dtype = dwarf_cu__find_type_by_ref(dcu, &dpos->type);
+		dtype = dwarf_cu__find_type_by_ref(dcu, dpos, type);
 		if (dtype == NULL) {
 			tag__print_type_not_found(pos);
 			continue;
@@ -2730,9 +2734,8 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 		struct function *fn = tag__function(tag);
 
 		if (fn->name == 0)  {
-			dwarf_off_ref specification = dtag->specification;
-			if (dtag->abstract_origin.off == 0 &&
-			    specification.off == 0) {
+			if (dtag->abstract_origin == 0 &&
+			    dtag->specification == 0) {
 				/*
 				 * Found on libQtGui.so.4.3.4.debug
 				 *  <3><1423de>: Abbrev Number: 209 (DW_TAG_subprogram)
@@ -2740,9 +2743,9 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 				 */
 				return 0;
 			}
-			dtype = dwarf_cu__find_tag_by_ref(cu->priv, &dtag->abstract_origin);
+			dtype = dwarf_cu__find_tag_by_ref(cu->priv, dtag, abstract_origin);
 			if (dtype == NULL)
-				dtype = dwarf_cu__find_tag_by_ref(cu->priv, &specification);
+				dtype = dwarf_cu__find_tag_by_ref(cu->priv, dtag, specification);
 			if (dtype != NULL)
 				fn->name = tag__function(dtag__tag(dtype))->name;
 			else {
@@ -2751,8 +2754,8 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 					"function %#llx, abstract_origin=%#llx,"
 					" specification=%#llx\n", __func__,
 					(unsigned long long)dtag->id,
-					(unsigned long long)dtag->abstract_origin.off,
-					(unsigned long long)specification.off);
+					(unsigned long long)dtag->abstract_origin,
+					(unsigned long long)dtag->specification);
 			}
 		}
 		lexblock__recode_dwarf_types(&fn->lexblock, cu);
@@ -2771,7 +2774,7 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 	case DW_TAG_ptr_to_member_type: {
 		struct ptr_to_member_type *pt = tag__ptr_to_member_type(tag);
 
-		dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->containing_type);
+		dtype = dwarf_cu__find_type_by_ref(cu->priv, dtag, containing_type);
 		if (dtype != NULL)
 			pt->containing_type = dtype->small_id;
 		else {
@@ -2780,7 +2783,7 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 				"containing_type %#llx, containing_type=%#llx\n",
 				__func__,
 				(unsigned long long)dtag->id,
-				(unsigned long long)dtag->containing_type.off);
+				(unsigned long long)dtag->containing_type);
 		}
 	}
 		break;
@@ -2793,11 +2796,11 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 	   The others also point to routines, so are in tags_table */
 	case DW_TAG_inlined_subroutine:
 	case DW_TAG_imported_module:
-		dtype = dwarf_cu__find_tag_by_ref(cu->priv, &dtag->type);
+		dtype = dwarf_cu__find_tag_by_ref(cu->priv, dtag, type);
 		goto check_type;
 	/* Can be for both types and non types */
 	case DW_TAG_imported_declaration:
-		dtype = dwarf_cu__find_tag_by_ref(cu->priv, &dtag->type);
+		dtype = dwarf_cu__find_tag_by_ref(cu->priv, dtag, type);
 		if (dtype != NULL)
 			goto out;
 		goto find_type;
@@ -2805,11 +2808,8 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 		struct variable *var = tag__variable(tag);
 
 		if (var->has_specification) {
-			dwarf_off_ref specification = dtag->specification;
-
-			if (specification.off) {
-				dtype = dwarf_cu__find_tag_by_ref(cu->priv,
-								  &specification);
+			if (dtag->specification) {
+				dtype = dwarf_cu__find_tag_by_ref(cu->priv, dtag, specification);
 				if (dtype)
 					var->spec = tag__variable(dtag__tag(dtype));
 			}
@@ -2818,7 +2818,7 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 
 	}
 
-	if (dtag->type.off == 0) {
+	if (dtag->type == 0) {
 		if (tag->tag != DW_TAG_pointer_type || !tag->has_btf_type_tag)
 			tag->type = 0; /* void */
 		else
@@ -2827,7 +2827,7 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 	}
 
 find_type:
-	dtype = dwarf_cu__find_type_by_ref(cu->priv, &dtag->type);
+	dtype = dwarf_cu__find_type_by_ref(cu->priv, dtag, type);
 check_type:
 	if (dtype == NULL) {
 		tag__print_type_not_found(tag);
@@ -2911,7 +2911,7 @@ static int cu__resolve_func_ret_types_optimized(struct cu *cu)
 
 		struct dwarf_tag *dtag = tag__dwarf(tag);
 		struct dwarf_tag *dfunc;
-		dfunc = dwarf_cu__find_tag_by_ref(cu->priv, &dtag->abstract_origin);
+		dfunc = dwarf_cu__find_tag_by_ref(cu->priv, dtag, abstract_origin);
 		if (dfunc == NULL) {
 			tag__print_abstract_origin_not_found(tag);
 			return -1;
