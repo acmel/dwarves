@@ -754,7 +754,6 @@ static inline struct btf_type_tag_type *tag__btf_type_tag(struct tag *tag)
 struct namespace {
 	struct tag	 tag;
 	const char	 *name;
-	uint16_t	 nr_tags;
 	uint8_t		 shared_tags;
 	struct list_head tags;
 	struct list_head annots;

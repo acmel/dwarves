@@ -1364,7 +1364,6 @@ void class__add_vtable_entry(struct class *class, struct function *vtable_entry)
 
 void namespace__add_tag(struct namespace *space, struct tag *tag)
 {
-	++space->nr_tags;
 	list_add_tail(&tag->node, &space->tags);
 }
 

@@ -620,7 +620,6 @@ static void namespace__init(struct namespace *namespace, Dwarf_Die *die,
 	INIT_LIST_HEAD(&namespace->tags);
 	INIT_LIST_HEAD(&namespace->annots);
 	namespace->name  = attr_string(die, DW_AT_name, conf);
-	namespace->nr_tags = 0;
 	namespace->shared_tags = 0;
 }
 
