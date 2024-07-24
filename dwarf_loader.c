@@ -131,11 +131,6 @@ static inline struct tag *dtag__tag(struct dwarf_tag *dtag)
 	return dtag->tag;
 }
 
-static dwarf_off_ref dwarf_tag__spec(struct dwarf_tag *dtag)
-{
-	return dtag->specification;
-}
-
 static void dwarf_tag__set_spec(struct dwarf_tag *dtag, dwarf_off_ref spec)
 {
 	dtag->specification = spec;
@@ -2506,7 +2501,8 @@ static void type__recode_dwarf_specification(struct tag *tag, struct cu *cu)
 {
 	struct dwarf_tag *dtype;
 	struct type *t = tag__type(tag);
-	dwarf_off_ref specification = dwarf_tag__spec(tag__dwarf(tag));
+	struct dwarf_tag *dtag = tag__dwarf(tag);
+	dwarf_off_ref specification = dtag->specification;
 
 	if (t->namespace.name != 0 || specification.off == 0)
 		return;
@@ -2515,8 +2511,6 @@ static void type__recode_dwarf_specification(struct tag *tag, struct cu *cu)
 	if (dtype != NULL)
 		t->namespace.name = tag__namespace(dtag__tag(dtype))->name;
 	else {
-		struct dwarf_tag *dtag = tag__dwarf(tag);
-
 		fprintf(stderr,
 			"%s: couldn't find name for "
 			"class %#llx, specification=%#llx\n", __func__,
@@ -2740,7 +2734,7 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 		struct function *fn = tag__function(tag);
 
 		if (fn->name == 0)  {
-			dwarf_off_ref specification = dwarf_tag__spec(dtag);
+			dwarf_off_ref specification = dtag->specification;
 			if (dtag->abstract_origin.off == 0 &&
 			    specification.off == 0) {
 				/*
@@ -2815,7 +2809,7 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 		struct variable *var = tag__variable(tag);
 
 		if (var->has_specification) {
-			dwarf_off_ref specification = dwarf_tag__spec(dtag);
+			dwarf_off_ref specification = dtag->specification;
 
 			if (specification.off) {
 				dtype = dwarf_cu__find_tag_by_ref(cu->priv,
