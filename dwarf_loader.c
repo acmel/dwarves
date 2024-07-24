@@ -131,11 +131,6 @@ static inline struct tag *dtag__tag(struct dwarf_tag *dtag)
 	return dtag->tag;
 }
 
-static void dwarf_tag__set_spec(struct dwarf_tag *dtag, dwarf_off_ref spec)
-{
-	dtag->specification = spec;
-}
-
 struct dwarf_cu {
 	struct hlist_head *hash_tags;
 	struct hlist_head *hash_types;
@@ -541,6 +536,11 @@ static struct tag *tag__new(Dwarf_Die *die, struct cu *cu)
 	return tag;
 }
 
+static void tag__set_spec(struct tag *tag, Dwarf_Die *die)
+{
+	tag__dwarf(tag)->specification = attr_type(die, DW_AT_specification);
+}
+
 static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die,
 							  struct cu *cu)
 {
@@ -641,8 +641,7 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu, struct 
 	type->size		 = attr_numeric(die, DW_AT_byte_size);
 	type->alignment		 = attr_alignment(die, conf);
 	type->declaration	 = attr_numeric(die, DW_AT_declaration);
-	dwarf_tag__set_spec(tag__dwarf(&type->namespace.tag),
-			    attr_type(die, DW_AT_specification));
+	tag__set_spec(&type->namespace.tag, die);
 	type->definition_emitted = 0;
 	type->fwd_decl_emitted	 = 0;
 	type->resized		 = 0;
@@ -747,8 +746,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu, struct conf
 		if (!var->declaration && cu->has_addr_info)
 			var->scope = dwarf__location(die, &var->ip.addr, &var->location);
 		if (has_specification) {
-			dwarf_tag__set_spec(tag__dwarf(&var->ip.tag),
-					    attr_type(die, DW_AT_specification));
+			tag__set_spec(&var->ip.tag, die);
 		}
 	}
 
@@ -1434,8 +1432,7 @@ static struct function *function__new(Dwarf_Die *die, struct cu *cu, struct conf
 		func->declaration     = dwarf_hasattr(die, DW_AT_declaration);
 		func->external	      = dwarf_hasattr(die, DW_AT_external);
 		func->abstract_origin = dwarf_hasattr(die, DW_AT_abstract_origin);
-		dwarf_tag__set_spec(tag__dwarf(&func->proto.tag),
-				    attr_type(die, DW_AT_specification));
+		tag__set_spec(&func->proto.tag, die);
 		func->accessibility   = attr_numeric(die, DW_AT_accessibility);
 		func->virtuality      = attr_numeric(die, DW_AT_virtuality);
 		INIT_LIST_HEAD(&func->vtable_node);
