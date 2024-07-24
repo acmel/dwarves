@@ -513,7 +513,6 @@ struct tag {
 	bool		 shared_tags:1;
 	uint8_t		 recursivity_level;
 	const char	 *attribute;
-	void		 *priv;
 };
 
 // To use with things like type->type_enum == perf_event_type+perf_user_event_type

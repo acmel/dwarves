@@ -69,11 +69,6 @@ static uint32_t hashtags__fn(Dwarf_Off key)
 
 bool no_bitfield_type_recode = true;
 
-static inline struct dwarf_tag *tag__dwarf(const struct tag *tag)
-{
-	return tag->priv;
-}
-
 static void __tag__print_not_supported(uint32_t tag, const char *func, unsigned long long offset)
 {
 	static bool dwarf_tags_warned[DW_TAG_GNU_call_site_parameter + 64];
@@ -122,12 +117,16 @@ struct dwarf_tag {
 	uint16_t         decl_line;
 	uint32_t         small_id;
 	const char	 *decl_file;
-	struct tag	 *tag;
 };
 
 static inline struct tag *dtag__tag(struct dwarf_tag *dtag)
 {
-	return dtag->tag;
+	return (struct tag *)(dtag + 1);
+}
+
+static inline struct dwarf_tag *tag__dwarf(const struct tag *tag)
+{
+	return ((struct dwarf_tag *)tag) - 1;
 }
 
 struct dwarf_cu {
@@ -472,18 +471,13 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 
 static void *tag__alloc(struct cu *cu, size_t size)
 {
-	struct dwarf_tag *dtag = cu__zalloc(cu, sizeof(*dtag));
+	struct dwarf_tag *dtag = cu__zalloc(cu, sizeof(*dtag) + size);
 
 	if (dtag == NULL)
 		return NULL;
 
-	struct tag *tag = cu__zalloc(cu, size);
+	struct tag *tag = (struct tag *)(dtag + 1);
 
-	if (tag == NULL)
-		return NULL;
-
-	dtag->tag = tag;
-	tag->priv = dtag;
 	tag->type = 0;
 	tag->top_level = 0;
 
@@ -495,7 +489,6 @@ static void tag__free(struct tag *tag, struct cu *cu)
 	struct dwarf_tag *dtag = tag__dwarf(tag);
 
 	cu__free(cu, dtag);
-	cu__free(cu, tag);
 }
 
 #define dwarf_tag__set_attr_type(dtag, field, die, attr_name) \
@@ -3854,6 +3847,7 @@ struct debug_fmt_ops dwarf__ops = {
 	.tag__decl_line	     = dwarf_tag__decl_line,
 	.tag__orig_id	     = dwarf_tag__orig_id,
 	.cu__delete	     = dwarf_cu__delete,
+	.tag__alloc	     = tag__alloc,
 	.tag__free	     = tag__free,
 	.has_alignment_info  = true,
 };
