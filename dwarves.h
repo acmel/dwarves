@@ -503,9 +503,9 @@ struct tag {
 	struct list_head node;
 	type_id_t	 type;
 	uint16_t	 tag;
-	bool		 visited;
 	bool		 top_level;
 	bool		 has_btf_type_tag;
+	bool		 visited:1;
 	bool		 shared_tags:1;
 	uint16_t	 recursivity_level;
 	const char	 *attribute;
