@@ -497,6 +497,7 @@ int cu__for_all_tags(struct cu *cu,
 /** struct tag - basic representation of a debug info element
  * @priv - extra data, for instance, DWARF offset, id, decl_{file,line}
  * @top_level -
+ * @shared_tags: used by struct namespace
  */
 struct tag {
 	struct list_head node;
@@ -505,6 +506,7 @@ struct tag {
 	bool		 visited;
 	bool		 top_level;
 	bool		 has_btf_type_tag;
+	bool		 shared_tags:1;
 	uint16_t	 recursivity_level;
 	const char	 *attribute;
 	void		 *priv;
@@ -754,7 +756,6 @@ static inline struct btf_type_tag_type *tag__btf_type_tag(struct tag *tag)
 struct namespace {
 	struct tag	 tag;
 	const char	 *name;
-	uint8_t		 shared_tags;
 	struct list_head tags;
 	struct list_head annots;
 };
@@ -768,7 +769,7 @@ void namespace__delete(struct namespace *nspace);
 
 static inline __pure bool namespace__shared_tags(struct namespace *nspace)
 {
-	return nspace->shared_tags;
+	return nspace->tag.shared_tags;
 }
 
 /**

@@ -620,7 +620,7 @@ static void namespace__init(struct namespace *namespace, Dwarf_Die *die,
 	INIT_LIST_HEAD(&namespace->tags);
 	INIT_LIST_HEAD(&namespace->annots);
 	namespace->name  = attr_string(die, DW_AT_name, conf);
-	namespace->shared_tags = 0;
+	namespace->tag.shared_tags = 0;
 }
 
 static struct namespace *namespace__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
@@ -870,7 +870,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		 * Share the tags
 		 */
 		new_enum->namespace.tags.next = &alias->namespace.tags;
-		new_enum->namespace.shared_tags = 1;
+		new_enum->namespace.tag.shared_tags = 1;
 		new_enum->namespace.name = strdup(name);
 		new_enum->size = bit_size;
 		break;
