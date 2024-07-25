@@ -507,7 +507,7 @@ struct tag {
 	bool		 top_level:1;
 	bool		 has_btf_type_tag:1;
 	bool		 shared_tags:1;
-	uint16_t	 recursivity_level;
+	uint8_t		 recursivity_level;
 	const char	 *attribute;
 	void		 *priv;
 };
