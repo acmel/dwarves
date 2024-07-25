@@ -2037,7 +2037,7 @@ static int list__for_all_tags(struct list_head *list, struct cu *cu,
 			 * enumerators (enum entries) are shared, but the
 			 * enumeration tag must be deleted.
 			 */
-			if (!space->shared_tags &&
+			if (!namespace__shared_tags(space) &&
 			    list__for_all_tags(&space->tags, cu,
 					       iterator, cookie))
 				return 1;

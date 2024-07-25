@@ -766,6 +766,11 @@ static inline struct namespace *tag__namespace(const struct tag *tag)
 
 void namespace__delete(struct namespace *nspace);
 
+static inline __pure bool namespace__shared_tags(struct namespace *nspace)
+{
+	return nspace->shared_tags;
+}
+
 /**
  * namespace__for_each_tag - iterate thru all the tags
  * @nspace: struct namespace instance to iterate
@@ -1290,7 +1295,7 @@ static inline struct class_member *class_member__next(struct class_member *membe
  */
 #define type__for_each_enumerator(type, pos) \
 	struct list_head *__type__for_each_enumerator_head = \
-		(type)->namespace.shared_tags ? \
+		namespace__shared_tags(&(type)->namespace) ? \
 			(type)->namespace.tags.next : \
 			&(type)->namespace.tags; \
 	list_for_each_entry(pos, __type__for_each_enumerator_head, tag.node)
@@ -1302,7 +1307,7 @@ static inline struct class_member *class_member__next(struct class_member *membe
  * @n: struct enumerator temp iterator
  */
 #define type__for_each_enumerator_safe_reverse(type, pos, n)		   \
-	if ((type)->namespace.shared_tags) /* Do nothing */ ; else \
+	if (namespace__shared_tags(&(type)->namespace)) /* Do nothing */ ; else \
 	list_for_each_entry_safe_reverse(pos, n, &(type)->namespace.tags, tag.node)
 
 /**
