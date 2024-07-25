@@ -504,8 +504,8 @@ struct tag {
 	type_id_t	 type;
 	uint16_t	 tag;
 	bool		 top_level;
-	bool		 has_btf_type_tag;
 	bool		 visited:1;
+	bool		 has_btf_type_tag:1;
 	bool		 shared_tags:1;
 	uint16_t	 recursivity_level;
 	const char	 *attribute;
