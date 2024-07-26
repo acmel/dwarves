@@ -1173,13 +1173,13 @@ struct class_member {
 	uint8_t		 bitfield_size;
 	uint8_t		 bit_hole;
 	uint8_t		 bitfield_end:1;
-	uint64_t	 const_value;
-	uint32_t	 alignment;
 	uint8_t		 visited:1;
 	uint8_t		 is_static:1;
 	uint8_t		 has_bit_offset:1;
 	uint8_t		 accessibility:2;
 	uint8_t		 virtuality:2;
+	uint32_t	 alignment;
+	uint64_t	 const_value;
 };
 
 void class_member__delete(struct class_member *member);
