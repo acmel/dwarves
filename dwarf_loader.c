@@ -490,6 +490,14 @@ static void *tag__alloc(struct cu *cu, size_t size)
 	return tag;
 }
 
+static void tag__free(struct tag *tag, struct cu *cu)
+{
+	struct dwarf_tag *dtag = tag__dwarf(tag);
+
+	cu__free(cu, dtag);
+	cu__free(cu, tag);
+}
+
 #define dwarf_tag__set_attr_type(dtag, field, die, attr_name) \
 	dtag->from_types_section.field = attr_type(die, attr_name, &dtag->field)
 
@@ -1705,7 +1713,7 @@ static struct tag *die__create_new_array(Dwarf_Die *die, struct cu *cu)
 
 	return &array->tag;
 out_free:
-	free(array);
+	tag__free(&array->tag, cu);
 	return NULL;
 }
 
@@ -2159,7 +2167,7 @@ static struct tag *die__create_new_inline_expansion(Dwarf_Die *die,
 		return NULL;
 
 	if (die__process_inline_expansion(die, lexblock, cu, conf) != 0) {
-		free(exp);
+		tag__free(&exp->ip.tag, cu);
 		return NULL;
 	}
 
