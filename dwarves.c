@@ -68,6 +68,14 @@ void cu__free(struct cu *cu, void *ptr)
 	// When using an obstack we'll free everything in cu__delete()
 }
 
+void cu__tag_free(struct cu *cu, struct tag *tag)
+{
+	if (cu->dfops && cu->dfops->tag__free)
+		cu->dfops->tag__free(tag, cu);
+	else
+		cu__free(cu, tag);
+}
+
 int tag__is_base_type(const struct tag *tag, const struct cu *cu)
 {
 	switch (tag->tag) {
@@ -146,7 +154,7 @@ void lexblock__delete(struct lexblock *block, struct cu *cu)
 		return;
 
 	lexblock__delete_tags(&block->ip.tag, cu);
-	free(block);
+	cu__tag_free(cu, &block->ip.tag);
 }
 
 static void template_parameter_pack__delete_tags(struct template_parameter_pack *pack, struct cu *cu)
@@ -165,7 +173,7 @@ void template_parameter_pack__delete(struct template_parameter_pack *pack, struc
 		return;
 
 	template_parameter_pack__delete_tags(pack, cu);
-	free(pack);
+	cu__tag_free(cu, &pack->tag);
 }
 
 static void formal_parameter_pack__delete_tags(struct formal_parameter_pack *pack, struct cu *cu)
@@ -184,7 +192,7 @@ void formal_parameter_pack__delete(struct formal_parameter_pack *pack, struct cu
 		return;
 
 	formal_parameter_pack__delete_tags(pack, cu);
-	free(pack);
+	cu__tag_free(cu, &pack->tag);
 }
 
 void tag__delete(struct tag *tag, struct cu *cu)
@@ -213,7 +221,7 @@ void tag__delete(struct tag *tag, struct cu *cu)
 	case DW_TAG_GNU_formal_parameter_pack:
 		formal_parameter_pack__delete(tag__formal_parameter_pack(tag), cu);	break;
 	default:
-		free(tag);
+		cu__tag_free(cu, tag);
 	}
 }
 
@@ -1285,7 +1293,7 @@ const char *variable__type_name(const struct variable *var,
 
 void class_member__delete(struct class_member *member, struct cu *cu)
 {
-	free(member);
+	cu__tag_free(cu, &member->tag);
 }
 
 static struct class_member *class_member__clone(const struct class_member *from)
@@ -1314,7 +1322,7 @@ void class__delete(struct class *class, struct cu *cu)
 		return;
 
 	type__delete_class_members(&class->type, cu);
-	free(class);
+	cu__tag_free(cu, class__tag(class));
 }
 
 void type__delete(struct type *type, struct cu *cu)
@@ -1330,12 +1338,12 @@ void type__delete(struct type *type, struct cu *cu)
 	template_parameter_pack__delete(type->template_parameter_pack, cu);
 	type->template_parameter_pack = NULL;
 
-	free(type);
+	cu__tag_free(cu, type__tag(type));
 }
 
 static void enumerator__delete(struct enumerator *enumerator, struct cu *cu)
 {
-	free(enumerator);
+	cu__tag_free(cu, &enumerator->tag);
 }
 
 void enumeration__delete(struct type *type, struct cu *cu)
@@ -1353,7 +1361,7 @@ void enumeration__delete(struct type *type, struct cu *cu)
 	if (type->suffix_disambiguation)
 		zfree(&type->namespace.name);
 
-	free(type);
+	cu__tag_free(cu, type__tag(type));
 }
 
 void class__add_vtable_entry(struct class *class, struct function *vtable_entry)
@@ -1455,7 +1463,7 @@ const char *function__name(struct function *func)
 
 static void parameter__delete(struct parameter *parm, struct cu *cu)
 {
-	free(parm);
+	cu__tag_free(cu, &parm->tag);
 }
 
 void ftype__delete(struct ftype *type, struct cu *cu)
@@ -1473,7 +1481,7 @@ void ftype__delete(struct ftype *type, struct cu *cu)
 	template_parameter_pack__delete(type->template_parameter_pack, cu);
 	type->template_parameter_pack = NULL;
 
-	free(type);
+	cu__tag_free(cu, &type->tag);
 }
 
 void function__delete(struct function *func, struct cu *cu)
