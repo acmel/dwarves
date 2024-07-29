@@ -3854,5 +3854,6 @@ struct debug_fmt_ops dwarf__ops = {
 	.tag__decl_line	     = dwarf_tag__decl_line,
 	.tag__orig_id	     = dwarf_tag__orig_id,
 	.cu__delete	     = dwarf_cu__delete,
+	.tag__free	     = tag__free,
 	.has_alignment_info  = true,
 };
