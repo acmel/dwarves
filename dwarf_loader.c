@@ -1158,7 +1158,7 @@ static struct template_parameter_pack *template_parameter_pack__new(Dwarf_Die *d
 		INIT_LIST_HEAD(&pack->params);
 
 		if (template_parameter_pack__load_params(pack, die, cu, conf)) {
-			template_parameter_pack__delete(pack);
+			template_parameter_pack__delete(pack, cu);
 			pack = NULL;
 		}
 	}
@@ -1289,7 +1289,7 @@ static struct formal_parameter_pack *formal_parameter_pack__new(Dwarf_Die *die, 
 		INIT_LIST_HEAD(&pack->params);
 
 		if (formal_parameter_pack__load_params(pack, die, cu, conf)) {
-			formal_parameter_pack__delete(pack);
+			formal_parameter_pack__delete(pack, cu);
 			pack = NULL;
 		}
 	}
@@ -1606,7 +1606,7 @@ static struct tag *die__create_new_class(Dwarf_Die *die, struct cu *cu, struct c
 	    dwarf_haschildren(die) != 0 &&
 	    dwarf_child(die, &child) == 0) {
 		if (die__process_class(&child, &class->type, cu, conf) != 0) {
-			class__delete(class);
+			class__delete(class, cu);
 			class = NULL;
 		}
 	}
@@ -1626,7 +1626,7 @@ static struct tag *die__create_new_namespace(Dwarf_Die *die, struct cu *cu, stru
 	    dwarf_haschildren(die) != 0 &&
 	    dwarf_child(die, &child) == 0) {
 		if (die__process_namespace(&child, namespace, cu, conf) != 0) {
-			namespace__delete(namespace);
+			namespace__delete(namespace, cu);
 			namespace = NULL;
 		}
 	}
@@ -1643,7 +1643,7 @@ static struct tag *die__create_new_union(Dwarf_Die *die, struct cu *cu, struct c
 	    dwarf_haschildren(die) != 0 &&
 	    dwarf_child(die, &child) == 0) {
 		if (die__process_class(&child, utype, cu, conf) != 0) {
-			type__delete(utype);
+			type__delete(utype, cu);
 			utype = NULL;
 		}
 	}
@@ -1854,9 +1854,9 @@ hash:
 out:
 	return &ftype->tag;
 out_delete_tag:
-	tag__delete(tag);
+	tag__delete(tag, cu);
 out_delete:
-	ftype__delete(ftype);
+	ftype__delete(ftype, cu);
 	return NULL;
 }
 
@@ -1897,7 +1897,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die, struct cu *cu, st
 out:
 	return &enumeration->namespace.tag;
 out_delete:
-	enumeration__delete(enumeration);
+	enumeration__delete(enumeration, cu);
 	return NULL;
 }
 
@@ -1960,7 +1960,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 				uint32_t id;
 
 				if (cu__table_add_tag(cu, &member->tag, &id) < 0) {
-					class_member__delete(member);
+					class_member__delete(member, cu);
 					return -ENOMEM;
 				}
 
@@ -1993,7 +1993,7 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			uint32_t id;
 
 			if (cu__table_add_tag(cu, tag, &id) < 0) {
-				tag__delete(tag);
+				tag__delete(tag, cu);
 				return -ENOMEM;
 			}
 
@@ -2043,7 +2043,7 @@ static int die__process_namespace(Dwarf_Die *die, struct namespace *namespace,
 
 	return 0;
 out_delete_tag:
-	tag__delete(tag);
+	tag__delete(tag, cu);
 out_enomem:
 	return -ENOMEM;
 }
@@ -2064,7 +2064,7 @@ static int die__create_new_lexblock(Dwarf_Die *die,
 		lexblock__add_lexblock(father, lexblock);
 	return 0;
 out_delete:
-	lexblock__delete(lexblock);
+	lexblock__delete(lexblock, cu);
 	return -ENOMEM;
 }
 
@@ -2152,7 +2152,7 @@ hash:
 
 	return 0;
 out_delete_tag:
-	tag__delete(tag);
+	tag__delete(tag, cu);
 out_enomem:
 	return -ENOMEM;
 }
@@ -2314,7 +2314,7 @@ hash:
 
 	return 0;
 out_delete_tag:
-	tag__delete(tag);
+	tag__delete(tag, cu);
 out_enomem:
 	return -ENOMEM;
 }
@@ -2325,7 +2325,7 @@ static struct tag *die__create_new_function(Dwarf_Die *die, struct cu *cu, struc
 
 	if (function != NULL &&
 	    die__process_function(die, &function->proto, &function->lexblock, cu, conf) != 0) {
-		function__delete(function);
+		function__delete(function, cu);
 		function = NULL;
 	}
 

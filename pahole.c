@@ -707,7 +707,7 @@ static int class__packable(struct class *class, struct cu *cu)
 	if (class->nr_holes == 0 && class->nr_bit_holes == 0)
 		return 0;
 
-	clone = class__clone(class, NULL);
+	clone = class__clone(class, NULL, cu);
 	if (clone == NULL)
 		return 0;
 	class__reorganize(clone, cu, 0, stdout);
@@ -715,7 +715,7 @@ static int class__packable(struct class *class, struct cu *cu)
 		class->priv = clone;
 		return 1;
 	}
-	class__delete(clone);
+	class__delete(clone, cu);
 	return 0;
 }
 
@@ -2055,7 +2055,7 @@ static void do_reorg(struct tag *class, struct cu *cu)
 	int savings;
 	const uint8_t reorg_verbose =
 			show_reorg_steps ? 2 : global_verbose;
-	struct class *clone = class__clone(tag__class(class), NULL);
+	struct class *clone = class__clone(tag__class(class), NULL, cu);
 	if (clone == NULL) {
 		fprintf(stderr, "pahole: out of memory!\n");
 		exit(EXIT_FAILURE);
@@ -2084,7 +2084,7 @@ static void do_reorg(struct tag *class, struct cu *cu)
 	} else
 		putchar('\n');
 
-	 class__delete(clone);
+	 class__delete(clone, cu);
 }
 
 static int instance__fprintf_hexdump_value(void *instance, int _sizeof, FILE *fp)

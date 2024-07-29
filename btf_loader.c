@@ -77,7 +77,7 @@ static int cu__load_ftype(struct cu *cu, struct ftype *proto, uint32_t tag, cons
 
 	return 0;
 out_free_parameters:
-	ftype__delete(proto);
+	ftype__delete(proto, cu);
 	return -ENOMEM;
 }
 
@@ -255,7 +255,7 @@ static int create_new_class(struct cu *cu, const struct btf_type *tp, uint32_t i
 
 	return 0;
 out_free:
-	class__delete(class);
+	class__delete(class, cu);
 	return -ENOMEM;
 }
 
@@ -271,7 +271,7 @@ static int create_new_union(struct cu *cu, const struct btf_type *tp, uint32_t i
 
 	return 0;
 out_free:
-	type__delete(un);
+	type__delete(un, cu);
 	return -ENOMEM;
 }
 
@@ -320,7 +320,7 @@ static int create_new_enumeration(struct cu *cu, const struct btf_type *tp, uint
 
 	return 0;
 out_free:
-	enumeration__delete(enumeration);
+	enumeration__delete(enumeration, cu);
 	return -ENOMEM;
 }
 
@@ -366,7 +366,7 @@ static int create_new_enumeration64(struct cu *cu, const struct btf_type *tp, ui
 
 	return 0;
 out_free:
-	enumeration__delete(enumeration);
+	enumeration__delete(enumeration, cu);
 	return -ENOMEM;
 }
 #else

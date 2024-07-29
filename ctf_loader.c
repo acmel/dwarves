@@ -34,7 +34,7 @@ static void *tag__alloc(const size_t size)
 	return tag;
 }
 
-static int ctf__load_ftype(struct ctf *ctf, struct ftype *proto, uint16_t tag,
+static int ctf__load_ftype(struct ctf *ctf, struct ftype *proto, struct cu *cu, uint16_t tag,
 			   uint16_t type, uint16_t vlen, uint16_t *args, long id)
 {
 	proto->tag.tag	= tag;
@@ -80,12 +80,12 @@ static int ctf__load_ftype(struct ctf *ctf, struct ftype *proto, uint16_t tag,
 
 	return vlen;
 out_free_parameters:
-	ftype__delete(proto);
+	ftype__delete(proto, cu);
 	return -ENOMEM;
 }
 
 static struct function *function__new(uint16_t **ptr, GElf_Sym *sym,
-				      struct ctf *ctf)
+				      struct ctf *ctf, struct cu *cu)
 {
 	struct function *func = tag__alloc(sizeof(*func));
 
@@ -116,7 +116,7 @@ static struct function *function__new(uint16_t **ptr, GElf_Sym *sym,
 
 		++*ptr;
 
-		if (ctf__load_ftype(ctf, &func->proto, DW_TAG_subprogram,
+		if (ctf__load_ftype(ctf, &func->proto, cu, DW_TAG_subprogram,
 				    type, vlen, *ptr, id) < 0)
 			return NULL;
 		/*
@@ -133,7 +133,7 @@ out_delete:
 	return NULL;
 }
 
-static int ctf__load_funcs(struct ctf *ctf)
+static int ctf__load_funcs(struct ctf *ctf, struct cu *cu)
 {
 	struct ctf_header *hp = ctf__get_buffer(ctf);
 	uint16_t *func_ptr = (ctf__get_buffer(ctf) + sizeof(*hp) +
@@ -142,7 +142,7 @@ static int ctf__load_funcs(struct ctf *ctf)
 	GElf_Sym sym;
 	uint32_t idx;
 	ctf__for_each_symtab_function(ctf, idx, sym)
-		if (function__new(&func_ptr, &sym, ctf) == NULL)
+		if (function__new(&func_ptr, &sym, ctf, cu) == NULL)
 			return -ENOMEM;
 
 	return 0;
@@ -262,7 +262,7 @@ static int create_new_array(struct ctf *ctf, void *ptr, uint32_t id)
 
 static int create_new_subroutine_type(struct ctf *ctf, void *ptr,
 				      int vlen, struct ctf_full_type *tp,
-				      uint32_t id)
+				      uint32_t id, struct cu *cu)
 {
 	uint16_t *args = ptr;
 	unsigned int type = ctf__get16(ctf, &tp->base.ctf_type);
@@ -271,7 +271,7 @@ static int create_new_subroutine_type(struct ctf *ctf, void *ptr,
 	if (proto == NULL)
 		return -ENOMEM;
 
-	vlen = ctf__load_ftype(ctf, proto, DW_TAG_subroutine_type,
+	vlen = ctf__load_ftype(ctf, proto, cu, DW_TAG_subroutine_type,
 			       type, vlen, args, id);
 	return vlen < 0 ? -ENOMEM : vlen;
 }
@@ -326,7 +326,7 @@ static int create_short_members(struct ctf *ctf, void *ptr,
 
 static int create_new_class(struct ctf *ctf, void *ptr,
 			    int vlen, struct ctf_full_type *tp,
-			    uint64_t size, uint32_t id)
+			    uint64_t size, uint32_t id, struct cu *cu)
 {
 	int member_size;
 	const char *name = ctf__string(ctf, ctf__get32(ctf, &tp->base.ctf_name));
@@ -345,13 +345,13 @@ static int create_new_class(struct ctf *ctf, void *ptr,
 
 	return (vlen * member_size);
 out_free:
-	class__delete(class);
+	class__delete(class, cu);
 	return -ENOMEM;
 }
 
 static int create_new_union(struct ctf *ctf, void *ptr,
 			    int vlen, struct ctf_full_type *tp,
-			    uint64_t size, uint32_t id)
+			    uint64_t size, uint32_t id, struct cu *cu)
 {
 	int member_size;
 	const char *name = ctf__string(ctf, ctf__get32(ctf, &tp->base.ctf_name));
@@ -370,7 +370,7 @@ static int create_new_union(struct ctf *ctf, void *ptr,
 
 	return (vlen * member_size);
 out_free:
-	type__delete(un);
+	type__delete(un, cu);
 	return -ENOMEM;
 }
 
@@ -389,7 +389,7 @@ static struct enumerator *enumerator__new(const char *name, uint32_t value)
 
 static int create_new_enumeration(struct ctf *ctf, void *ptr,
 				  int vlen, struct ctf_full_type *tp,
-				  uint16_t size, uint32_t id)
+				  uint16_t size, uint32_t id, struct cu *cu)
 {
 	struct ctf_enum *ep = ptr;
 	uint16_t i;
@@ -414,7 +414,7 @@ static int create_new_enumeration(struct ctf *ctf, void *ptr,
 
 	return (vlen * sizeof(*ep));
 out_free:
-	enumeration__delete(enumeration);
+	enumeration__delete(enumeration, cu);
 	return -ENOMEM;
 }
 
@@ -473,7 +473,7 @@ static int create_new_tag(struct ctf *ctf, int type,
 	return 0;
 }
 
-static int ctf__load_types(struct ctf *ctf)
+static int ctf__load_types(struct ctf *ctf, struct cu *cu)
 {
 	void *ctf_buffer = ctf__get_buffer(ctf);
 	struct ctf_header *hp = ctf_buffer;
@@ -510,16 +510,16 @@ static int ctf__load_types(struct ctf *ctf)
 		} else if (type == CTF_TYPE_KIND_ARR) {
 			vlen = create_new_array(ctf, ptr, type_index);
 		} else if (type == CTF_TYPE_KIND_FUNC) {
-			vlen = create_new_subroutine_type(ctf, ptr, vlen, type_ptr, type_index);
+			vlen = create_new_subroutine_type(ctf, ptr, vlen, type_ptr, type_index, cu);
 		} else if (type == CTF_TYPE_KIND_STR) {
 			vlen = create_new_class(ctf, ptr,
-						vlen, type_ptr, size, type_index);
+						vlen, type_ptr, size, type_index, cu);
 		} else if (type == CTF_TYPE_KIND_UNION) {
 			vlen = create_new_union(ctf, ptr,
-					        vlen, type_ptr, size, type_index);
+					        vlen, type_ptr, size, type_index, cu);
 		} else if (type == CTF_TYPE_KIND_ENUM) {
 			vlen = create_new_enumeration(ctf, ptr, vlen, type_ptr,
-						      size, type_index);
+						      size, type_index, cu);
 		} else if (type == CTF_TYPE_KIND_FWD) {
 			vlen = create_new_forward_decl(ctf, type_ptr, size, type_index);
 		} else if (type == CTF_TYPE_KIND_TYPDEF) {
@@ -589,15 +589,15 @@ static int ctf__load_objects(struct ctf *ctf)
 	return 0;
 }
 
-static int ctf__load_sections(struct ctf *ctf)
+static int ctf__load_sections(struct ctf *ctf, struct cu *cu)
 {
 	int err = ctf__load_symtab(ctf);
 
 	if (err != 0)
 		goto out;
-	err = ctf__load_funcs(ctf);
+	err = ctf__load_funcs(ctf, cu);
 	if (err == 0)
-		err = ctf__load_types(ctf);
+		err = ctf__load_types(ctf, cu);
 	if (err == 0)
 		err = ctf__load_objects(ctf);
 out:
@@ -716,7 +716,7 @@ int ctf__load_file(struct cus *cus, struct conf_load *conf,
 	if (ctf__load(state) != 0)
 		return -1;
 
-	err = ctf__load_sections(state);
+	err = ctf__load_sections(state, cu);
 
 	if (err != 0) {
 		cu__delete(cu);

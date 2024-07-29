@@ -349,7 +349,7 @@ static struct class *class__clone_base_types(const struct tag *tag,
 {
 	struct class *class = tag__class(tag);
 	struct class_member *pos, *next;
-	struct class *clone = class__clone(class, new_class_name);
+	struct class *clone = class__clone(class, new_class_name, cu);
 
 	if (clone == NULL)
 		return NULL;
@@ -360,7 +360,7 @@ static struct class *class__clone_base_types(const struct tag *tag,
 		tag__assert_search_result(member_type, pos->tag.tag, class_member__name(pos));
 		if (!tag__is_base_type(member_type, cu)) {
 			next = class__remove_member(clone, cu, pos);
-			class_member__delete(pos);
+			class_member__delete(pos, cu);
 		}
 	}
 	class__fixup_alignment(clone, cu);

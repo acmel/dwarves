@@ -129,65 +129,65 @@ int __tag__has_type_loop(const struct tag *tag, const struct tag *type,
 	return 0;
 }
 
-static void lexblock__delete_tags(struct tag *tag)
+static void lexblock__delete_tags(struct tag *tag, struct cu *cu)
 {
 	struct lexblock *block = tag__lexblock(tag);
 	struct tag *pos, *n;
 
 	list_for_each_entry_safe_reverse(pos, n, &block->tags, node) {
 		list_del_init(&pos->node);
-		tag__delete(pos);
+		tag__delete(pos, cu);
 	}
 }
 
-void lexblock__delete(struct lexblock *block)
+void lexblock__delete(struct lexblock *block, struct cu *cu)
 {
 	if (block == NULL)
 		return;
 
-	lexblock__delete_tags(&block->ip.tag);
+	lexblock__delete_tags(&block->ip.tag, cu);
 	free(block);
 }
 
-static void template_parameter_pack__delete_tags(struct template_parameter_pack *pack)
+static void template_parameter_pack__delete_tags(struct template_parameter_pack *pack, struct cu *cu)
 {
 	struct tag *pos, *n;
 
 	list_for_each_entry_safe_reverse(pos, n, &pack->params, node) {
 		list_del_init(&pos->node);
-		tag__delete(pos);
+		tag__delete(pos, cu);
 	}
 }
 
-void template_parameter_pack__delete(struct template_parameter_pack *pack)
+void template_parameter_pack__delete(struct template_parameter_pack *pack, struct cu *cu)
 {
 	if (pack == NULL)
 		return;
 
-	template_parameter_pack__delete_tags(pack);
+	template_parameter_pack__delete_tags(pack, cu);
 	free(pack);
 }
 
-static void formal_parameter_pack__delete_tags(struct formal_parameter_pack *pack)
+static void formal_parameter_pack__delete_tags(struct formal_parameter_pack *pack, struct cu *cu)
 {
 	struct tag *pos, *n;
 
 	list_for_each_entry_safe_reverse(pos, n, &pack->params, node) {
 		list_del_init(&pos->node);
-		tag__delete(pos);
+		tag__delete(pos, cu);
 	}
 }
 
-void formal_parameter_pack__delete(struct formal_parameter_pack *pack)
+void formal_parameter_pack__delete(struct formal_parameter_pack *pack, struct cu *cu)
 {
 	if (pack == NULL)
 		return;
 
-	formal_parameter_pack__delete_tags(pack);
+	formal_parameter_pack__delete_tags(pack, cu);
 	free(pack);
 }
 
-void tag__delete(struct tag *tag)
+void tag__delete(struct tag *tag, struct cu *cu)
 {
 	if (tag == NULL)
 		return;
@@ -196,22 +196,22 @@ void tag__delete(struct tag *tag)
 
 	switch (tag->tag) {
 	case DW_TAG_union_type:
-		type__delete(tag__type(tag));		break;
+		type__delete(tag__type(tag), cu);		break;
 	case DW_TAG_class_type:
 	case DW_TAG_structure_type:
-		class__delete(tag__class(tag));		break;
+		class__delete(tag__class(tag), cu);		break;
 	case DW_TAG_enumeration_type:
-		enumeration__delete(tag__type(tag));	break;
+		enumeration__delete(tag__type(tag), cu);	break;
 	case DW_TAG_subroutine_type:
-		ftype__delete(tag__ftype(tag));		break;
+		ftype__delete(tag__ftype(tag), cu);		break;
 	case DW_TAG_subprogram:
-		function__delete(tag__function(tag));	break;
+		function__delete(tag__function(tag), cu); break;
 	case DW_TAG_lexical_block:
-		lexblock__delete(tag__lexblock(tag));	break;
+		lexblock__delete(tag__lexblock(tag), cu); break;
 	case DW_TAG_GNU_template_parameter_pack:
-		template_parameter_pack__delete(tag__template_parameter_pack(tag));	break;
+		template_parameter_pack__delete(tag__template_parameter_pack(tag), cu);	break;
 	case DW_TAG_GNU_formal_parameter_pack:
-		formal_parameter_pack__delete(tag__formal_parameter_pack(tag));	break;
+		formal_parameter_pack__delete(tag__formal_parameter_pack(tag), cu);	break;
 	default:
 		free(tag);
 	}
@@ -384,7 +384,7 @@ const char *base_type__name(const struct base_type *bt, char *bf, size_t len)
 	return bf;
 }
 
-void namespace__delete(struct namespace *space)
+void namespace__delete(struct namespace *space, struct cu *cu)
 {
 	struct tag *pos, *n;
 
@@ -396,11 +396,11 @@ void namespace__delete(struct namespace *space)
 
 		/* Look for nested namespaces */
 		if (tag__has_namespace(pos))
-			namespace__delete(tag__namespace(pos));
-		tag__delete(pos);
+			namespace__delete(tag__namespace(pos), cu);
+		tag__delete(pos, cu);
 	}
 
-	tag__delete(&space->tag);
+	tag__delete(&space->tag, cu);
 }
 
 void __type__init(struct type *type)
@@ -1283,7 +1283,7 @@ const char *variable__type_name(const struct variable *var,
 	return tag != NULL ? tag__name(tag, cu, bf, len, NULL) : NULL;
 }
 
-void class_member__delete(struct class_member *member)
+void class_member__delete(struct class_member *member, struct cu *cu)
 {
 	free(member);
 }
@@ -1298,47 +1298,47 @@ static struct class_member *class_member__clone(const struct class_member *from)
 	return member;
 }
 
-static void type__delete_class_members(struct type *type)
+static void type__delete_class_members(struct type *type, struct cu *cu)
 {
 	struct class_member *pos, *next;
 
 	type__for_each_tag_safe_reverse(type, pos, next) {
 		list_del_init(&pos->tag.node);
-		class_member__delete(pos);
+		class_member__delete(pos, cu);
 	}
 }
 
-void class__delete(struct class *class)
+void class__delete(struct class *class, struct cu *cu)
 {
 	if (class == NULL)
 		return;
 
-	type__delete_class_members(&class->type);
+	type__delete_class_members(&class->type, cu);
 	free(class);
 }
 
-void type__delete(struct type *type)
+void type__delete(struct type *type, struct cu *cu)
 {
 	if (type == NULL)
 		return;
 
-	type__delete_class_members(type);
+	type__delete_class_members(type, cu);
 
 	if (type->suffix_disambiguation)
 		zfree(&type->namespace.name);
 
-	template_parameter_pack__delete(type->template_parameter_pack);
+	template_parameter_pack__delete(type->template_parameter_pack, cu);
 	type->template_parameter_pack = NULL;
 
 	free(type);
 }
 
-static void enumerator__delete(struct enumerator *enumerator)
+static void enumerator__delete(struct enumerator *enumerator, struct cu *cu)
 {
 	free(enumerator);
 }
 
-void enumeration__delete(struct type *type)
+void enumeration__delete(struct type *type, struct cu *cu)
 {
 	struct enumerator *pos, *n;
 
@@ -1347,7 +1347,7 @@ void enumeration__delete(struct type *type)
 
 	type__for_each_enumerator_safe_reverse(type, pos, n) {
 		list_del_init(&pos->tag.node);
-		enumerator__delete(pos);
+		enumerator__delete(pos, cu);
 	}
 
 	if (type->suffix_disambiguation)
@@ -1414,21 +1414,21 @@ static int type__clone_members(struct type *type, const struct type *from)
 	return 0;
 }
 
-struct class *class__clone(const struct class *from, const char *new_class_name)
+struct class *class__clone(const struct class *from, const char *new_class_name, struct cu *cu)
 {
-	struct class *class = malloc(sizeof(*class));
+	struct class *class = cu__zalloc(cu, sizeof(*class));
 
 	 if (class != NULL) {
 		memcpy(class, from, sizeof(*class));
 		if (new_class_name != NULL) {
 			class->type.namespace.name = strdup(new_class_name);
 			if (class->type.namespace.name == NULL) {
-				free(class);
+				cu__free(cu, class);
 				return NULL;
 			}
 		}
 		if (type__clone_members(&class->type, &from->type) != 0) {
-			class__delete(class);
+			class__delete(class, cu);
 			class = NULL;
 		}
 	}
@@ -1453,12 +1453,12 @@ const char *function__name(struct function *func)
 	return func->name;
 }
 
-static void parameter__delete(struct parameter *parm)
+static void parameter__delete(struct parameter *parm, struct cu *cu)
 {
 	free(parm);
 }
 
-void ftype__delete(struct ftype *type)
+void ftype__delete(struct ftype *type, struct cu *cu)
 {
 	struct parameter *pos, *n;
 
@@ -1467,22 +1467,22 @@ void ftype__delete(struct ftype *type)
 
 	ftype__for_each_parameter_safe_reverse(type, pos, n) {
 		list_del_init(&pos->tag.node);
-		parameter__delete(pos);
+		parameter__delete(pos, cu);
 	}
 
-	template_parameter_pack__delete(type->template_parameter_pack);
+	template_parameter_pack__delete(type->template_parameter_pack, cu);
 	type->template_parameter_pack = NULL;
 
 	free(type);
 }
 
-void function__delete(struct function *func)
+void function__delete(struct function *func, struct cu *cu)
 {
 	if (func == NULL)
 		return;
 
-	lexblock__delete_tags(&func->lexblock.ip.tag);
-	ftype__delete(&func->proto);
+	lexblock__delete_tags(&func->lexblock.ip.tag, cu);
+	ftype__delete(&func->proto, cu);
 }
 
 int ftype__has_parm_of_type(const struct ftype *ftype, const type_id_t target,

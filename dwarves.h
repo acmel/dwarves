@@ -518,7 +518,7 @@ struct tag_cu {
 	struct cu	 *cu;
 };
 
-void tag__delete(struct tag *tag);
+void tag__delete(struct tag *tag, struct cu *cu);
 
 static inline int tag__is_enumeration(const struct tag *tag)
 {
@@ -765,7 +765,7 @@ static inline struct namespace *tag__namespace(const struct tag *tag)
 	return (struct namespace *)tag;
 }
 
-void namespace__delete(struct namespace *nspace);
+void namespace__delete(struct namespace *nspace, struct cu *cu);
 
 static inline __pure bool namespace__shared_tags(struct namespace *nspace)
 {
@@ -899,7 +899,7 @@ static inline struct lexblock *tag__lexblock(const struct tag *tag)
 	return (struct lexblock *)tag;
 }
 
-void lexblock__delete(struct lexblock *lexblock);
+void lexblock__delete(struct lexblock *lexblock, struct cu *cu);
 
 struct function;
 
@@ -938,7 +938,7 @@ struct template_type_param {
 	const char	 *name;
 };
 
-void template_type_param__delete(struct template_type_param *ttparam);
+void template_type_param__delete(struct template_type_param *ttparam, struct cu *cu);
 
 struct template_value_param {
 	struct tag	 tag;
@@ -947,7 +947,7 @@ struct template_value_param {
 	uint64_t	 default_value;
 };
 
-void template_value_param__delete(struct template_value_param *ttparam);
+void template_value_param__delete(struct template_value_param *ttparam, struct cu *cu);
 
 /* struct template_parameter_pack - list of DW_TAG_template_type_param
  */
@@ -958,7 +958,7 @@ struct template_parameter_pack {
 	struct list_head params;
 };
 
-void template_parameter_pack__delete(struct template_parameter_pack *pack);
+void template_parameter_pack__delete(struct template_parameter_pack *pack, struct cu *cu);
 
 static inline struct template_parameter_pack *tag__template_parameter_pack(const struct tag *tag)
 {
@@ -975,7 +975,7 @@ struct formal_parameter_pack {
 	struct list_head params;
 };
 
-void formal_parameter_pack__delete(struct formal_parameter_pack *pack);
+void formal_parameter_pack__delete(struct formal_parameter_pack *pack, struct cu *cu);
 
 static inline struct formal_parameter_pack *tag__formal_parameter_pack(const struct tag *tag)
 {
@@ -1008,7 +1008,7 @@ static inline struct ftype *tag__ftype(const struct tag *tag)
 	return (struct ftype *)tag;
 }
 
-void ftype__delete(struct ftype *ftype);
+void ftype__delete(struct ftype *ftype, struct cu *cu);
 
 /**
  * ftype__for_each_parameter - iterate thru all the parameters
@@ -1087,7 +1087,7 @@ static inline struct tag *function__tag(const struct function *func)
 	return (struct tag *)func;
 }
 
-void function__delete(struct function *func);
+void function__delete(struct function *func, struct cu *cu);
 
 static __pure inline int tag__is_function(const struct tag *tag)
 {
@@ -1182,7 +1182,7 @@ struct class_member {
 	uint64_t	 const_value;
 };
 
-void class_member__delete(struct class_member *member);
+void class_member__delete(struct class_member *member, struct cu *cu);
 
 static inline struct class_member *tag__class_member(const struct tag *tag)
 {
@@ -1269,7 +1269,7 @@ static inline struct tag *type__tag(const struct type *type)
 	return (struct tag *)type;
 }
 
-void type__delete(struct type *type);
+void type__delete(struct type *type, struct cu *cu);
 
 static inline struct class_member *type__first_member(struct type *type)
 {
@@ -1416,8 +1416,8 @@ static inline struct tag *class__tag(const struct class *cls)
 	return (struct tag *)cls;
 }
 
-struct class *class__clone(const struct class *from, const char *new_class_name);
-void class__delete(struct class *cls);
+struct class *class__clone(const struct class *from, const char *new_class_name, struct cu *cu);
+void class__delete(struct class *cls, struct cu *cu);
 
 static inline struct list_head *class__tags(struct class *cls)
 {
@@ -1588,7 +1588,7 @@ static inline const char *enumerator__name(const struct enumerator *enumerator)
 	return enumerator->name;
 }
 
-void enumeration__delete(struct type *type);
+void enumeration__delete(struct type *type, struct cu *cu);
 void enumeration__add(struct type *type, struct enumerator *enumerator);
 size_t enumeration__fprintf(const struct tag *tag_enum,
 			    const struct conf_fprintf *conf, FILE *fp);
