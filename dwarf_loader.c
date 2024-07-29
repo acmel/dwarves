@@ -892,7 +892,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 	if (cu__add_tag(cu, recoded, &new_id) == 0)
 		return new_id;
 
-	free(recoded);
+	cu__free(cu, recoded);
 	return -ENOMEM;
 }
 
