@@ -93,7 +93,8 @@ struct btf_encoder {
 			  gen_floats,
 			  skip_encoding_decl_tag,
 			  tag_kfuncs,
-			  is_rel;
+			  is_rel,
+			  gen_distilled_base;
 	uint32_t	  array_index_id;
 	struct {
 		struct var_info *vars;
@@ -1289,9 +1290,9 @@ static int btf_encoder__write_raw_file(struct btf_encoder *encoder)
 	return err;
 }
 
-static int btf_encoder__write_elf(struct btf_encoder *encoder)
+static int btf_encoder__write_elf(struct btf_encoder *encoder, const struct btf *btf,
+				  const char *btf_secname)
 {
-	struct btf *btf = encoder->btf;
 	const char *filename = encoder->filename;
 	GElf_Shdr shdr_mem, *shdr;
 	Elf_Data *btf_data = NULL;
@@ -1331,7 +1332,7 @@ static int btf_encoder__write_elf(struct btf_encoder *encoder)
 		if (shdr == NULL)
 			continue;
 		char *secname = elf_strptr(elf, strndx, shdr->sh_name);
-		if (strcmp(secname, ".BTF") == 0) {
+		if (strcmp(secname, btf_secname) == 0) {
 			btf_data = elf_getdata(scn, btf_data);
 			break;
 		}
@@ -1375,11 +1376,11 @@ static int btf_encoder__write_elf(struct btf_encoder *encoder)
 			goto unlink;
 		}
 
-		snprintf(cmd, sizeof(cmd), "%s --add-section .BTF=%s %s",
-			 llvm_objcopy, tmp_fn, filename);
+		snprintf(cmd, sizeof(cmd), "%s --add-section %s=%s %s",
+			 llvm_objcopy, btf_secname, tmp_fn, filename);
 		if (system(cmd)) {
-			fprintf(stderr, "%s: failed to add .BTF section to '%s': %d!\n",
-				__func__, filename, errno);
+			fprintf(stderr, "%s: failed to add %s section to '%s': %d!\n",
+				__func__, btf_secname, filename, errno);
 			goto unlink;
 		}
 
@@ -1760,12 +1761,34 @@ int btf_encoder__encode(struct btf_encoder *encoder)
 		fprintf(stderr, "%s: btf__dedup failed!\n", __func__);
 		return -1;
 	}
-
-	if (encoder->raw_output)
+	if (encoder->raw_output) {
 		err = btf_encoder__write_raw_file(encoder);
-	else
-		err = btf_encoder__write_elf(encoder);
+	} else {
+		/* non-embedded libbpf may not have btf__distill_base() or a
+		 * definition of BTF_BASE_ELF_SEC, so conditionally compile
+		 * distillation code.  Like other --btf_features, it will
+		 * silently ignore the feature request if libbpf does not
+		 * support it.
+		 */
+#if LIBBPF_MAJOR_VERSION >= 1 && LIBBPF_MINOR_VERSION >= 5
+		if (encoder->gen_distilled_base) {
+			struct btf *btf = NULL, *distilled_base = NULL;
 
+			if (btf__distill_base(encoder->btf, &distilled_base, &btf) < 0) {
+				fprintf(stderr, "could not generate distilled base BTF: %s\n",
+					strerror(errno));
+				return -1;
+			}
+			err = btf_encoder__write_elf(encoder, btf, BTF_ELF_SEC);
+			if (!err)
+				err = btf_encoder__write_elf(encoder, distilled_base, BTF_BASE_ELF_SEC);
+			btf__free(btf);
+			btf__free(distilled_base);
+			return err;
+		}
+#endif
+		err = btf_encoder__write_elf(encoder, encoder->btf, BTF_ELF_SEC);
+	}
 	return err;
 }
 
@@ -2042,6 +2065,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		encoder->skip_encoding_vars = conf_load->skip_encoding_btf_vars;
 		encoder->skip_encoding_decl_tag	 = conf_load->skip_encoding_btf_decl_tag;
 		encoder->tag_kfuncs	 = conf_load->btf_decl_tag_kfuncs;
+		encoder->gen_distilled_base = conf_load->btf_gen_distilled_base;
 		encoder->verbose	 = verbose;
 		encoder->has_index_type  = false;
 		encoder->need_index_type = false;

@@ -1291,6 +1291,7 @@ struct btf_feature {
 	BTF_DEFAULT_FEATURE(consistent_func, skip_encoding_btf_inconsistent_proto, false),
 	BTF_DEFAULT_FEATURE(decl_tag_kfuncs, btf_decl_tag_kfuncs, false),
 	BTF_NON_DEFAULT_FEATURE(reproducible_build, reproducible_build, false),
+	BTF_NON_DEFAULT_FEATURE(distilled_base, btf_gen_distilled_base, false),
 };
 
 #define BTF_MAX_FEATURE_STR	1024
