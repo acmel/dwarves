@@ -76,6 +76,14 @@ void cu__tag_free(struct cu *cu, struct tag *tag)
 		cu__free(cu, tag);
 }
 
+void *cu__tag_alloc(struct cu *cu, size_t size)
+{
+	if (cu->dfops && cu->dfops->tag__alloc)
+		return cu->dfops->tag__alloc(cu, size);
+
+	return cu__zalloc(cu, size);
+}
+
 int tag__is_base_type(const struct tag *tag, const struct cu *cu)
 {
 	switch (tag->tag) {

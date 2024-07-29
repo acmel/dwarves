@@ -197,6 +197,7 @@ struct tag *cus__find_struct_by_name(struct cus *cus, struct cu **cu,
 				     type_id_t *id);
 struct tag *cus__find_struct_or_union_by_name(struct cus *cus, struct cu **cu,
 					      const char *name, const int include_decls, type_id_t *id);
+void *cu__tag_alloc(struct cu *cu, size_t size);
 void cu__tag_free(struct cu *cu, struct tag *tag);
 struct tag *cu__find_type_by_name(const struct cu *cu, const char *name, const int include_decls, type_id_t *idp);
 struct tag *cus__find_type_by_name(struct cus *cus, struct cu **cu, const char *name,
@@ -269,6 +270,7 @@ struct debug_fmt_ops {
 					     const struct cu *cu);
 	unsigned long long (*tag__orig_id)(const struct tag *tag,
 					   const struct cu *cu);
+	void		   *(*tag__alloc)(struct cu *cu, size_t size);
 	void		   (*tag__free)(struct tag *tag, struct cu *cu);
 	void		   (*cu__delete)(struct cu *cu);
 	bool		   has_alignment_info;
