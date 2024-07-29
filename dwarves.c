@@ -1304,11 +1304,11 @@ void class_member__delete(struct class_member *member, struct cu *cu)
 	cu__tag_free(cu, &member->tag);
 }
 
-static struct class_member *class_member__clone(const struct class_member *from)
+static struct class_member *class_member__clone(const struct class_member *from, struct cu *cu)
 {
-	struct class_member *member = malloc(sizeof(*member));
+	struct class_member *member = cu__tag_alloc(cu, sizeof(*member));
 
-	if (member != NULL)
+	if (member != NULL) // FIXME: the type-format specific (DWARF notably) are isn't beying copied, so far this isn't important, not used in the current tools
 		memcpy(member, from, sizeof(*member));
 
 	return member;
@@ -1412,7 +1412,7 @@ struct class_member *type__last_member(struct type *type)
 	return NULL;
 }
 
-static int type__clone_members(struct type *type, const struct type *from)
+static int type__clone_members(struct type *type, const struct type *from, struct cu *cu)
 {
 	struct class_member *pos;
 
@@ -1420,7 +1420,7 @@ static int type__clone_members(struct type *type, const struct type *from)
 	INIT_LIST_HEAD(&type->namespace.tags);
 
 	type__for_each_member(from, pos) {
-		struct class_member *clone = class_member__clone(pos);
+		struct class_member *clone = class_member__clone(pos, cu);
 
 		if (clone == NULL)
 			return -1;
@@ -1432,7 +1432,7 @@ static int type__clone_members(struct type *type, const struct type *from)
 
 struct class *class__clone(const struct class *from, const char *new_class_name, struct cu *cu)
 {
-	struct class *class = cu__zalloc(cu, sizeof(*class));
+	struct class *class = cu__tag_alloc(cu, sizeof(*class));
 
 	 if (class != NULL) {
 		memcpy(class, from, sizeof(*class));
@@ -1443,7 +1443,7 @@ struct class *class__clone(const struct class *from, const char *new_class_name,
 				return NULL;
 			}
 		}
-		if (type__clone_members(&class->type, &from->type) != 0) {
+		if (type__clone_members(&class->type, &from->type, cu) != 0) {
 			class__delete(class, cu);
 			class = NULL;
 		}
