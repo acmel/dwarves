@@ -72,6 +72,7 @@ struct conf_load {
 	enum load_steal_kind	(*steal)(struct cu *cu,
 					 struct conf_load *conf,
 					 void *thr_data);
+	struct cu *		(*early_cu_filter)(struct cu *cu);
 	int			(*thread_exit)(struct conf_load *conf, void *thr_data);
 	void			*cookie;
 	char			*format_path;

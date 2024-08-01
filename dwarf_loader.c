@@ -3002,6 +3002,16 @@ static int die__process(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 
 	cu->language = attr_numeric(die, DW_AT_language);
 
+	if (conf->early_cu_filter)
+		cu = conf->early_cu_filter(cu);
+
+	/*
+	 * If we filtered this CU out, we still want to keep iterating, but
+	 * there's no need to walk the rest of the CU info.
+	 */
+	if (cu == NULL)
+		return DWARF_CB_OK;
+
 	if (dwarf_child(die, &child) == 0) {
 		int err = die__process_unit(&child, cu, conf);
 		if (err)
