@@ -1889,7 +1889,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		  conf_load.nr_jobs = arg ? atoi(arg) :
 					    sysconf(_SC_NPROCESSORS_ONLN) * 1.1;
 #else
-		  fputs("pahole: Multithreading requires elfutils >= 0.178. Continuing with a single thread...\n", stderr);
+		  if (global_verbose)
+			  fputs("pahole: Multithreading requires elfutils >= 0.178. Continuing with a single thread...\n", stderr);
 #endif
 							break;
 	case ARGP_btf_encode_detached:
