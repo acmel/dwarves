@@ -3766,6 +3766,10 @@ int main(int argc, char *argv[])
 	memset(tab, ' ', sizeof(tab) - 1);
 
 	conf_load.steal = pahole_stealer;
+
+	if (languages.exclude)
+		conf_load.early_cu_filter = cu__filter;
+
 	conf_load.thread_exit = pahole_thread_exit;
 
 	if (conf_load.reproducible_build) {
