@@ -469,19 +469,15 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 	return 1;
 }
 
+/* The struct dwarf_tag has a fixed size while the 'struct tag' is just the base
+ * class for all DWARF DW_TAG_ tags, so we must have the fixed part first
+ * to be able to derive it from the one that has multiple sizes.
+ */
 static void *tag__alloc(struct cu *cu, size_t size)
 {
 	struct dwarf_tag *dtag = cu__zalloc(cu, sizeof(*dtag) + size);
 
-	if (dtag == NULL)
-		return NULL;
-
-	struct tag *tag = (struct tag *)(dtag + 1);
-
-	tag->type = 0;
-	tag->top_level = 0;
-
-	return tag;
+	return dtag ? dtag__tag(dtag) : NULL;
 }
 
 static void tag__free(struct tag *tag, struct cu *cu)
