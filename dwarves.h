@@ -304,6 +304,7 @@ struct cu {
 	uint8_t		 little_endian:1;
 	uint8_t		 nr_register_params;
 	int		 register_params[ARCH_MAX_REGISTER_PARAMS];
+	int		 functions_saved;
 	enum cu_state	 state;
 	uint16_t	 language;
 	unsigned long	 nr_inline_expansions;

@@ -83,7 +83,6 @@ struct btf_encoder {
 	const char	  *filename;
 	struct elf_symtab *symtab;
 	uint32_t	  type_id_off;
-	int		  saved_func_cnt;
 	bool		  has_index_type,
 			  need_index_type,
 			  skip_encoding_vars,
@@ -908,7 +907,7 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 	} else {
 		func->state.type_id_off = encoder->type_id_off;
 		func->function = fn;
-		encoder->saved_func_cnt++;
+		encoder->cu->functions_saved++;
 	}
 	return 0;
 }
@@ -2307,7 +2306,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 	 * functions for later addition.
 	 */
 	if (!err)
-		err = encoder->saved_func_cnt > 0 ? LSK__KEEPIT : LSK__DELETE;
+		err = encoder->cu->functions_saved > 0 ? LSK__KEEPIT : LSK__DELETE;
 out:
 	encoder->cu = NULL;
 	return err;
