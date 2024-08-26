@@ -49,6 +49,7 @@ struct fn_stats {
 	uint32_t	 nr_expansions;
 	uint32_t	 size_expansions;
 	uint32_t	 nr_files;
+	bool		 printed;
 };
 
 static struct fn_stats *fn_stats__new(struct tag *tag, const struct cu *cu)
@@ -95,11 +96,13 @@ static void fn_stats__delete_list(void)
 	}
 }
 
-static void fn_stats__add(struct tag *tag, const struct cu *cu)
+static struct fn_stats *fn_stats__add(struct tag *tag, const struct cu *cu)
 {
 	struct fn_stats *fns = fn_stats__new(tag, cu);
 	if (fns != NULL)
 		list_add(&fns->node, &fn_stats__list);
+
+	return fns;
 }
 
 static void fn_stats_inline_exps_fmtr(const struct fn_stats *stats)
@@ -366,7 +369,12 @@ static void function__show(struct function *func, struct cu *cu)
 {
 	struct tag *tag = function__tag(func);
 
-	if (func->abstract_origin || func->external)
+	if (func->abstract_origin || func->declaration)
+		return;
+
+	struct fn_stats *fstats = fn_stats__find(func->name);
+
+	if (fstats && fstats->printed)
 		return;
 
 	if (expand_types)
@@ -393,6 +401,11 @@ static void function__show(struct function *func, struct cu *cu)
 	putchar('\n');
 	if (show_variables || show_inline_expansions)
 		function__fprintf_stats(tag, cu, &conf, stdout);
+
+	if (!fstats)
+		fstats = fn_stats__add(tag, cu);
+	if (fstats)
+		fstats->printed = true;
 }
 
 static int cu_function_iterator(struct cu *cu, void *cookie)
