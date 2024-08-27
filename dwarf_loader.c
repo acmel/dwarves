@@ -804,7 +804,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		if (id < 0)
 			return id;
 
-		struct type *new_typedef = cu__zalloc(cu, sizeof(*new_typedef));
+		struct type *new_typedef = cu__tag_alloc(cu, sizeof(*new_typedef));
 		if (new_typedef == NULL)
 			return -ENOMEM;
 
@@ -832,7 +832,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		if (id >= 0 && (uint32_t)id == tag->type)
 			return id;
 
-		recoded = cu__zalloc(cu, sizeof(*recoded));
+		recoded = cu__tag_alloc(cu, sizeof(*recoded));
 		if (recoded == NULL)
 			return -ENOMEM;
 
@@ -851,7 +851,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 		if (recoded != NULL)
 			return short_id;
 
-		struct base_type *new_bt = cu__zalloc(cu, sizeof(*new_bt));
+		struct base_type *new_bt = cu__tag_alloc(cu, sizeof(*new_bt));
 		if (new_bt == NULL)
 			return -ENOMEM;
 
@@ -873,7 +873,7 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 			return short_id;
 
 		struct type *alias = tag__type(tag);
-		struct type *new_enum = cu__zalloc(cu, sizeof(*new_enum));
+		struct type *new_enum = cu__tag_alloc(cu, sizeof(*new_enum));
 		if (new_enum == NULL)
 			return -ENOMEM;
 
