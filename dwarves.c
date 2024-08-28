@@ -2688,10 +2688,44 @@ out_fail:
 	return -1;
 }
 
+static const char *__vmlinux_path__find_running_kernel(void)
+{
+	char running_sbuild_id[SBUILD_ID_SIZE];
+
+	sysfs__sprintf_build_id(NULL, running_sbuild_id);
+
+	for (int i = 0; i < vmlinux_path__nr_entries; ++i) {
+		char sbuild_id[SBUILD_ID_SIZE];
+
+		if (filename__sprintf_build_id(vmlinux_path[i], sbuild_id) > 0 &&
+		    strcmp(sbuild_id, running_sbuild_id) == 0) {
+			return vmlinux_path[i];
+		}
+	}
+
+	return NULL;
+}
+
+const char *vmlinux_path__find_running_kernel(void)
+{
+	elf_version(EV_CURRENT);
+	vmlinux_path__init();
+
+	const char *vmlinux = __vmlinux_path__find_running_kernel();
+
+	if (vmlinux) {
+		// vmlinux_path__exit() will nuke all its entries
+		vmlinux = strdup(vmlinux);
+	}
+
+	vmlinux_path__exit();
+
+	return vmlinux;
+}
+
 static int cus__load_running_kernel(struct cus *cus, struct conf_load *conf)
 {
-	int i, err = 0;
-	char running_sbuild_id[SBUILD_ID_SIZE];
+	int err = 0;
 
 	if ((!conf || conf->format_path == NULL || strncmp(conf->format_path, "btf", 3) == 0) &&
 	    access("/sys/kernel/btf/vmlinux", R_OK) == 0) {
@@ -2709,17 +2743,9 @@ try_elf:
 	elf_version(EV_CURRENT);
 	vmlinux_path__init();
 
-	sysfs__sprintf_build_id(NULL, running_sbuild_id);
+	const char *vmlinux = __vmlinux_path__find_running_kernel();
 
-	for (i = 0; i < vmlinux_path__nr_entries; ++i) {
-		char sbuild_id[SBUILD_ID_SIZE];
-
-		if (filename__sprintf_build_id(vmlinux_path[i], sbuild_id) > 0 &&
-		    strcmp(sbuild_id, running_sbuild_id) == 0) {
-			err = cus__load_file(cus, conf, vmlinux_path[i]);
-			break;
-		}
-	}
+	err = cus__load_file(cus, conf, vmlinux);
 
 	vmlinux_path__exit();
 
