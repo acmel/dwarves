@@ -1,0 +1,15 @@
+#/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright © 2024 Red Hat Inc, Arnaldo Carvalho de Melo <acme@redhat.com>
+
+tests_dir=$(dirname $0)
+cd $tests_dir
+
+let nr=1
+for test in *.sh ; do
+	printf "%3d: " $nr
+	./$test
+	let nr+=1
+done
+
+cd -
