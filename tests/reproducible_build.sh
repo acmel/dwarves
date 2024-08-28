@@ -7,8 +7,11 @@
 vmlinux=$1
 
 if [ -z "$vmlinux" ] ; then
-	echo "Please specify a vmlinux file to operate on"
-	exit 1
+	vmlinux=$(pahole --running_kernel_vmlinux)
+	if [ -z "$vmlinux" ] ; then
+		echo "Please specify a vmlinux file to operate on"
+		exit 1
+	fi
 fi
 
 if [ ! -f "$vmlinux" ] ; then
