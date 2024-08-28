@@ -37,6 +37,7 @@ static bool ctf_encode;
 static bool sort_output;
 static bool need_resort;
 static bool first_obj_only;
+static bool show_running_kernel_vmlinux;
 static const char *base_btf_file;
 
 static const char *prettify_input_filename;
@@ -1237,6 +1238,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_btf_features_strict 343
 #define ARGP_contains_enumerator 344
 #define ARGP_reproducible_build 345
+#define ARGP_running_kernel_vmlinux 346
 
 /* --btf_features=feature1[,feature2,..] allows us to specify
  * a list of requested BTF features or "default" to enable all default
@@ -1852,6 +1854,11 @@ static const struct argp_option pahole__options[] = {
 		.doc = "Generate reproducile BTF output"
 	},
 	{
+		.name = "running_kernel_vmlinux",
+		.key = ARGP_running_kernel_vmlinux,
+		.doc = "Search for, possibly getting from a debuginfo server, a vmlinux matching the running kernel build-id (from /sys/kernel/notes)"
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -2032,6 +2039,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.skip_encoding_btf_inconsistent_proto = true; break;
 	case ARGP_reproducible_build:
 		conf_load.reproducible_build = true;	break;
+	case ARGP_running_kernel_vmlinux:
+		show_running_kernel_vmlinux = true;	break;
 	case ARGP_btf_features:
 		parse_btf_features(arg, false);		break;
 	case ARGP_supported_btf_features:
@@ -3705,6 +3714,21 @@ int main(int argc, char *argv[])
 	if (argp_parse(&pahole__argp, argc, argv, 0, &remaining, NULL)) {
 		argp_help(&pahole__argp, stderr, ARGP_HELP_SEE, argv[0]);
 		goto out;
+	}
+
+	if (show_running_kernel_vmlinux) {
+		const char *vmlinux = vmlinux_path__find_running_kernel();
+
+		if (vmlinux) {
+			fprintf(stdout, "%s\n", vmlinux);
+			rc = EXIT_SUCCESS;
+		} else {
+			fputs("pahole: couldn't find a vmlinux that matches the running kernel\n"
+			      "HINT: Maybe you're inside a container or missing a debuginfo package?\n",
+			      stderr);
+		}
+
+		return rc;
 	}
 
 	if (languages.str && parse_languages())

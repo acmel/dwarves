@@ -340,6 +340,10 @@ Identical to \-\-btf_features above, but pahole will exit if it encounters an un
 Show set of BTF features supported by \-\-btf_features option and exit.  Useful for checking which features are supported since \-\-btf_features will not emit an error if an unrecognized feature is specified.
 
 .TP
+.B \-\-running_kernel_vmlinux,
+Search for, possibly getting from a debuginfo server, a vmlinux matching the running kernel build-id (from /sys/kernel/notes).
+
+.TP
 .B \-l, \-\-show_first_biggest_size_base_type_member
 Show first biggest size base_type member.
 
