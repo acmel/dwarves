@@ -3247,11 +3247,14 @@ static int __cus__load_debug_types(struct cus *cus, struct conf_load *conf, Dwfl
 				     build_id_len, filename, conf->use_obstack);
 			if (cu == NULL ||
 			    cu__set_common(cu, conf, mod, elf) != 0) {
+				cu__delete(cu);
 				return DWARF_CB_ABORT;
 			}
 
-			if (dwarf_cu__init(dcup, cu) != 0)
+			if (dwarf_cu__init(dcup, cu) != 0) {
+				cu__delete(cu);
 				return DWARF_CB_ABORT;
+			}
 			dcup->cu = cu;
 			/* Funny hack.  */
 			dcup->type_unit = dcup;
@@ -3378,8 +3381,10 @@ static struct dwarf_cu *dwarf_cus__create_cu(struct dwarf_cus *dcus, Dwarf_Die *
 	 */
 	const char *name = attr_string(cu_die, DW_AT_name, dcus->conf);
 	struct cu *cu = cu__new(name ?: "", pointer_size, dcus->build_id, dcus->build_id_len, dcus->filename, dcus->conf->use_obstack);
-	if (cu == NULL || cu__set_common(cu, dcus->conf, dcus->mod, dcus->elf) != 0)
+	if (cu == NULL || cu__set_common(cu, dcus->conf, dcus->mod, dcus->elf) != 0) {
+		cu__delete(cu);
 		return NULL;
+	}
 
 	struct dwarf_cu *dcu = dwarf_cu__new(cu);
 
