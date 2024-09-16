@@ -39,6 +39,13 @@
 #define BTF_ID_SET8_PFX		"__BTF_ID__set8__"
 #define BTF_SET8_KFUNCS		(1 << 0)
 #define BTF_KFUNC_TYPE_TAG	"bpf_kfunc"
+#define BTF_FASTCALL_TAG       "bpf_fastcall"
+#define KF_FASTCALL            (1 << 12)
+
+struct btf_id_and_flag {
+	uint32_t id;
+	uint32_t flags;
+};
 
 /*
  * This corresponds to the same macro defined in
@@ -50,10 +57,7 @@
 struct btf_id_set8 {
         uint32_t cnt;
         uint32_t flags;
-        struct {
-                uint32_t id;
-                uint32_t flags;
-        } pairs[];
+	struct btf_id_and_flag pairs[];
 };
 
 struct btf_encoder_func_parm {
@@ -1792,21 +1796,33 @@ out:
 	return err;
 }
 
-static int btf_encoder__tag_kfunc(struct btf_encoder *encoder, struct gobuffer *funcs, const char *kfunc)
+static int btf__add_kfunc_decl_tag(struct btf *btf, const char *tag, __u32 id, const char *kfunc)
+{
+	int err = btf__add_decl_tag(btf, tag, id, -1);
+
+	if (err < 0) {
+		fprintf(stderr, "%s: failed to insert kfunc decl tag for '%s': %d\n",
+			__func__, kfunc, err);
+		return err;
+	}
+	return 0;
+}
+
+static int btf_encoder__tag_kfunc(struct btf_encoder *encoder, struct gobuffer *funcs, const char *kfunc, __u32 flags)
 {
 	struct btf_func key = { .name = kfunc };
 	struct btf *btf = encoder->btf;
 	struct btf_func *target;
 	const void *base;
 	unsigned int cnt;
-	int err = -1;
+	int err;
 
 	base = gobuffer__entries(funcs);
 	cnt = gobuffer__nr_entries(funcs);
 	target = bsearch(&key, base, cnt, sizeof(key), btf_func_cmp);
 	if (!target) {
 		fprintf(stderr, "%s: failed to find kfunc '%s' in BTF\n", __func__, kfunc);
-		goto out;
+		return -1;
 	}
 
 	/* Note we are unconditionally adding the btf_decl_tag even
@@ -1814,16 +1830,16 @@ static int btf_encoder__tag_kfunc(struct btf_encoder *encoder, struct gobuffer *
 	 * We are ok to do this b/c we will later btf__dedup() to remove
 	 * any duplicates.
 	 */
-	err = btf__add_decl_tag(btf, BTF_KFUNC_TYPE_TAG, target->type_id, -1);
-	if (err < 0) {
-		fprintf(stderr, "%s: failed to insert kfunc decl tag for '%s': %d\n",
-			__func__, kfunc, err);
-		goto out;
+	err = btf__add_kfunc_decl_tag(btf, BTF_KFUNC_TYPE_TAG, target->type_id, kfunc);
+	if (err < 0)
+		return err;
+	if (flags & KF_FASTCALL) {
+		err = btf__add_kfunc_decl_tag(btf, BTF_FASTCALL_TAG, target->type_id, kfunc);
+		if (err < 0)
+			return err;
 	}
 
-	err = 0;
-out:
-	return err;
+	return 0;
 }
 
 static int btf_encoder__tag_kfuncs(struct btf_encoder *encoder)
@@ -1950,8 +1966,10 @@ static int btf_encoder__tag_kfuncs(struct btf_encoder *encoder)
 	/* Now inject BTF with kfunc decl tag for detected kfuncs */
 	for (i = 0; i < nr_syms; i++) {
 		const struct btf_kfunc_set_range *ranges;
+		const struct btf_id_and_flag *pair;
 		unsigned int ranges_cnt;
 		char *func, *name;
+		ptrdiff_t off;
 		GElf_Sym sym;
 		bool found;
 		int err;
@@ -1979,6 +1997,14 @@ static int btf_encoder__tag_kfuncs(struct btf_encoder *encoder)
 
 			if (ranges[j].start <= addr && addr < ranges[j].end) {
 				found = true;
+				off = addr - idlist_addr;
+				if (off < 0 || off + sizeof(*pair) > idlist->d_size) {
+					fprintf(stderr, "%s: kfunc '%s' offset outside section '%s'\n",
+						__func__, func, BTF_IDS_SECTION);
+					free(func);
+					goto out;
+				}
+				pair = idlist->d_buf + off;
 				break;
 			}
 		}
@@ -1987,7 +2013,7 @@ static int btf_encoder__tag_kfuncs(struct btf_encoder *encoder)
 			continue;
 		}
 
-		err = btf_encoder__tag_kfunc(encoder, &btf_funcs, func);
+		err = btf_encoder__tag_kfunc(encoder, &btf_funcs, func, pair->flags);
 		if (err) {
 			fprintf(stderr, "%s: failed to tag kfunc '%s'\n", __func__, func);
 			free(func);
