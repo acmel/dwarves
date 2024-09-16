@@ -29,6 +29,7 @@ static int show_cc_inlined;
 static int show_cc_uninlined;
 static char *symtab_name;
 static bool show_prototypes;
+static bool show_all_matches;
 static bool expand_types;
 static bool compilable_output;
 static struct type_emissions emissions;
@@ -368,17 +369,19 @@ do_parameters:
 static void function__show(struct function *func, struct cu *cu)
 {
 	struct tag *tag = function__tag(func);
+	struct fn_stats *fstats = NULL;
 
 	if (func->abstract_origin || func->declaration)
 		return;
 
-	struct fn_stats *fstats = fn_stats__find(func->name);
+	if (!show_all_matches) {
+		fstats = fn_stats__find(func->name);
 
-	if (fstats && fstats->printed)
-		return;
-
-	if (expand_types)
-		function__emit_type_definitions(func, cu, stdout);
+		if (fstats && fstats->printed)
+			return;
+		if (expand_types)
+			function__emit_type_definitions(func, cu, stdout);
+	}
 	tag__fprintf(tag, cu, &conf, stdout);
 	if (compilable_output) {
 		struct tag *type = cu__type(cu, func->proto.tag.type);
@@ -399,6 +402,8 @@ static void function__show(struct function *func, struct cu *cu)
 		fprintf(stdout, "\n}\n");
 	}
 	putchar('\n');
+	if (show_all_matches)
+		return;
 	if (show_variables || show_inline_expansions)
 		function__fprintf_stats(tag, cu, &conf, stdout);
 
@@ -417,8 +422,6 @@ static int cu_function_iterator(struct cu *cu, void *cookie)
 		if (cookie && strcmp(function__name(function), cookie) != 0)
 			continue;
 		function__show(function, cu);
-		if (!expand_types)
-			return 1;
 	}
 	return 0;
 }
@@ -514,11 +517,18 @@ static enum load_steal_kind pfunct_stealer(struct cu *cu,
 
 		if (tag) {
 			function__show(tag__function(tag), cu);
-			return LSK__STOP_LOADING;
+			return show_all_matches ? LSK__DELETE : LSK__STOP_LOADING;
 		}
 	} else if (class_name) {
 		cu_class_iterator(cu, class_name);
+	} else if (show_all_matches) {
+		struct function *pos;
+		uint32_t id;
+
+		cu__for_each_function(cu, id, pos)
+			function__show(pos, cu);
 	}
+
 
 	return LSK__DELETE;
 }
@@ -536,6 +546,11 @@ static const struct argp_option pfunct__options[] = {
 		.name = "addr",
 		.arg  = "ADDR",
 		.doc  = "show just the function that where ADDR is",
+	},
+	{
+		.key  = 'A',
+		.name = "all",
+		.doc  = "show all functions that match filter, or show all function prototypes if no filter is specified",
 	},
 	{
 		.key  = 'b',
@@ -672,6 +687,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 		break;
 	case 'a': addr = strtoull(arg, NULL, 0);
 		  conf_load.get_addr_info = true;	 break;
+	case 'A': show_all_matches = true;		 break;
 	case 'b': expand_types = true;
 		  type_emissions__init(&emissions, &conf);	 break;
 	case 'c': class_name = arg;			 break;
@@ -751,7 +767,7 @@ int main(int argc, char *argv[])
 		goto out_dwarves_exit;
 	}
 
-	if (function_name || class_name)
+	if (function_name || (!function_name && show_all_matches) || class_name)
 		conf_load.steal = pfunct_stealer;
 
 try_sole_arg_as_function_name:
