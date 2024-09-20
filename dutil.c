@@ -207,13 +207,21 @@ Elf_Scn *elf_section_by_name(Elf *elf, GElf_Shdr *shp, const char *name, size_t 
 	return sec;
 }
 
-Elf_Scn *elf_section_by_idx(Elf *elf, GElf_Shdr *shp, int idx)
+Elf_Scn *elf_section_by_idx(Elf *elf, GElf_Shdr *shp, int idx, const char **name_out)
 {
 	Elf_Scn *sec;
+	size_t str_idx;
 
 	sec = elf_getscn(elf, idx);
-	if (sec)
-		gelf_getshdr(sec, shp);
+	if (!sec)
+		return NULL;
+	if (!gelf_getshdr(sec, shp))
+		return NULL;
+	if (name_out) {
+		if (elf_getshdrstrndx(elf, &str_idx))
+			return NULL;
+		*name_out = elf_strptr(elf, str_idx, shp->sh_name);
+	}
 	return sec;
 }
 
