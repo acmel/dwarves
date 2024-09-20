@@ -99,6 +99,12 @@ struct var_info {
 	uint32_t    sz;
 };
 
+struct elf_secinfo {
+	uint64_t    addr;
+	const char *name;
+	uint64_t    sz;
+};
+
 /*
  * cu: cu being processed.
  */
@@ -123,13 +129,13 @@ struct btf_encoder {
 			  is_rel,
 			  gen_distilled_base;
 	uint32_t	  array_index_id;
+	struct elf_secinfo *secinfo;
+	size_t             seccnt;
 	struct {
 		struct var_info *vars;
 		int		var_cnt;
 		int		allocated;
 		uint32_t	shndx;
-		uint64_t	base_addr;
-		uint64_t	sec_sz;
 	} percpu;
 	struct {
 		struct elf_function *entries;
@@ -2150,7 +2156,7 @@ static int btf_encoder__collect_percpu_var(struct btf_encoder *encoder, GElf_Sym
 	 * ET_EXEC file) we need to subtract the section address.
 	 */
 	if (!encoder->is_rel)
-		addr -= encoder->percpu.base_addr;
+		addr -= encoder->secinfo[encoder->percpu.shndx].addr;
 
 	if (encoder->percpu.var_cnt == encoder->percpu.allocated) {
 		struct var_info *new;
@@ -2224,6 +2230,7 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 	uint32_t core_id;
 	struct tag *pos;
 	int err = -1;
+	struct elf_secinfo *pcpu_scn = &encoder->secinfo[encoder->percpu.shndx];
 
 	if (encoder->percpu.shndx == 0 || !encoder->symtab)
 		return 0;
@@ -2255,9 +2262,9 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 		 * always contains virtual symbol addresses, so subtract
 		 * the section address unconditionally.
 		 */
-		if (addr < encoder->percpu.base_addr || addr >= encoder->percpu.base_addr + encoder->percpu.sec_sz)
+		if (addr < pcpu_scn->addr || addr >= pcpu_scn->addr + pcpu_scn->sz)
 			continue;
-		addr -= encoder->percpu.base_addr;
+		addr -= pcpu_scn->addr;
 
 		if (!btf_encoder__percpu_var_exists(encoder, addr, &size, &name))
 			continue; /* not a per-CPU variable */
@@ -2400,19 +2407,34 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 			goto out;
 		}
 
-		/* find percpu section's shndx */
+		/* index the ELF sections for later lookup */
 
 		GElf_Shdr shdr;
-		Elf_Scn *sec = elf_section_by_name(cu->elf, &shdr, PERCPU_SECTION, NULL);
-
-		if (!sec) {
-			if (encoder->verbose)
-				printf("%s: '%s' doesn't have '%s' section\n", __func__, cu->filename, PERCPU_SECTION);
-		} else {
-			encoder->percpu.shndx	  = elf_ndxscn(sec);
-			encoder->percpu.base_addr = shdr.sh_addr;
-			encoder->percpu.sec_sz	  = shdr.sh_size;
+		size_t shndx;
+		if (elf_getshdrnum(cu->elf, &encoder->seccnt))
+			goto out_delete;
+		encoder->secinfo = calloc(encoder->seccnt, sizeof(*encoder->secinfo));
+		if (!encoder->secinfo) {
+			fprintf(stderr, "%s: error allocating memory for %zu ELF sections\n",
+				__func__, encoder->seccnt);
+			goto out_delete;
 		}
+
+		for (shndx = 0; shndx < encoder->seccnt; shndx++) {
+			const char *secname = NULL;
+			Elf_Scn *sec = elf_section_by_idx(cu->elf, &shdr, shndx, &secname);
+			if (!sec)
+				goto out_delete;
+			encoder->secinfo[shndx].addr = shdr.sh_addr;
+			encoder->secinfo[shndx].sz = shdr.sh_size;
+			encoder->secinfo[shndx].name = secname;
+
+			if (strcmp(secname, PERCPU_SECTION) == 0)
+				encoder->percpu.shndx = shndx;
+		}
+
+		if (!encoder->percpu.shndx && encoder->verbose)
+			printf("%s: '%s' doesn't have '%s' section\n", __func__, cu->filename, PERCPU_SECTION);
 
 		if (btf_encoder__collect_symbols(encoder, !encoder->skip_encoding_vars))
 			goto out_delete;
