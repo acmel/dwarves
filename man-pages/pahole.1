@@ -238,7 +238,10 @@ the debugging information.
 
 .TP
 .B \-\-skip_encoding_btf_vars
-Do not encode VARs in BTF.
+.TQ
+.B \-\-encode_btf_global_vars
+By default, VARs are encoded only for percpu variables. These options allow
+to skip encoding them, or alternatively to encode all global variables too.
 
 .TP
 .B \-\-skip_encoding_btf_decl_tag
@@ -304,7 +307,8 @@ Encode BTF using the specified feature list, or specify 'default' for all standa
 	encode_force       Ignore invalid symbols when encoding BTF; for example
 	                   if a symbol has an invalid name, it will be ignored
 	                   and BTF encoding will continue.
-	var                Encode variables using BTF_KIND_VAR in BTF.
+	var                Encode percpu variables using BTF_KIND_VAR in BTF.
+	global_var         Encode all global variables in the same way.
 	float              Encode floating-point types in BTF.
 	decl_tag           Encode declaration tags using BTF_KIND_DECL_TAG.
 	type_tag           Encode type tags using BTF_KIND_TYPE_TAG.

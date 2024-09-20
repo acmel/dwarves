@@ -1246,6 +1246,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_running_kernel_vmlinux 346
 #define ARG_padding_ge		   347
 #define ARG_padding		   348
+#define ARGP_encode_btf_global_vars 349
 
 /* --btf_features=feature1[,feature2,..] allows us to specify
  * a list of requested BTF features or "default" to enable all default
@@ -1292,6 +1293,7 @@ struct btf_feature {
 } btf_features[] = {
 	BTF_DEFAULT_FEATURE(encode_force, btf_encode_force, false),
 	BTF_DEFAULT_FEATURE(var, skip_encoding_btf_vars, true),
+	BTF_DEFAULT_FEATURE(global_var, encode_btf_global_vars, false),
 	BTF_DEFAULT_FEATURE(float, btf_gen_floats, false),
 	BTF_DEFAULT_FEATURE(decl_tag, skip_encoding_btf_decl_tag, true),
 	BTF_DEFAULT_FEATURE(type_tag, skip_encoding_btf_type_tag, true),
@@ -1733,7 +1735,12 @@ static const struct argp_option pahole__options[] = {
 	{
 		.name = "skip_encoding_btf_vars",
 		.key  = ARGP_skip_encoding_btf_vars,
-		.doc  = "Do not encode VARs in BTF."
+		.doc  = "Do not encode any VARs in BTF [if this is not specified, only percpu variables are encoded. To encode global variables too, use --encode_btf_global_vars]."
+	},
+	{
+		.name = "encode_btf_global_vars",
+		.key  = ARGP_skip_encoding_btf_vars,
+		.doc  = "Encode all global VARs in BTF [if this is not specified, only percpu variables are encoded]."
 	},
 	{
 		.name = "btf_encode_force",
@@ -2062,6 +2069,8 @@ static error_t pahole__options_parser(int key, char *arg,
 		show_supported_btf_features(stdout);	exit(0);
 	case ARGP_btf_features_strict:
 		parse_btf_features(arg, true);		break;
+	case ARGP_encode_btf_global_vars:
+		conf_load.encode_btf_global_vars = true;	break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
