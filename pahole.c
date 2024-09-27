@@ -60,6 +60,7 @@ static char *decl_exclude_prefix;
 static size_t decl_exclude_prefix_len;
 
 static uint16_t nr_holes;
+static uint16_t end_padding;
 static uint16_t end_padding_ge;
 static uint16_t nr_bit_holes;
 static uint16_t hole_size_ge;
@@ -825,7 +826,8 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	 * that need finding holes, like --packable, --nr_holes, etc
 	 */
 	if (!tag__is_struct(tag))
-		return (just_structs || show_packable || nr_holes || nr_bit_holes || hole_size_ge || end_padding_ge) ? NULL : class;
+		return (just_structs || show_packable || nr_holes || nr_bit_holes || hole_size_ge ||
+			end_padding_ge || end_padding) ? NULL : class;
 
 	if (tag->top_level)
 		class__find_holes(class);
@@ -833,6 +835,7 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	if (class->nr_holes < nr_holes ||
 	    class->padding < end_padding_ge ||
 	    class->nr_bit_holes < nr_bit_holes ||
+	    (end_padding != 0 && class->padding != end_padding) ||
 	    (hole_size_ge != 0 && !class__has_hole_ge(class, hole_size_ge)))
 		return NULL;
 
@@ -1242,6 +1245,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_reproducible_build 345
 #define ARGP_running_kernel_vmlinux 346
 #define ARG_padding_ge		   347
+#define ARG_padding		   348
 
 /* --btf_features=feature1[,feature2,..] allows us to specify
  * a list of requested BTF features or "default" to enable all default
@@ -1894,6 +1898,7 @@ static error_t pahole__options_parser(int key, char *arg,
 		  class_name = arg;			break;
 	case 'F': conf_load.format_path = arg;		break;
 	case 'H': nr_holes = atoi(arg);			break;
+	case ARG_padding: end_padding = atoi(arg);	break;
 	case ARG_padding_ge: end_padding_ge = atoi(arg); break;
 	case 'I': conf.show_decl_info = 1;
 		  conf_load.extra_dbg_info = 1;		break;
