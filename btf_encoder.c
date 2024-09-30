@@ -28,6 +28,7 @@
 
 #include <unistd.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <stdint.h>
 #include <search.h> /* for tsearch(), tfind() and tdestroy() */
@@ -692,7 +693,8 @@ static int32_t btf_encoder__tag_type(struct btf_encoder *encoder, uint32_t tag_t
 	return encoder->type_id_off + tag_type;
 }
 
-static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct ftype *ftype, struct elf_function *func)
+static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct ftype *ftype,
+					   struct elf_function *func)
 {
 	struct btf *btf = encoder->btf;
 	const struct btf_type *t;
@@ -701,16 +703,22 @@ static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct f
 	int32_t id, type_id;
 	char tmp_name[KSYM_NAME_LEN];
 	const char *name;
-	struct btf_encoder_func_state *state = &func->state;
+	struct btf_encoder_func_state *state;
+
+	assert(ftype != NULL || func != NULL);
 
 	/* add btf_type for func_proto */
 	if (ftype) {
 		nr_params = ftype->nr_parms + (ftype->unspec_parms ? 1 : 0);
 		type_id = btf_encoder__tag_type(encoder, ftype->tag.type);
-	} else {
+	} else if (func) {
+		state = &func->state;
 		nr_params = state->nr_parms;
 		type_id = state->ret_type_id;
+	} else {
+		return 0;
 	}
+
 	id = btf__add_func_proto(btf, type_id);
 	if (id > 0) {
 		t = btf__type_by_id(btf, id);
@@ -730,25 +738,29 @@ static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct f
 
 			type_id = param->tag.type == 0 ? 0 : encoder->type_id_off + param->tag.type;
 			++param_idx;
-			if (btf_encoder__add_func_param(encoder, name, type_id, param_idx == nr_params))
+			if (btf_encoder__add_func_param(encoder, name, type_id,
+							param_idx == nr_params))
 				return -1;
 		}
 
 		++param_idx;
 		if (ftype->unspec_parms)
-			if (btf_encoder__add_func_param(encoder, NULL, 0, param_idx == nr_params))
+			if (btf_encoder__add_func_param(encoder, NULL, 0,
+							param_idx == nr_params))
 				return -1;
 	} else {
 		for (param_idx = 0; param_idx < nr_params; param_idx++) {
 			struct btf_encoder_func_parm *p = &state->parms[param_idx];
+
 			name = btf__name_by_offset(btf, p->name_off);
 
 			/* adding BTF data may result in a move of the
 			 * name string memory, so make a temporary copy.
 			 */
-			strncpy(tmp_name, name, sizeof(tmp_name));
+			strncpy(tmp_name, name, sizeof(tmp_name) - 1);
 
-			if (btf_encoder__add_func_param(encoder, tmp_name, p->type_id, param_idx == nr_params))
+			if (btf_encoder__add_func_param(encoder, tmp_name, p->type_id,
+							param_idx == nr_params))
 				return -1;
 		}
 	}
@@ -950,10 +962,17 @@ static bool types__match(struct btf_encoder *encoder,
 			return false;
 		}
 
-		switch (btf_kind(t1)) {
+		switch (k1) {
 		case BTF_KIND_INT:
+			if (t1->size != t2->size)
+				return false;
+			if (*(__u32 *)(t1 + 1) != *(__u32 *)(t2 + 1))
+				return false;
+			return names__match(btf1, t1, btf2, t2);
 		case BTF_KIND_FLOAT:
-		case BTF_KIND_FWD:
+			if (t1->size != t2->size)
+				return false;
+			return names__match(btf1, t1, btf2, t2);
 		case BTF_KIND_TYPEDEF:
 		case BTF_KIND_STRUCT:
 		case BTF_KIND_UNION:
@@ -1008,9 +1027,6 @@ static bool funcs__match(struct btf_encoder *encoder, struct elf_function *func,
 			 struct btf *btf2, struct btf_encoder_func_state *s2)
 {
 	uint8_t i;
-
-	if (!s1->initialized || !s2->initialized)
-		return true;
 
 	if (s1->nr_parms != s2->nr_parms) {
 		btf_encoder__log_func_skip(encoder, func,
@@ -1081,7 +1097,8 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 			goto out;
 		}
 		state.parms[param_idx].name_off = str_off;
-		state.parms[param_idx].type_id = param->tag.type == 0 ? 0 : encoder->type_id_off + param->tag.type;
+		state.parms[param_idx].type_id = param->tag.type == 0 ? 0 :
+						encoder->type_id_off + param->tag.type;
 		param_idx++;
 	}
 	if (ftype->unspec_parms)
@@ -1139,7 +1156,8 @@ out:
 	return err;
 }
 
-static int32_t btf_encoder__add_func(struct btf_encoder *encoder, struct function *fn, struct elf_function *func)
+static int32_t btf_encoder__add_func(struct btf_encoder *encoder, struct function *fn,
+				     struct elf_function *func)
 {
 	int btf_fnproto_id, btf_fn_id, tag_type_id = 0;
 	int16_t component_idx = -1;
@@ -1147,19 +1165,23 @@ static int32_t btf_encoder__add_func(struct btf_encoder *encoder, struct functio
 	const char *value;
 	char tmp_value[KSYM_NAME_LEN];
 
+	assert(fn != NULL || func != NULL);
+
 	btf_fnproto_id = btf_encoder__add_func_proto(encoder, fn ? &fn->proto : NULL, func);
 	name = func->alias ?: func->name;
 	if (btf_fnproto_id >= 0)
-		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id, name, false);
+		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id,
+						      name, false);
 	if (btf_fnproto_id < 0 || btf_fn_id < 0) {
-		printf("error: failed to encode function '%s': invalid %s\n", name, btf_fnproto_id < 0 ? "proto" : "func");
+		printf("error: failed to encode function '%s': invalid %s\n",
+		       name, btf_fnproto_id < 0 ? "proto" : "func");
 		return -1;
 	}
 	if (!fn) {
 		struct btf_encoder_func_state *state = &func->state;
 		uint16_t idx;
 
-		if (!state || state->nr_annots == 0)
+		if (state->nr_annots == 0)
 			return 0;
 
 		for (idx = 0; idx < state->nr_annots; idx++) {
@@ -1169,10 +1191,11 @@ static int32_t btf_encoder__add_func(struct btf_encoder *encoder, struct functio
 			/* adding BTF data may result in a mode of the
 			 * value string memory, so make a temporary copy.
 			 */
-			strncpy(tmp_value, value, sizeof(tmp_value));
+			strncpy(tmp_value, value, sizeof(tmp_value) - 1);
 			component_idx = a->component_idx;
 
-			tag_type_id = btf_encoder__add_decl_tag(encoder, tmp_value, btf_fn_id, component_idx);
+			tag_type_id = btf_encoder__add_decl_tag(encoder, tmp_value,
+								btf_fn_id, component_idx);
 			if (tag_type_id < 0)
 				break;
 		}
@@ -1190,7 +1213,8 @@ static int32_t btf_encoder__add_func(struct btf_encoder *encoder, struct functio
 		}
 	}
 	if (tag_type_id < 0) {
-		fprintf(stderr, "error: failed to encode tag '%s' to func %s with component_idx %d\n",
+		fprintf(stderr,
+			"error: failed to encode tag '%s' to func %s with component_idx %d\n",
 			value, name, component_idx);
 		return -1;
 	}
@@ -1207,7 +1231,7 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder)
 		struct btf_encoder_func_state *state = &func->state;
 		struct btf_encoder *other_encoder = NULL;
 
-		if (!state || !state->initialized || state->processed)
+		if (!state->initialized || state->processed)
 			continue;
 		/* merge optimized-out status across encoders; since each
 		 * encoder has the same elf symbol table we can use the
@@ -1223,7 +1247,7 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder)
 
 			other_func = &other_encoder->functions.entries[i];
 			other_state = &other_func->state;
-			if (!other_state)
+			if (!other_state->initialized)
 				continue;
 			optimized = state->optimized_parms | other_state->optimized_parms;
 			unexpected = state->unexpected_reg | other_state->unexpected_reg;
