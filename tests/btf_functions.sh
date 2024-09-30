@@ -47,7 +47,8 @@ trap cleanup EXIT
 
 test -n "$VERBOSE" && printf "Encoding..."
 
-pahole --btf_features=default --btf_encode_detached=$outdir/vmlinux.btf --verbose $vmlinux |grep "skipping BTF encoding of function" > ${outdir}/skipped_fns
+pahole --btf_features=default --btf_encode_detached=$outdir/vmlinux.btf --verbose $vmlinux |\
+	grep "skipping BTF encoding of function" > ${outdir}/skipped_fns
 
 test -n "$VERBOSE" && printf "done.\n"
 
@@ -57,7 +58,7 @@ funcs=$(pfunct --format_path=btf $outdir/vmlinux.btf |sort)
 
 # all functions from DWARF; some inline functions are not inlined so include them too
 pfunct --all --no_parm_names --format_path=dwarf $vmlinux | \
-	awk '{ print $0}'|sort|uniq > $outdir/dwarf.funcs
+	sort|uniq > $outdir/dwarf.funcs
 # all functions from BTF (removing bpf_kfunc prefix where found)
 pfunct --all --no_parm_names --format_path=btf $outdir/vmlinux.btf |\
 	awk '{ gsub("^bpf_kfunc ",""); print $0}'|sort|uniq > $outdir/btf.funcs
@@ -66,14 +67,12 @@ exact=0
 inline=0
 const_insensitive=0
 
-for f in $funcs ; do
-	btf=$(grep " $f(" $outdir/btf.funcs)
+while IFS= read -r btf ; do
 	# look for non-inline match first
-	dwarf=$(grep " $f(" $outdir/dwarf.funcs | grep -Ev "^inline ")
+	dwarf=$(grep -F "$btf" $outdir/dwarf.funcs)
 	if [[ "$btf" != "$dwarf" ]]; then
 		# function might be declared inline in DWARF.
-		inline_dwarf=$(grep " $f(" $outdir/dwarf.funcs |grep "^inline ")
-		if [[ "inline $btf" != "$inline_dwarf" ]]; then
+		if [[ "inline $btf" != "$dwarf" ]]; then
 			# some functions have multiple instances in DWARF where one has
 			# const param(s) and another does not (see errpos()).  We do not
 			# mark these functions inconsistent as though they technically
@@ -83,7 +82,7 @@ for f in $funcs ; do
 			if [[ "$dwarf_noconst" =~ "$btf_noconst" ]]; then
 				const_insensitive=$((const_insensitive+1))
 			else
-				echo "ERROR: mismatch for '$f()' : BTF '$btf' not found; DWARF '$dwarf'"
+				echo "ERROR: mismatch : BTF '$btf' not found; DWARF '$dwarf'"
 				fail
 			fi
 		else
@@ -92,7 +91,7 @@ for f in $funcs ; do
 	else
 		exact=$((exact+1))
 	fi
-done
+done < $outdir/btf.funcs
 
 echo "Matched $exact functions exactly."
 echo "Matched $inline functions with inlines."
@@ -133,8 +132,6 @@ for r in $return_mismatches ; do
 	grep " $r(" $outdir/dwarf.funcs | \
 	awk -v FN=$r '{i = index($0, FN); if (i>0) print substr($0, 0, i-1) }' \
 	| uniq > ${outdir}/retvals.$r
-	test -n "$VERBOSE" && echo "'${r}()' has return values:"
-	test -n "$VERBOSE" && cat ${outdir}/retvals.$r
 	cnt=$(wc -l ${outdir}/retvals.$r | awk '{ print $1 }')
 	if [[ $cnt -lt 2 ]]; then
 		echo "ERROR: '${r}()' has only one return value; it should not be reported as having incompatible return values"
@@ -159,14 +156,11 @@ for p in $param_mismatches ; do
 	skipmsg=$(awk -v FN=$p '{ if ($1 == FN) print $0 }' $outdir/skipped_fns)
 	altname=$(echo $skipmsg | awk '{ i=index($2,")"); print substr($2,2,i-2); }')
 	if [[ "$altname" != "$p" ]]; then
-		test -n "$VERBOSE" && echo "skipping optimized function $p ($altname); pfunct may not reflect late optimizations."
 		optimized=$((optimized+1))
 		continue
 	fi
 	# Ensure there are multiple instances with incompatible params
 	grep " $p(" $outdir/dwarf.funcs | uniq > ${outdir}/protos.$p
-	test -n "$VERBOSE" && echo "'${p}()' has prototypes:"
-	test -n "$VERBOSE" && cat ${outdir}/protos.$p
 	cnt=$(wc -l ${outdir}/protos.$p | awk '{ print $1 }')
 	if [[ $cnt -lt 2 ]]; then
 		# function may be inlined in multiple sites with different protos
