@@ -288,7 +288,7 @@ struct cu {
 	struct ptr_table functions_table;
 	struct ptr_table tags_table;
 	struct rb_root	 functions;
-	char		 *name;
+	const char	 *name;
 	char		 *filename;
 	void 		 *priv;
 	struct debug_fmt_ops *dfops;
