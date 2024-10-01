@@ -5,11 +5,24 @@
 tests_dir=$(dirname $0)
 cd $tests_dir
 
+let status=0
 let nr=1
 for test in *.sh ; do
 	printf "%3d: " $nr
 	./$test
+	case $? in
+	0)
+		;;
+	2)
+		echo "skipping..."
+		;;
+	*)
+		status=1
+		;;
+	esac
 	let nr+=1
 done
 
 cd -
+
+exit $status
