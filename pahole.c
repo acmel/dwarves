@@ -690,8 +690,11 @@ static struct cu *cu__filter(struct cu *cu)
 		bool in = languages__in(cu->language);
 
 		if ((!in && !languages.exclude) ||
-		    (in && languages.exclude))
+		    (in && languages.exclude)) {
+			if (global_verbose)
+				printf("Filtering CU %s written in %s.\n", cu->name, lang__int2str(cu->language));
 			return NULL;
+		}
 	}
 
 	if (cu__exclude_prefix != NULL &&
