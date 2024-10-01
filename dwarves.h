@@ -350,6 +350,7 @@ static inline __pure bool cu__is_c(const struct cu *cu)
 }
 
 int lang__str2int(const char *lang);
+const char *lang__int2str(int lang);
 
 /**
  * cu__for_each_cached_symtab_entry - iterate thru the cached symtab entries

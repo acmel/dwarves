@@ -2364,9 +2364,7 @@ int cus__load_file(struct cus *cus, struct conf_load *conf,
 #define DW_LANG_BLISS		0x0025
 #endif
 
-int lang__str2int(const char *lang)
-{
-	static const char *languages[] = {
+static const char *languages[] = {
 	[DW_LANG_Ada83]		 = "ada83",
 	[DW_LANG_Ada95]		 = "ada95",
 	[DW_LANG_BLISS]		 = "bliss",
@@ -2404,8 +2402,22 @@ int lang__str2int(const char *lang)
 	[DW_LANG_Rust]		 = "rust",
 	[DW_LANG_Swift]		 = "swift",
 	[DW_LANG_UPC]		 = "upc",
-	};
+};
 
+const char *lang__int2str(int id)
+{
+	const char *lang = NULL;
+
+	if (id < ARRAY_SIZE(languages))
+		lang = languages[id];
+	else if (id == DW_LANG_Mips_Assembler)
+		return "asm";
+
+	return lang ?: "UNKNOWN";
+}
+
+int lang__str2int(const char *lang)
+{
 	if (strcasecmp(lang, "asm") == 0)
 		return DW_LANG_Mips_Assembler;
 
