@@ -32,13 +32,13 @@ if [ -z "$vmlinux" ] ; then
 	vmlinux=$(pahole --running_kernel_vmlinux)
 	if [ -z "$vmlinux" ] ; then
 		echo "Please specify a vmlinux file to operate on"
-		exit 1
+		exit 2
 	fi
 fi
 
 if [ ! -f "$vmlinux" ] ; then
 	echo "$vmlinux file not available, please specify another"
-	exit 1
+	exit 2
 fi
 
 outdir=$(mktemp -d /tmp/btf_functions.sh.XXXXXX)
