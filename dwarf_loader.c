@@ -3622,7 +3622,18 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 
 		Dwarf_Die child;
 		if (dwarf_child(cu_die, &child) == 0) {
-			if (die__process_unit(&child, cu, conf) != 0)
+			bool filtered = false;
+
+			if (conf->early_cu_filter) {
+				struct cu unmerged_cu = {
+					.name	  = attr_string(cu_die, DW_AT_name, conf),
+					.language = attr_numeric(cu_die, DW_AT_language),
+				};
+
+				filtered = conf->early_cu_filter(&unmerged_cu) == NULL;
+			}
+
+			if (!filtered && die__process_unit(&child, cu, conf) != 0)
 				goto out_abort;
 		}
 
