@@ -45,14 +45,13 @@ outdir=$(mktemp -d /tmp/btf_functions.sh.XXXXXX)
 
 trap cleanup EXIT
 
-test -n "$VERBOSE" && printf "Encoding..."
+echo -n "Validation of BTF encoding of functions; this may take some time: "
+test -n "$VERBOSE" && printf "\nEncoding..."
 
 pahole --btf_features=default --btf_encode_detached=$outdir/vmlinux.btf --verbose $vmlinux |\
 	grep "skipping BTF encoding of function" > ${outdir}/skipped_fns
 
 test -n "$VERBOSE" && printf "done.\n"
-
-echo "Validation of BTF encoding of functions; this may take some time..."
 
 funcs=$(pfunct --format_path=btf $outdir/vmlinux.btf |sort)
 
@@ -93,12 +92,13 @@ while IFS= read -r btf ; do
 	fi
 done < $outdir/btf.funcs
 
-echo "Matched $exact functions exactly."
-echo "Matched $inline functions with inlines."
-echo "Matched $const_insensitive functions with multiple const/non-const instances."
-echo "Ok"
-
-echo "Validation of skipped function logic..."
+if [[ -n "$VERBOSE" ]]; then
+	echo "Matched $exact functions exactly."
+	echo "Matched $inline functions with inlines."
+	echo "Matched $const_insensitive functions with multiple const/non-const instances."
+	echo "Ok"
+	echo "Validation of skipped function logic..."
+fi
 
 skipped_cnt=$(wc -l ${outdir}/skipped_fns | awk '{ print $1}')
 
@@ -106,8 +106,6 @@ if [[ "$skipped_cnt" == "0" ]]; then
 	echo "No skipped functions.  Done."
 	exit 0
 fi
-
-echo "Validating skipped functions are absent from BTF..."
 
 skipped_fns=$(awk '{print $1}' $outdir/skipped_fns)
 for s in $skipped_fns ; do
@@ -119,10 +117,11 @@ for s in $skipped_fns ; do
 	fi
 done
 
-echo "Skipped encoding $skipped_cnt functions in BTF."
-echo "Ok"
-
-echo "Validating skipped functions have incompatible return values..."
+if [[ -n "$VERBOSE" ]]; then
+	echo "Skipped encoding $skipped_cnt functions in BTF."
+	echo "Ok"
+	echo "Validating skipped functions have incompatible return values..."
+fi
 
 return_mismatches=$(awk '/return type mismatch/ { print $1 }' $outdir/skipped_fns)
 return_count=0
@@ -140,10 +139,11 @@ for r in $return_mismatches ; do
 	return_count=$((return_count+1))
 done
 
-echo "Found $return_count functions with multiple incompatible return values."
-echo "Ok"
-
-echo "Validating skipped functions have incompatible params/counts..."
+if [[ -n "$VERBOSE" ]]; then
+	echo "Found $return_count functions with multiple incompatible return values."
+	echo "Ok"
+	echo "Validating skipped functions have incompatible params/counts..."
+fi
 
 param_mismatches=$(awk '/due to param / { print $1 }' $outdir/skipped_fns)
 
@@ -168,8 +168,10 @@ for p in $param_mismatches ; do
 		if [[ -n "$inlined" ]]; then
 			multiple_inline=$((multiple_inline+1))
 		else
-			echo "WARN: '${p}()' has only one prototype; if it was subject to late optimization, pfunct may not reflect inconsistencies pahole found."
-			echo "Full skip message from pahole: $skipmsg"
+			if [[ -n "$VERBOSE" ]]; then
+				echo "WARN: '${p}()' has only one prototype; if it was subject to late optimization, pfunct may not reflect inconsistencies pahole found."
+				echo "Full skip message from pahole: $skipmsg"
+			fi
 			warnings=$((warnings+1))
 		fi
 	else
@@ -177,10 +179,12 @@ for p in $param_mismatches ; do
 	fi
 done
 
-echo "Found $multiple instances with multiple instances with incompatible parameters."
-echo "Found $multiple_inline instances where inline functions were not inlined and had incompatible parameters."
-echo "Found $optimized instances where the function name suggests optimizations led to inconsistent parameters."
-echo "Found $warnings instances where pfunct did not notice inconsistencies."
+if [[ -n "$VERBOSE" ]]; then
+	echo "Found $multiple instances with multiple instances with incompatible parameters."
+	echo "Found $multiple_inline instances where inline functions were not inlined and had incompatible parameters."
+	echo "Found $optimized instances where the function name suggests optimizations led to inconsistent parameters."
+	echo "Found $warnings instances where pfunct did not notice inconsistencies."
+fi
 echo "Ok"
 
 exit 0
