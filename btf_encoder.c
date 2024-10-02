@@ -119,7 +119,6 @@ struct btf_encoder {
 	uint32_t	  type_id_off;
 	bool		  has_index_type,
 			  need_index_type,
-			  skip_encoding_vars,
 			  raw_output,
 			  verbose,
 			  force,
@@ -137,6 +136,7 @@ struct btf_encoder {
 		int		allocated;
 		uint32_t	shndx;
 	} percpu;
+	int                encode_vars;
 	struct {
 		struct elf_function *entries;
 		int		    allocated;
@@ -2369,7 +2369,6 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 
 		encoder->force		 = conf_load->btf_encode_force;
 		encoder->gen_floats	 = conf_load->btf_gen_floats;
-		encoder->skip_encoding_vars = conf_load->skip_encoding_btf_vars;
 		encoder->skip_encoding_decl_tag	 = conf_load->skip_encoding_btf_decl_tag;
 		encoder->tag_kfuncs	 = conf_load->btf_decl_tag_kfuncs;
 		encoder->gen_distilled_base = conf_load->btf_gen_distilled_base;
@@ -2377,6 +2376,9 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		encoder->has_index_type  = false;
 		encoder->need_index_type = false;
 		encoder->array_index_id  = 0;
+		encoder->encode_vars = 0;
+		if (!conf_load->skip_encoding_btf_vars)
+			encoder->encode_vars |= BTF_VAR_PERCPU;
 
 		GElf_Ehdr ehdr;
 
@@ -2436,7 +2438,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		if (!encoder->percpu.shndx && encoder->verbose)
 			printf("%s: '%s' doesn't have '%s' section\n", __func__, cu->filename, PERCPU_SECTION);
 
-		if (btf_encoder__collect_symbols(encoder, !encoder->skip_encoding_vars))
+		if (btf_encoder__collect_symbols(encoder, encoder->encode_vars & BTF_VAR_PERCPU))
 			goto out_delete;
 
 		if (encoder->verbose)
@@ -2633,7 +2635,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 			goto out;
 	}
 
-	if (!encoder->skip_encoding_vars)
+	if (encoder->encode_vars)
 		err = btf_encoder__encode_cu_variables(encoder);
 
 	if (!err)
