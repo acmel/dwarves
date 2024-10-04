@@ -2253,9 +2253,16 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 
 		tag = cu__type(cu, var->ip.tag.type);
 		size = tag__size(tag, cu);
-		if (size == 0) {
+		if (size == 0 || size > UINT32_MAX) {
 			if (encoder->verbose)
-				fprintf(stderr, "Ignoring zero-sized per-CPU variable '%s'...\n", name);
+				fprintf(stderr, "Ignoring %s-sized per-CPU variable '%s'...\n",
+					size == 0 ? "zero" : "over", name);
+			continue;
+		}
+		if (addr > UINT32_MAX) {
+			if (encoder->verbose)
+				fprintf(stderr, "Ignoring variable '%s' - its offset %zu doesn't fit in a u32\n",
+					name, addr);
 			continue;
 		}
 
@@ -2288,7 +2295,7 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 		 * add a BTF_VAR_SECINFO in encoder->percpu_secinfo, which will be added into
 		 * encoder->types later when we add BTF_VAR_DATASEC.
 		 */
-		id = btf_encoder__add_var_secinfo(encoder, id, addr, size);
+		id = btf_encoder__add_var_secinfo(encoder, id, (uint32_t)addr, (uint32_t)size);
 		if (id < 0) {
 			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%" PRIx64 "\n",
 			        name, addr);
