@@ -238,7 +238,9 @@ the debugging information.
 
 .TP
 .B \-\-skip_encoding_btf_vars
-Do not encode VARs in BTF.
+By default, VARs are encoded only for percpu variables. When specified, this
+option prevents encoding any VARs. Note that this option can be overridden
+by the feature "global_var".
 
 .TP
 .B \-\-skip_encoding_btf_decl_tag
@@ -304,7 +306,7 @@ Encode BTF using the specified feature list, or specify 'default' for all standa
 	encode_force       Ignore invalid symbols when encoding BTF; for example
 	                   if a symbol has an invalid name, it will be ignored
 	                   and BTF encoding will continue.
-	var                Encode variables using BTF_KIND_VAR in BTF.
+	var                Encode percpu variables using BTF_KIND_VAR in BTF.
 	float              Encode floating-point types in BTF.
 	decl_tag           Encode declaration tags using BTF_KIND_DECL_TAG.
 	type_tag           Encode type tags using BTF_KIND_TYPE_TAG.
@@ -329,6 +331,7 @@ Supported non-standard features (not enabled for 'default')
 	                   the associated base BTF to support later relocation
 	                   of split BTF with a possibly changed base, storing
 	                   it in a .BTF.base ELF section.
+	global_var         Encode all global variables using BTF_KIND_VAR in BTF.
 .fi
 
 So for example, specifying \-\-btf_encode=var,enum64 will result in a BTF encoding that (as well as encoding basic BTF information) will contain variables and enum64 values.

@@ -20,6 +20,7 @@ struct list_head;
 enum btf_var_option {
 	BTF_VAR_NONE = 0,
 	BTF_VAR_PERCPU = 1,
+	BTF_VAR_GLOBAL = 2,
 };
 
 struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filename, struct btf *base_btf, bool verbose, struct conf_load *conf_load);

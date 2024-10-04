@@ -1304,6 +1304,7 @@ struct btf_feature {
 	BTF_DEFAULT_FEATURE(decl_tag_kfuncs, btf_decl_tag_kfuncs, false),
 	BTF_NON_DEFAULT_FEATURE(reproducible_build, reproducible_build, false),
 	BTF_NON_DEFAULT_FEATURE(distilled_base, btf_gen_distilled_base, false),
+	BTF_NON_DEFAULT_FEATURE(global_var, encode_btf_global_vars, false),
 };
 
 #define BTF_MAX_FEATURE_STR	1024
@@ -1736,7 +1737,7 @@ static const struct argp_option pahole__options[] = {
 	{
 		.name = "skip_encoding_btf_vars",
 		.key  = ARGP_skip_encoding_btf_vars,
-		.doc  = "Do not encode VARs in BTF."
+		.doc  = "Do not encode any VARs in BTF [if this is not specified, only percpu variables are encoded. To encode global variables too, use --encode_btf_global_vars]."
 	},
 	{
 		.name = "btf_encode_force",
