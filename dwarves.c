@@ -1575,7 +1575,7 @@ void lexblock__add_label(struct lexblock *block, struct label *label)
 	lexblock__add_tag(block, &label->ip.tag);
 }
 
-bool class__has_flexible_array(struct class *class, const struct cu *cu)
+static bool __class__has_flexible_array(struct class *class, const struct cu *cu)
 {
 	struct class_member *member = type__last_member(&class->type);
 
@@ -1596,6 +1596,16 @@ bool class__has_flexible_array(struct class *class, const struct cu *cu)
 		return true;
 
 	return false;
+}
+
+bool class__has_flexible_array(struct class *class, const struct cu *cu)
+{
+	if (!class->flexible_array_verified) {
+		class->has_flexible_array = __class__has_flexible_array(class, cu);
+		class->flexible_array_verified = true;
+	}
+
+	return class->has_flexible_array;
 }
 
 const struct class_member *class__find_bit_hole(const struct class *class,

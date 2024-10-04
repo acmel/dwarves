@@ -1412,6 +1412,8 @@ struct class {
 	uint8_t		 pre_bit_hole;
 	uint8_t		 bit_padding;
 	bool		 holes_searched;
+	bool		 flexible_array_verified;
+	bool		 has_flexible_array;
 	bool		 is_packed;
 	void		 *priv;
 };
