@@ -98,6 +98,8 @@ struct elf_secinfo {
 	const char *name;
 	uint64_t    sz;
 	uint32_t    type;
+	bool        include;
+	struct gobuffer secinfo;
 };
 
 /*
@@ -107,7 +109,6 @@ struct btf_encoder {
 	struct list_head  node;
 	struct btf        *btf;
 	struct cu         *cu;
-	struct gobuffer   percpu_secinfo;
 	const char	  *source_filename;
 	const char	  *filename;
 	struct elf_symtab *symtab;
@@ -124,7 +125,6 @@ struct btf_encoder {
 	uint32_t	  array_index_id;
 	struct elf_secinfo *secinfo;
 	size_t             seccnt;
-	size_t             percpu_shndx;
 	int                encode_vars;
 	struct {
 		struct elf_function *entries;
@@ -784,46 +784,56 @@ static int32_t btf_encoder__add_var(struct btf_encoder *encoder, uint32_t type, 
 	return id;
 }
 
-static int32_t btf_encoder__add_var_secinfo(struct btf_encoder *encoder, uint32_t type,
-				     uint32_t offset, uint32_t size)
+static int32_t btf_encoder__add_var_secinfo(struct btf_encoder *encoder, size_t shndx,
+					    uint32_t type, uint32_t offset, uint32_t size)
 {
 	struct btf_var_secinfo si = {
 		.type = type,
 		.offset = offset,
 		.size = size,
 	};
-	return gobuffer__add(&encoder->percpu_secinfo, &si, sizeof(si));
+	return gobuffer__add(&encoder->secinfo[shndx].secinfo, &si, sizeof(si));
 }
 
 int32_t btf_encoder__add_encoder(struct btf_encoder *encoder, struct btf_encoder *other)
 {
-	struct gobuffer *var_secinfo_buf = &other->percpu_secinfo;
-	size_t sz = gobuffer__size(var_secinfo_buf);
-	uint16_t nr_var_secinfo = sz / sizeof(struct btf_var_secinfo);
-	uint32_t type_id;
-	uint32_t next_type_id = btf__type_cnt(encoder->btf);
-	int32_t i, id;
-	struct btf_var_secinfo *vsi;
-
+	size_t shndx;
 	if (encoder == other)
 		return 0;
 
 	btf_encoder__add_saved_funcs(other);
 
-	for (i = 0; i < nr_var_secinfo; i++) {
-		vsi = (struct btf_var_secinfo *)var_secinfo_buf->entries + i;
-		type_id = next_type_id + vsi->type - 1; /* Type ID starts from 1 */
-		id = btf_encoder__add_var_secinfo(encoder, type_id, vsi->offset, vsi->size);
-		if (id < 0)
-			return id;
+	for (shndx = 1; shndx < other->seccnt; shndx++) {
+		struct gobuffer *var_secinfo_buf = &other->secinfo[shndx].secinfo;
+		size_t sz = gobuffer__size(var_secinfo_buf);
+		uint16_t nr_var_secinfo = sz / sizeof(struct btf_var_secinfo);
+		uint32_t type_id;
+		uint32_t next_type_id = btf__type_cnt(encoder->btf);
+		int32_t i, id;
+		struct btf_var_secinfo *vsi;
+
+		if (strcmp(encoder->secinfo[shndx].name, other->secinfo[shndx].name)) {
+			fprintf(stderr, "mismatched ELF sections at index %zu: \"%s\", \"%s\"\n",
+				shndx, encoder->secinfo[shndx].name, other->secinfo[shndx].name);
+			return -1;
+		}
+
+		for (i = 0; i < nr_var_secinfo; i++) {
+			vsi = (struct btf_var_secinfo *)var_secinfo_buf->entries + i;
+			type_id = next_type_id + vsi->type - 1; /* Type ID starts from 1 */
+			id = btf_encoder__add_var_secinfo(encoder, shndx, type_id, vsi->offset, vsi->size);
+			if (id < 0)
+				return id;
+		}
 	}
 
 	return btf__add_btf(encoder->btf, other->btf);
 }
 
-static int32_t btf_encoder__add_datasec(struct btf_encoder *encoder, const char *section_name)
+static int32_t btf_encoder__add_datasec(struct btf_encoder *encoder, size_t shndx)
 {
-	struct gobuffer *var_secinfo_buf = &encoder->percpu_secinfo;
+	struct gobuffer *var_secinfo_buf = &encoder->secinfo[shndx].secinfo;
+	const char *section_name = encoder->secinfo[shndx].name;
 	struct btf *btf = encoder->btf;
 	size_t sz = gobuffer__size(var_secinfo_buf);
 	uint16_t nr_var_secinfo = sz / sizeof(struct btf_var_secinfo);
@@ -2032,12 +2042,14 @@ int btf_encoder__encode(struct btf_encoder *encoder)
 {
 	bool should_tag_kfuncs;
 	int err;
+	size_t shndx;
 
 	/* for single-threaded case, saved funcs are added here */
 	btf_encoder__add_saved_funcs(encoder);
 
-	if (gobuffer__size(&encoder->percpu_secinfo) != 0)
-		btf_encoder__add_datasec(encoder, PERCPU_SECTION);
+	for (shndx = 1; shndx < encoder->seccnt; shndx++)
+		if (gobuffer__size(&encoder->secinfo[shndx].secinfo))
+			btf_encoder__add_datasec(encoder, shndx);
 
 	/* Empty file, nothing to do, so... done! */
 	if (btf__type_cnt(encoder->btf) == 1)
@@ -2170,7 +2182,7 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 	struct tag *pos;
 	int err = -1;
 
-	if (encoder->percpu_shndx == 0 || !encoder->symtab)
+	if (!encoder->symtab)
 		return 0;
 
 	if (encoder->verbose)
@@ -2214,7 +2226,7 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 
 		/* Get the ELF section info for the variable */
 		shndx = get_elf_section(encoder, addr);
-		if (shndx != encoder->percpu_shndx)
+		if (!shndx || shndx >= encoder->seccnt || !encoder->secinfo[shndx].include)
 			continue;
 
 		/* Convert addr to section relative */
@@ -2255,7 +2267,7 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 		size = tag__size(tag, cu);
 		if (size == 0 || size > UINT32_MAX) {
 			if (encoder->verbose)
-				fprintf(stderr, "Ignoring %s-sized per-CPU variable '%s'...\n",
+				fprintf(stderr, "Ignoring %s-sized variable '%s'...\n",
 					size == 0 ? "zero" : "over", name);
 			continue;
 		}
@@ -2292,13 +2304,14 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 		}
 
 		/*
-		 * add a BTF_VAR_SECINFO in encoder->percpu_secinfo, which will be added into
-		 * encoder->types later when we add BTF_VAR_DATASEC.
+		 * Add the variable to the secinfo for the section it appears in.
+		 * Later we will generate a BTF_VAR_DATASEC for all any section with
+		 * an encoded variable.
 		 */
-		id = btf_encoder__add_var_secinfo(encoder, id, (uint32_t)addr, (uint32_t)size);
+		id = btf_encoder__add_var_secinfo(encoder, shndx, id, (uint32_t)addr, (uint32_t)size);
 		if (id < 0) {
 			fprintf(stderr, "error: failed to encode section info for variable '%s' at addr 0x%" PRIx64 "\n",
-			        name, addr);
+				name, addr);
 			goto out;
 		}
 	}
@@ -2376,6 +2389,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 			goto out_delete;
 		}
 
+		bool found_percpu = false;
 		for (shndx = 0; shndx < encoder->seccnt; shndx++) {
 			const char *secname = NULL;
 			Elf_Scn *sec = elf_section_by_idx(cu->elf, &shdr, shndx, &secname);
@@ -2386,11 +2400,14 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 			encoder->secinfo[shndx].name = secname;
 			encoder->secinfo[shndx].type = shdr.sh_type;
 
-			if (strcmp(secname, PERCPU_SECTION) == 0)
-				encoder->percpu_shndx = shndx;
+			if (strcmp(secname, PERCPU_SECTION) == 0) {
+				found_percpu = true;
+				if (encoder->encode_vars & BTF_VAR_PERCPU)
+					encoder->secinfo[shndx].include = true;
+			}
 		}
 
-		if (!encoder->percpu_shndx && encoder->verbose)
+		if (!found_percpu && encoder->verbose)
 			printf("%s: '%s' doesn't have '%s' section\n", __func__, cu->filename, PERCPU_SECTION);
 
 		if (btf_encoder__collect_symbols(encoder))
@@ -2418,12 +2435,14 @@ void btf_encoder__delete_func(struct elf_function *func)
 void btf_encoder__delete(struct btf_encoder *encoder)
 {
 	int i;
+	size_t shndx;
 
 	if (encoder == NULL)
 		return;
 
 	btf_encoders__delete(encoder);
-	__gobuffer__delete(&encoder->percpu_secinfo);
+	for (shndx = 0; shndx < encoder->seccnt; shndx++)
+		__gobuffer__delete(&encoder->secinfo[shndx].secinfo);
 	zfree(&encoder->filename);
 	zfree(&encoder->source_filename);
 	btf__free(encoder->btf);
