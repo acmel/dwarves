@@ -1413,7 +1413,9 @@ struct class {
 	uint8_t		 bit_padding;
 	bool		 holes_searched;
 	bool		 flexible_array_verified;
+	bool		 embedded_flexible_array_searched;
 	bool		 has_flexible_array;
+	bool		 has_embedded_flexible_array;
 	bool		 is_packed;
 	void		 *priv;
 };
@@ -1456,6 +1458,7 @@ static inline int class__is_struct(const struct class *cls)
 	return tag__is_struct(&cls->type.namespace.tag);
 }
 
+bool class__has_embedded_flexible_array(struct class *cls, const struct cu *cu);
 bool class__has_flexible_array(struct class *class, const struct cu *cu);
 void class__find_holes(struct class *cls);
 int class__has_hole_ge(const struct class *cls, const uint16_t size);
