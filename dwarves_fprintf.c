@@ -1513,7 +1513,7 @@ static size_t class__fprintf_member_type_holes(struct class *class, const struct
 	size_t printed = 0;
 	uint16_t padding;
 	uint8_t nr_holes, nr_bit_holes, bit_padding;
-	bool first = true;
+	bool first = true, has_embedded_flexible_array;
 	/*
 	 * We may not yet have looked for holes and paddings in this member's
 	 * struct type.
@@ -1525,8 +1525,9 @@ static size_t class__fprintf_member_type_holes(struct class *class, const struct
 	bit_padding = class->bit_padding;
 	nr_holes = class->nr_holes;
 	nr_bit_holes = class->nr_bit_holes;
+	has_embedded_flexible_array = class__has_embedded_flexible_array(class, cu);
 
-	if (!padding && !bit_padding && !nr_holes && !nr_bit_holes)
+	if (!padding && !bit_padding && !nr_holes && !nr_bit_holes && !has_embedded_flexible_array)
 		return 0;
 
 	if (!(*newline)++) {
@@ -1536,11 +1537,16 @@ static size_t class__fprintf_member_type_holes(struct class *class, const struct
 
 	printed += fprintf(fp, "\n%.*s/* XXX last struct has", conf->indent, tabs);
 
+	if (has_embedded_flexible_array) {
+		printed += fprintf(fp, " a flexible array");
+		first = false;
+	}
+
 	if (padding) {
 		++holes->nr_paddings;
 		holes->sum_paddings += padding;
 
-		printed += fprintf(fp, " %d byte%s of padding", padding, padding != 1 ? "s" : "");
+		printed += fprintf(fp, "%s %d byte%s of padding", first ? "" : ",", padding, padding != 1 ? "s" : "");
 		first = false;
 	}
 
