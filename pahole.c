@@ -66,6 +66,7 @@ static uint16_t nr_bit_holes;
 static uint16_t hole_size_ge;
 static uint8_t show_packable;
 static bool show_with_flexible_array;
+static bool show_with_embedded_flexible_array;
 static uint8_t global_verbose;
 static uint8_t recursive;
 static size_t cacheline_size;
@@ -825,6 +826,9 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	if (show_with_flexible_array && !class__has_flexible_array(class, cu))
 		return NULL;
 
+	if (show_with_embedded_flexible_array && !class__has_embedded_flexible_array(class, cu))
+		return NULL;
+
 	return class;
 }
 
@@ -1226,6 +1230,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_running_kernel_vmlinux 346
 #define ARG_padding_ge		   347
 #define ARG_padding		   348
+#define ARGP_with_embedded_flexible_array 349
 
 /* --btf_features=feature1[,feature2,..] allows us to specify
  * a list of requested BTF features or "default" to enable all default
@@ -1504,6 +1509,11 @@ static const struct argp_option pahole__options[] = {
 		.name = "with_flexible_array",
 		.key  = ARGP_with_flexible_array,
 		.doc  = "show only structs with a flexible array",
+	},
+	{
+		.name = "with_embedded_flexible_array",
+		.key  = ARGP_with_embedded_flexible_array,
+		.doc  = "show only structs with an embedded flexible array (contaning a struct that has a flexible array)",
 	},
 	{
 		.name = "expand_types",
@@ -2006,6 +2016,9 @@ static error_t pahole__options_parser(int key, char *arg,
 		parse_btf_features("all", false);	break;
 	case ARGP_with_flexible_array:
 		show_with_flexible_array = true;	break;
+	case ARGP_with_embedded_flexible_array:
+		just_structs = true;
+		show_with_embedded_flexible_array = true; break;
 	case ARGP_prettify_input_filename:
 		prettify_input_filename = arg;		break;
 	case ARGP_sort_output:
