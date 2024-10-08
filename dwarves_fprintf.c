@@ -1502,6 +1502,8 @@ struct member_types_holes {
 	uint16_t nr_with_bit_holes;
 	uint16_t total_nr_holes;
 	uint16_t total_nr_bit_holes;
+	uint16_t nr_flexible_array_members;
+	uint16_t nr_embedded_flexible_array_members;
 	uint32_t sum_paddings;
 	uint32_t sum_bit_paddings;
 };
@@ -1540,11 +1542,13 @@ static size_t class__fprintf_member_type_holes(struct class *class, const struct
 
 	if (has_flexible_array) {
 		printed += fprintf(fp, " a flexible array");
+		++holes->nr_flexible_array_members;
 		first = false;
 	}
 
 	if (has_embedded_flexible_array) {
 		printed += fprintf(fp, "%s embedded flexible array(s)", first ? "" : ",");
+		++holes->nr_embedded_flexible_array_members;
 		first = false;
 	}
 
@@ -1983,6 +1987,22 @@ next_member:
 					   nr_forced_alignment_holes,
 					   sum_forced_alignment_holes);
 		}
+		printed += fprintf(fp, " */\n");
+	}
+	if (member_types_holes.nr_flexible_array_members > 0 ||
+	    member_types_holes.nr_embedded_flexible_array_members > 0) {
+		printed += fprintf(fp, "%.*s/* flexible array members: ",
+				   cconf.indent, tabs);
+
+		if (member_types_holes.nr_flexible_array_members > 0)
+			printed += fprintf(fp, "end: %u", member_types_holes.nr_flexible_array_members);
+
+		if (member_types_holes.nr_embedded_flexible_array_members > 0) {
+			printed += fprintf(fp, "%smiddle: %u",
+					   member_types_holes.nr_flexible_array_members ? ", " : "",
+					   member_types_holes.nr_embedded_flexible_array_members);
+		}
+
 		printed += fprintf(fp, " */\n");
 	}
 	cacheline = (cconf.base_offset + type->size) % conf_fprintf__cacheline_size(conf);
