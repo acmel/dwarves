@@ -1879,7 +1879,7 @@ static int btf_encoder__tag_kfuncs(struct btf_encoder *encoder)
 		goto out;
 	}
 
-	elf = elf_begin(fd, ELF_C_READ, NULL);
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
 	if (elf == NULL) {
 		elf_error("Cannot update ELF file");
 		goto out;
