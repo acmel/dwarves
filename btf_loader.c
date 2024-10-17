@@ -449,7 +449,7 @@ static int create_new_tag(struct cu *cu, int type, const struct btf_type *tp, ui
 	case BTF_KIND_TYPE_TAG:	tag->tag = DW_TAG_LLVM_annotation; break;
 	default:
 		free(tag);
-		printf("%s: Unknown type %d\n\n", __func__, type);
+		fprintf(stderr, "%s: Unknown type %d\n\n", __func__, type);
 		return 0;
 	}
 
@@ -470,7 +470,7 @@ static int process_decl_tag(struct cu *cu, const struct btf_type *tp)
 		tag = cu__tag(cu, tp->type);
 
 	if (tag == NULL) {
-		printf("WARNING: BTF_KIND_DECL_TAG for unknown BTF id %d\n", tp->type);
+		fprintf(stderr, "WARNING: BTF_KIND_DECL_TAG for unknown BTF id %d\n", tp->type);
 		return 0;
 	}
 
@@ -478,7 +478,8 @@ static int process_decl_tag(struct cu *cu, const struct btf_type *tp)
 
 	if (tag->attribute != NULL) {
 		char bf[128];
-		printf("WARNING: still unsuported BTF_KIND_DECL_TAG(%s) for %s already with attribute (%s), ignoring\n",
+
+		fprintf(stderr, "WARNING: still unsuported BTF_KIND_DECL_TAG(%s) for %s already with attribute (%s), ignoring\n",
 		       attribute, tag__name(tag, cu, bf, sizeof(bf), NULL), tag->attribute);
 	} else {
 		tag->attribute = attribute;
