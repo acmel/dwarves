@@ -59,13 +59,13 @@ pahole --btf_features=default --lang_exclude=rust --btf_encode_detached=$outdir/
 
 test -n "$VERBOSE" && printf "done.\n"
 
-funcs=$(pfunct --format_path=btf $outdir/vmlinux.btf |sort)
+funcs=$(pfunct --format_path=btf $outdir/vmlinux.btf 2>/dev/null|sort)
 
 # all functions from DWARF; some inline functions are not inlined so include them too
 pfunct --all --no_parm_names --format_path=dwarf $vmlinux | \
 	sort|uniq > $outdir/dwarf.funcs
 # all functions from BTF (removing bpf_kfunc prefix where found)
-pfunct --all --no_parm_names --format_path=btf $outdir/vmlinux.btf |\
+pfunct --all --no_parm_names --format_path=btf $outdir/vmlinux.btf 2>/dev/null|\
 	awk '{ gsub("^bpf_kfunc ",""); print $0}'|sort|uniq > $outdir/btf.funcs
 
 exact=0
