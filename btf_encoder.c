@@ -2241,6 +2241,9 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 		if (!name)
 			continue;
 
+		if (filter_variable_name(name))
+			continue;
+
 		/* Check for invalid BTF names */
 		if (!btf_name_valid(name)) {
 			dump_invalid_symbol("Found invalid variable name when encoding btf",
@@ -2250,9 +2253,6 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 			else
 				return -1;
 		}
-
-		if (filter_variable_name(name))
-			continue;
 
 		if (var->ip.tag.type == 0) {
 			fprintf(stderr, "error: found variable '%s' in CU '%s' that has void type\n",
