@@ -2743,6 +2743,23 @@ static int vmlinux_path__add(const char *new_entry)
 	return 0;
 }
 
+static int vmlinux_path__add_debuginfod_client(void)
+{
+	const char *home_dir = getenv("HOME");
+	if (home_dir == NULL)
+		return -1;
+
+	char running_sbuild_id[SBUILD_ID_SIZE];
+
+	if (sysfs__sprintf_build_id(NULL, running_sbuild_id) < 0)
+		return -1;
+
+	char bf[PATH_MAX];
+	snprintf(bf, sizeof(bf), "%s/.cache/debuginfod_client/%s/debuginfo", home_dir, running_sbuild_id);
+
+	return vmlinux_path__add(bf);
+}
+
 static int vmlinux_path__init(void)
 {
 	struct utsname uts;
@@ -2750,8 +2767,9 @@ static int vmlinux_path__init(void)
 	char *kernel_version;
 	unsigned int i;
 
+	// Add 1 for the debuginfod client HOME based cache
 	vmlinux_path = malloc(sizeof(char *) * (ARRAY_SIZE(vmlinux_paths) +
-			      ARRAY_SIZE(vmlinux_paths_upd)));
+						ARRAY_SIZE(vmlinux_paths_upd) + 1));
 	if (vmlinux_path == NULL)
 		return -1;
 
@@ -2769,6 +2787,8 @@ static int vmlinux_path__init(void)
 		if (vmlinux_path__add(bf) < 0)
 			goto out_fail;
 	}
+
+	vmlinux_path__add_debuginfod_client();
 
 	return 0;
 
