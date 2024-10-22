@@ -146,7 +146,7 @@ static int lang_id_cmp(const void *pa, const void *pb)
 	return a - b;
 }
 
-static int parse_languages(void)
+static int parse_languages(const char *tool)
 {
 	int nr_allocated = 4;
 	char *lang = languages.str;
@@ -167,7 +167,7 @@ static int parse_languages(void)
 			*sep = ',';
 
 		if (id < 0) {
-			fprintf(stderr, "pahole: unknown language \"%s\"\n", lang);
+			fprintf(stderr, "%s: unknown language \"%s\"\n", tool, lang);
 			goto out_free;
 		}
 
@@ -193,7 +193,7 @@ static int parse_languages(void)
 
 	return 0;
 out_enomem:
-	fprintf(stderr, "pahole: not enough memory to parse --lang\n");
+	fprintf(stderr, "%s: not enough memory to parse --lang\n", tool);
 out_free:
 	zfree(&languages.entries);
 	languages.nr_entries = 0;
@@ -3740,7 +3740,7 @@ int main(int argc, char *argv[])
 		return rc;
 	}
 
-	if (languages.str && parse_languages())
+	if (languages.str && parse_languages("pahole"))
 		return rc;
 
 	if (class_name != NULL && stats_formatter == nr_methods_formatter) {
