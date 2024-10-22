@@ -48,6 +48,12 @@ trap cleanup EXIT
 echo -n "Validation of BTF encoding of functions; this may take some time: "
 test -n "$VERBOSE" && printf "\nEncoding..."
 
+# Here we use both methods so that we test pahole --lang_exclude, that is
+# used in the Linux kernel BTF encoding phase, and as well to make sure all
+# other pahole and pfunct use in this script will exclude the Rust CUs, testing
+# the fallback to PAHOLE_LANG_EXCLUDE.
+export PAHOLE_LANG_EXCLUDE=rust
+
 pahole --btf_features=default --lang_exclude=rust --btf_encode_detached=$outdir/vmlinux.btf --verbose $vmlinux |\
 	grep "skipping BTF encoding of function" > ${outdir}/skipped_fns
 
