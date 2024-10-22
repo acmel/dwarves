@@ -493,6 +493,18 @@ To filter out compilation units written in Rust, for instance, use:
 
  pahole -j --btf_encode --lang_exclude rust
 
+This can also be accomplished by setting the environment variable PAHOLE_LANG_EXCLUDE to
+the same list of languages, for instance, the following is equivalent to the above:
+
+ export PAHOLE_LANG_EXCLUDE=rust
+ pahole -j --btf_encode
+
+Meaning in both cases 'rust' CUs will be skipped.
+
+This is useful for scripts where it provides a way to ask for that exclusion
+for pahole and pfunct, no need to use --lang_exclude in all calls to those
+tools, just set that environment variable.
+
 .TP
 .B \-y, \-\-prefix_filter=PREFIX
 Include PREFIXed classes.

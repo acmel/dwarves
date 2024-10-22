@@ -2574,8 +2574,14 @@ bool languages__in(struct languages *languages, int lang)
 
 int languages__init(struct languages *languages, const char *tool)
 {
-	if (languages->str == NULL)
-		return 0;
+	if (languages->str == NULL) { // use PAHOLE_ as the namespace for all these tools
+		languages->str = getenv("PAHOLE_LANG_EXCLUDE");
+
+		if (languages->str == NULL)
+			return 0;
+
+		languages->exclude = true;
+	}
 
 	return languages__parse(languages, tool);
 }
