@@ -48,7 +48,7 @@ trap cleanup EXIT
 echo -n "Validation of BTF encoding of functions; this may take some time: "
 test -n "$VERBOSE" && printf "\nEncoding..."
 
-pahole --btf_features=default --btf_encode_detached=$outdir/vmlinux.btf --verbose $vmlinux |\
+pahole --btf_features=default --lang_exclude=rust --btf_encode_detached=$outdir/vmlinux.btf --verbose $vmlinux |\
 	grep "skipping BTF encoding of function" > ${outdir}/skipped_fns
 
 test -n "$VERBOSE" && printf "done.\n"

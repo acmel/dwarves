@@ -21,14 +21,14 @@ echo -n "Parallel reproducible DWARF Loading/Serial BTF encoding: "
 
 test -n "$VERBOSE" && printf "\nserial encoding...\n"
 
-pahole --btf_features=default --btf_encode_detached=$outdir/vmlinux.btf.serial $vmlinux
+pahole --btf_features=default --lang_exclude=rust --btf_encode_detached=$outdir/vmlinux.btf.serial $vmlinux
 bpftool btf dump file $outdir/vmlinux.btf.serial > $outdir/bpftool.output.vmlinux.btf.serial
 
 nr_proc=$(getconf _NPROCESSORS_ONLN)
 
 for threads in $(seq $nr_proc) ; do
 	test -n "$VERBOSE" && echo $threads threads encoding
-	pahole -j$threads --btf_features=default,reproducible_build --btf_encode_detached=$outdir/vmlinux.btf.parallel.reproducible $vmlinux &
+	pahole -j$threads --btf_features=default,reproducible_build --lang_exclude=rust --btf_encode_detached=$outdir/vmlinux.btf.parallel.reproducible $vmlinux &
 	pahole=$!
 	# HACK: Wait a bit for pahole to start its threads
 	sleep 0.3s
