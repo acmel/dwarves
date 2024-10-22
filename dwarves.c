@@ -2506,6 +2506,71 @@ int lang__str2int(const char *lang)
 	return -1;
 }
 
+static int lang_id_cmp(const void *pa, const void *pb)
+{
+	int a = *(int *)pa,
+	    b = *(int *)pb;
+	return a - b;
+}
+
+int languages__parse(struct languages *languages, const char *tool)
+{
+	int nr_allocated = 4;
+	char *lang = languages->str;
+
+	languages->entries = zalloc(sizeof(int) * nr_allocated);
+	if (languages->entries == NULL)
+		goto out_enomem;
+
+	while (1) {
+		char *sep = strchr(lang, ',');
+
+		if (sep)
+			*sep = '\0';
+
+		int id = lang__str2int(lang);
+
+		if (sep)
+			*sep = ',';
+
+		if (id < 0) {
+			fprintf(stderr, "%s: unknown language \"%s\"\n", tool, lang);
+			goto out_free;
+		}
+
+		if (languages->nr_entries >= nr_allocated) {
+			nr_allocated *= 2;
+			int *entries = realloc(languages->entries, nr_allocated);
+
+			if (entries == NULL)
+				goto out_enomem;
+
+			languages->entries = entries;
+		}
+
+		languages->entries[languages->nr_entries++] = id;
+
+		if (!sep)
+			break;
+
+		lang = sep + 1;
+	}
+
+	qsort(languages->entries, languages->nr_entries, sizeof(int), lang_id_cmp);
+
+	return 0;
+out_enomem:
+	fprintf(stderr, "%s: not enough memory to parse --lang\n", tool);
+out_free:
+	zfree(&languages->entries);
+	languages->nr_entries = 0;
+	return -1;
+}
+
+bool languages__in(struct languages *languages, int lang)
+{
+	return bsearch(&lang, languages->entries, languages->nr_entries, sizeof(int), lang_id_cmp) != NULL;
+}
 
 static int sysfs__read_build_id(const char *filename, void *build_id, size_t size)
 {

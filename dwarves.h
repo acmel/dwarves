@@ -8,6 +8,7 @@
 */
 
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <obstack.h>
@@ -352,6 +353,16 @@ static inline __pure bool cu__is_c(const struct cu *cu)
 
 int lang__str2int(const char *lang);
 const char *lang__int2str(int lang);
+
+struct languages {
+	char *str;
+	int  *entries;
+	int  nr_entries;
+	bool exclude;
+};
+
+int languages__parse(struct languages *languages, const char *tool);
+bool languages__in(struct languages *languages, int lang);
 
 /**
  * cu__for_each_cached_symtab_entry - iterate thru the cached symtab entries

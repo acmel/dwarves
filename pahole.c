@@ -132,78 +132,7 @@ static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
 static pthread_mutex_t structures_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static struct languages {
-	char *str;
-	int  *entries;
-	int  nr_entries;
-	bool exclude;
-} languages;
-
-static int lang_id_cmp(const void *pa, const void *pb)
-{
-	int a = *(int *)pa,
-	    b = *(int *)pb;
-	return a - b;
-}
-
-static int languages__parse(struct languages *languages, const char *tool)
-{
-	int nr_allocated = 4;
-	char *lang = languages->str;
-
-	languages->entries = zalloc(sizeof(int) * nr_allocated);
-	if (languages->entries == NULL)
-		goto out_enomem;
-
-	while (1) {
-		char *sep = strchr(lang, ',');
-
-		if (sep)
-			*sep = '\0';
-
-		int id = lang__str2int(lang);
-
-		if (sep)
-			*sep = ',';
-
-		if (id < 0) {
-			fprintf(stderr, "%s: unknown language \"%s\"\n", tool, lang);
-			goto out_free;
-		}
-
-		if (languages->nr_entries >= nr_allocated) {
-			nr_allocated *= 2;
-			int *entries = realloc(languages->entries, nr_allocated);
-
-			if (entries == NULL)
-				goto out_enomem;
-
-			languages->entries = entries;
-		}
-
-		languages->entries[languages->nr_entries++] = id;
-
-		if (!sep)
-			break;
-
-		lang = sep + 1;
-	}
-
-	qsort(languages->entries, languages->nr_entries, sizeof(int), lang_id_cmp);
-
-	return 0;
-out_enomem:
-	fprintf(stderr, "%s: not enough memory to parse --lang\n", tool);
-out_free:
-	zfree(&languages->entries);
-	languages->nr_entries = 0;
-	return -1;
-}
-
-static bool languages__in(struct languages *languages, int lang)
-{
-	return bsearch(&lang, languages->entries, languages->nr_entries, sizeof(int), lang_id_cmp) != NULL;
-}
+static struct languages languages;
 
 static int type__compare_members_types(struct type *a, struct cu *cu_a, struct type *b, struct cu *cu_b)
 {
