@@ -2572,6 +2572,14 @@ bool languages__in(struct languages *languages, int lang)
 	return bsearch(&lang, languages->entries, languages->nr_entries, sizeof(int), lang_id_cmp) != NULL;
 }
 
+int languages__init(struct languages *languages, const char *tool)
+{
+	if (languages->str == NULL)
+		return 0;
+
+	return languages__parse(languages, tool);
+}
+
 static int sysfs__read_build_id(const char *filename, void *build_id, size_t size)
 {
 	int fd, err = -1;

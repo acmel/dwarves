@@ -3669,7 +3669,7 @@ int main(int argc, char *argv[])
 		return rc;
 	}
 
-	if (languages.str && languages__parse(&languages, "pahole"))
+	if (languages__init(&languages, "pahole"))
 		return rc;
 
 	if (class_name != NULL && stats_formatter == nr_methods_formatter) {

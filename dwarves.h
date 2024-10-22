@@ -361,6 +361,7 @@ struct languages {
 	bool exclude;
 };
 
+int languages__init(struct languages *languages, const char *tool);
 int languages__parse(struct languages *languages, const char *tool);
 bool languages__in(struct languages *languages, int lang);
 
