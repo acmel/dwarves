@@ -132,7 +132,7 @@ static struct rb_root structures__tree = RB_ROOT;
 static LIST_HEAD(structures__list);
 static pthread_mutex_t structures_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static struct {
+static struct languages {
 	char *str;
 	int  *entries;
 	int  nr_entries;
@@ -146,13 +146,13 @@ static int lang_id_cmp(const void *pa, const void *pb)
 	return a - b;
 }
 
-static int parse_languages(const char *tool)
+static int languages__parse(struct languages *languages, const char *tool)
 {
 	int nr_allocated = 4;
-	char *lang = languages.str;
+	char *lang = languages->str;
 
-	languages.entries = zalloc(sizeof(int) * nr_allocated);
-	if (languages.entries == NULL)
+	languages->entries = zalloc(sizeof(int) * nr_allocated);
+	if (languages->entries == NULL)
 		goto out_enomem;
 
 	while (1) {
@@ -171,17 +171,17 @@ static int parse_languages(const char *tool)
 			goto out_free;
 		}
 
-		if (languages.nr_entries >= nr_allocated) {
+		if (languages->nr_entries >= nr_allocated) {
 			nr_allocated *= 2;
-			int *entries = realloc(languages.entries, nr_allocated);
+			int *entries = realloc(languages->entries, nr_allocated);
 
 			if (entries == NULL)
 				goto out_enomem;
 
-			languages.entries = entries;
+			languages->entries = entries;
 		}
 
-		languages.entries[languages.nr_entries++] = id;
+		languages->entries[languages->nr_entries++] = id;
 
 		if (!sep)
 			break;
@@ -189,20 +189,20 @@ static int parse_languages(const char *tool)
 		lang = sep + 1;
 	}
 
-	qsort(languages.entries, languages.nr_entries, sizeof(int), lang_id_cmp);
+	qsort(languages->entries, languages->nr_entries, sizeof(int), lang_id_cmp);
 
 	return 0;
 out_enomem:
 	fprintf(stderr, "%s: not enough memory to parse --lang\n", tool);
 out_free:
-	zfree(&languages.entries);
-	languages.nr_entries = 0;
+	zfree(&languages->entries);
+	languages->nr_entries = 0;
 	return -1;
 }
 
-static bool languages__in(int lang)
+static bool languages__in(struct languages *languages, int lang)
 {
-	return bsearch(&lang, languages.entries, languages.nr_entries, sizeof(int), lang_id_cmp) != NULL;
+	return bsearch(&lang, languages->entries, languages->nr_entries, sizeof(int), lang_id_cmp) != NULL;
 }
 
 static int type__compare_members_types(struct type *a, struct cu *cu_a, struct type *b, struct cu *cu_b)
@@ -688,7 +688,7 @@ static void print_ordered_classes(void)
 static struct cu *cu__filter(struct cu *cu)
 {
 	if (languages.nr_entries) {
-		bool in = languages__in(cu->language);
+		bool in = languages__in(&languages, cu->language);
 
 		if ((!in && !languages.exclude) ||
 		    (in && languages.exclude)) {
@@ -3740,7 +3740,7 @@ int main(int argc, char *argv[])
 		return rc;
 	}
 
-	if (languages.str && parse_languages("pahole"))
+	if (languages.str && languages__parse(&languages, "pahole"))
 		return rc;
 
 	if (class_name != NULL && stats_formatter == nr_methods_formatter) {
