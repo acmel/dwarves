@@ -86,18 +86,18 @@ static void __tag__print_not_supported(uint32_t tag, const char *func, unsigned 
 #define tag__print_not_supported(die) \
 	__tag__print_not_supported(dwarf_tag(die), __func__, dwarf_dieoffset(die))
 
-static void __cu__tag_not_handled(Dwarf_Die *die, const char *fn)
+static void __cu__tag_not_handled(const struct cu *cu, Dwarf_Die *die, const char *fn)
 {
 	uint32_t tag = dwarf_tag(die);
 
-	fprintf(stderr, "%s: DW_TAG_%s (%#x) @ <%#llx> not handled!\n",
+	fprintf(stderr, "%s: DW_TAG_%s (%#x) @ <%#llx> not handled in a %s CU!\n",
 		fn, dwarf_tag_name(tag), tag,
-		(unsigned long long)dwarf_dieoffset(die));
+		(unsigned long long)dwarf_dieoffset(die), lang__int2str(cu->language));
 }
 
 static struct tag unsupported_tag;
 
-#define cu__tag_not_handled(die) __cu__tag_not_handled(die, __FUNCTION__)
+#define cu__tag_not_handled(cu, die) __cu__tag_not_handled(cu, die, __FUNCTION__)
 
 struct dwarf_tag {
 	struct hlist_node hash_node;
@@ -1123,7 +1123,7 @@ static int template_parameter_pack__load_params(struct template_parameter_pack *
 	die = &child;
 	do {
 		if (dwarf_tag(die) != DW_TAG_template_type_parameter) {
-			cu__tag_not_handled(die);
+			cu__tag_not_handled(cu, die);
 			continue;
 		}
 
@@ -1255,7 +1255,7 @@ static int formal_parameter_pack__load_params(struct formal_parameter_pack *pack
 	die = &child;
 	do {
 		if (dwarf_tag(die) != DW_TAG_formal_parameter) {
-			cu__tag_not_handled(die);
+			cu__tag_not_handled(cu, die);
 			continue;
 		}
 
@@ -1694,7 +1694,7 @@ static struct tag *die__create_new_array(Dwarf_Die *die, struct cu *cu)
 				break;
 			}
 		} else
-			cu__tag_not_handled(die);
+			cu__tag_not_handled(cu, die);
 	} while (dwarf_siblingof(die, die) == 0);
 
 	array->nr_entries = memdup(nr_entries,
@@ -1875,7 +1875,7 @@ static struct tag *die__create_new_enumeration(Dwarf_Die *die, struct cu *cu, st
 		struct enumerator *enumerator;
 
 		if (dwarf_tag(die) != DW_TAG_enumerator) {
-			cu__tag_not_handled(die);
+			cu__tag_not_handled(cu, die);
 			continue;
 		}
 		enumerator = enumerator__new(die, cu, conf);
@@ -2104,7 +2104,7 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct lexblock *lexblo
 			 * DW_TAG_function... Lets just get the types
 			 * for 1.8, then fix this properly.
 			 *
-			 * cu__tag_not_handled(die);
+			 * cu__tag_not_handled(cu, die);
 			 */
 			continue;
 		case DW_TAG_inlined_subroutine:
@@ -2373,7 +2373,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	case DW_TAG_constant: // First seen in a Go CU
 		tag = die__create_new_constant(die, cu, conf);	break;
 	default:
-		__cu__tag_not_handled(die, fn);
+		__cu__tag_not_handled(cu, die, fn);
 		/* fall thru */
 	case DW_TAG_dwarf_procedure:
 		/*
