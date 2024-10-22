@@ -43,6 +43,8 @@ static struct conf_load conf_load = {
 	.conf_fprintf = &conf,
 };
 
+static struct languages languages;
+
 struct fn_stats {
 	struct list_head node;
 	struct tag	 *tag;
@@ -533,6 +535,11 @@ static enum load_steal_kind pfunct_stealer(struct cu *cu,
 	return LSK__DELETE;
 }
 
+static struct cu *cu__filter(struct cu *cu)
+{
+	return languages__cu_filtered(&languages, cu, verbose) ? NULL : cu;
+}
+
 /* Name and version of program.  */
 ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 
@@ -750,6 +757,12 @@ int main(int argc, char *argv[])
                 argp_help(&pfunct__argp, stderr, ARGP_HELP_SEE, argv[0]);
                 goto out;
 	}
+
+	if (languages__init(&languages, argv[0]))
+		return rc;
+
+	if (languages.exclude)
+		conf_load.early_cu_filter = cu__filter;
 
 	if (symtab_name != NULL)
 		return elf_symtabs__show(argv + remaining);
