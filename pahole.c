@@ -616,16 +616,8 @@ static void print_ordered_classes(void)
 
 static struct cu *cu__filter(struct cu *cu)
 {
-	if (languages.nr_entries) {
-		bool in = languages__in(&languages, cu->language);
-
-		if ((!in && !languages.exclude) ||
-		    (in && languages.exclude)) {
-			if (global_verbose)
-				printf("Filtering CU %s written in %s.\n", cu->name, lang__int2str(cu->language));
-			return NULL;
-		}
-	}
+	if (languages__cu_filtered(&languages, cu, global_verbose))
+		return NULL;
 
 	if (cu__exclude_prefix != NULL &&
 	    (cu->name == NULL ||

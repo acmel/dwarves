@@ -2586,6 +2586,23 @@ int languages__init(struct languages *languages, const char *tool)
 	return languages__parse(languages, tool);
 }
 
+bool languages__cu_filtered(struct languages *languages, struct cu *cu, bool verbose)
+{
+	if (languages->nr_entries == 0)
+		return false;
+
+	bool in = languages__in(languages, cu->language);
+
+	if ((!in && !languages->exclude) ||
+	    (in && languages->exclude)) {
+		if (verbose)
+			printf("Filtering CU %s written in %s.\n", cu->name, lang__int2str(cu->language));
+		return true;
+	}
+
+	return false;
+}
+
 static int sysfs__read_build_id(const char *filename, void *build_id, size_t size)
 {
 	int fd, err = -1;

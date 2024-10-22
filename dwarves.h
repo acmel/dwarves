@@ -364,6 +364,7 @@ struct languages {
 int languages__init(struct languages *languages, const char *tool);
 int languages__parse(struct languages *languages, const char *tool);
 bool languages__in(struct languages *languages, int lang);
+bool languages__cu_filtered(struct languages *languages, struct cu *cu, bool verbose);
 
 /**
  * cu__for_each_cached_symtab_entry - iterate thru the cached symtab entries
