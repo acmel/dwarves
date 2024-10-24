@@ -21,7 +21,7 @@ pretty=$(mktemp /tmp/flexible_arrays.data.sh.XXXXXX.c)
 echo -n "Flexible arrays accounting: "
 
 for struct in $(pahole -F btf --sizes --with_embedded_flexible_array $vmlinux | cut -f1) ; do
-	pahole $struct > $pretty
+	pahole $struct $vmlinux > $pretty
 
 	# We need to check for just one tab before the comment as when expanding unnamed
 	# structs with members with flexible arrays inside another struct we would mess
@@ -54,14 +54,14 @@ for struct in $(pahole -F btf --sizes --with_embedded_flexible_array $vmlinux | 
 	if [ "$nr_embedded_flexible_arrays" != "$stat_nr_embedded_flexible_arrays" ] ; then
 		test -n "$VERBOSE" && printf "struct %s: The number of embedded flexible arrays (%s) doesn't match the number of members marked as such (%s)\n" \
 			"$struct" "$stat_nr_embedded_flexible_arrays" "$nr_embedded_flexible_arrays"
-		test -n "$VERBOSE" && pahole $struct
+		test -n "$VERBOSE" && pahole $struct $vmlinux
 		FAILED=1
 	fi
 
 	if [ "$nr_flexible_arrays" != "$stat_nr_flexible_arrays" ] ; then
 		test -n "$VERBOSE" && printf "struct %s: The number of flexible arrays (%s) doesn't match the number of members marked as such (%s)\n" \
 			"$struct" "$stat_nr_flexible_arrays" "$nr_flexible_arrays"
-		test -n "$VERBOSE" && pahole $struct
+		test -n "$VERBOSE" && pahole $struct $vmlinux
 		FAILED=1
 	fi
 
