@@ -1157,16 +1157,90 @@ static struct template_parameter_pack *template_parameter_pack__new(Dwarf_Die *d
 	return pack;
 }
 
+/* Returns number of locations found or negative value for errors. */
+static ptrdiff_t __dwarf_getlocations(Dwarf_Attribute *attr,
+				      ptrdiff_t offset, Dwarf_Addr *basep,
+				      Dwarf_Addr *startp, Dwarf_Addr *endp,
+				      Dwarf_Op **expr, size_t *exprlen)
+{
+	int ret;
+
+#if _ELFUTILS_PREREQ(0, 157)
+	ret = dwarf_getlocations(attr, offset, basep, startp, endp, expr, exprlen);
+#else
+	if (offset == 0) {
+		ret = dwarf_getlocation(attr, expr, exprlen);
+		if (ret == 0)
+			ret = 1;
+	}
+#endif
+	return ret;
+}
+
+/* For DW_AT_location 'attr':
+ * - if first location is DW_OP_regXX with expected number, return the register;
+ *   otherwise save the register for later return
+ * - if location DW_OP_entry_value(DW_OP_regXX) with expected number is in the
+ *   list, return the register; otherwise save register for later return
+ * - otherwise if no register was found for locations, return -1.
+ */
+static int parameter__reg(Dwarf_Attribute *attr, int expected_reg)
+{
+	Dwarf_Addr base, start, end;
+	Dwarf_Op *expr, *entry_ops;
+	Dwarf_Attribute entry_attr;
+	size_t exprlen, entry_len;
+	ptrdiff_t offset = 0;
+	int loc_num = -1;
+	int ret = -1;
+
+	while ((offset = __dwarf_getlocations(attr, offset, &base, &start, &end, &expr, &exprlen)) > 0) {
+		loc_num++;
+
+		/* Convert expression list (XX DW_OP_stack_value) -> (XX).
+		 * DW_OP_stack_value instructs interpreter to pop current value from
+		 * DWARF expression evaluation stack, and thus is not important here.
+		 */
+		if (exprlen > 1 && expr[exprlen - 1].atom == DW_OP_stack_value)
+			exprlen--;
+
+		if (exprlen != 1)
+			continue;
+
+		switch (expr->atom) {
+		/* match DW_OP_regXX at first location */
+		case DW_OP_reg0 ... DW_OP_reg31:
+			if (loc_num != 0)
+				break;
+			ret = expr->atom;
+			if (ret == expected_reg)
+				goto out;
+			break;
+		/* match DW_OP_entry_value(DW_OP_regXX) at any location */
+		case DW_OP_entry_value:
+		case DW_OP_GNU_entry_value:
+			if (dwarf_getlocation_attr(attr, expr, &entry_attr) == 0 &&
+			    dwarf_getlocation(&entry_attr, &entry_ops, &entry_len) == 0 &&
+			    entry_len == 1) {
+				ret = entry_ops->atom;
+				if (ret == expected_reg)
+					goto out;
+			}
+			break;
+		}
+	}
+out:
+	return ret;
+}
+
 static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 					struct conf_load *conf, int param_idx)
 {
 	struct parameter *parm = tag__alloc(cu, sizeof(*parm));
 
 	if (parm != NULL) {
-		Dwarf_Addr base, start, end;
 		bool has_const_value;
 		Dwarf_Attribute attr;
-		struct location loc;
 
 		tag__init(&parm->tag, cu, die);
 		parm->name = attr_string(die, DW_AT_name, conf);
@@ -1208,35 +1282,21 @@ static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 		 */
 		has_const_value = dwarf_attr(die, DW_AT_const_value, &attr) != NULL;
 		parm->has_loc = dwarf_attr(die, DW_AT_location, &attr) != NULL;
-		/* dwarf_getlocations() handles location lists; here we are
-		 * only interested in the first expr.
-		 */
-		if (parm->has_loc &&
-#if _ELFUTILS_PREREQ(0, 157)
-		    dwarf_getlocations(&attr, 0, &base, &start, &end,
-				       &loc.expr, &loc.exprlen) > 0 &&
-#else
-		    dwarf_getlocation(&attr, &loc.expr, &loc.exprlen) == 0 &&
-#endif
-			loc.exprlen != 0) {
-			int expected_reg = cu->register_params[param_idx];
-			Dwarf_Op *expr = loc.expr;
 
-			switch (expr->atom) {
-			case DW_OP_reg0 ... DW_OP_reg31:
+		if (parm->has_loc) {
+			int expected_reg = cu->register_params[param_idx];
+			int actual_reg = parameter__reg(&attr, expected_reg);
+
+			if (actual_reg < 0)
+				parm->optimized = 1;
+			else if (expected_reg >= 0 && expected_reg != actual_reg)
 				/* mark parameters that use an unexpected
 				 * register to hold a parameter; these will
 				 * be problematic for users of BTF as they
 				 * violate expectations about register
 				 * contents.
 				 */
-				if (expected_reg >= 0 && expected_reg != expr->atom)
-					parm->unexpected_reg = 1;
-				break;
-			default:
-				parm->optimized = 1;
-				break;
-			}
+				parm->unexpected_reg = 1;
 		} else if (has_const_value) {
 			parm->optimized = 1;
 		}
