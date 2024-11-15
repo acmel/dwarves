@@ -450,7 +450,14 @@ static bool attr_type(Dwarf_Die *die, uint32_t attr_name, Dwarf_Off *offset)
 static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 {
 	Dwarf_Attribute attr;
+	int ret = 1;
+
 	if (dwarf_attr(die, DW_AT_location, &attr) != NULL) {
+		/* use libdw__lock as dwarf_getlocation(s) has concurrency
+		 * issues when libdw is not compiled with experimental
+		 * --enable-thread-safety
+		 */
+		pthread_mutex_lock(&libdw__lock);
 		if (dwarf_getlocation(&attr, expr, exprlen) == 0) {
 			/* DW_OP_addrx needs additional lookup for real addr. */
 			if (*exprlen != 0 && expr[0]->atom == DW_OP_addrx) {
@@ -462,11 +469,12 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 
 				expr[0]->number = address;
 			}
-			return 0;
+			ret = 0;
 		}
+		pthread_mutex_unlock(&libdw__lock);
 	}
 
-	return 1;
+	return ret;
 }
 
 /* The struct dwarf_tag has a fixed size while the 'struct tag' is just the base
@@ -1194,6 +1202,10 @@ static int parameter__reg(Dwarf_Attribute *attr, int expected_reg)
 	int loc_num = -1;
 	int ret = -1;
 
+	/* use libdw__lock as dwarf_getlocation(s) has concurrency issues
+	 * when libdw is not compiled with experimental --enable-thread-safety
+	 */
+	pthread_mutex_lock(&libdw__lock);
 	while ((offset = __dwarf_getlocations(attr, offset, &base, &start, &end, &expr, &exprlen)) > 0) {
 		loc_num++;
 
@@ -1230,6 +1242,7 @@ static int parameter__reg(Dwarf_Attribute *attr, int expected_reg)
 		}
 	}
 out:
+	pthread_mutex_unlock(&libdw__lock);
 	return ret;
 }
 
