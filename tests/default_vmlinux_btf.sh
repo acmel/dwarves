@@ -17,5 +17,16 @@ if [ $nr_lines -eq 0 ] ; then
 	exit 1
 fi
 
+# There is also the case where no debugging info is available, be it DWARF of
+# BTF and it segfaults when calling just 'pahole', with no args, so check for
+# that as well
+#
+nr_lines=$(PAHOLE_VMLINUX_BTF_FILENAME=foobar pahole 2>&1 | wc -l)
+
+if [ $nr_lines -eq 0 ] ; then
+	echo "FAILED"
+	exit 1
+fi
+
 echo "Ok"
 exit 0
