@@ -3782,7 +3782,14 @@ try_sole_arg_as_class_names:
 			remaining = argc;
 			goto try_sole_arg_as_class_names;
 		}
-		cus__fprintf_load_files_err(cus, "pahole", argv + remaining, err, stderr);
+		if (argv[remaining] != NULL) {
+			cus__fprintf_load_files_err(cus, "pahole", argv + remaining, err, stderr);
+		} else {
+			fprintf(stderr, "pahole: couldn't find any%s%s debug information on this system.\n",
+					conf_load.format_path ? " " : "",
+					conf_load.format_path ?: "");
+		}
+
 		goto out_cus_delete;
 	}
 

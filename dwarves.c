@@ -2944,9 +2944,17 @@ const char *vmlinux_path__find_running_kernel(void)
 static int cus__load_running_kernel(struct cus *cus, struct conf_load *conf)
 {
 	int err = 0;
+	bool btf_only = false;
 
-	if ((!conf || conf->format_path == NULL || strncmp(conf->format_path, "btf", 3) == 0) &&
-	    access(vmlinux_path__btf_filename(), R_OK) == 0) {
+	if (!conf || conf->format_path == NULL)
+		goto try_btf;
+
+	if (!strstr(conf->format_path, "btf"))
+		goto try_elf;
+
+	btf_only = strcmp(conf->format_path, "btf") == 0;
+try_btf:
+	if (access(vmlinux_path__btf_filename(), R_OK) == 0) {
 		int loader = debugging_formats__loader("btf");
 		if (loader == -1)
 			goto try_elf;
@@ -2958,6 +2966,9 @@ static int cus__load_running_kernel(struct cus *cus, struct conf_load *conf)
 			return 0;
 	}
 try_elf:
+	if (btf_only)
+		return -1;
+
 	elf_version(EV_CURRENT);
 	vmlinux_path__init();
 
