@@ -179,6 +179,9 @@ struct ctf *ctf__new(const char *filename, Elf *elf)
 	struct ctf *ctf = zalloc(sizeof(*ctf));
 
 	if (ctf != NULL) {
+		if (filename == NULL)
+			goto out_delete;
+
 		ctf->filename = strdup(filename);
 		if (ctf->filename == NULL)
 			goto out_delete;

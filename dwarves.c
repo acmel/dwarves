@@ -777,6 +777,9 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 		if (cu->use_obstack)
 			obstack_init(&cu->obstack);
 
+		if (name == NULL || filename == NULL)
+			goto out_free;
+
 		cu->name = strdup(name);
 		if (cu->name == NULL)
 			goto out_free;
