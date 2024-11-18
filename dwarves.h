@@ -1628,6 +1628,8 @@ void dwarves__resolve_cacheline_size(const struct conf_load *conf, uint16_t user
 
 const char *dwarf_tag_name(const uint32_t tag);
 
+const char *vmlinux_path__btf_filename(void);
+
 const char *vmlinux_path__find_running_kernel(void);
 
 struct argp_state;

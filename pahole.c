@@ -3754,7 +3754,7 @@ try_sole_arg_as_class_names:
 		if (filename &&
 		    strstarts(filename, "/sys/kernel/btf/") &&
 		    strstr(filename, "/vmlinux") == NULL) {
-			base_btf_file = "/sys/kernel/btf/vmlinux";
+			base_btf_file = vmlinux_path__btf_filename();
 			conf_load.base_btf = btf__parse(base_btf_file, NULL);
 			if (libbpf_get_error(conf_load.base_btf)) {
 				fprintf(stderr, "Failed to parse base BTF '%s': %ld\n",

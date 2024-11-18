@@ -2807,6 +2807,19 @@ static int filename__sprintf_build_id(const char *pathname, char *sbuild_id)
 static int vmlinux_path__nr_entries;
 static char **vmlinux_path;
 
+const char *vmlinux_path__btf_filename(void)
+{
+	static const char *vmlinux_btf;
+
+	if (vmlinux_btf == NULL) {
+		vmlinux_btf = getenv("PAHOLE_VMLINUX_BTF_FILENAME");
+		if (vmlinux_btf == NULL)
+			vmlinux_btf = "/sys/kernel/btf/vmlinux";
+	}
+
+	return vmlinux_btf;
+}
+
 static void vmlinux_path__exit(void)
 {
 	while (--vmlinux_path__nr_entries >= 0)
@@ -2933,7 +2946,7 @@ static int cus__load_running_kernel(struct cus *cus, struct conf_load *conf)
 	int err = 0;
 
 	if ((!conf || conf->format_path == NULL || strncmp(conf->format_path, "btf", 3) == 0) &&
-	    access("/sys/kernel/btf/vmlinux", R_OK) == 0) {
+	    access(vmlinux_path__btf_filename(), R_OK) == 0) {
 		int loader = debugging_formats__loader("btf");
 		if (loader == -1)
 			goto try_elf;
@@ -2941,7 +2954,7 @@ static int cus__load_running_kernel(struct cus *cus, struct conf_load *conf)
 		if (conf && conf->conf_fprintf)
 			conf->conf_fprintf->has_alignment_info = debug_fmt_table[loader]->has_alignment_info;
 
-		if (debug_fmt_table[loader]->load_file(cus, conf, "/sys/kernel/btf/vmlinux") == 0)
+		if (debug_fmt_table[loader]->load_file(cus, conf, vmlinux_path__btf_filename()) == 0)
 			return 0;
 	}
 try_elf:

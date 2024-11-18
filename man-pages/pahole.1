@@ -75,6 +75,10 @@ struct list_head {
 };
 $
 .fi
+It is possible to override the /sys/kernel/btf/vmlinux file location by setting
+the PAHOLE_VMLINUX_BTF_FILENAME environment variable. This may be useful for
+testing, scripting when using a different BTF for vmlinux. Used in the pahole
+regression tests.
 
 If BTF is not present and no file is passed, then a vmlinux that matches the
 build-id for the running kernel will be looked up in the usual places,
