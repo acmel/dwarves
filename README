@@ -3,8 +3,7 @@ Build instructions:
 1. install cmake
 2. mkdir build
 3. cd build
-4. cmake -D__LIB=lib ..
-5. make install
+4. make install
 
 cmake Options:
   -DBUILD_SHARED_LIBS
