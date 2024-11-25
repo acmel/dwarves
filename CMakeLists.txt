@@ -21,18 +21,9 @@ else()
 	LINK_DIRECTORIES(${LIBBPF_LIBRARY_DIRS})
 endif()
 
-# Try to parse this later, Helio just showed me a KDE4 example to support
-# x86-64 builds.
-# the following are directories where stuff will be installed to
-set(__LIB "" CACHE STRING "Define suffix of directory name (32/64)" )
-
-macro(_set_fancy _var _value _comment)
-	if (NOT DEFINED ${_var})
-		set(${_var} ${_value})
-	else (NOT DEFINED ${_var})
-		set(${_var} "${${_var}}" CACHE PATH "${_comment}")
-	endif (NOT DEFINED ${_var})
-endmacro(_set_fancy)
+# Use the standard library installation directory
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_LIBDIR "lib" CACHE STRING "libdir name")
 
 # where to look first for cmake modules,
 # before ${CMAKE_ROOT}/Modules/ is checked
@@ -84,7 +75,9 @@ if(NOT LIBBPF_FOUND AND NOT EXISTS "${PROJECT_SOURCE_DIR}/lib/bpf/src/btf.h")
 	message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
 
-_set_fancy(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${__LIB}" "libdir")
+if (NOT DEFINED LIB_INSTALL_DIR)
+    set(LIB_INSTALL_DIR "${EXEC_INSTALL_PREFIX}${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+endif()
 
 # libbpf uses reallocarray, which is not available in all versions of glibc
 # libbpf's include/tools/libc_compat.h provides implementation, but needs

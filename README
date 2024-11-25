@@ -3,7 +3,7 @@ Build instructions:
 1. install cmake
 2. mkdir build
 3. cd build
-4. cmake -D__LIB=lib ..
+4. cmake ..
 5. make install
 
 cmake Options:
@@ -12,7 +12,7 @@ cmake Options:
     Use -DBUILD_SHARED_LIBS=OFF while invoking cmake to create STATIC libraries
     and link applications to it.
 
-    Ex. cmake -D__LIB=lib -DBUILD_SHARED_LIBS=OFF ..
+    Ex. cmake -DBUILD_SHARED_LIBS=OFF ..
 
   -DCMAKE_INSTALL_PREFIX
     Default is to install to /usr/local, use -DCMAKE_INSTALL_PREFIX=
