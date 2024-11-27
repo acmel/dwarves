@@ -1904,18 +1904,32 @@ static int btf_encoder__tag_kfuncs(struct btf_encoder *encoder)
 			goto out;
 		}
 
-		data = elf_getdata(scn, 0);
-		if (!data) {
-			elf_error("Failed to get ELF section(%d) data", i);
-			goto out;
-		}
-
 		if (shdr.sh_type == SHT_SYMTAB) {
+			data = elf_getdata(scn, 0);
+			if (!data) {
+				elf_error("Failed to get ELF section(%d) data", i);
+				goto out;
+			}
+
 			symbols_shndx = i;
 			symscn = scn;
 			symbols = data;
 			strtabidx = shdr.sh_link;
 		} else if (!strcmp(secname, BTF_IDS_SECTION)) {
+			/* .BTF_ids section consists of uint32_t elements,
+			 * and thus might need byte order conversion.
+			 * However, it has type PROGBITS, hence elf_getdata()
+			 * won't automatically do the conversion.
+			 * Use elf_getdata_rawchunk() instead,
+			 * ELF_T_WORD tells it to do the necessary conversion.
+			 */
+			data = elf_getdata_rawchunk(elf, shdr.sh_offset, shdr.sh_size, ELF_T_WORD);
+			if (!data) {
+				elf_error("Failed to get %s ELF section(%d) data",
+					  BTF_IDS_SECTION, i);
+				goto out;
+			}
+
 			idlist_shndx = i;
 			idlist_addr = shdr.sh_addr;
 			idlist = data;
