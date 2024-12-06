@@ -1,3 +1,126 @@
+v1.28
+
+3ddadc131586d6f3 btf_encoder: handle .BTF_ids section endianness
+12ca11281912c272 CMakeLists.txt: Require cmake 3.5 or higher
+a2abd948216237de CMakeList.txt: Respect CMAKE_INSTALL_LIBDIR
+98d1f018a8fc3fc3 tests default_vmlinux_btf: Cover the no args segfault too
+031495f8a4b193bf tests default_vmlinux_btf: Introduce test for using BTF by default
+9374bf455e5dcfab core, libctf: Check if constructor arguments are NULL before using them
+e843385b66522ecb pahole: Honour exclusive BTF loading
+ce69ca108201836d core: Add method to get the vmlinux BTF filename, allow overriding it via env var
+65b7fd68ccbb4990 dwarf_loader: Use libdw__lock for dwarf_getlocation(s)
+da2f7e56e7a69063 dwarf_loader: Check DW_OP_[GNU_]entry_value for possible parameter matching
+6b4d0e4fab8c66cf pahole: Sync with released libbpf-1.5
+729fd9963df576a0 pahole: Distilled_base btf_feature should be reported for libbpf > 1.5
+58ba3891baf6285c tests/flexible_arrays: Print flex array struct from same vmlinux
+b77d88003eb53fa1 btf_encoder: Use the ELF_C_READ_MMAP mode with elf_begin()
+11b59c00770dbe26 tests/btf_functions: Redirect stderr for pfunct --format_path=btf
+0ee47254eae5ae26 btf_loader: Send warnings to stderr
+e91433cb3bb5bf58 tests: Use PAHOLE_LANG_EXCLUDE=rust to skip Rust CUs
+97f2f7ba05508273 pfunct: Use languages__init() to honour PAHOLE_LANG_EXCLUDE
+cbb1149c4eaf01b1 languages: Introduce languages__cu_filtered() from pahole's cu__filter()
+fa7458521b6e421f languages: Use PAHOLE_LANG_EXCLUDE env var if present, as a fallback
+1f25386486e4d7b5 languages: Introduce language__init()
+8fc09fd3315ce934 core: Adopt the languages__parse(), languages__in() and 'struct languages' from pahole
+b9a0283d24fe31c5 languages: Start making 'struct languages' a class
+d9c3609d5eac98cd pahole: Add the tool name to languages_parse()
+34269334c76fb690 dwarf_loader: Print the CU's language when a tag isn't supported
+fb539071a5731788 tests: Exclude rust CUs when encoding BTF
+4c6a4d39eb0e6489 btf_encoder: Filter var names before btf name check
+6096a8dcdd744000 core: Add the debuginfod client cache directory to the vmlinux search path
+91bcd1d43e23e956 tests: Add a test for the accounting of flexible arrays
+6ab5318f536927cb fprintf: Show statistics about members with flexible arrays
+b1a4297aefe6f767 fprintf: Differentiate embedded flexible arrays from flexible arrays
+446c28d118b97380 pahole: Introduce --with_embedded_flexible_array
+9b838b824e6b4153 fprintf: Add a comment if a member type has an embedded flexible array
+5485b3cf799cfca2 core: Introduce class__has_embedded_flexible_array()
+0d62f2fdf3faf625 core: Cache info about flexible arrays in class__has_flexible_array()
+86c2461c7505f669 core: Move class__has_flexible_array() from pahole to the core
+d580a45c694b158a pahole: Add global_var BTF feature
+ff34e733a0c23bf4 btf_encoder: Allow encoding VARs from many sections
+5b5238c0aaff1dfd btf_encoder: Explicitly check addr/size for u32 overflow
+47dcb534e25313b2 btf_encoder: Stop indexing symbols for VARs
+4536d74db7ad5378 btf_encoder: Use bitfield to control var encoding
+d08775c932525c76 tests/btf_functions: reduce verbosity of test
+876f9c6fad88007f tests/reproducible_build: Fix vmlinux finding logic
+2b3595765dfd2837 tests reproducible_build.sh: Try first to find a vmlinux using pahole --running_kernel_vmlinux
+3a29b13291b1516a pahole: Show the CUs that are filtered via --lang_exclude when in verbose mode:
+19460635885cf32c core: Add a id -> string for DWARF language codes
+b98565e7b17ec24d dwarf_loader: Honour --lang_exclude when merging LTO built CUs
+7a2b5008d9713334 core: Constify cu->name
+6a275a088f90cba8 btf_encoder: Cache all ELF section info
+1c5f0f53f1d094a5 dwarf_loader: Add "artificial" and "top_level" variable flags
+ef01f78f693a4b3e dutil: Return ELF section name when looked up by index
+135b37a04ce5a440 tests: Distinguish between failed/skipped tests
+57e485cf1cac88a9 tests/reproducible_build: Return 2 (skipped) if no vmlinux available
+5ea9d3fbccb2b185 tests/btf_functions: Return 2 to indicate test had to be skipped
+8344141695722f5f tests/reproducible_builds: Support envvar-specified vmlinux
+c06310c689fe842a pahole: Generate "bpf_fastcall" decl tags for eligible kfuncs
+dafd8e085f31d05b tests: Improve btf_functions.sh by reducing greps/pipes
+4d3e050c1871e98d btf_encoder: Fix strncpy issues, other issues identified in code review
+0a3b73d6a5fc3c64 pahole: Add --padding N to show only structs with N bytes of padding at its end
+dfc38c09ce4f94bf pahole: Add --padding_ge N to show only structs with at least N bytes of padding at its end
+b56cf57f25daf880 tests: Add test validating BTF encoding, reasons we skip functions
+6b199c39c9320fc2 pfunct: Show all functions that match filter criteria
+4bff1141bb48ae58 btf_encoder: Record BTF-centric function state instead of DWARF-centric
+84ab4532efe4e263 dwarf_loader: Fix memleaks in creating cus
+a4f5f07ea0f3ba92 pahole: Sync with latest in-progress libbpf-1.5
+fd14dc67cb6aaead tests prettify_perf.data: Add regression test for 'pahole --prettify'
+2282d7df4d99cfdd tests: Add script to enumerate and run regression tests in the tests/ dir
+ba38e1567bc43f7a tests reproducible_build: Try to find the running kernel vmlinux if ran without args
+ea1865cf7a109806 pahole: Add option to obtain a vmlinux matching the running kernel
+c08046f98a3f8488 core: Add function to return the path to the running kernel vmlinux
+1dfd141fafd40d63 pfunct: Print DW_AT_external=1 functions once
+e3fda2668a8cebf0 pahole: Reduce memory usage by smarter deleting of CUs
+c7b1f6a29ba15a5d btf_encoder: Add "distilled_base" BTF feature to split BTF generation
+b6def578aa4a631f pahole: Sync with libbpf-1.5
+d744d859768d6951 pahole: Do --lang_exclude CU filtering earlier
+81661fa60f83c7f1 dwarf_loader: Allow filtering CUs early in loading
+52ac9a728dc1c575 pahole: Only warn about multithreading not being available with older versions of elfutils in verbose mode
+97de8fb828c198cd dwarf_loader: Simplify the tag__alloc() routine
+bc50242950bb8975 dwarf_loader: Do just one alloc for 'struct dwarf_tag + struct tag'
+799cbfb7d8297b84 dwarf_loader: All tags loaded from DWARF must be accompanied by a 'struct dwarf_tag'
+cb3ce1212903aca2 core: Cloning classes should use the CU specific allocator
+c2f89dab3f2b0ebb core: Introduce per tag alloc method
+e42b8738a5063696 dwarf_loader: Provide a tag__free() callback
+d349997698d7698c core: Introduce per-type tag free callback
+6dfb51cb87c9474c core: Make destructors receive the 'struct cu' their object may have been allocated from
+ce3540e995605d80 dwarf_loader: Things allocated with tag__alloc() must be freed with tag__free()
+ca764e65ffbc74ca dwarf_loader: Memory allocated with cu__zalloc() should be freed with cu__free()
+3ef508ad94012933 dwarf_loader: Make 'struct dwarf_tag' more compact by getting rid of 'struct dwarf_off_ref'
+70febc8858588348 core: Reorganize 'struct class_member' to save 8 bytes
+76bcb88a67556468 core: Make tag->recursivity_level a uint8_t
+b8b9e04d177d8eb7 core: Make tag->top_level a single bit flag
+539acefcdd5b0f71 core: Make tag->has_btf_type_tag a single bit flag
+dba2c2c1aa5dfa05 core: Make tag->visited a single bit flag
+7409cfadcae0253b core: Shrink 'struct namespace' a bit by using a hole in its embedded 'tag'
+01646d9df0ca40e2 core: Add namespace__shared_tags() method
+811a5499b11bd5fa core: type->suffix_disambiguation can be part of a bitfield
+39a28ea592075f0e btf_encoder: Log libbpf errors when they cause encoding errors
+15f4a8363dfcb7d4 core: 'struct namespaces'->nr_tags isn't used, ditch it
+638c000bd64456d6 dwarf_loader: Replace the dtag specific method with tag__set_spec()
+7aae38999c2ce548 dwarf_loader: Ditch dwarf_tag__spec() as we have dtag->specification
+c0a78bcfd628302b dwarf_loader: Remove 'struct dwarf_tag' variable size
+0364eb68d3802d4c core: Add accessor to the tag associated with a dwarf_tag
+745db05e36546d9a core: Add accessor to the dwarf_tag associated with a tag
+7c59cbdf149a1b45 fprintf: Fix identation in closing } on namespace fprintf
+fbf77d8d44e507a2 pdwtags: Print namespaces and its contents
+2a5ea3e4e5e0606f core: Add namespace iterator
+5563b1c0e31c7e29 dwarf_loader: Add support for DW_TAG_GNU_formal_parameter_pack
+1ecb5bd1a60a85e6 dwarf_loader: Add support for DW_TAG_GNU_template_parameter_pack
+f524f2ed5873e664 dwarf_loader: Make cu__tag_not_handled() generally available
+3b637ea23ee81872 dwarf_loader: Initial support for DW_TAG_template_value_param tag
+ab31cd26d44e3619 dwarf_loader: Initial support for DW_TAG_template_type_param tag on DW_TAG_subprogram
+8a1e0238ee4005a6 dwarf_loader: Initial support for DW_TAG_template_type_param tag
+24009d1fa48ce381 dwarf_loader: Hash DW_TAG_enumerator entries
+693522ee3a947d73 core: Ignore DW_TAG_inheritance with byte_size zero when finding holes
+43f9515d82114987 dwarf_loader: Print the DWARF offset in tag__print_unsupported_tag()
+e82a0fdcfb8ea0ce dwarf_loader: Simplify tag__print_not_supported()
+f7e3f0942fedb945 pahole: Bail out when not finding debug anywhere
+94a01bde592c555b dwarf_loader: Add missing cus__add(cus, cu) to cus__merge_and_process_cu()
+6a2b27c0f512619b core: Initialize cu->node with INIT_LIST_HEAD()
+0ce7745fa46da0ff PKG-MAINTAINERS: Add maintainer for nixpkgs package
+
 v1.27
 
 Tue Jun 11 2024

@@ -1,0 +1,119 @@
+pahole:
+
+- Various improvements to reduce the memory footprint of pahole, notably when
+  doing BTF encoding.
+
+- Show flexible arrays statistics, it detects them at the end of member types,
+  in the middle, etc. This should help with the efforts to spot problematic
+  usage of flexible arrays in the kernel sources, examples:
+
+  https://git.kernel.org/pub/scm/devel/pahole/pahole.git/commit/?id=6ab5318f536927cb
+
+- Introduce --with_embedded_flexible_array option.
+
+- Add '--padding N' to show only structs with N bytes of padding.
+
+- Add '--padding_ge N' to show only structs with at least N bytes of padding.
+
+- Introduce --running_kernel_vmlinux to find a vmlinux that matches the
+  build-id of the running kernel, e.g.:
+
+    $ pahole --running_kernel_vmlinux
+    /usr/lib/debug/lib/modules/6.11.7-200.fc40.x86_64/vmlinux
+    $ rpm -qf /usr/lib/debug/lib/modules/6.11.7-200.fc40.x86_64/vmlinux
+    kernel-debuginfo-6.11.7-200.fc40.x86_64
+    $
+
+  This is a shortcut to find the right vmlinux to use for the running kernel
+  and helps with regression tests.
+
+pfunct:
+
+- Don't stop at the first function that matches a filter, show all of them.
+
+BTF Encoder:
+    
+- Allow encoding data about all global variables, not just per CPU ones.
+    
+  There are several reasons why type information for all global variables to be
+  useful in the kernel, including drgn without DWARF, __ksym BPF programs return
+  type.
+
+  This is non-default, experiment with it using 'pahole --btf-features=+global_var'
+
+- Handle .BTF_ids section endianness, allowing for cross builds involving
+  machines with different endianness to work.
+
+  For instance, encoding BTF info on a s390 vmlinux file on a x86_64 workstation.
+
+- Generate decl tags for bpf_fastcall for eligible kfuncs.
+
+- Add "distilled_base" BTF feature to split BTF generation.
+
+- Use the ELF_C_READ_MMAP mode with libelf, reducing peak memory utilization.
+
+BTF Loader:
+
+- Allow overiding /sys/kernel/btf/vmlinux with some other file, for testing,
+  via the PAHOLE_VMLINUX_BTF_FILENAME environment variable.
+
+DWARF loader:
+
+- Allow setting the list of compile units produced from languages to skip via
+  the PAHOLE_LANG_EXCLUDE environment variable.
+
+- Serialize access to elfutils dwarf_getlocation() to avoid elfutils internal
+  data structure corruption when running multithreaded pahole.
+
+- Honour --lang_exclude when merging LTO built CUs.
+
+- Add the debuginfod client cache directory to the vmlinux search path.
+
+- Print the CU's language when a tag isn't supported.
+
+- Initial support for the DW_TAG_GNU_formal_parameter_pack,
+  DW_TAG_GNU_template_parameter_pack, DW_TAG_template_value_param and
+  DW_TAG_template_type_param DWARF tags.
+
+- Improve the parameter parsing by checking DW_OP_[GNU_]entry_value, this
+  makes some more functions to be made eligible by the BTF encoder, for instance
+  the perf_event_read() in the 6.11 kernel.
+
+Core:
+
+- Use pahole to help in reorganizing its data structures to reduce its memory
+  footprint.
+
+Regression tests:
+
+- Introduce a tests/ directory for adding regression tests, run it with:
+
+  $ tests/tests
+
+  Or run the individual tests directly.
+
+- Add a regression test for the reproducible build feature that establishes
+  as a baseline a detached BTF file without asking for a reproducible build and
+  then compares the output of 'bpftool btf dump file' for this file with the one
+  from BTF reproducible build encodings done with a growing number or threads.
+
+- Add a regression test for the flexible arrays features, checking if the various
+  comments about flexible arrays match the statistics at the final of the pahole
+  pretty print output.
+
+- Add a test that checks if pahole fails when running on a BTF system and BTF was
+  requested, previously it was falling back to DWARF silently.
+
+- Add test validating BTF encoding, reasons we skip functions: DWARF functions
+  that made it into BTF match signatures, functions we say we skipped, we did
+  indeed skip them in BTF encoding and that it was correct to skip these
+  functions.
+
+- Add regression test for 'pahole --prettify' that uses perf to record a simple
+  workload and then pretty print the resulting perf.data file to check that what
+  is produced are the expected records for such a file.
+
+Link: https://lore.kernel.org/all/Z0jVLcpgyENlGg6E@x1/
+Tested-by: Alan Maguire <alan.maguire@oracle.com>
+Tested-by: Jiri Olsa <jolsa@kernel.org>
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
