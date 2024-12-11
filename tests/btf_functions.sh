@@ -66,7 +66,7 @@ pfunct --all --no_parm_names --format_path=dwarf $vmlinux | \
 	sort|uniq > $outdir/dwarf.funcs
 # all functions from BTF (removing bpf_kfunc prefix where found)
 pfunct --all --no_parm_names --format_path=btf $outdir/vmlinux.btf 2>/dev/null|\
-	awk '{ gsub("^bpf_kfunc ",""); print $0}'|sort|uniq > $outdir/btf.funcs
+	awk '{ gsub("^(bpf_kfunc |bpf_fastcall )+",""); print $0}'|sort|uniq > $outdir/btf.funcs
 
 exact=0
 inline=0

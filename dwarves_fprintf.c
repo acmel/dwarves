@@ -1405,9 +1405,11 @@ static size_t function__fprintf(const struct tag *tag, const struct cu *cu,
 	struct ftype *ftype = func->btf ? tag__ftype(cu__type(cu, func->proto.tag.type)) : &func->proto;
 	size_t printed = 0;
 	bool inlined = !conf->strip_inline && function__declared_inline(func);
+	int i;
 
-	if (tag->attribute)
-		printed += fprintf(fp, "%s ", tag->attribute);
+	if (tag->attributes)
+		for (i = 0; i < tag->attributes->cnt; ++i)
+			printed += fprintf(fp, "%s ", tag->attributes->values[i]);
 
 	if (func->virtuality == DW_VIRTUALITY_virtual ||
 	    func->virtuality == DW_VIRTUALITY_pure_virtual)

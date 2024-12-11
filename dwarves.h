@@ -516,10 +516,16 @@ int cu__for_all_tags(struct cu *cu,
 				     struct cu *cu, void *cookie),
 		     void *cookie);
 
+struct attributes {
+	uint64_t cnt;
+	const char *values[];
+};
+
 /** struct tag - basic representation of a debug info element
  * @priv - extra data, for instance, DWARF offset, id, decl_{file,line}
  * @top_level -
  * @shared_tags: used by struct namespace
+ * @attributes - attributes specified by BTF_DECL_TAGs targeting this tag
  */
 struct tag {
 	struct list_head node;
@@ -530,7 +536,7 @@ struct tag {
 	bool		 has_btf_type_tag:1;
 	bool		 shared_tags:1;
 	uint8_t		 recursivity_level;
-	const char	 *attribute;
+	struct attributes *attributes;
 };
 
 // To use with things like type->type_enum == perf_event_type+perf_user_event_type

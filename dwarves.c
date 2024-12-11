@@ -210,6 +210,9 @@ void tag__delete(struct tag *tag, struct cu *cu)
 
 	assert(list_empty(&tag->node));
 
+	if (tag->attributes)
+		free(tag->attributes);
+
 	switch (tag->tag) {
 	case DW_TAG_union_type:
 		type__delete(tag__type(tag), cu);		break;
