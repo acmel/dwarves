@@ -2254,6 +2254,26 @@ static bool filter_variable_name(const char *name)
 	return false;
 }
 
+bool variable_in_sec(struct btf_encoder *encoder, const char *name, size_t shndx)
+{
+	uint32_t sym_sec_idx;
+	uint32_t core_id;
+	GElf_Sym sym;
+
+	elf_symtab__for_each_symbol_index(encoder->symtab, core_id, sym, sym_sec_idx) {
+		const char *sym_name;
+
+		if (sym_sec_idx != shndx || elf_sym__type(&sym) != STT_OBJECT)
+			continue;
+		sym_name = elf_sym__name(&sym, encoder->symtab);
+		if (!sym_name)
+			continue;
+		if (strcmp(name, sym_name) == 0)
+			return true;
+	}
+	return false;
+}
+
 static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 {
 	struct cu *cu = encoder->cu;
@@ -2323,6 +2343,13 @@ static int btf_encoder__encode_cu_variables(struct btf_encoder *encoder)
 		if (filter_variable_name(name))
 			continue;
 
+		/* A 0 address may be in a "discard" section; DWARF provides
+		 * location information with address 0 for such variables.
+		 * Ensure the variable really is in this section by checking
+		 * the ELF symtab.
+		 */
+		if (addr == 0 && !variable_in_sec(encoder, name, shndx))
+			continue;
 		/* Check for invalid BTF names */
 		if (!btf_name_valid(name)) {
 			dump_invalid_symbol("Found invalid variable name when encoding btf",
