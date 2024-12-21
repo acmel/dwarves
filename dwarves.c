@@ -764,6 +764,8 @@ int cu__fprintf_ptr_table_stats_csv(struct cu *cu, FILE *fp)
 	return printed;
 }
 
+#define OBSTACK_CHUNK_SIZE (128*1024)
+
 struct cu *cu__new(const char *name, uint8_t addr_size,
 		   const unsigned char *build_id, int build_id_len,
 		   const char *filename, bool use_obstack)
@@ -775,7 +777,7 @@ struct cu *cu__new(const char *name, uint8_t addr_size,
 
 		cu->use_obstack = use_obstack;
 		if (cu->use_obstack)
-			obstack_init(&cu->obstack);
+			obstack_begin(&cu->obstack, OBSTACK_CHUNK_SIZE);
 
 		if (name == NULL || filename == NULL)
 			goto out_free;
