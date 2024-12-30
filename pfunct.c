@@ -415,14 +415,12 @@ static void function__show(struct function *func, struct cu *cu)
 		fstats->printed = true;
 }
 
-static int cu_function_iterator(struct cu *cu, void *cookie)
+static int cu_function_iterator(struct cu *cu, void *cookie __maybe_unused)
 {
 	struct function *function;
 	uint32_t id;
 
 	cu__for_each_function(cu, id, function) {
-		if (cookie && strcmp(function__name(function), cookie) != 0)
-			continue;
 		function__show(function, cu);
 	}
 	return 0;
@@ -817,10 +815,9 @@ try_sole_arg_as_function_name:
 		function__show(f, cu);
 	} else if (show_total_inline_expansion_stats)
 		print_total_inline_stats();
-	else if (function_name != NULL || expand_types)
-		cus__for_each_cu(cus, cu_function_iterator,
-				 function_name, NULL);
-	else
+	else if (expand_types)
+		cus__for_each_cu(cus, cu_function_iterator, NULL, NULL);
+	else if (function_name == NULL)
 		print_fn_stats(formatter);
 
 	rc = EXIT_SUCCESS;
