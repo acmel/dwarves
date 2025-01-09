@@ -2447,6 +2447,7 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	btf_encoders__delete(encoder);
 	for (shndx = 0; shndx < encoder->seccnt; shndx++)
 		__gobuffer__delete(&encoder->secinfo[shndx].secinfo);
+	free(encoder->secinfo);
 	zfree(&encoder->filename);
 	zfree(&encoder->source_filename);
 	btf__free(encoder->btf);
