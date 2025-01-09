@@ -72,7 +72,6 @@ struct btf_encoder_func_annot {
 
 /* state used to do later encoding of saved functions */
 struct btf_encoder_func_state {
-	struct list_head node;
 	struct btf_encoder *encoder;
 	struct elf_function *elf;
 	uint32_t type_id_off;
@@ -134,7 +133,11 @@ struct btf_encoder {
 	struct elf_secinfo *secinfo;
 	size_t             seccnt;
 	int                encode_vars;
-	struct list_head   func_states;
+	struct {
+		struct btf_encoder_func_state *array;
+		int cnt;
+		int cap;
+	} func_states;
 	/* This is a list of elf_functions tables, one per ELF.
 	 * Multiple ELF modules can be processed in one pahole run,
 	 * so we have to store elf_functions tables per ELF.
@@ -1078,9 +1081,31 @@ static bool funcs__match(struct btf_encoder_func_state *s1,
 	return true;
 }
 
+static struct btf_encoder_func_state *btf_encoder__alloc_func_state(struct btf_encoder *encoder)
+{
+	struct btf_encoder_func_state *tmp;
+
+	if (encoder->func_states.cnt >= encoder->func_states.cap) {
+
+		/* We only need to grow to accommodate duplicate
+		 * function declarations across different CUs, so the
+		 * rate of the array growth shouldn't be high.
+		 */
+		encoder->func_states.cap += 64;
+
+		tmp = realloc(encoder->func_states.array, sizeof(*tmp) * encoder->func_states.cap);
+		if (!tmp)
+			return NULL;
+
+		encoder->func_states.array = tmp;
+	}
+
+	return &encoder->func_states.array[encoder->func_states.cnt++];
+}
+
 static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct function *fn, struct elf_function *func)
 {
-	struct btf_encoder_func_state *state = zalloc(sizeof(*state));
+	struct btf_encoder_func_state *state = btf_encoder__alloc_func_state(encoder);
 	struct ftype *ftype = &fn->proto;
 	struct btf *btf = encoder->btf;
 	struct llvm_annotation *annot;
@@ -1142,7 +1167,6 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 			idx++;
 		}
 	}
-	list_add_tail(&state->node, &encoder->func_states);
 	return 0;
 out:
 	zfree(&state->annots);
@@ -1219,17 +1243,15 @@ static int functions_cmp(const void *_a, const void *_b)
 
 static int saved_functions_cmp(const void *_a, const void *_b)
 {
-	struct btf_encoder_func_state * const *a = _a;
-	struct btf_encoder_func_state * const *b = _b;
+	const struct btf_encoder_func_state *a = _a;
+	const struct btf_encoder_func_state *b = _b;
 
-	return functions_cmp((*a)->elf, (*b)->elf);
+	return functions_cmp(a->elf, b->elf);
 }
 
-static int saved_functions_combine(void *_a, void *_b)
+static int saved_functions_combine(struct btf_encoder_func_state *a, struct btf_encoder_func_state *b)
 {
 	uint8_t optimized, unexpected, inconsistent;
-	struct btf_encoder_func_state *a = _a;
-	struct btf_encoder_func_state *b = _b;
 	int ret;
 
 	ret = strncmp(a->elf->name, b->elf->name,
@@ -1250,44 +1272,37 @@ static int saved_functions_combine(void *_a, void *_b)
 
 static void btf_encoder__delete_saved_funcs(struct btf_encoder *encoder)
 {
-	struct btf_encoder_func_state *pos, *s;
+	struct btf_encoder_func_state *state;
 
-	list_for_each_entry_safe(pos, s, &encoder->func_states, node) {
-		list_del(&pos->node);
-		free(pos->parms);
-		free(pos->annots);
-		free(pos);
+	for (int i = 0; i < encoder->func_states.cnt; i++) {
+		state = &encoder->func_states.array[i];
+		free(state->parms);
+		free(state->annots);
 	}
+
+	free(encoder->func_states.array);
+
+	encoder->func_states.array = NULL;
+	encoder->func_states.cnt = 0;
+	encoder->func_states.cap = 0;
 }
 
 static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_encoding_inconsistent_proto)
 {
-	struct btf_encoder_func_state **saved_fns = NULL, *s;
-	int err = 0, i = 0, j, nr_saved_fns = 0;
-
-	/* Retrieve function states from the encoder, combine them
-	 * and sort by name, addr.
-	 */
-	list_for_each_entry(s, &encoder->func_states, node) {
-		nr_saved_fns++;
-	}
+	struct btf_encoder_func_state *saved_fns = encoder->func_states.array;
+	int nr_saved_fns = encoder->func_states.cnt;
+	int err = 0, i = 0, j;
 
 	if (nr_saved_fns == 0)
 		goto out;
 
-	saved_fns = calloc(nr_saved_fns, sizeof(*saved_fns));
-	if (!saved_fns) {
-		err = -ENOMEM;
-		goto out;
-	}
-
-	list_for_each_entry(s, &encoder->func_states, node) {
-		saved_fns[i++] = s;
-	}
+	/* Sort the saved_fns so that we can merge multiple states of
+	 * the "same" function into one, before adding it to the BTF.
+	 */
 	qsort(saved_fns, nr_saved_fns, sizeof(*saved_fns), saved_functions_cmp);
 
 	for (i = 0; i < nr_saved_fns; i = j) {
-		struct btf_encoder_func_state *state = saved_fns[i];
+		struct btf_encoder_func_state *state = &saved_fns[i];
 		bool add_to_btf = !skip_encoding_inconsistent_proto;
 
 		/* Compare across sorted functions that match by name/prefix;
@@ -1295,7 +1310,7 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_e
 		 */
 		j = i + 1;
 
-		while (j < nr_saved_fns && saved_functions_combine(saved_fns[i], saved_fns[j]) == 0)
+		while (j < nr_saved_fns && saved_functions_combine(&saved_fns[i], &saved_fns[j]) == 0)
 			j++;
 
 		/* do not exclude functions with optimized-out parameters; they
@@ -1313,7 +1328,6 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_e
 	}
 
 out:
-	free(saved_fns);
 	btf_encoder__delete_saved_funcs(encoder);
 
 	return err;
@@ -2404,7 +2418,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		encoder->need_index_type = false;
 		encoder->array_index_id  = 0;
 		encoder->encode_vars = 0;
-		INIT_LIST_HEAD(&encoder->func_states);
+
 		if (!conf_load->skip_encoding_btf_vars)
 			encoder->encode_vars |= BTF_VAR_PERCPU;
 		if (conf_load->encode_btf_global_vars)
@@ -2416,6 +2430,11 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 			goto out_delete;
 
 		encoder->symtab = funcs->symtab;
+
+		/* Start with funcs->cnt. The array may grow in btf_encoder__alloc_func_state() */
+		encoder->func_states.array = zalloc(sizeof(*encoder->func_states.array) * funcs->cnt);
+		encoder->func_states.cap = funcs->cnt;
+		encoder->func_states.cnt = 0;
 
 		GElf_Ehdr ehdr;
 
