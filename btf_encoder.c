@@ -1326,7 +1326,7 @@ static void btf_encoder__delete_saved_funcs(struct btf_encoder *encoder)
 	}
 }
 
-int btf_encoder__add_saved_funcs(bool skip_encoding_inconsistent_proto)
+static int btf_encoder__add_saved_funcs(bool skip_encoding_inconsistent_proto)
 {
 	struct btf_encoder_func_state **saved_fns = NULL, *s;
 	int err = 0, i = 0, j, nr_saved_fns = 0;

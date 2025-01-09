@@ -37,10 +37,7 @@ for threads in $(seq $nr_proc) ; do
 	sleep 0.3s
 	# PID part to remove ps output headers
 	nr_threads_started=$(ps -L -C pahole | grep -v PID | wc -l)
-
-	if [ $threads -gt 1 ] ; then
-		((nr_threads_started -= 1))
-	fi
+        ((nr_threads_started -= 1)) # main thread doesn't count, it waits to join
 
 	if [ $threads != $nr_threads_started ] ; then
 		echo "ERROR: pahole asked to start $threads encoding threads, started $nr_threads_started"
