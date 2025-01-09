@@ -3185,7 +3185,10 @@ static int pahole_threads_collect(struct conf_load *conf, int nr_threads, void *
 	if (error)
 		goto out;
 
-	btf_encoder__add_saved_funcs(btf_encoder);
+	err = btf_encoder__add_saved_funcs(conf_load.skip_encoding_btf_inconsistent_proto);
+	if (err < 0)
+		goto out;
+
 	for (i = 0; i < nr_threads; i++) {
 		/*
 		 * Merge content of the btf instances of worker threads to the btf
@@ -3843,7 +3846,7 @@ try_sole_arg_as_class_names:
 			exit(1);
 		}
 
-		err = btf_encoder__encode(btf_encoder);
+		err = btf_encoder__encode(btf_encoder, &conf_load);
 		btf_encoder__delete(btf_encoder);
 		if (err) {
 			fputs("Failed to encode BTF\n", stderr);

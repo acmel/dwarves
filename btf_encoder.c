@@ -128,7 +128,6 @@ struct btf_encoder {
 			  force,
 			  gen_floats,
 			  skip_encoding_decl_tag,
-			  skip_encoding_inconsistent_proto,
 			  tag_kfuncs,
 			  gen_distilled_base;
 	uint32_t	  array_index_id;
@@ -1327,7 +1326,7 @@ static void btf_encoder__delete_saved_funcs(struct btf_encoder *encoder)
 	}
 }
 
-int btf_encoder__add_saved_funcs(struct btf_encoder *encoder)
+int btf_encoder__add_saved_funcs(bool skip_encoding_inconsistent_proto)
 {
 	struct btf_encoder_func_state **saved_fns = NULL, *s;
 	int err = 0, i = 0, j, nr_saved_fns = 0;
@@ -1358,7 +1357,7 @@ int btf_encoder__add_saved_funcs(struct btf_encoder *encoder)
 
 	for (i = 0; i < nr_saved_fns; i = j) {
 		struct btf_encoder_func_state *state = saved_fns[i];
-		bool add_to_btf = !encoder->skip_encoding_inconsistent_proto;
+		bool add_to_btf = !skip_encoding_inconsistent_proto;
 
 		/* Compare across sorted functions that match by name/prefix;
 		 * share inconsistent/unexpected reg state between them.
@@ -2136,13 +2135,13 @@ out:
 	return err;
 }
 
-int btf_encoder__encode(struct btf_encoder *encoder)
+int btf_encoder__encode(struct btf_encoder *encoder, struct conf_load *conf)
 {
 	bool should_tag_kfuncs;
 	int err;
 	size_t shndx;
 
-	err = btf_encoder__add_saved_funcs(encoder);
+	err = btf_encoder__add_saved_funcs(conf->skip_encoding_btf_inconsistent_proto);
 	if (err < 0)
 		return err;
 
@@ -2469,7 +2468,6 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		encoder->force		 = conf_load->btf_encode_force;
 		encoder->gen_floats	 = conf_load->btf_gen_floats;
 		encoder->skip_encoding_decl_tag	 = conf_load->skip_encoding_btf_decl_tag;
-		encoder->skip_encoding_inconsistent_proto = conf_load->skip_encoding_btf_inconsistent_proto;
 		encoder->tag_kfuncs	 = conf_load->btf_decl_tag_kfuncs;
 		encoder->gen_distilled_base = conf_load->btf_gen_distilled_base;
 		encoder->verbose	 = verbose;
