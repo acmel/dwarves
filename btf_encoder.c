@@ -218,39 +218,6 @@ static struct elf_functions *elf_functions__find(const Elf *elf, const struct li
 	return NULL;
 }
 
-
-static LIST_HEAD(encoders);
-static pthread_mutex_t encoders__lock = PTHREAD_MUTEX_INITIALIZER;
-
-/* mutex only needed for add/delete, as this can happen in multiple encoding
- * threads.  Traversal of the list is currently confined to thread collection.
- */
-
-#define btf_encoders__for_each_encoder(encoder)		\
-	list_for_each_entry(encoder, &encoders, node)
-
-static void btf_encoders__add(struct btf_encoder *encoder)
-{
-	pthread_mutex_lock(&encoders__lock);
-	list_add_tail(&encoder->node, &encoders);
-	pthread_mutex_unlock(&encoders__lock);
-}
-
-static void btf_encoders__delete(struct btf_encoder *encoder)
-{
-	struct btf_encoder *existing = NULL;
-
-	pthread_mutex_lock(&encoders__lock);
-	/* encoder may not have been added to list yet; check. */
-	btf_encoders__for_each_encoder(existing) {
-		if (encoder == existing)
-			break;
-	}
-	if (encoder == existing)
-		list_del(&encoder->node);
-	pthread_mutex_unlock(&encoders__lock);
-}
-
 #define PERCPU_SECTION ".data..percpu"
 
 /*
@@ -868,39 +835,6 @@ static int32_t btf_encoder__add_var_secinfo(struct btf_encoder *encoder, size_t 
 	return gobuffer__add(&encoder->secinfo[shndx].secinfo, &si, sizeof(si));
 }
 
-int32_t btf_encoder__add_encoder(struct btf_encoder *encoder, struct btf_encoder *other)
-{
-	size_t shndx;
-	if (encoder == other)
-		return 0;
-
-	for (shndx = 1; shndx < other->seccnt; shndx++) {
-		struct gobuffer *var_secinfo_buf = &other->secinfo[shndx].secinfo;
-		size_t sz = gobuffer__size(var_secinfo_buf);
-		uint16_t nr_var_secinfo = sz / sizeof(struct btf_var_secinfo);
-		uint32_t type_id;
-		uint32_t next_type_id = btf__type_cnt(encoder->btf);
-		int32_t i, id;
-		struct btf_var_secinfo *vsi;
-
-		if (strcmp(encoder->secinfo[shndx].name, other->secinfo[shndx].name)) {
-			fprintf(stderr, "mismatched ELF sections at index %zu: \"%s\", \"%s\"\n",
-				shndx, encoder->secinfo[shndx].name, other->secinfo[shndx].name);
-			return -1;
-		}
-
-		for (i = 0; i < nr_var_secinfo; i++) {
-			vsi = (struct btf_var_secinfo *)var_secinfo_buf->entries + i;
-			type_id = next_type_id + vsi->type - 1; /* Type ID starts from 1 */
-			id = btf_encoder__add_var_secinfo(encoder, shndx, type_id, vsi->offset, vsi->size);
-			if (id < 0)
-				return id;
-		}
-	}
-
-	return btf__add_btf(encoder->btf, other->btf);
-}
-
 static int32_t btf_encoder__add_datasec(struct btf_encoder *encoder, size_t shndx)
 {
 	struct gobuffer *var_secinfo_buf = &encoder->secinfo[shndx].secinfo;
@@ -1326,18 +1260,16 @@ static void btf_encoder__delete_saved_funcs(struct btf_encoder *encoder)
 	}
 }
 
-static int btf_encoder__add_saved_funcs(bool skip_encoding_inconsistent_proto)
+static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_encoding_inconsistent_proto)
 {
 	struct btf_encoder_func_state **saved_fns = NULL, *s;
 	int err = 0, i = 0, j, nr_saved_fns = 0;
-	struct btf_encoder *e = NULL;
 
-	/* Retrieve function states from each encoder, combine them
+	/* Retrieve function states from the encoder, combine them
 	 * and sort by name, addr.
 	 */
-	btf_encoders__for_each_encoder(e) {
-		list_for_each_entry(s, &e->func_states, node)
-			nr_saved_fns++;
+	list_for_each_entry(s, &encoder->func_states, node) {
+		nr_saved_fns++;
 	}
 
 	if (nr_saved_fns == 0)
@@ -1349,9 +1281,8 @@ static int btf_encoder__add_saved_funcs(bool skip_encoding_inconsistent_proto)
 		goto out;
 	}
 
-	btf_encoders__for_each_encoder(e) {
-		list_for_each_entry(s, &e->func_states, node)
-			saved_fns[i++] = s;
+	list_for_each_entry(s, &encoder->func_states, node) {
+		saved_fns[i++] = s;
 	}
 	qsort(saved_fns, nr_saved_fns, sizeof(*saved_fns), saved_functions_cmp);
 
@@ -1383,9 +1314,7 @@ static int btf_encoder__add_saved_funcs(bool skip_encoding_inconsistent_proto)
 
 out:
 	free(saved_fns);
-	btf_encoders__for_each_encoder(e) {
-		btf_encoder__delete_saved_funcs(e);
-	}
+	btf_encoder__delete_saved_funcs(encoder);
 
 	return err;
 }
@@ -2141,7 +2070,7 @@ int btf_encoder__encode(struct btf_encoder *encoder, struct conf_load *conf)
 	int err;
 	size_t shndx;
 
-	err = btf_encoder__add_saved_funcs(conf->skip_encoding_btf_inconsistent_proto);
+	err = btf_encoder__add_saved_funcs(encoder, conf->skip_encoding_btf_inconsistent_proto);
 	if (err < 0)
 		return err;
 
@@ -2547,7 +2476,6 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 
 		if (encoder->verbose)
 			printf("File %s:\n", cu->filename);
-		btf_encoders__add(encoder);
 	}
 
 	return encoder;
@@ -2564,7 +2492,6 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	if (encoder == NULL)
 		return;
 
-	btf_encoders__delete(encoder);
 	for (shndx = 0; shndx < encoder->seccnt; shndx++)
 		__gobuffer__delete(&encoder->secinfo[shndx].secinfo);
 	free(encoder->secinfo);
@@ -2732,9 +2659,4 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 out:
 	encoder->cu = NULL;
 	return err;
-}
-
-struct btf *btf_encoder__btf(struct btf_encoder *encoder)
-{
-	return encoder->btf;
 }
