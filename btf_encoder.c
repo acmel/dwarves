@@ -102,6 +102,8 @@ struct elf_secinfo {
 };
 
 struct elf_functions {
+	struct list_head node; /* for elf_functions_list */
+	Elf *elf; /* source ELF */
 	struct elf_symtab *symtab;
 	struct elf_function *entries;
 	int cnt;
@@ -134,7 +136,11 @@ struct btf_encoder {
 	size_t             seccnt;
 	int                encode_vars;
 	struct list_head   func_states;
-	struct elf_functions functions;
+	/* This is a list of elf_functions tables, one per ELF.
+	 * Multiple ELF modules can be processed in one pahole run,
+	 * so we have to store elf_functions tables per ELF.
+	 */
+	struct list_head elf_functions_list;
 };
 
 struct btf_func {
@@ -147,6 +153,72 @@ struct btf_kfunc_set_range {
 	uint64_t start;
 	uint64_t end;
 };
+
+static inline void elf_functions__delete(struct elf_functions *funcs)
+{
+	for (int i = 0; i < funcs->cnt; i++)
+		free(funcs->entries[i].alias);
+	free(funcs->entries);
+	elf_symtab__delete(funcs->symtab);
+	list_del(&funcs->node);
+	free(funcs);
+}
+
+static int elf_functions__collect(struct elf_functions *functions);
+
+struct elf_functions *elf_functions__new(Elf *elf)
+{
+	struct elf_functions *funcs;
+	int err;
+
+	funcs = calloc(1, sizeof(*funcs));
+	if (!funcs) {
+		err = -ENOMEM;
+		goto out_delete;
+	}
+
+	funcs->symtab = elf_symtab__new(NULL, elf);
+	if (!funcs->symtab) {
+		err = -1;
+		goto out_delete;
+	}
+
+	funcs->elf = elf;
+	err = elf_functions__collect(funcs);
+	if (err < 0)
+		goto out_delete;
+
+	return funcs;
+
+out_delete:
+	elf_functions__delete(funcs);
+	return NULL;
+}
+
+static inline void elf_functions_list__clear(struct list_head *elf_functions_list)
+{
+	struct elf_functions *funcs;
+	struct list_head *pos, *tmp;
+
+	list_for_each_safe(pos, tmp, elf_functions_list) {
+		funcs = list_entry(pos, struct elf_functions, node);
+		elf_functions__delete(funcs);
+	}
+}
+
+static struct elf_functions *elf_functions__find(const Elf *elf, const struct list_head *elf_functions_list)
+{
+	struct elf_functions *funcs;
+	struct list_head *pos;
+
+	list_for_each(pos, elf_functions_list) {
+		funcs = list_entry(pos, struct elf_functions, node);
+		if (funcs->elf == elf)
+			return funcs;
+	}
+	return NULL;
+}
+
 
 static LIST_HEAD(encoders);
 static pthread_mutex_t encoders__lock = PTHREAD_MUTEX_INITIALIZER;
@@ -1253,9 +1325,6 @@ static void btf_encoder__delete_saved_funcs(struct btf_encoder *encoder)
 		free(pos->annots);
 		free(pos);
 	}
-
-	for (int i = 0; i < encoder->functions.cnt; i++)
-		free(encoder->functions.entries[i].alias);
 }
 
 int btf_encoder__add_saved_funcs(struct btf_encoder *encoder)
@@ -1348,12 +1417,30 @@ static void elf_functions__collect_function(struct elf_functions *functions, GEl
 	functions->cnt++;
 }
 
+static struct elf_functions *btf_encoder__elf_functions(struct btf_encoder *encoder)
+{
+	struct elf_functions *funcs = NULL;
+
+	if (!encoder->cu || !encoder->cu->elf)
+		return NULL;
+
+	funcs = elf_functions__find(encoder->cu->elf, &encoder->elf_functions_list);
+	if (!funcs) {
+		funcs = elf_functions__new(encoder->cu->elf);
+		if (funcs)
+			list_add(&funcs->node, &encoder->elf_functions_list);
+	}
+
+	return funcs;
+}
+
 static struct elf_function *btf_encoder__find_function(const struct btf_encoder *encoder,
 						       const char *name, size_t prefixlen)
 {
+	struct elf_functions *funcs = elf_functions__find(encoder->cu->elf, &encoder->elf_functions_list);
 	struct elf_function key = { .name = name, .prefixlen = prefixlen };
 
-	return bsearch(&key, encoder->functions.entries, encoder->functions.cnt, sizeof(key), functions_cmp);
+	return bsearch(&key, funcs->entries, funcs->cnt, sizeof(key), functions_cmp);
 }
 
 static bool btf_name_char_ok(char c, bool first)
@@ -2108,6 +2195,8 @@ int btf_encoder__encode(struct btf_encoder *encoder)
 #endif
 		err = btf_encoder__write_elf(encoder, encoder->btf, BTF_ELF_SEC);
 	}
+
+	elf_functions_list__clear(&encoder->elf_functions_list);
 	return err;
 }
 
@@ -2363,8 +2452,10 @@ out:
 struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filename, struct btf *base_btf, bool verbose, struct conf_load *conf_load)
 {
 	struct btf_encoder *encoder = zalloc(sizeof(*encoder));
+	struct elf_functions *funcs = NULL;
 
 	if (encoder) {
+		encoder->cu = cu;
 		encoder->raw_output = detached_filename != NULL;
 		encoder->source_filename = strdup(cu->filename);
 		encoder->filename = strdup(encoder->raw_output ? detached_filename : cu->filename);
@@ -2392,6 +2483,13 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		if (conf_load->encode_btf_global_vars)
 			encoder->encode_vars |= BTF_VAR_GLOBAL;
 
+		INIT_LIST_HEAD(&encoder->elf_functions_list);
+		funcs = btf_encoder__elf_functions(encoder);
+		if (!funcs)
+			goto out_delete;
+
+		encoder->symtab = funcs->symtab;
+
 		GElf_Ehdr ehdr;
 
 		if (gelf_getehdr(cu->elf, &ehdr) == NULL) {
@@ -2411,14 +2509,6 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 			fprintf(stderr, "%s: unknown ELF endianness.\n", __func__);
 			goto out_delete;
 		}
-
-		encoder->symtab = elf_symtab__new(NULL, cu->elf);
-		if (!encoder->symtab) {
-			if (encoder->verbose)
-				printf("%s: '%s' doesn't have symtab.\n", __func__, cu->filename);
-			goto out;
-		}
-		encoder->functions.symtab = encoder->symtab;
 
 		/* index the ELF sections for later lookup */
 
@@ -2457,14 +2547,11 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		if (!found_percpu && encoder->verbose)
 			printf("%s: '%s' doesn't have '%s' section\n", __func__, cu->filename, PERCPU_SECTION);
 
-		if (elf_functions__collect(&encoder->functions))
-			goto out_delete;
-
 		if (encoder->verbose)
 			printf("File %s:\n", cu->filename);
 		btf_encoders__add(encoder);
 	}
-out:
+
 	return encoder;
 
 out_delete:
@@ -2487,11 +2574,8 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	zfree(&encoder->source_filename);
 	btf__free(encoder->btf);
 	encoder->btf = NULL;
-	elf_symtab__delete(encoder->symtab);
 
-	encoder->functions.cnt = 0;
-	free(encoder->functions.entries);
-	encoder->functions.entries = NULL;
+	elf_functions_list__clear(&encoder->elf_functions_list);
 
 	btf_encoder__delete_saved_funcs(encoder);
 
@@ -2502,12 +2586,20 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 {
 	struct llvm_annotation *annot;
 	int btf_type_id, tag_type_id, skipped_types = 0;
+	struct elf_functions *funcs;
 	uint32_t core_id;
 	struct function *fn;
 	struct tag *pos;
 	int err = 0;
 
 	encoder->cu = cu;
+	funcs = btf_encoder__elf_functions(encoder);
+	if (!funcs) {
+		err = -1;
+		goto out;
+	}
+	encoder->symtab = funcs->symtab;
+
 	encoder->type_id_off = btf__type_cnt(encoder->btf) - 1;
 
 	if (!encoder->has_index_type) {
@@ -2591,7 +2683,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 			continue;
 		if (!ftype__has_arg_names(&fn->proto))
 			continue;
-		if (encoder->functions.cnt) {
+		if (funcs->cnt) {
 			const char *name;
 
 			name = function__name(fn);
@@ -2600,7 +2692,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 
 			/* prefer exact function name match... */
 			func = btf_encoder__find_function(encoder, name, 0);
-			if (!func && encoder->functions.suffix_cnt &&
+			if (!func && funcs->suffix_cnt &&
 			    conf_load->btf_gen_optimized) {
 				/* falling back to name.isra.0 match if no exact
 				 * match is found; only bother if we found any
