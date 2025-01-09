@@ -88,7 +88,6 @@ struct btf_encoder_func_state {
 struct elf_function {
 	const char	*name;
 	char		*alias;
-	bool		 generated;
 	size_t		prefixlen;
 	struct btf_encoder_func_state state;
 };
@@ -120,6 +119,7 @@ struct btf_encoder {
 			  force,
 			  gen_floats,
 			  skip_encoding_decl_tag,
+			  skip_encoding_inconsistent_proto,
 			  tag_kfuncs,
 			  gen_distilled_base;
 	uint32_t	  array_index_id;
@@ -1165,18 +1165,18 @@ out:
 	return err;
 }
 
-static int32_t btf_encoder__add_func(struct btf_encoder *encoder, struct function *fn,
+static int32_t btf_encoder__add_func(struct btf_encoder *encoder,
 				     struct elf_function *func)
 {
+	struct btf_encoder_func_state *state = &func->state;
 	int btf_fnproto_id, btf_fn_id, tag_type_id = 0;
 	int16_t component_idx = -1;
 	const char *name;
 	const char *value;
 	char tmp_value[KSYM_NAME_LEN];
+	uint16_t idx;
 
-	assert(fn != NULL || func != NULL);
-
-	btf_fnproto_id = btf_encoder__add_func_proto(encoder, fn ? &fn->proto : NULL, func);
+	btf_fnproto_id = btf_encoder__add_func_proto(encoder, NULL, func);
 	name = func->alias ?: func->name;
 	if (btf_fnproto_id >= 0)
 		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id,
@@ -1186,40 +1186,23 @@ static int32_t btf_encoder__add_func(struct btf_encoder *encoder, struct functio
 		       name, btf_fnproto_id < 0 ? "proto" : "func");
 		return -1;
 	}
-	if (!fn) {
-		struct btf_encoder_func_state *state = &func->state;
-		uint16_t idx;
+	if (state->nr_annots == 0)
+		return 0;
 
-		if (state->nr_annots == 0)
-			return 0;
+	for (idx = 0; idx < state->nr_annots; idx++) {
+		struct btf_encoder_func_annot *a = &state->annots[idx];
 
-		for (idx = 0; idx < state->nr_annots; idx++) {
-			struct btf_encoder_func_annot *a = &state->annots[idx];
+		value = btf__str_by_offset(encoder->btf, a->value);
+		/* adding BTF data may result in a mode of the
+		 * value string memory, so make a temporary copy.
+		 */
+		strncpy(tmp_value, value, sizeof(tmp_value) - 1);
+		component_idx = a->component_idx;
 
-			value = btf__str_by_offset(encoder->btf, a->value);
-			/* adding BTF data may result in a mode of the
-			 * value string memory, so make a temporary copy.
-			 */
-			strncpy(tmp_value, value, sizeof(tmp_value) - 1);
-			component_idx = a->component_idx;
-
-			tag_type_id = btf_encoder__add_decl_tag(encoder, tmp_value,
-								btf_fn_id, component_idx);
-			if (tag_type_id < 0)
-				break;
-		}
-	} else {
-		struct llvm_annotation *annot;
-
-		list_for_each_entry(annot, &fn->annots, node) {
-			value = annot->value;
-			component_idx = annot->component_idx;
-
-			tag_type_id = btf_encoder__add_decl_tag(encoder, value, btf_fn_id,
-								component_idx);
-			if (tag_type_id < 0)
-				break;
-		}
+		tag_type_id = btf_encoder__add_decl_tag(encoder, tmp_value,
+							btf_fn_id, component_idx);
+		if (tag_type_id < 0)
+			break;
 	}
 	if (tag_type_id < 0) {
 		fprintf(stderr,
@@ -1277,8 +1260,9 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder)
 		 * just do not _use_ them.  Only exclude functions with
 		 * unexpected register use or multiple inconsistent prototypes.
 		 */
-		if (!state->unexpected_reg && !state->inconsistent_proto) {
-			if (btf_encoder__add_func(encoder, NULL, func))
+		if (!encoder->skip_encoding_inconsistent_proto ||
+		    (!state->unexpected_reg && !state->inconsistent_proto)) {
+			if (btf_encoder__add_func(encoder, func))
 				return -1;
 		}
 		state->processed = 1;
@@ -2353,6 +2337,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		encoder->force		 = conf_load->btf_encode_force;
 		encoder->gen_floats	 = conf_load->btf_gen_floats;
 		encoder->skip_encoding_decl_tag	 = conf_load->skip_encoding_btf_decl_tag;
+		encoder->skip_encoding_inconsistent_proto = conf_load->skip_encoding_btf_inconsistent_proto;
 		encoder->tag_kfuncs	 = conf_load->btf_decl_tag_kfuncs;
 		encoder->gen_distilled_base = conf_load->btf_gen_distilled_base;
 		encoder->verbose	 = verbose;
@@ -2558,7 +2543,6 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 
 	cu__for_each_function(cu, core_id, fn) {
 		struct elf_function *func = NULL;
-		bool save = false;
 
 		/*
 		 * Skip functions that:
@@ -2580,15 +2564,8 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 
 			/* prefer exact function name match... */
 			func = btf_encoder__find_function(encoder, name, 0);
-			if (func) {
-				if (func->generated)
-					continue;
-				if (conf_load->skip_encoding_btf_inconsistent_proto)
-					save = true;
-				else
-					func->generated = true;
-			} else if (encoder->functions.suffix_cnt &&
-				   conf_load->btf_gen_optimized) {
+			if (!func && encoder->functions.suffix_cnt &&
+			    conf_load->btf_gen_optimized) {
 				/* falling back to name.isra.0 match if no exact
 				 * match is found; only bother if we found any
 				 * .suffix function names.  The function
@@ -2599,7 +2576,6 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 				func = btf_encoder__find_function(encoder, name,
 								  strlen(name));
 				if (func) {
-					save = true;
 					if (encoder->verbose)
 						printf("matched function '%s' with '%s'%s\n",
 						       name, func->name,
@@ -2617,10 +2593,7 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 		if (!func)
 			continue;
 
-		if (save)
-			err = btf_encoder__save_func(encoder, fn, func);
-		else
-			err = btf_encoder__add_func(encoder, fn, func);
+		err = btf_encoder__save_func(encoder, fn, func);
 		if (err)
 			goto out;
 	}
