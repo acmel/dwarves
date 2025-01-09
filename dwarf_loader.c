@@ -3440,6 +3440,7 @@ struct dwarf_cus {
 	int		    build_id_len;
 	int		    error;
 	struct dwarf_cu	    *type_dcu;
+	uint32_t	nr_cus_created;
 };
 
 struct dwarf_thread {
@@ -3471,6 +3472,9 @@ static struct dwarf_cu *dwarf_cus__create_cu(struct dwarf_cus *dcus, Dwarf_Die *
 	dcu->type_unit = dcus->type_dcu;
 	cu->priv = dcu;
 	cu->dfops = &dwarf__ops;
+
+	cu->id = dcus->nr_cus_created;
+	dcus->nr_cus_created++;
 
 	return dcu;
 }
@@ -3783,6 +3787,7 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 			.type_dcu = type_cu ? &type_dcu : NULL,
 			.build_id = build_id,
 			.build_id_len = build_id_len,
+			.nr_cus_created = 0,
 		};
 		res = dwarf_cus__process_cus(&dcus);
 	}

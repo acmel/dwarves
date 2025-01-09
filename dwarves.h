@@ -290,6 +290,7 @@ struct cu {
 	struct ptr_table functions_table;
 	struct ptr_table tags_table;
 	struct rb_root	 functions;
+	uint32_t	 id;
 	const char	 *name;
 	char		 *filename;
 	void 		 *priv;
