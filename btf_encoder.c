@@ -1083,7 +1083,7 @@ static bool funcs__match(struct btf_encoder_func_state *s1,
 
 static struct btf_encoder_func_state *btf_encoder__alloc_func_state(struct btf_encoder *encoder)
 {
-	struct btf_encoder_func_state *tmp;
+	struct btf_encoder_func_state *state, *tmp;
 
 	if (encoder->func_states.cnt >= encoder->func_states.cap) {
 
@@ -1100,7 +1100,10 @@ static struct btf_encoder_func_state *btf_encoder__alloc_func_state(struct btf_e
 		encoder->func_states.array = tmp;
 	}
 
-	return &encoder->func_states.array[encoder->func_states.cnt++];
+	state = &encoder->func_states.array[encoder->func_states.cnt++];
+	memset(state, 0, sizeof(*state));
+
+	return state;
 }
 
 static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct function *fn, struct elf_function *func)
