@@ -1,0 +1,31 @@
+DWARF loader:
+
+- Multithreading is now contained in the DWARF loader using a jobs queue and a
+  pool of worker threads.
+
+BTF encoder:
+    
+- The parallel reproducible BTF generation done using the new DWARF loader
+  multithreading model is as fast as the old non-reproducible one and thus is
+  now always performed, making the "reproducible_build" flag moot.
+
+  The memory consumption is now greatly reduced as well.
+
+BTF loader:
+
+- Support for multiple BTF_DECL_TAGs pointing to same tag.
+
+  Example:
+    
+      $ pfunct vmlinux -F btf -f bpf_rdonly_cast
+      bpf_kfunc bpf_fastcall void *bpf_rdonly_cast(const void *obj__ign, u32 btf_id__k);
+
+Regression tests:
+
+- Verify that pfunct prints btf_decl_tags read from BTF.
+
+pfunct:
+
+- Don't print functions twice when using -f.
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>

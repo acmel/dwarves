@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.28
+Version: 1.29
 Release: 1%{?dist}
 License: GPL-2.0-only
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -79,7 +79,7 @@ rm -Rf %{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
-%doc changes-v1.28
+%doc changes-v1.29
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -131,6 +131,16 @@ rm -Rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Wed Jan 15 2025 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.29-1
+- Multithreading is now in the DWARF loader using a jobs queue and a pool of worker threads.
+- The BTF encoding now is always reproducible, and as fast/faster than before.
+- The memory consumption is reduced.
+- Support for multiple BTF_DECL_TAGs pointing to same tag.
+- Verify that pfunct prints btf_decl_tags read from BTF.
+- Don't print functions twice when using 'pfunct -f function_name'.
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
 * Fri Dec  6 2024 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.28-1
 - New release: 1.28
 - Various improvements to reduce the memory footprint of pahole, notably when doing BTF encoding.

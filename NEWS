@@ -1,3 +1,21 @@
+v1.29
+
+7f9c031edfc6d2f6 btf_encoder: Always initialize func_state to 0
+24c655f17e875492 btf_encoder: Switch func_states from a list to an array
+e3545ca63e50c309 btf_encoder: Clean up global encoders list
+4c916259c3e7fd3e dwarf_loader: Multithreading with a job/worker model
+17c757110e5ff2f1 dwarf_loader: Introduce cu->id
+419e37941c470d1f btf_encoder: Remove skip_encoding_inconsistent_proto
+99e78ff34f8171f9 btf_encoder: Introduce elf_functions_list
+61f37edc7d860191 btf_encoder: Introduce elf_functions struct type
+184dcaa47cd40444 btf_encoder: Separate ELF function, saved function representations
+13ae534068b9f518 btf_encoder: Free encoder->secinfo in btf_encoder__delete()
+80e501122a180e45 btf_encoder: Simplify function encoding
+bc3e337e5b379935 pfunct: Don't print functions twice when using -f
+176864dfe42f9f85 tests: Verify that pfunct prints btf_decl_tags read from BTF
+e703e6ebe92c976a btf_loader: Support for multiple BTF_DECL_TAGs pointing to same tag
+8067a85bf88af925 dwarves: Increase cu->obstack chunk size to 128Kb
+
 v1.28
 
 3ddadc131586d6f3 btf_encoder: handle .BTF_ids section endianness
