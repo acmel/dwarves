@@ -1436,7 +1436,7 @@ static const struct argp_option pahole__options[] = {
 	{
 		.name = "with_embedded_flexible_array",
 		.key  = ARGP_with_embedded_flexible_array,
-		.doc  = "show only structs with an embedded flexible array (contaning a struct that has a flexible array)",
+		.doc  = "show only structs with an embedded flexible array (containing a struct that has a flexible array)",
 	},
 	{
 		.name = "expand_types",
