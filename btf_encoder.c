@@ -137,7 +137,8 @@ struct btf_encoder {
 			  gen_floats,
 			  skip_encoding_decl_tag,
 			  tag_kfuncs,
-			  gen_distilled_base;
+			  gen_distilled_base,
+			  encode_attributes;
 	uint32_t	  array_index_id;
 	struct elf_secinfo *secinfo;
 	size_t             seccnt;
@@ -812,7 +813,7 @@ static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct f
 
 	assert(ftype != NULL || state != NULL);
 
-	if (is_kfunc_state(state) && encoder->tag_kfuncs)
+	if (is_kfunc_state(state) && encoder->tag_kfuncs && encoder->encode_attributes)
 		if (btf__add_bpf_arena_type_tags(encoder->btf, state) < 0)
 			return -1;
 
@@ -2405,6 +2406,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		encoder->skip_encoding_decl_tag	 = conf_load->skip_encoding_btf_decl_tag;
 		encoder->tag_kfuncs	 = conf_load->btf_decl_tag_kfuncs;
 		encoder->gen_distilled_base = conf_load->btf_gen_distilled_base;
+		encoder->encode_attributes = conf_load->btf_attributes;
 		encoder->verbose	 = verbose;
 		encoder->has_index_type  = false;
 		encoder->need_index_type = false;
