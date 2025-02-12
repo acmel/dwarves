@@ -89,6 +89,8 @@ struct elf_function {
 	const char	*name;
 	char		*alias;
 	size_t		prefixlen;
+	bool		kfunc;
+	uint32_t	kfunc_flags;
 };
 
 struct elf_secinfo {
@@ -143,11 +145,6 @@ struct btf_encoder {
 	 * so we have to store elf_functions tables per ELF.
 	 */
 	struct list_head elf_functions_list;
-};
-
-struct btf_func {
-	const char *name;
-	int	    type_id;
 };
 
 /* Half open interval representing range of addresses containing kfuncs */
@@ -1178,6 +1175,39 @@ out:
 	return err;
 }
 
+static int btf__add_kfunc_decl_tag(struct btf *btf, const char *tag, __u32 id, const char *kfunc)
+{
+	int err = btf__add_decl_tag(btf, tag, id, -1);
+
+	if (err < 0) {
+		fprintf(stderr, "%s: failed to insert kfunc decl tag for '%s': %d\n",
+			__func__, kfunc, err);
+		return err;
+	}
+	return 0;
+}
+
+static int btf__tag_kfunc(struct btf *btf, struct elf_function *kfunc, __u32 btf_fn_id)
+{
+	int err;
+
+	/* Note we are unconditionally adding the btf_decl_tag even
+	 * though vmlinux may already contain btf_decl_tags for kfuncs.
+	 * We are ok to do this b/c we will later btf__dedup() to remove
+	 * any duplicates.
+	 */
+	err = btf__add_kfunc_decl_tag(btf, BTF_KFUNC_TYPE_TAG, btf_fn_id, kfunc->name);
+	if (err < 0)
+		return err;
+
+	if (kfunc->kfunc_flags & KF_FASTCALL) {
+		err = btf__add_kfunc_decl_tag(btf, BTF_FASTCALL_TAG, btf_fn_id, kfunc->name);
+		if (err < 0)
+			return err;
+	}
+	return 0;
+}
+
 static int32_t btf_encoder__add_func(struct btf_encoder *encoder,
 				     struct btf_encoder_func_state *state)
 {
@@ -1188,6 +1218,7 @@ static int32_t btf_encoder__add_func(struct btf_encoder *encoder,
 	const char *value;
 	char tmp_value[KSYM_NAME_LEN];
 	uint16_t idx;
+	int err;
 
 	btf_fnproto_id = btf_encoder__add_func_proto(encoder, NULL, state);
 	name = func->alias ?: func->name;
@@ -1199,6 +1230,13 @@ static int32_t btf_encoder__add_func(struct btf_encoder *encoder,
 		       name, btf_fnproto_id < 0 ? "proto" : "func");
 		return -1;
 	}
+
+	if (func->kfunc && encoder->tag_kfuncs && !encoder->skip_encoding_decl_tag) {
+		err = btf__tag_kfunc(encoder->btf, func, btf_fn_id);
+		if (err < 0)
+			return err;
+	}
+
 	if (state->nr_annots == 0)
 		return 0;
 
@@ -1771,116 +1809,10 @@ static char *get_func_name(const char *sym)
 	return func;
 }
 
-static int btf_func_cmp(const void *_a, const void *_b)
-{
-	const struct btf_func *a = _a;
-	const struct btf_func *b = _b;
-
-	return strcmp(a->name, b->name);
-}
-
-/*
- * Collects all functions described in BTF.
- * Returns non-zero on error.
- */
-static int btf_encoder__collect_btf_funcs(struct btf_encoder *encoder, struct gobuffer *funcs)
-{
-	struct btf *btf = encoder->btf;
-	int nr_types, type_id;
-	int err = -1;
-
-	/* First collect all the func entries into an array */
-	nr_types = btf__type_cnt(btf);
-	for (type_id = 1; type_id < nr_types; type_id++) {
-		const struct btf_type *type;
-		struct btf_func func = {};
-		const char *name;
-
-		type = btf__type_by_id(btf, type_id);
-		if (!type) {
-			fprintf(stderr, "%s: malformed BTF, can't resolve type for ID %d\n",
-				__func__, type_id);
-			err = -EINVAL;
-			goto out;
-		}
-
-		if (!btf_is_func(type))
-			continue;
-
-		name = btf__name_by_offset(btf, type->name_off);
-		if (!name) {
-			fprintf(stderr, "%s: malformed BTF, can't resolve name for ID %d\n",
-				__func__, type_id);
-			err = -EINVAL;
-			goto out;
-		}
-
-		func.name = name;
-		func.type_id = type_id;
-		err = gobuffer__add(funcs, &func, sizeof(func));
-		if (err < 0)
-			goto out;
-	}
-
-	/* Now that we've collected funcs, sort them by name */
-	gobuffer__sort(funcs, sizeof(struct btf_func), btf_func_cmp);
-
-	err = 0;
-out:
-	return err;
-}
-
-static int btf__add_kfunc_decl_tag(struct btf *btf, const char *tag, __u32 id, const char *kfunc)
-{
-	int err = btf__add_decl_tag(btf, tag, id, -1);
-
-	if (err < 0) {
-		fprintf(stderr, "%s: failed to insert kfunc decl tag for '%s': %d\n",
-			__func__, kfunc, err);
-		return err;
-	}
-	return 0;
-}
-
-static int btf_encoder__tag_kfunc(struct btf_encoder *encoder, struct gobuffer *funcs, const char *kfunc, __u32 flags)
-{
-	struct btf_func key = { .name = kfunc };
-	struct btf *btf = encoder->btf;
-	struct btf_func *target;
-	const void *base;
-	unsigned int cnt;
-	int err;
-
-	base = gobuffer__entries(funcs);
-	cnt = gobuffer__nr_entries(funcs);
-	target = bsearch(&key, base, cnt, sizeof(key), btf_func_cmp);
-	if (!target) {
-		fprintf(stderr, "%s: failed to find kfunc '%s' in BTF\n", __func__, kfunc);
-		return -1;
-	}
-
-	/* Note we are unconditionally adding the btf_decl_tag even
-	 * though vmlinux may already contain btf_decl_tags for kfuncs.
-	 * We are ok to do this b/c we will later btf__dedup() to remove
-	 * any duplicates.
-	 */
-	err = btf__add_kfunc_decl_tag(btf, BTF_KFUNC_TYPE_TAG, target->type_id, kfunc);
-	if (err < 0)
-		return err;
-	if (flags & KF_FASTCALL) {
-		err = btf__add_kfunc_decl_tag(btf, BTF_FASTCALL_TAG, target->type_id, kfunc);
-		if (err < 0)
-			return err;
-	}
-
-	return 0;
-}
-
-static int btf_encoder__tag_kfuncs(struct btf_encoder *encoder)
+static int btf_encoder__collect_kfuncs(struct btf_encoder *encoder)
 {
 	const char *filename = encoder->source_filename;
 	struct gobuffer btf_kfunc_ranges = {};
-	struct gobuffer btf_funcs = {};
 	Elf_Data *symbols = NULL;
 	Elf_Data *idlist = NULL;
 	Elf_Scn *symscn = NULL;
@@ -1977,12 +1909,6 @@ static int btf_encoder__tag_kfuncs(struct btf_encoder *encoder)
 	}
 	nr_syms = shdr.sh_size / shdr.sh_entsize;
 
-	err = btf_encoder__collect_btf_funcs(encoder, &btf_funcs);
-	if (err) {
-		fprintf(stderr, "%s: failed to collect BTF funcs\n", __func__);
-		goto out;
-	}
-
 	/* First collect all kfunc set ranges.
 	 *
 	 * Note we choose not to sort these ranges and accept a linear
@@ -2015,12 +1941,12 @@ static int btf_encoder__tag_kfuncs(struct btf_encoder *encoder)
 	for (i = 0; i < nr_syms; i++) {
 		const struct btf_kfunc_set_range *ranges;
 		const struct btf_id_and_flag *pair;
+		struct elf_function *elf_fn;
 		unsigned int ranges_cnt;
 		char *func, *name;
 		ptrdiff_t off;
 		GElf_Sym sym;
 		bool found;
-		int err;
 		int j;
 
 		if (!gelf_getsym(symbols, i, &sym)) {
@@ -2061,18 +1987,16 @@ static int btf_encoder__tag_kfuncs(struct btf_encoder *encoder)
 			continue;
 		}
 
-		err = btf_encoder__tag_kfunc(encoder, &btf_funcs, func, pair->flags);
-		if (err) {
-			fprintf(stderr, "%s: failed to tag kfunc '%s'\n", __func__, func);
-			free(func);
-			goto out;
+		elf_fn = btf_encoder__find_function(encoder, func, 0);
+		if (elf_fn) {
+			elf_fn->kfunc = true;
+			elf_fn->kfunc_flags = pair->flags;
 		}
 		free(func);
 	}
 
 	err = 0;
 out:
-	__gobuffer__delete(&btf_funcs);
 	__gobuffer__delete(&btf_kfunc_ranges);
 	if (elf)
 		elf_end(elf);
@@ -2083,7 +2007,6 @@ out:
 
 int btf_encoder__encode(struct btf_encoder *encoder, struct conf_load *conf)
 {
-	bool should_tag_kfuncs;
 	int err;
 	size_t shndx;
 
@@ -2098,15 +2021,6 @@ int btf_encoder__encode(struct btf_encoder *encoder, struct conf_load *conf)
 	/* Empty file, nothing to do, so... done! */
 	if (btf__type_cnt(encoder->btf) == 1)
 		return 0;
-
-	/* Note vmlinux may already contain btf_decl_tag's for kfuncs. So
-	 * take care to call this before btf_dedup().
-	 */
-	should_tag_kfuncs = encoder->tag_kfuncs && !encoder->skip_encoding_decl_tag;
-	if (should_tag_kfuncs && btf_encoder__tag_kfuncs(encoder)) {
-		fprintf(stderr, "%s: failed to tag kfuncs!\n", __func__);
-		return -1;
-	}
 
 	if (btf__dedup(encoder->btf, NULL)) {
 		fprintf(stderr, "%s: btf__dedup failed!\n", __func__);
@@ -2495,6 +2409,11 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 
 		if (!found_percpu && encoder->verbose)
 			printf("%s: '%s' doesn't have '%s' section\n", __func__, cu->filename, PERCPU_SECTION);
+
+		if (encoder->tag_kfuncs) {
+			if (btf_encoder__collect_kfuncs(encoder))
+				goto out_delete;
+		}
 
 		if (encoder->verbose)
 			printf("File %s:\n", cu->filename);
