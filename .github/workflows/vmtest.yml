@@ -1,0 +1,62 @@
+name: 'Build kernel run selftests via vmtest'
+
+on:
+  workflow_call:
+    inputs:
+      runs_on:
+        required: true
+        default: 'ubuntu-24.04'
+        type: string
+      arch:
+        description: 'what arch to test'
+        required: true
+        default: 'x86_64'
+        type: string
+      kernel:
+        description: 'kernel version or LATEST'
+        required: true
+        default: 'LATEST'
+        type: string
+      pahole:
+        description: 'pahole rev or branch'
+        required: false
+        default: 'master'
+        type: string
+      llvm-version:
+        description: 'llvm version'
+        required: false
+        default: '18'
+        type: string
+jobs:
+  vmtest:
+    name: pahole@${{ inputs.arch }}
+    runs-on: ${{ inputs.runs_on }}
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: libbpf/ci/setup-build-env@v3
+        with:
+          pahole: ${{ inputs.pahole }}
+          arch: ${{ inputs.arch }}
+          llvm-version: ${{ inputs.llvm-version }}
+
+      - name: Build,install current pahole
+        shell: bash
+        run: .github/scripts/build-pahole.sh
+
+      - name: Get kernel source
+        uses: libbpf/ci/get-linux-source@v3
+        with:
+          repo: 'https://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git'
+          dest: '${{ github.workspace }}/.kernel'
+
+      - name: Configure, build kernel with current pahole
+        shell: bash
+        run: .github/scripts/build-kernel.sh
+
+      - name: Run selftests
+        shell: bash
+        run: .github/scripts/run-selftests.sh
+

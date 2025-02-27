@@ -21,3 +21,21 @@ cmake Options:
 You may need to update the libbpf git submodule:
 
 git submodule update --init --recursive
+
+Testing:
+
+Tests are available in the tests subdirectory and should be run prior to
+submitting patches.  Patches that add functionality should add to tests
+here also.  Tests can be run by
+
+- running the scripts directly using a pre-existing vmlinux binary; i.e.
+	cd tests ; vmlinux=/path/2/vmlinux ./tests
+  (the vmlinux binary must contain DWARF to be converted to BTF)
+
+- running the tests via local scripts in .github/scripts; i.e.
+	bash .github/scripts/build-pahole.sh; \
+	bash .github/scripts/build-kernel.sh; \
+	bash .github/scripts/run-selftests.sh
+- via GitHub actions: push a branch to a GitHub repo; actions will be
+  triggered for build and test matching the above steps.  See the "Actions"
+  tab in the github repo for info on job pass/fail and logs.
