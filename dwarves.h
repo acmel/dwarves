@@ -52,6 +52,7 @@ enum load_steal_kind {
 struct btf;
 __weak extern int btf__add_enum64(struct btf *btf, const char *name, __u32 byte_sz, bool is_signed);
 __weak extern int btf__add_enum64_value(struct btf *btf, const char *name, __u64 value);
+__weak extern int btf__add_type_attr(struct btf *btf, const char *value, int ref_type_id);
 __weak extern int btf__distill_base(const struct btf *src_btf, struct btf **new_base_btf, struct btf **new_split_btf);
 
 /*
