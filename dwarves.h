@@ -14,6 +14,7 @@
 #include <obstack.h>
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
+#include <linux/types.h>
 #include <sys/types.h>
 
 #include "dutil.h"
@@ -45,12 +46,20 @@ enum load_steal_kind {
 };
 
 /*
+ * Weak declarations of libbpf APIs that are version-dependent
+ */
+#define __weak __attribute__((weak))
+struct btf;
+__weak extern int btf__add_enum64(struct btf *btf, const char *name, __u32 byte_sz, bool is_signed);
+__weak extern int btf__add_enum64_value(struct btf *btf, const char *name, __u64 value);
+__weak extern int btf__distill_base(const struct btf *src_btf, struct btf **new_base_btf, struct btf **new_split_btf);
+
+/*
  * BTF combines all the types into one big CU using btf_dedup(), so for something
  * like a allyesconfig vmlinux kernel we can get over 65535 types.
  */
 typedef uint32_t type_id_t;
 
-struct btf;
 struct conf_fprintf;
 
 /** struct conf_load - load configuration
