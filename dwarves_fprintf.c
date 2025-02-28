@@ -2110,7 +2110,7 @@ static size_t namespace__fprintf(const struct tag *tag, const struct cu *cu,
 		printed += fprintf(fp, "\n\n");
 	}
 
-	return fprintf(fp, "%.*s}", conf->indent, tabs);
+	return printed + fprintf(fp, "%.*s}", conf->indent, tabs);
 }
 
 size_t tag__fprintf(struct tag *tag, const struct cu *cu,
