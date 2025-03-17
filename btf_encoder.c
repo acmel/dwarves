@@ -2239,6 +2239,7 @@ static bool filter_variable_name(const char *name)
 		X("__UNIQUE_ID"),
 		X("__tpstrtab_"),
 		X("__exitcall_"),
+		X("__gendwarfksyms_ptr_"),
 		X("__func_stack_frame_non_standard_")
 		#undef X
 	};
