@@ -34,6 +34,7 @@
 #include <search.h> /* for tsearch(), tfind() and tdestroy() */
 #include <pthread.h>
 
+#define BTF_BASE_ELF_SEC	".BTF.base"
 #define BTF_IDS_SECTION		".BTF_ids"
 #define BTF_ID_FUNC_PFX		"__BTF_ID__func__"
 #define BTF_ID_SET8_PFX		"__BTF_ID__set8__"
@@ -625,29 +626,6 @@ static int32_t btf_encoder__add_struct(struct btf_encoder *encoder, uint8_t kind
 	return id;
 }
 
-#if LIBBPF_MAJOR_VERSION < 1
-static inline int libbpf_err(int ret)
-{
-        if (ret < 0)
-                errno = -ret;
-        return ret;
-}
-
-static
-int btf__add_enum64(struct btf *btf __maybe_unused, const char *name __maybe_unused,
-		    __u32 byte_sz __maybe_unused, bool is_signed __maybe_unused)
-{
-	return  libbpf_err(-ENOTSUP);
-}
-
-static
-int btf__add_enum64_value(struct btf *btf __maybe_unused, const char *name __maybe_unused,
-			  __u64 value __maybe_unused)
-{
-	return  libbpf_err(-ENOTSUP);
-}
-#endif
-
 static int32_t btf_encoder__add_enum(struct btf_encoder *encoder, const char *name, struct type *etype,
 				     struct conf_load *conf_load)
 {
@@ -660,8 +638,13 @@ static int32_t btf_encoder__add_enum(struct btf_encoder *encoder, const char *na
 	is_enum32 = size <= 4 || conf_load->skip_encoding_btf_enum64;
 	if (is_enum32)
 		id = btf__add_enum(btf, name, size);
-	else
+	else if (btf__add_enum64)
 		id = btf__add_enum64(btf, name, size, etype->is_signed_enum);
+	else {
+		fprintf(stderr, "btf__add_enum64 is not available, is libbpf < 1.0?\n");
+		return -ENOTSUP;
+	}
+
 	if (id > 0) {
 		t = btf__type_by_id(btf, id);
 		btf_encoder__log_type(encoder, t, false, true, "size=%u", t->size);
@@ -684,10 +667,14 @@ static int btf_encoder__add_enum_val(struct btf_encoder *encoder, const char *na
 	 */
 	if (conf_load->skip_encoding_btf_enum64)
 		err = btf__add_enum_value(encoder->btf, name, (uint32_t)value);
-	else if (etype->size > 32)
-		err = btf__add_enum64_value(encoder->btf, name, value);
-	else
+	else if (etype->size <= 32)
 		err = btf__add_enum_value(encoder->btf, name, value);
+	else if (btf__add_enum64_value)
+		err = btf__add_enum64_value(encoder->btf, name, value);
+	else {
+		fprintf(stderr, "btf__add_enum64_value is not available, is libbpf < 1.0?\n");
+		return -ENOTSUP;
+	}
 
 	if (!err) {
 		if (encoder->verbose) {
@@ -1947,7 +1934,6 @@ static int btf_encoder__collect_kfuncs(struct btf_encoder *encoder)
 		ptrdiff_t off;
 		GElf_Sym sym;
 		bool found;
-		int err;
 		int j;
 
 		if (!gelf_getsym(symbols, i, &sym)) {
@@ -2036,9 +2022,13 @@ int btf_encoder__encode(struct btf_encoder *encoder, struct conf_load *conf)
 		 * silently ignore the feature request if libbpf does not
 		 * support it.
 		 */
-#if LIBBPF_MAJOR_VERSION >= 1 && LIBBPF_MINOR_VERSION >= 5
 		if (encoder->gen_distilled_base) {
 			struct btf *btf = NULL, *distilled_base = NULL;
+
+			if (!btf__distill_base) {
+				fprintf(stderr, "btf__distill_base is not available, is libbpf < 1.5?\n");
+				return -ENOTSUP;
+			}
 
 			if (btf__distill_base(encoder->btf, &distilled_base, &btf) < 0) {
 				fprintf(stderr, "could not generate distilled base BTF: %s\n",
@@ -2052,7 +2042,6 @@ int btf_encoder__encode(struct btf_encoder *encoder, struct conf_load *conf)
 			btf__free(distilled_base);
 			return err;
 		}
-#endif
 		err = btf_encoder__write_elf(encoder, encoder->btf, BTF_ELF_SEC);
 	}
 
