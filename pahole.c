@@ -1183,10 +1183,31 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
  * floats, etc.  This ensures backwards compatibility.
  */
 #define BTF_DEFAULT_FEATURE(name, alias, initial_value)		\
-	{ #name, #alias, &conf_load.alias, initial_value, true }
+	{ #name, #alias, &conf_load.alias, initial_value, true, NULL }
+
+#define BTF_DEFAULT_FEATURE_CHECK(name, alias, initial_value, feature_check)	\
+	{ #name, #alias, &conf_load.alias, initial_value, true, feature_check }
 
 #define BTF_NON_DEFAULT_FEATURE(name, alias, initial_value)	\
-	{ #name, #alias, &conf_load.alias, initial_value, false }
+	{ #name, #alias, &conf_load.alias, initial_value, false, NULL }
+
+#define BTF_NON_DEFAULT_FEATURE_CHECK(name, alias, initial_value, feature_check) \
+	{ #name, #alias, &conf_load.alias, initial_value, false, feature_check }
+
+static bool enum64_check(void)
+{
+	return btf__add_enum64 != NULL;
+}
+
+static bool distilled_base_check(void)
+{
+	return btf__distill_base != NULL;
+}
+
+static bool attributes_check(void)
+{
+	return btf__add_type_attr != NULL;
+}
 
 struct btf_feature {
 	const char      *name;
@@ -1196,20 +1217,23 @@ struct btf_feature {
 	bool		default_enabled;	/* some nonstandard features may not
 						 * be enabled for --btf_features=default
 						 */
+	bool		(*feature_check)(void);
 } btf_features[] = {
 	BTF_DEFAULT_FEATURE(encode_force, btf_encode_force, false),
 	BTF_DEFAULT_FEATURE(var, skip_encoding_btf_vars, true),
 	BTF_DEFAULT_FEATURE(float, btf_gen_floats, false),
 	BTF_DEFAULT_FEATURE(decl_tag, skip_encoding_btf_decl_tag, true),
 	BTF_DEFAULT_FEATURE(type_tag, skip_encoding_btf_type_tag, true),
-	BTF_DEFAULT_FEATURE(enum64, skip_encoding_btf_enum64, true),
+	BTF_DEFAULT_FEATURE_CHECK(enum64, skip_encoding_btf_enum64, true, enum64_check),
 	BTF_DEFAULT_FEATURE(optimized_func, btf_gen_optimized, false),
 	BTF_DEFAULT_FEATURE(consistent_func, skip_encoding_btf_inconsistent_proto, false),
 	BTF_DEFAULT_FEATURE(decl_tag_kfuncs, btf_decl_tag_kfuncs, false),
 	BTF_NON_DEFAULT_FEATURE(reproducible_build, reproducible_build, false),
-	BTF_NON_DEFAULT_FEATURE(distilled_base, btf_gen_distilled_base, false),
+	BTF_NON_DEFAULT_FEATURE_CHECK(distilled_base, btf_gen_distilled_base, false,
+				      distilled_base_check),
 	BTF_NON_DEFAULT_FEATURE(global_var, encode_btf_global_vars, false),
-	BTF_NON_DEFAULT_FEATURE(attributes, btf_attributes, false),
+	BTF_NON_DEFAULT_FEATURE_CHECK(attributes, btf_attributes, false,
+				      attributes_check),
 };
 
 #define BTF_MAX_FEATURE_STR	1024
@@ -1248,7 +1272,8 @@ static void enable_btf_feature(struct btf_feature *feature)
 	/* switch "initial-off" features on, and "initial-on" features
 	 * off; i.e. negate the initial value.
 	 */
-	*feature->conf_value = !feature->initial_value;
+	if (!feature->feature_check || feature->feature_check())
+		*feature->conf_value = !feature->initial_value;
 }
 
 static void show_supported_btf_features(FILE *output)
@@ -1256,6 +1281,8 @@ static void show_supported_btf_features(FILE *output)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(btf_features); i++) {
+		if (btf_features[i].feature_check && !btf_features[i].feature_check())
+			continue;
 		if (i > 0)
 			fprintf(output, ",");
 		fprintf(output, "%s", btf_features[i].name);
