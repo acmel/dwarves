@@ -3459,6 +3459,7 @@ static struct {
 	 */
 	uint32_t next_cu_id;
 	struct list_head jobs;
+	bool abort;
 } cus_processing_queue;
 
 enum job_type {
@@ -3479,6 +3480,7 @@ static void cus_queue__init(void)
 	pthread_cond_init(&cus_processing_queue.job_added, NULL);
 	INIT_LIST_HEAD(&cus_processing_queue.jobs);
 	cus_processing_queue.next_cu_id = 0;
+	cus_processing_queue.abort = false;
 }
 
 static void cus_queue__destroy(void)
@@ -3535,8 +3537,9 @@ static struct cu_processing_job *cus_queue__enqdeq_job(struct cu_processing_job 
 		pthread_cond_signal(&cus_processing_queue.job_added);
 	}
 	for (;;) {
+		bool abort = __atomic_load_n(&cus_processing_queue.abort, __ATOMIC_SEQ_CST);
 		job = cus_queue__try_dequeue();
-		if (job)
+		if (job || abort)
 			break;
 		/* No jobs or only steals out of order */
 		pthread_cond_wait(&cus_processing_queue.job_added, &cus_processing_queue.mutex);
@@ -3653,6 +3656,9 @@ static void *dwarf_loader__worker_thread(void *arg)
 
 	while (!stop) {
 		job = cus_queue__enqdeq_job(job);
+		if (!job)
+			goto out_abort;
+
 		switch (job->type) {
 
 		case JOB_DECODE:
@@ -3688,6 +3694,8 @@ static void *dwarf_loader__worker_thread(void *arg)
 
 	return (void *)DWARF_CB_OK;
 out_abort:
+	__atomic_store_n(&cus_processing_queue.abort, true, __ATOMIC_SEQ_CST);
+	pthread_cond_signal(&cus_processing_queue.job_added);
 	return (void *)DWARF_CB_ABORT;
 }
 
@@ -4028,7 +4036,7 @@ static int cus__process_file(struct cus *cus, struct conf_load *conf, int fd,
 
 	/* Process the one or more modules gleaned from this file. */
 	int err = dwfl_getmodules(dwfl, cus__process_dwflmod, &parms, 0);
-	if (err < 0)
+	if (err)
 		return -1;
 
 	// We can't call dwfl_end(dwfl) here, as we keep pointers to strings
