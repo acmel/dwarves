@@ -3527,6 +3527,14 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
+	// Right now encoding BTF has to be from DWARF, so enforce that, otherwise
+	// the loading process can fall back to other formats, BTF being the case
+	// and as this is at this point unintended, avoid that.
+	// Next we need to just skip object files that don't have the format we
+	// expect as the source for BTF encoding, i.e. no DWARF, no BTF, no problema.
+	if (btf_encode && conf_load.format_path == NULL)
+		conf_load.format_path = "dwarf";
+
 	if (show_running_kernel_vmlinux) {
 		const char *vmlinux = vmlinux_path__find_running_kernel();
 
