@@ -1,3 +1,21 @@
+v1.30
+
+06350d14776a77e1 dwarves: Fix clang warning about unused variable
+d0511b0cb24ef3f4 dwarves: Add github actions to build, test
+b4a071d99bb9e7c0 pahole: When trying to encode BTF avoid DWARF less files
+59f5409f1357dee7 dwarf_loader: Fix termination on BTF encoding error
+785b9457b2fd2864 pahole: Add a BTF feature check function
+d13f825dbed9208c man-pages: Describe attributes and remove reproducible_build
+40e82f5be9a7960a pahole: Introduce --btf_feature=attributes
+e64fd0dd22bf5395 btf_encoder: Emit type tags for bpf_arena pointers
+fe2dcd28ba9d3487 pahole: Sync with libbpf mainline
+9cabda4ae6bfadcc btf_encoder: Use __weak declarations of version-dependent libbpf API
+c5677178c8b0c426 btf_encoder: Refactor btf_encoder__tag_kfuncs()
+cfdce160433adad4 btf_encoder: Filter out __gendwarfksyms_ptr_
+a0be596ae76c720d Fix spelling error.
+9810758003ce9f8c btf_encoder: Verify 0 address DWARF variables are in ELF section
+f4b76280f81bde0b btf_encoder: Fix memory access bugs
+
 v1.29
 
 7f9c031edfc6d2f6 btf_encoder: Always initialize func_state to 0

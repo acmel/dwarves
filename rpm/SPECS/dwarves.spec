@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.29
+Version: 1.30
 Release: 1%{?dist}
 License: GPL-2.0-only
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -79,7 +79,7 @@ rm -Rf %{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
-%doc changes-v1.29
+%doc changes-v1.30
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -131,6 +131,14 @@ rm -Rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Wed Apr 9 2025 Alan Maguire <alan.maguire@oracle.com> - 1.30-1
+- Better detection of abort during DWARF loader thread processing
+- pahole now detects presence of libbpf APIs and BTF features using weak function
+  declarations when built using a shared library libbpf
+- Type tags are emitted for BPF arena pointers with new BTF "attributes" feature
+
+Signed-off-by: Alan Maguire <alan.maguuire@oracle.com> - 1.30-1
+
 * Wed Jan 15 2025 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.29-1
 - Multithreading is now in the DWARF loader using a jobs queue and a pool of worker threads.
 - The BTF encoding now is always reproducible, and as fast/faster than before.

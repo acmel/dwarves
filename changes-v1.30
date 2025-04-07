@@ -1,0 +1,41 @@
+CI testing:
+
+- support for github CI tests to build pahole with gcc
+  and LLVM.
+- support for github CI tests to build pahole, a kernel
+  along with BTF using that pahole and run tests.
+- tests can also be run standalone; see toplevel README
+  for details.
+
+DWARF loader:
+
+- better detection of abort during thread processing.
+
+BTF encoder:
+
+- pahole now uses an improved scheme to detect presence of
+  newer libbpf functions for cases where pahole is built with
+  a non-embedded libbpf. A local weak declaration is added,
+  and if the function is non-NULL - indicating it is present -
+  the associated feature is avaialble.  BTF feature detection
+  makes use of this now and BTF features declared in pahole
+  can provide a feature check function.
+
+- Type tags are now emitted for bpf_arena pointers if the
+  attributes btf_feature is specified.
+
+- kfunc tagging has been refactored into btf_encoder__collect_kfuncs
+  to simplify from the previous two-stage collect/tag process.
+
+- To support global variables other than per-CPU variables, code
+  was added to match a variable with the relevant section.  However
+  variables in to-be-discarded sections have address value 0 and
+  appeared to be in the per-CPU section (since it starts at 0).
+  Add checks to ensure the variable really is in the relevant
+  ELF section.
+
+- To avoid expensive variable address checking in the above case,
+  filter out variables prefixed by __gendwarfksyms_ptr_ which are
+  present when CONFIG_GENDWARFKSYMS is set.
+
+- Memory access bugs reported by address sanitizer were also fixed.
