@@ -18,6 +18,10 @@ cmake Options:
     Default is to install to /usr/local, use -DCMAKE_INSTALL_PREFIX=
     when invoking cmake to specify another install location.
 
+  -DCMAKE_INSTALL_LIBDIR
+    Default is to install to lib or lib64, use -DCMAKE_INSTALL_LIBDIR=
+    when invoking cmake to specify another install location.
+
 You may need to update the libbpf git submodule:
 
 git submodule update --init --recursive
