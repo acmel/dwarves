@@ -2007,7 +2007,7 @@ next_member:
 
 		printed += fprintf(fp, " */\n");
 	}
-	cacheline = (cconf.base_offset + type->size) % conf_fprintf__cacheline_size(conf);
+	cacheline = (cconf.base_offset + type->size) % conf_fprintf__cacheline_size(&cconf);
 	if (cacheline != 0)
 		printed += fprintf(fp, "%.*s/* last cacheline: %u bytes */\n",
 				   cconf.indent, tabs,
