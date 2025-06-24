@@ -20,12 +20,12 @@ jobs:
             runs_on: 'ubuntu-24.04'
             arch: 'x86_64'
             llvm-version: '18'
-            pahole: 'master'
+            pahole: 'none'
           - kernel: 'LATEST'
             runs_on: 'ubuntu-24.04-arm'
             arch: 'aarch64'
             llvm-version: '18'
-            pahole: 'tmp.master'
+            pahole: 'none'
     name: Linux ${{ matrix.kernel }}
     uses: ./.github/workflows/vmtest.yml
     with:
