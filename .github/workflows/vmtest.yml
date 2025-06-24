@@ -60,3 +60,7 @@ jobs:
         shell: bash
         run: .github/scripts/run-selftests.sh
 
+      - name: Compare functions generated
+        shell: bash
+        run: .github/scripts/compare-functions.sh
+
