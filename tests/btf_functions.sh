@@ -108,11 +108,6 @@ fi
 
 skipped_cnt=$(wc -l ${outdir}/skipped_fns | awk '{ print $1}')
 
-if [[ "$skipped_cnt" == "0" ]]; then
-	echo "No skipped functions.  Done."
-	exit 0
-fi
-
 skipped_fns=$(awk '{print $1}' $outdir/skipped_fns)
 for s in $skipped_fns ; do
 	# Ensure the skipped function are not in BTF
@@ -191,6 +186,92 @@ if [[ -n "$VERBOSE" ]]; then
 	echo "Found $optimized instances where the function name suggests optimizations led to inconsistent parameters."
 	echo "Found $warnings instances where pfunct did not notice inconsistencies."
 fi
-echo "Ok"
 
+# Some specific cases can not  be tested directly with a standard kernel.
+# We can use the small binary in bin/ to test those cases, like packed
+# structs passed on the stack.
+
+test -n "$VERBOSE" && echo -n "Validation of BTF encoding corner cases with test_bin functions; this may take some time: "
+
+test -n "$VERBOSE" && printf "\nBuilding test_bin..."
+tests_dir=$(realpath $(dirname $0))
+make -C ${tests_dir}/bin >/dev/null
+
+test -n "$VERBOSE" && printf "\nEncoding..."
+pahole --btf_features=default --lang_exclude=rust --btf_encode_detached=$outdir/test_bin.btf \
+	--verbose ${tests_dir}/bin/test_bin | grep "skipping BTF encoding of function" \
+	> ${outdir}/test_bin_skipped_fns
+
+funcs=$(pfunct --format_path=btf $outdir/test_bin.btd 2>/dev/null|sort)
+pfunct --all --no_parm_names --format_path=dwarf bin/test_bin | \
+	sort|uniq > $outdir/test_bin_dwarf.funcs
+pfunct --all --no_parm_names --format_path=btf $outdir/test_bin.btf 2>/dev/null|\
+	awk '{ gsub("^(bpf_kfunc |bpf_fastcall )+",""); print $0}'|sort|uniq > $outdir/test_bin_btf.funcs
+
+exact=0
+while IFS= read -r btf ; do
+	# Matching process can be kept simpler as the tested binary is
+	# specifically tailored for tests
+	dwarf=$(grep -F "$btf" $outdir/test_bin_dwarf.funcs)
+	if [[ "$btf" != "$dwarf" ]]; then
+		echo "ERROR: mismatch : BTF '$btf' not found; DWARF '$dwarf'"
+		fail
+	else
+		exact=$((exact+1))
+	fi
+done < $outdir/test_bin_btf.funcs
+
+if [[ -n "$VERBOSE" ]]; then
+	echo "Matched $exact functions exactly."
+	echo "Ok"
+	echo "Validation of skipped function logic..."
+fi
+
+skipped_cnt=$(wc -l ${outdir}/test_bin_skipped_fns | awk '{ print $1}')
+
+skipped_fns=$(awk '{print $1}' $outdir/test_bin_skipped_fns)
+for s in $skipped_fns ; do
+	# Ensure the skipped function are not in BTF
+	inbtf=$(grep " $s(" $outdir/test_bin_btf.funcs)
+	if [[ -n "$inbtf" ]]; then
+		echo "ERROR: '${s}()' was added incorrectly to BTF: '$inbtf'"
+		fail
+	fi
+done
+
+if [[ -n "$VERBOSE" ]]; then
+	echo "Skipped encoding $skipped_cnt functions in BTF."
+	echo "Ok"
+	echo "Validating skipped functions have uncertain parameter location..."
+fi
+
+uncertain_loc=$(awk '/due to uncertain parameter location/ { print $1 }' $outdir/test_bin_skipped_fns)
+legitimate_skip=0
+
+for f in $uncertain_loc ; do
+	# Extract parameters types
+	raw_params=$(grep ${f} $outdir/test_bin_dwarf.funcs|sed -n 's/^[^(]*(\([^)]*\)).*/\1/p')
+	IFS=',' read -ra params <<< "${raw_params}"
+	for param in "${params[@]}"
+	do
+		# Search any param that could be a struct
+		struct_type=$(echo ${param}|grep -E '^struct [^*]' | sed -E 's/^struct //')
+		if [ -n "${struct_type}" ]; then
+			# Check with pahole if the struct is detected as
+			# packed
+			if pahole -F dwarf -C "${struct_type}" ${tests_dir}/bin/test_bin|tail -n 2|grep -q __packed__
+			then
+				legitimate_skip=$((legitimate_skip+1))
+				continue 2
+			fi
+		fi
+	done
+	echo "ERROR: '${f}()' should not have been skipped; it has no parameter with uncertain location"
+	fail
+done
+
+if [[ -n "$VERBOSE" ]]; then
+	echo "Found ${legitimate_skip} legitimately skipped function due to uncertain loc"
+fi
+echo "Ok"
 exit 0
