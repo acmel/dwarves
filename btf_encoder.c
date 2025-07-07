@@ -87,6 +87,7 @@ struct btf_encoder_func_state {
 	uint8_t optimized_parms:1;
 	uint8_t unexpected_reg:1;
 	uint8_t inconsistent_proto:1;
+	uint8_t uncertain_parm_loc:1;
 	int ret_type_id;
 	struct btf_encoder_func_parm *parms;
 	struct btf_encoder_func_annot *annots;
@@ -1203,6 +1204,7 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 	state->inconsistent_proto = ftype->inconsistent_proto;
 	state->unexpected_reg = ftype->unexpected_reg;
 	state->optimized_parms = ftype->optimized_parms;
+	state->uncertain_parm_loc = ftype->uncertain_parm_loc;
 	ftype__for_each_parameter(ftype, param) {
 		const char *name = parameter__name(param) ?: "";
 
@@ -1365,7 +1367,7 @@ static int saved_functions_cmp(const void *_a, const void *_b)
 
 static int saved_functions_combine(struct btf_encoder_func_state *a, struct btf_encoder_func_state *b)
 {
-	uint8_t optimized, unexpected, inconsistent;
+	uint8_t optimized, unexpected, inconsistent, uncertain_parm_loc;
 	int ret;
 
 	ret = strncmp(a->elf->name, b->elf->name,
@@ -1375,11 +1377,13 @@ static int saved_functions_combine(struct btf_encoder_func_state *a, struct btf_
 	optimized = a->optimized_parms | b->optimized_parms;
 	unexpected = a->unexpected_reg | b->unexpected_reg;
 	inconsistent = a->inconsistent_proto | b->inconsistent_proto;
+	uncertain_parm_loc = a->uncertain_parm_loc | b->uncertain_parm_loc;
 	if (!unexpected && !inconsistent && !funcs__match(a, b))
 		inconsistent = 1;
 	a->optimized_parms = b->optimized_parms = optimized;
 	a->unexpected_reg = b->unexpected_reg = unexpected;
 	a->inconsistent_proto = b->inconsistent_proto = inconsistent;
+	a->uncertain_parm_loc = b->uncertain_parm_loc = uncertain_parm_loc;
 
 	return 0;
 }
@@ -1430,9 +1434,15 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_e
 		/* do not exclude functions with optimized-out parameters; they
 		 * may still be _called_ with the right parameter values, they
 		 * just do not _use_ them.  Only exclude functions with
-		 * unexpected register use or multiple inconsistent prototypes.
+		 * unexpected register use, multiple inconsistent prototypes or
+		 * uncertain parameters location
 		 */
-		add_to_btf |= !state->unexpected_reg && !state->inconsistent_proto;
+		add_to_btf |= !state->unexpected_reg && !state->inconsistent_proto && !state->uncertain_parm_loc;
+
+		if (state->uncertain_parm_loc)
+			btf_encoder__log_func_skip(encoder, saved_fns[i].elf,
+					"uncertain parameter location\n",
+					0, 0);
 
 		if (add_to_btf) {
 			err = btf_encoder__add_func(state->encoder, state);
@@ -2553,6 +2563,38 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	free(encoder);
 }
 
+static bool ftype__has_uncertain_arg_loc(struct cu *cu, struct ftype *ftype)
+{
+	struct parameter *param;
+	int param_idx = 0;
+
+	if (ftype->nr_parms < cu->nr_register_params)
+		return false;
+
+	ftype__for_each_parameter(ftype, param) {
+		if (param_idx++ < cu->nr_register_params)
+			continue;
+
+		struct tag *type = cu__type(cu, param->tag.type);
+
+		if (type == NULL || !tag__is_struct(type))
+			continue;
+
+		struct type *ctype = tag__type(type);
+		if (ctype->namespace.name == 0)
+			continue;
+
+		struct class *class = tag__class(type);
+
+		class__infer_packed_attributes(class, cu);
+
+		if (class->is_packed)
+			return true;
+	}
+
+	return false;
+}
+
 int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct conf_load *conf_load)
 {
 	struct llvm_annotation *annot;
@@ -2647,6 +2689,8 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 		 * Skip functions that:
 		 *   - are marked as declarations
 		 *   - do not have full argument names
+		 *   - have arguments with uncertain locations, e.g packed
+		 *   structs passed by value on stack
 		 *   - are not in ftrace list (if it's available)
 		 *   - are not external (in case ftrace filter is not available)
 		 */
@@ -2692,6 +2736,9 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 		}
 		if (!func)
 			continue;
+
+		if (ftype__has_uncertain_arg_loc(cu, &fn->proto))
+			fn->proto.uncertain_parm_loc = 1;
 
 		err = btf_encoder__save_func(encoder, fn, func);
 		if (err)
