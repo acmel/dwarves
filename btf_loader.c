@@ -645,9 +645,15 @@ static int class__fixup_btf_bitfields(const struct conf_load *conf, struct tag *
 		pos->byte_size = tag__size(type, cu);
 		pos->bit_size = pos->byte_size * 8;
 
-		/* if BTF data is incorrect and has size == 0, skip field,
-		 * instead of crashing */
+		/* If the BTF data is incorrect and has size == 0, skip field
+		 * instead of crashing. However the field can be a zero or
+		 * variable-length array and we still need to infer alignment.
+		 */
 		if (pos->byte_size == 0) {
+			pos->alignment = class__infer_alignment(conf,
+								pos->byte_offset,
+								tag__natural_alignment(type, cu),
+								smallest_offset);
 			continue;
 		}
 
