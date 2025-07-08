@@ -678,7 +678,18 @@ static int class__fixup_btf_bitfields(const struct conf_load *conf, struct tag *
 							pos->byte_offset,
 							tag__natural_alignment(type, cu),
 							smallest_offset);
-		smallest_offset = pos->byte_offset + pos->byte_size;
+
+		/* Compute the smallest offset between this field and the next
+		 * one.
+		 *
+		 * In case of bitfields we need to take into account the
+		 * actual size being used instead of the underlying type one as
+		 * it could be larger, otherwise we could miss a hole.
+		 */
+		smallest_offset = pos->byte_offset;
+		smallest_offset += pos->bitfield_size ?
+			(pos->bitfield_offset + pos->bitfield_size + 7) / 8 :
+			pos->byte_size;
 	}
 
 	tag_type->alignment = class__infer_alignment(conf,
