@@ -3659,6 +3659,13 @@ try_sole_arg_as_class_names:
 			remaining = argc;
 			goto try_sole_arg_as_class_names;
 		}
+
+		if (btf_encode || ctf_encode) {
+			// If encoding is asked for and there is no DEBUG info to encode from,
+			// there are no errors, continue...
+			goto out_ok;
+		}
+
 		if (argv[remaining] != NULL) {
 			cus__fprintf_load_files_err(cus, "pahole", argv + remaining, err, stderr);
 		} else {
