@@ -92,11 +92,17 @@ struct btf_encoder_func_state {
 	struct btf_encoder_func_annot *annots;
 };
 
+struct elf_function_sym {
+	const char *name;
+	uint64_t addr;
+};
+
 struct elf_function {
-	const char	*name;
-	char		*alias;
-	size_t		prefixlen;
-	bool		kfunc;
+	char		*name;
+	struct elf_function_sym *syms;
+	uint16_t 	sym_cnt;
+	uint16_t 	ambiguous_addr:1;
+	uint16_t	kfunc:1;
 	uint32_t	kfunc_flags;
 };
 
@@ -115,7 +121,6 @@ struct elf_functions {
 	struct elf_symtab *symtab;
 	struct elf_function *entries;
 	int cnt;
-	int suffix_cnt; /* number of .isra, .part etc */
 };
 
 /*
@@ -161,10 +166,18 @@ struct btf_kfunc_set_range {
 	uint64_t end;
 };
 
+static inline void elf_function__clear(struct elf_function *func) {
+	free(func->name);
+	if (func->sym_cnt)
+		free(func->syms);
+	memset(func, 0, sizeof(*func));
+}
+
 static inline void elf_functions__delete(struct elf_functions *funcs)
 {
-	for (int i = 0; i < funcs->cnt; i++)
-		free(funcs->entries[i].alias);
+	for (int i = 0; i < funcs->cnt; i++) {
+		elf_function__clear(&funcs->entries[i]);
+	}
 	free(funcs->entries);
 	elf_symtab__delete(funcs->symtab);
 	list_del(&funcs->node);
@@ -981,8 +994,7 @@ static void btf_encoder__log_func_skip(struct btf_encoder *encoder, struct elf_f
 
 	if (!encoder->verbose)
 		return;
-	printf("%s (%s): skipping BTF encoding of function due to ",
-	       func->alias ?: func->name, func->name);
+	printf("%s : skipping BTF encoding of function due to ", func->name);
 	va_start(ap, fmt);
 	vprintf(fmt, ap);
 	va_end(ap);
@@ -1176,6 +1188,47 @@ static struct btf_encoder_func_state *btf_encoder__alloc_func_state(struct btf_e
 	return state;
 }
 
+/* some "." suffixes do not correspond to real functions;
+ * - .part for partial inline
+ * - .cold for rarely-used codepath extracted for better code locality
+ */
+static inline bool is_non_fn_suffix(const char *suffix) {
+	static const char *skip[] = {
+		".cold",
+		".part"
+	};
+	int i;
+
+	if (!suffix)
+		return false;
+
+	for (i = 0; i < ARRAY_SIZE(skip); i++) {
+		if (strstr(suffix, skip[i]))
+			return true;
+	}
+
+	return false;
+}
+
+static bool elf_function__has_ambiguous_address(struct elf_function *func) {
+	struct elf_function_sym *sym;
+	uint64_t addr;
+
+	if (func->sym_cnt <= 1)
+		return false;
+
+	addr = 0;
+	for (int i = 0; i < func->sym_cnt; i++) {
+		sym = &func->syms[i];
+		if (addr && addr != sym->addr)
+			return true;
+		else
+			addr = sym->addr;
+	}
+
+	return false;
+}
+
 static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct function *fn, struct elf_function *func)
 {
 	struct btf_encoder_func_state *state = btf_encoder__alloc_func_state(encoder);
@@ -1294,7 +1347,7 @@ static int32_t btf_encoder__add_func(struct btf_encoder *encoder,
 	int err;
 
 	btf_fnproto_id = btf_encoder__add_func_proto(encoder, NULL, state);
-	name = func->alias ?: func->name;
+	name = func->name;
 	if (btf_fnproto_id >= 0)
 		btf_fn_id = btf_encoder__add_ref_type(encoder, BTF_KIND_FUNC, btf_fnproto_id,
 						      name, false);
@@ -1338,40 +1391,29 @@ static int32_t btf_encoder__add_func(struct btf_encoder *encoder,
 	return 0;
 }
 
-static int functions_cmp(const void *_a, const void *_b)
+static int elf_function__name_cmp(const void *_a, const void *_b)
 {
 	const struct elf_function *a = _a;
 	const struct elf_function *b = _b;
 
-	/* if search key allows prefix match, verify target has matching
-	 * prefix len and prefix matches.
-	 */
-	if (a->prefixlen && a->prefixlen == b->prefixlen)
-		return strncmp(a->name, b->name, b->prefixlen);
 	return strcmp(a->name, b->name);
 }
-
-#ifndef max
-#define max(x, y) ((x) < (y) ? (y) : (x))
-#endif
 
 static int saved_functions_cmp(const void *_a, const void *_b)
 {
 	const struct btf_encoder_func_state *a = _a;
 	const struct btf_encoder_func_state *b = _b;
 
-	return functions_cmp(a->elf, b->elf);
+	return elf_function__name_cmp(a->elf, b->elf);
 }
 
 static int saved_functions_combine(struct btf_encoder_func_state *a, struct btf_encoder_func_state *b)
 {
 	uint8_t optimized, unexpected, inconsistent;
-	int ret;
 
-	ret = strncmp(a->elf->name, b->elf->name,
-		      max(a->elf->prefixlen, b->elf->prefixlen));
-	if (ret != 0)
-		return ret;
+	if (a->elf != b->elf)
+		return 1;
+
 	optimized = a->optimized_parms | b->optimized_parms;
 	unexpected = a->unexpected_reg | b->unexpected_reg;
 	inconsistent = a->inconsistent_proto | b->inconsistent_proto;
@@ -1432,7 +1474,7 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_e
 		 * just do not _use_ them.  Only exclude functions with
 		 * unexpected register use or multiple inconsistent prototypes.
 		 */
-		add_to_btf |= !state->unexpected_reg && !state->inconsistent_proto;
+		add_to_btf |= !state->unexpected_reg && !state->inconsistent_proto && !state->elf->ambiguous_addr;
 
 		if (add_to_btf) {
 			err = btf_encoder__add_func(state->encoder, state);
@@ -1445,32 +1487,6 @@ out:
 	btf_encoder__delete_saved_funcs(encoder);
 
 	return err;
-}
-
-static void elf_functions__collect_function(struct elf_functions *functions, GElf_Sym *sym)
-{
-	struct elf_function *func;
-	const char *name;
-
-	if (elf_sym__type(sym) != STT_FUNC)
-		return;
-
-	name = elf_sym__name(sym, functions->symtab);
-	if (!name)
-		return;
-
-	func = &functions->entries[functions->cnt];
-	func->name = name;
-	if (strchr(name, '.')) {
-		const char *suffix = strchr(name, '.');
-
-		functions->suffix_cnt++;
-		func->prefixlen = suffix - name;
-	} else {
-		func->prefixlen = strlen(name);
-	}
-
-	functions->cnt++;
 }
 
 static struct elf_functions *btf_encoder__elf_functions(struct btf_encoder *encoder)
@@ -1490,13 +1506,12 @@ static struct elf_functions *btf_encoder__elf_functions(struct btf_encoder *enco
 	return funcs;
 }
 
-static struct elf_function *btf_encoder__find_function(const struct btf_encoder *encoder,
-						       const char *name, size_t prefixlen)
+static struct elf_function *btf_encoder__find_function(const struct btf_encoder *encoder, const char *name)
 {
 	struct elf_functions *funcs = elf_functions__find(encoder->cu->elf, &encoder->elf_functions_list);
-	struct elf_function key = { .name = name, .prefixlen = prefixlen };
+	struct elf_function key = { .name = (char*)name };
 
-	return bsearch(&key, funcs->entries, funcs->cnt, sizeof(key), functions_cmp);
+	return bsearch(&key, funcs->entries, funcs->cnt, sizeof(key), elf_function__name_cmp);
 }
 
 static bool btf_name_char_ok(char c, bool first)
@@ -2060,7 +2075,7 @@ static int btf_encoder__collect_kfuncs(struct btf_encoder *encoder)
 			continue;
 		}
 
-		elf_fn = btf_encoder__find_function(encoder, func, 0);
+		elf_fn = btf_encoder__find_function(encoder, func);
 		if (elf_fn) {
 			elf_fn->kfunc = true;
 			elf_fn->kfunc_flags = pair->flags;
@@ -2135,14 +2150,34 @@ int btf_encoder__encode(struct btf_encoder *encoder, struct conf_load *conf)
 	return err;
 }
 
+static inline int elf_function__push_sym(struct elf_function *func, struct elf_function_sym *sym) {
+	struct elf_function_sym *tmp;
+
+	if (func->sym_cnt)
+		tmp = realloc(func->syms, (func->sym_cnt + 1) * sizeof(func->syms[0]));
+	else
+		tmp = calloc(sizeof(func->syms[0]), 1);
+
+	if (!tmp)
+		return -ENOMEM;
+
+	func->syms = tmp;
+	func->syms[func->sym_cnt] = *sym;
+	func->sym_cnt++;
+
+	return 0;
+}
+
 static int elf_functions__collect(struct elf_functions *functions)
 {
 	uint32_t nr_symbols = elf_symtab__nr_symbols(functions->symtab);
-	struct elf_function *tmp;
+	struct elf_function_sym func_sym;
+	struct elf_function *func, *tmp;
+	const char *sym_name, *suffix;
 	Elf32_Word sym_sec_idx;
+	int err = 0, i, j;
 	uint32_t core_id;
 	GElf_Sym sym;
-	int err = 0;
 
 	/* We know that number of functions is less than number of symbols,
 	 * so we can overallocate temporarily.
@@ -2153,17 +2188,76 @@ static int elf_functions__collect(struct elf_functions *functions)
 		goto out_free;
 	}
 
+	/* First, collect an elf_function for each GElf_Sym
+	 * Where func->name is without a suffix
+	 */
 	functions->cnt = 0;
 	elf_symtab__for_each_symbol_index(functions->symtab, core_id, sym, sym_sec_idx) {
-		elf_functions__collect_function(functions, &sym);
+
+		if (elf_sym__type(&sym) != STT_FUNC)
+			continue;
+
+		sym_name = elf_sym__name(&sym, functions->symtab);
+		if (!sym_name)
+			continue;
+
+		suffix = strchr(sym_name, '.');
+		if (is_non_fn_suffix(sym_name))
+			continue;
+
+		func = &functions->entries[functions->cnt];
+		if (suffix)
+			func->name = strndup(sym_name, suffix - sym_name);
+		else
+			func->name = strdup(sym_name);
+
+		if (!func->name) {
+			err = -ENOMEM;
+			goto out_free;
+		}
+
+		func_sym.name = sym_name;
+		func_sym.addr = sym.st_value;
+
+		err = elf_function__push_sym(func, &func_sym);
+		if (err)
+			goto out_free;
+
+		functions->cnt++;
 	}
 
+	/* At this point functions->entries is an unordered array of elf_function
+	 * each having a name (without a suffix) and a single elf_function_sym (maybe with suffix)
+	 * Now let's sort this table by name.
+	 */
 	if (functions->cnt) {
-		qsort(functions->entries, functions->cnt, sizeof(*functions->entries), functions_cmp);
+		qsort(functions->entries, functions->cnt, sizeof(*functions->entries), elf_function__name_cmp);
 	} else {
 		err = 0;
 		goto out_free;
 	}
+
+	/* Finally dedup by name, transforming { name -> syms[1] } entries into { name -> syms[n] } */
+	i = 0;
+	j = 1;
+	for (j = 1; j < functions->cnt; j++) {
+		struct elf_function *a = &functions->entries[i];
+		struct elf_function *b = &functions->entries[j];
+
+		if (!strcmp(a->name, b->name)) {
+			elf_function__push_sym(a, &b->syms[0]);
+			elf_function__clear(b);
+		} else {
+			// at this point all syms for `a` have been collected
+			// check for ambiguous addresses before moving on
+			a->ambiguous_addr = elf_function__has_ambiguous_address(a);
+			i++;
+			if (i != j)
+				functions->entries[i] = functions->entries[j];
+		}
+	}
+
+	functions->cnt = i + 1;
 
 	/* Reallocate to the exact size */
 	tmp = realloc(functions->entries, functions->cnt * sizeof(struct elf_function));
@@ -2661,30 +2755,11 @@ int btf_encoder__encode_cu(struct btf_encoder *encoder, struct cu *cu, struct co
 			if (!name)
 				continue;
 
-			/* prefer exact function name match... */
-			func = btf_encoder__find_function(encoder, name, 0);
-			if (!func && funcs->suffix_cnt &&
-			    conf_load->btf_gen_optimized) {
-				/* falling back to name.isra.0 match if no exact
-				 * match is found; only bother if we found any
-				 * .suffix function names.  The function
-				 * will be saved and added once we ensure
-				 * it does not have optimized-out parameters
-				 * in any cu.
-				 */
-				func = btf_encoder__find_function(encoder, name,
-								  strlen(name));
-				if (func) {
-					if (encoder->verbose)
-						printf("matched function '%s' with '%s'%s\n",
-						       name, func->name,
-						       fn->proto.optimized_parms ?
-						       ", has optimized-out parameters" :
-						       fn->proto.unexpected_reg ? ", has unexpected register use by params" :
-						       "");
-					if (!func->alias)
-						func->alias = strdup(name);
-				}
+			func = btf_encoder__find_function(encoder, name);
+			if (!func) {
+				if (encoder->verbose)
+					printf("could not find function '%s' in the ELF functions table\n", name);
+				continue;
 			}
 		} else {
 			if (!fn->external)
