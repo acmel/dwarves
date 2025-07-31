@@ -3273,6 +3273,8 @@ static int cus__steal_now(struct cus *cus, struct cu *cu, struct conf_load *conf
 		break;
 	case LSK__KEEPIT:
 		break;
+	case LSK__ABORT:
+		break;
 	}
 	return lsk;
 }
@@ -3435,6 +3437,7 @@ struct dwarf_cus {
 	const unsigned char *build_id;
 	int		    build_id_len;
 	int		    error;
+	int		    lsk_status;
 	struct dwarf_cu	    *type_dcu;
 	uint32_t	nr_cus_created;
 };
@@ -3653,11 +3656,12 @@ static void *dwarf_loader__worker_thread(void *arg)
 	struct dwarf_cus *dcus = arg;
 	bool stop = false;
 	struct cu *cu;
+	int ret;
 
 	while (!stop) {
 		job = cus_queue__enqdeq_job(job);
 		if (!job)
-			goto out_abort;
+			goto out_early;
 
 		switch (job->type) {
 
@@ -3675,8 +3679,11 @@ static void *dwarf_loader__worker_thread(void *arg)
 			break;
 
 		case JOB_STEAL:
-			if (cus__steal_now(dcus->cus, job->cu, dcus->conf) == LSK__STOP_LOADING)
-				goto out_abort;
+			ret = cus__steal_now(dcus->cus, job->cu, dcus->conf);
+			if (ret == LSK__ABORT || ret == LSK__STOP_LOADING) {
+				dcus->lsk_status = ret;
+				goto out_early;
+			}
 			cus_queue__inc_next_cu_id();
 			/* re-enqueue JOB_DECODE so that next CU is decoded from DWARF */
 			job->type = JOB_DECODE;
@@ -3685,15 +3692,15 @@ static void *dwarf_loader__worker_thread(void *arg)
 
 		default:
 			fprintf(stderr, "Unknown dwarf_loader job type %d\n", job->type);
-			goto out_abort;
+			goto out_early;
 		}
 	}
 
 	if (dcus->error)
-		goto out_abort;
+		goto out_early;
 
 	return (void *)DWARF_CB_OK;
-out_abort:
+out_early:
 	__atomic_store_n(&cus_processing_queue.abort, true, __ATOMIC_SEQ_CST);
 	pthread_cond_signal(&cus_processing_queue.job_added);
 	return (void *)DWARF_CB_ABORT;
@@ -3746,7 +3753,7 @@ static int dwarf_cus__process_cus(struct dwarf_cus *dcus)
 		job = calloc(1, sizeof(*job));
 		if (!job) {
 			dcus->error = -ENOMEM;
-			goto out_error;
+			goto out_early;
 		}
 		job->type = JOB_DECODE;
 		/* no need for locks, workers were not started yet */
@@ -3772,7 +3779,7 @@ out_join:
 			dcus->error = (long)res;
 	}
 
-out_error:
+out_early:
 	cus_queue__destroy();
 
 	return dcus->error;
@@ -3868,7 +3875,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 		goto out_abort;
 
 	cu__finalize(cu, cus, conf);
-	if (cus__steal_now(cus, cu, conf) == LSK__STOP_LOADING)
+	if (cus__steal_now(cus, cu, conf) == LSK__ABORT)
 		goto out_abort;
 
 	return 0;
@@ -3893,6 +3900,7 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 	struct cu *type_cu;
 	struct dwarf_cu type_dcu;
 	int type_lsk = LSK__KEEPIT;
+	int lsk_worker_status = LSK__ABORT;
 
 	int res = __cus__load_debug_types(cus, conf, mod, dw, elf, filename, build_id, build_id_len, &type_cu, &type_dcu);
 	if (res != 0) {
@@ -3926,9 +3934,10 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 			.nr_cus_created = 0,
 		};
 		res = dwarf_cus__process_cus(&dcus);
+		lsk_worker_status = dcus.lsk_status;
 	}
 
-	if (res)
+	if (res && lsk_worker_status == LSK__ABORT)
 		return res;
 
 	if (type_lsk == LSK__DELETE)

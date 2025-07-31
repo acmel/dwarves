@@ -43,6 +43,7 @@ enum load_steal_kind {
 	LSK__KEEPIT,
 	LSK__DELETE,
 	LSK__STOP_LOADING,
+	LSK__ABORT,
 };
 
 /*

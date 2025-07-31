@@ -3165,13 +3165,13 @@ static enum load_steal_kind pahole_stealer__btf_encode(struct cu *cu, struct con
 
 	if (!btf_encoder) {
 		fprintf(stderr, "Error creating BTF encoder.\n");
-		return LSK__STOP_LOADING;
+		return LSK__ABORT;
 	}
 
 	err = btf_encoder__encode_cu(btf_encoder, cu, conf_load);
 	if (err < 0) {
 		fprintf(stderr, "Error while encoding BTF.\n");
-		return LSK__STOP_LOADING;
+		return LSK__ABORT;
 	}
 
 	return LSK__DELETE;
@@ -3230,7 +3230,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu, struct conf_load *conf
 		 *
 		 * FIXME: Disabled, should use Oracle's libctf
 		 */
-		goto dump_and_stop;
+		return LSK__ABORT;
 	}
 #endif
 	if (class_name == NULL) {
@@ -3281,7 +3281,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu, struct conf_load *conf
 
 		if (prototype->nr_args != 0 && !tag__is_struct(class)) {
 			fprintf(stderr, "pahole: attributes are only supported with 'class' and 'struct' types\n");
-			goto dump_and_stop;
+			return LSK__ABORT;
 		}
 
 		struct type *type = tag__type(class);
@@ -3291,7 +3291,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu, struct conf_load *conf
 			if (type->sizeof_member == NULL) {
 				fprintf(stderr, "pahole: the sizeof member '%s' wasn't found in the '%s' type\n",
 					prototype->size, prototype->name);
-				goto dump_and_stop;
+				return LSK__ABORT;
 			}
 		}
 
@@ -3300,7 +3300,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu, struct conf_load *conf
 			if (type->type_member == NULL) {
 				fprintf(stderr, "pahole: the type member '%s' wasn't found in the '%s' type\n",
 					prototype->type, prototype->name);
-				goto dump_and_stop;
+				return LSK__ABORT;
 			}
 		}
 
@@ -3315,7 +3315,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu, struct conf_load *conf
 			if (type->filter == NULL) {
 				fprintf(stderr, "pahole: invalid filter '%s' for '%s'\n",
 					prototype->filter, prototype->name);
-				goto dump_and_stop;
+				return LSK__ABORT;
 			}
 		}
 
@@ -3386,10 +3386,8 @@ static enum load_steal_kind pahole_stealer(struct cu *cu, struct conf_load *conf
 	/*
 	 * If we found all the entries in --class_name, stop
 	 */
-	if (list_empty(&class_names)) {
-dump_and_stop:
+	if (list_empty(&class_names))
 		ret = LSK__STOP_LOADING;
-	}
 dump_it:
 	if (first_obj_only)
 		ret = LSK__STOP_LOADING;
