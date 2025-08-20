@@ -168,7 +168,6 @@ static inline void elf_functions__delete(struct elf_functions *funcs)
 		free(funcs->entries[i].alias);
 	free(funcs->entries);
 	elf_symtab__delete(funcs->symtab);
-	list_del(&funcs->node);
 	free(funcs);
 }
 
@@ -210,6 +209,7 @@ static inline void elf_functions_list__clear(struct list_head *elf_functions_lis
 
 	list_for_each_safe(pos, tmp, elf_functions_list) {
 		funcs = list_entry(pos, struct elf_functions, node);
+		list_del(&funcs->node);
 		elf_functions__delete(funcs);
 	}
 }
