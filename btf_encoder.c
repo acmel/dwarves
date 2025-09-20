@@ -97,14 +97,14 @@ struct btf_encoder_func_state {
 struct elf_function_sym {
 	const char *name;
 	uint64_t addr;
-	uint8_t non_fn:1;
 };
 
 struct elf_function {
 	char		*name;
 	struct elf_function_sym *syms;
 	uint16_t	sym_cnt;
-	uint8_t		kfunc:1;
+	uint16_t 	ambiguous_addr:1;
+	uint16_t	kfunc:1;
 	uint32_t	kfunc_flags;
 };
 
@@ -168,7 +168,7 @@ struct btf_kfunc_set_range {
 	uint64_t end;
 };
 
-static inline void elf_function__free_content(struct elf_function *func)
+static inline void elf_function__clear(struct elf_function *func)
 {
 	free(func->name);
 	if (func->sym_cnt)
@@ -179,7 +179,7 @@ static inline void elf_function__free_content(struct elf_function *func)
 static inline void elf_functions__delete(struct elf_functions *funcs)
 {
 	for (int i = 0; i < funcs->cnt; i++)
-		elf_function__free_content(&funcs->entries[i]);
+		elf_function__clear(&funcs->entries[i]);
 	free(funcs->entries);
 	elf_symtab__delete(funcs->symtab);
 	free(funcs);
@@ -1214,21 +1214,20 @@ static bool str_contains_non_fn_suffix(const char *str) {
 static bool elf_function__has_ambiguous_address(struct elf_function *func)
 {
 	struct elf_function_sym *sym;
-	uint64_t addr = 0;
-	int i;
+	uint64_t addr;
 
 	if (func->sym_cnt <= 1)
 		return false;
 
-	for (i = 0; i < func->sym_cnt; i++) {
+	addr = 0;
+	for (int i = 0; i < func->sym_cnt; i++) {
 		sym = &func->syms[i];
-		if (!sym->non_fn) {
-			if (addr && addr != sym->addr)
-				return true;
-			else
-				addr = sym->addr;
-		}
+		if (addr && addr != sym->addr)
+			return true;
+		else
+			addr = sym->addr;
 	}
+
 	return false;
 }
 
@@ -1247,7 +1246,6 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 
 	state->encoder = encoder;
 	state->elf = func;
-	state->ambiguous_addr = elf_function__has_ambiguous_address(func);
 	state->nr_parms = ftype->nr_parms + (ftype->unspec_parms ? 1 : 0);
 	state->ret_type_id = ftype->tag.type == 0 ? 0 : encoder->type_id_off + ftype->tag.type;
 	if (state->nr_parms > 0) {
@@ -1414,7 +1412,7 @@ static int saved_functions_cmp(const void *_a, const void *_b)
 
 static int saved_functions_combine(struct btf_encoder_func_state *a, struct btf_encoder_func_state *b)
 {
-	uint8_t optimized, unexpected, inconsistent, uncertain_parm_loc, ambiguous_addr;
+	uint8_t optimized, unexpected, inconsistent, uncertain_parm_loc;
 
 	if (a->elf != b->elf)
 		return 1;
@@ -1423,14 +1421,12 @@ static int saved_functions_combine(struct btf_encoder_func_state *a, struct btf_
 	unexpected = a->unexpected_reg | b->unexpected_reg;
 	inconsistent = a->inconsistent_proto | b->inconsistent_proto;
 	uncertain_parm_loc = a->uncertain_parm_loc | b->uncertain_parm_loc;
-	ambiguous_addr = a->ambiguous_addr | b->ambiguous_addr;
-	if (!unexpected && !inconsistent && !ambiguous_addr && !funcs__match(a, b))
+	if (!unexpected && !inconsistent && !funcs__match(a, b))
 		inconsistent = 1;
 	a->optimized_parms = b->optimized_parms = optimized;
 	a->unexpected_reg = b->unexpected_reg = unexpected;
 	a->inconsistent_proto = b->inconsistent_proto = inconsistent;
 	a->uncertain_parm_loc = b->uncertain_parm_loc = uncertain_parm_loc;
-	a->ambiguous_addr = b->ambiguous_addr = ambiguous_addr;
 
 	return 0;
 }
@@ -1484,7 +1480,7 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_e
 		 * unexpected register use, multiple inconsistent prototypes or
 		 * uncertain parameters location
 		 */
-		add_to_btf |= !state->unexpected_reg && !state->inconsistent_proto && !state->uncertain_parm_loc && !state->ambiguous_addr;
+		add_to_btf |= !state->unexpected_reg && !state->inconsistent_proto && !state->uncertain_parm_loc && !state->elf->ambiguous_addr;
 
 		if (state->uncertain_parm_loc)
 			btf_encoder__log_func_skip(encoder, saved_fns[i].elf,
@@ -2216,9 +2212,11 @@ static int elf_functions__collect(struct elf_functions *functions)
 		if (!sym_name)
 			continue;
 
-		func = &functions->entries[functions->cnt];
-
 		suffix = strchr(sym_name, '.');
+		if (str_contains_non_fn_suffix(sym_name))
+			continue;
+
+		func = &functions->entries[functions->cnt];
 		if (suffix)
 			func->name = strndup(sym_name, suffix - sym_name);
 		else
@@ -2231,7 +2229,7 @@ static int elf_functions__collect(struct elf_functions *functions)
 
 		func_sym.name = sym_name;
 		func_sym.addr = sym.st_value;
-		func_sym.non_fn = str_contains_non_fn_suffix(sym_name);
+
 		err = elf_function__push_sym(func, &func_sym);
 		if (err)
 			goto out_free;
@@ -2259,8 +2257,11 @@ static int elf_functions__collect(struct elf_functions *functions)
 
 		if (!strcmp(a->name, b->name)) {
 			elf_function__push_sym(a, &b->syms[0]);
-			elf_function__free_content(b);
+			elf_function__clear(b);
 		} else {
+			// at this point all syms for `a` have been collected
+			// check for ambiguous addresses before moving on
+			a->ambiguous_addr = elf_function__has_ambiguous_address(a);
 			i++;
 			if (i != j)
 				functions->entries[i] = functions->entries[j];
