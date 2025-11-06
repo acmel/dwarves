@@ -79,7 +79,6 @@ struct btf_encoder_func_annot {
 
 /* state used to do later encoding of saved functions */
 struct btf_encoder_func_state {
-	struct btf_encoder *encoder;
 	struct elf_function *elf;
 	uint32_t type_id_off;
 	uint16_t nr_parms;
@@ -819,7 +818,7 @@ static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct f
 					   struct btf_encoder_func_state *state)
 {
 	const struct btf_type *t;
-	struct btf *btf;
+	struct btf *btf = encoder->btf;
 	struct parameter *param;
 	uint16_t nr_params, param_idx;
 	int32_t id, type_id;
@@ -834,12 +833,9 @@ static int32_t btf_encoder__add_func_proto(struct btf_encoder *encoder, struct f
 
 	/* add btf_type for func_proto */
 	if (ftype) {
-		btf = encoder->btf;
 		nr_params = ftype->nr_parms + (ftype->unspec_parms ? 1 : 0);
 		type_id = btf_encoder__tag_type(encoder, ftype->tag.type);
 	} else if (state) {
-		encoder = state->encoder;
-		btf = state->encoder->btf;
 		nr_params = state->nr_parms;
 		type_id = state->ret_type_id;
 	} else {
@@ -1123,13 +1119,12 @@ static bool types__match(struct btf_encoder *encoder,
 	return false;
 }
 
-static bool funcs__match(struct btf_encoder_func_state *s1,
+static bool funcs__match(struct btf_encoder *encoder,
+			 struct btf_encoder_func_state *s1,
 			 struct btf_encoder_func_state *s2)
 {
-	struct btf_encoder *encoder = s1->encoder;
 	struct elf_function *func = s1->elf;
-	struct btf *btf1 = s1->encoder->btf;
-	struct btf *btf2 = s2->encoder->btf;
+	struct btf *btf = encoder->btf;
 	uint8_t i;
 
 	if (s1->nr_parms != s2->nr_parms) {
@@ -1138,7 +1133,7 @@ static bool funcs__match(struct btf_encoder_func_state *s1,
 					   s1->nr_parms, s2->nr_parms);
 		return false;
 	}
-	if (!types__match(encoder, btf1, s1->ret_type_id, btf2, s2->ret_type_id)) {
+	if (!types__match(encoder, btf, s1->ret_type_id, btf, s2->ret_type_id)) {
 		btf_encoder__log_func_skip(encoder, func, "return type mismatch\n");
 		return false;
 	}
@@ -1146,11 +1141,11 @@ static bool funcs__match(struct btf_encoder_func_state *s1,
 		return true;
 
 	for (i = 0; i < s1->nr_parms; i++) {
-		if (!types__match(encoder, btf1, s1->parms[i].type_id,
-				  btf2, s2->parms[i].type_id)) {
+		if (!types__match(encoder, btf, s1->parms[i].type_id,
+				  btf, s2->parms[i].type_id)) {
 			if (encoder->verbose) {
-				const char *p1 = btf__name_by_offset(btf1, s1->parms[i].name_off);
-				const char *p2 = btf__name_by_offset(btf2, s2->parms[i].name_off);
+				const char *p1 = btf__name_by_offset(btf, s1->parms[i].name_off);
+				const char *p2 = btf__name_by_offset(btf, s2->parms[i].name_off);
 
 				btf_encoder__log_func_skip(encoder, func,
 							   "param type mismatch for param#%d %s %s %s\n",
@@ -1244,7 +1239,6 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 	if (!state)
 		return -ENOMEM;
 
-	state->encoder = encoder;
 	state->elf = func;
 	state->nr_parms = ftype->nr_parms + (ftype->unspec_parms ? 1 : 0);
 	state->ret_type_id = ftype->tag.type == 0 ? 0 : encoder->type_id_off + ftype->tag.type;
@@ -1410,7 +1404,9 @@ static int saved_functions_cmp(const void *_a, const void *_b)
 	return elf_function__name_cmp(a->elf, b->elf);
 }
 
-static int saved_functions_combine(struct btf_encoder_func_state *a, struct btf_encoder_func_state *b)
+static int saved_functions_combine(struct btf_encoder *encoder,
+				   struct btf_encoder_func_state *a,
+				   struct btf_encoder_func_state *b)
 {
 	uint8_t optimized, unexpected, inconsistent, uncertain_parm_loc;
 
@@ -1421,7 +1417,7 @@ static int saved_functions_combine(struct btf_encoder_func_state *a, struct btf_
 	unexpected = a->unexpected_reg | b->unexpected_reg;
 	inconsistent = a->inconsistent_proto | b->inconsistent_proto;
 	uncertain_parm_loc = a->uncertain_parm_loc | b->uncertain_parm_loc;
-	if (!unexpected && !inconsistent && !funcs__match(a, b))
+	if (!unexpected && !inconsistent && !funcs__match(encoder, a, b))
 		inconsistent = 1;
 	a->optimized_parms = b->optimized_parms = optimized;
 	a->unexpected_reg = b->unexpected_reg = unexpected;
@@ -1471,7 +1467,7 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_e
 		 */
 		j = i + 1;
 
-		while (j < nr_saved_fns && saved_functions_combine(&saved_fns[i], &saved_fns[j]) == 0)
+		while (j < nr_saved_fns && saved_functions_combine(encoder, &saved_fns[i], &saved_fns[j]) == 0)
 			j++;
 
 		/* do not exclude functions with optimized-out parameters; they
@@ -1488,7 +1484,7 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_e
 					0, 0);
 
 		if (add_to_btf) {
-			err = btf_encoder__add_func(state->encoder, state);
+			err = btf_encoder__add_func(encoder, state);
 			if (err < 0)
 				goto out;
 		}
