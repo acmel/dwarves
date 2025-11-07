@@ -1,3 +1,21 @@
+v1.31
+
+f33ac6dcd804a1a1 btf_encoder: Move ambiguous_addr flag to elf_function
+09c1e9c924da02dc btf_encoder: Group all function ELF syms by function name
+fe6738f4b46b63dc btf_encoder: Fix elf_functions cleanup on error
+053d514e0110661b gitignore: Ignore all the test kmod build-related files
+9e9d8613fb2e1677 tests: Add some tests validating skipped functions due to uncertain arg location
+4a1f0c99df26e0aa btf_encoder: Skip functions consuming packed structs passed by value on stack
+6b78b72e327b7224 pahole: Do not return an error when printing only a specific class
+97bf0a0b0572ec02 pahole: Don't fail when encoding BTF on an object with no DWARF info
+e323455cd9c8235e github CI: Add comparison of generated BTF functions between baseline, change
+8ba4389303decc57 github CI: Do not build pahole as part of dwarves-ci setup
+48512c10d2824d77 btf_loader: Fix smallest offset in case of bitfields
+34462a4ef9d0e1f9 btf_loader: Infer alignment for zero-length arrays
+0612877facbfc506 CMakeLists.txt: Remove custom `LIB_INSTALL_DIR` handling
+981db527a9d83992 Fix pahole segfault with --show_reorg_steps option
+042d73962d35fdd1 pahole: Sync with libbpf mainline
+
 v1.30
 
 06350d14776a77e1 dwarves: Fix clang warning about unused variable

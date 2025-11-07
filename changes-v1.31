@@ -1,0 +1,31 @@
+BTF encoder:
+
+- Rework the selection of functions to represent in BTF, for instance:
+
+  - Skip functions that passes values thru the stack when those structs don't
+    have expected alignment due to some attribute usage that then causes
+    problems with BTF trampolines due to lack of expressiveness in BTF to
+    signal such special cases.
+
+- Skip objects (compile units) without DWARF: don't stop a multi object
+  encoding session just because one doesn't have any DWARF in it.
+
+- Fix BTF dedup by updating libbpf. 
+
+BTF loader:
+
+- Fix the inference of the explicit alignment attribute of zero length arrays,
+  like struct skb_ext->data[] in the Linux kernel. Important as BTF has no no
+  explicit alignment attribute encoding.
+
+- Fix the inference of alignments after bitfields, such as in struct
+  nft_rule_dp->data[] after ->handle:42, also in the Linux kernel.
+    
+pahole:
+
+- Fix segfault with --show_reorg_steps option, e.g. pahole -R -S -C task_struct.
+
+CI:
+
+- Add comparision of functions encoded in BTF between baseline 'master' branch
+  and current branch, i.e. 'next'.

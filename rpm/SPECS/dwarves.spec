@@ -2,7 +2,7 @@
 %define libver 1
 
 Name: dwarves
-Version: 1.30
+Version: 1.31
 Release: 1%{?dist}
 License: GPL-2.0-only
 Summary: Debugging Information Manipulation Tools (pahole & friends)
@@ -79,7 +79,7 @@ rm -Rf %{buildroot}
 %files
 %doc README.ctracer
 %doc README.btf
-%doc changes-v1.30
+%doc changes-v1.31
 %doc NEWS
 %{_bindir}/btfdiff
 %{_bindir}/codiff
@@ -131,13 +131,20 @@ rm -Rf %{buildroot}
 %{_libdir}/%{libname}_reorganize.so
 
 %changelog
+* Tue Nov  4 2025 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.31-1
+- Rework the selection of functions to represent in BTF.
+- Skip objects (compile units) without DWARF
+- Fix BTF dedup by updating libbpf. 
+- Fix the inference of the explicit alignment attribute of zero length arrays.
+- Fix the inference of alignments after bitfields.
+- Fix segfault with --show_reorg_steps option, e.g. pahole -R -S -C task_struct.
+- Add CI test comparision of functions encoded in BTF between 'master' and 'next' branches.
+
 * Wed Apr 9 2025 Alan Maguire <alan.maguire@oracle.com> - 1.30-1
 - Better detection of abort during DWARF loader thread processing
 - pahole now detects presence of libbpf APIs and BTF features using weak function
   declarations when built using a shared library libbpf
 - Type tags are emitted for BPF arena pointers with new BTF "attributes" feature
-
-Signed-off-by: Alan Maguire <alan.maguuire@oracle.com> - 1.30-1
 
 * Wed Jan 15 2025 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.29-1
 - Multithreading is now in the DWARF loader using a jobs queue and a pool of worker threads.
@@ -146,8 +153,6 @@ Signed-off-by: Alan Maguire <alan.maguuire@oracle.com> - 1.30-1
 - Support for multiple BTF_DECL_TAGs pointing to same tag.
 - Verify that pfunct prints btf_decl_tags read from BTF.
 - Don't print functions twice when using 'pfunct -f function_name'.
-
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
 * Fri Dec  6 2024 Arnaldo Carvalho de Melo <acme@redhat.com> - 1.28-1
 - New release: 1.28
