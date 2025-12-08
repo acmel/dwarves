@@ -1262,7 +1262,7 @@ static struct parameter *parameter__new(Dwarf_Die *die, struct cu *cu,
 
 		tag__init(&parm->tag, cu, die);
 		parm->name = attr_string(die, DW_AT_name, conf);
-
+		parm->idx = param_idx;
 		if (param_idx >= cu->nr_register_params || param_idx < 0)
 			return parm;
 		/* Parameters which use DW_AT_abstract_origin to point at
@@ -2636,6 +2636,8 @@ static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu)
 			}
 			opos = tag__parameter(dtag__tag(dtype));
 			pos->name = opos->name;
+			if (pos->idx != opos->idx)
+				type->reordered_parm = 1;
 			pos->tag.type = dtag__tag(dtype)->type;
 			/* share location information between parameter and
 			 * abstract origin; if neither have location, we will
@@ -2838,7 +2840,6 @@ static int tag__recode_dwarf_type(struct tag *tag, struct cu *cu)
 		lexblock__recode_dwarf_types(&fn->lexblock, cu);
 	}
 		/* Fall thru */
-
 	case DW_TAG_subroutine_type:
 		ftype__recode_dwarf_types(tag, cu);
 		/* Fall thru, for the function return type */

@@ -87,6 +87,7 @@ struct btf_encoder_func_state {
 	uint8_t unexpected_reg:1;
 	uint8_t inconsistent_proto:1;
 	uint8_t uncertain_parm_loc:1;
+	uint8_t reordered_parm:1;
 	uint8_t ambiguous_addr:1;
 	int ret_type_id;
 	struct btf_encoder_func_parm *parms;
@@ -1273,6 +1274,7 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 	state->unexpected_reg = ftype->unexpected_reg;
 	state->optimized_parms = ftype->optimized_parms;
 	state->uncertain_parm_loc = ftype->uncertain_parm_loc;
+	state->reordered_parm = ftype->reordered_parm;
 	ftype__for_each_parameter(ftype, param) {
 		const char *name = parameter__name(param) ?: "";
 
@@ -1442,7 +1444,7 @@ static int saved_functions_combine(struct btf_encoder *encoder,
 				   struct btf_encoder_func_state *a,
 				   struct btf_encoder_func_state *b)
 {
-	uint8_t optimized, unexpected, inconsistent, uncertain_parm_loc;
+	uint8_t optimized, unexpected, inconsistent, uncertain_parm_loc, reordered_parm;
 
 	if (a->elf != b->elf)
 		return 1;
@@ -1451,12 +1453,14 @@ static int saved_functions_combine(struct btf_encoder *encoder,
 	unexpected = a->unexpected_reg | b->unexpected_reg;
 	inconsistent = a->inconsistent_proto | b->inconsistent_proto;
 	uncertain_parm_loc = a->uncertain_parm_loc | b->uncertain_parm_loc;
-	if (!unexpected && !inconsistent && !funcs__match(encoder, a, b))
+	reordered_parm = a->reordered_parm | b->reordered_parm;
+	if (!unexpected && !inconsistent && !reordered_parm && !funcs__match(encoder, a, b))
 		inconsistent = 1;
 	a->optimized_parms = b->optimized_parms = optimized;
 	a->unexpected_reg = b->unexpected_reg = unexpected;
 	a->inconsistent_proto = b->inconsistent_proto = inconsistent;
 	a->uncertain_parm_loc = b->uncertain_parm_loc = uncertain_parm_loc;
+	a->reordered_parm = b->reordered_parm = reordered_parm;
 
 	return 0;
 }
@@ -1494,7 +1498,7 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_e
 
 	for (i = 0; i < nr_saved_fns; i = j) {
 		struct btf_encoder_func_state *state = &saved_fns[i];
-		bool add_to_btf = !skip_encoding_inconsistent_proto;
+		char *skip_reason = NULL;
 
 		/* Compare across sorted functions that match by name/prefix;
 		 * share inconsistent/unexpected reg state between them.
@@ -1510,14 +1514,21 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_e
 		 * unexpected register use, multiple inconsistent prototypes or
 		 * uncertain parameters location
 		 */
-		add_to_btf |= !state->unexpected_reg && !state->inconsistent_proto && !state->uncertain_parm_loc && !state->elf->ambiguous_addr;
-
+		if (state->unexpected_reg)
+			skip_reason = "unexpected register usage for parameter\n";
+		if (skip_encoding_inconsistent_proto && state->inconsistent_proto)
+			skip_reason = "inconsistet prototype\n";
 		if (state->uncertain_parm_loc)
-			btf_encoder__log_func_skip(encoder, saved_fns[i].elf,
-					"uncertain parameter location\n",
-					0, 0);
+			skip_reason = "uncertain parameter location\n";
+		if (state->reordered_parm)
+			skip_reason = "reordered parameters\n";
+		if (state->elf->ambiguous_addr)
+			skip_reason = "ambiguous address\n";
 
-		if (add_to_btf) {
+		if (skip_reason) {
+			btf_encoder__log_func_skip(encoder, saved_fns[i].elf,
+						   skip_reason, 0, 0);
+		} else {
 			if (is_kfunc_state(state))
 				err = btf_encoder__add_bpf_kfunc(encoder, state);
 			else
