@@ -1234,6 +1234,7 @@ struct btf_feature {
 	BTF_NON_DEFAULT_FEATURE(global_var, encode_btf_global_vars, false),
 	BTF_NON_DEFAULT_FEATURE_CHECK(attributes, btf_attributes, false,
 				      attributes_check),
+	BTF_NON_DEFAULT_FEATURE(true_signature, true_signature, false),
 };
 
 #define BTF_MAX_FEATURE_STR	1024
