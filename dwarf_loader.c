@@ -708,6 +708,11 @@ static enum vscope dwarf__location(Dwarf_Die *die, uint64_t *addr, struct locati
 		case DW_OP_addrx:
 			scope = VSCOPE_GLOBAL;
 			*addr = expr[0].number;
+
+			if (location->exprlen == 2 &&
+			    expr[1].atom == DW_OP_plus_uconst)
+				*addr += expr[1].number;
+
 			break;
 		case DW_OP_reg1 ... DW_OP_reg31:
 		case DW_OP_breg0 ... DW_OP_breg31:
