@@ -732,6 +732,9 @@ static int cus__load_btf(struct cus *cus, struct conf_load *conf, const char *fi
 {
 	int err = -1;
 
+	if (conf == NULL)
+		return -1;
+
 	// Pass a zero for addr_size, we'll get it after we load via btf__pointer_size()
 	struct cu *cu = cu__new(filename, 0, NULL, 0, filename, false);
 	if (cu == NULL)
