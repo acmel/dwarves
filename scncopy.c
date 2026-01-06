@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (!(fd = open(infile, O_RDONLY))) {
+	if ((fd = open(infile, O_RDONLY)) < 0) {
 		fprintf(stderr, "Could not open \"%s\" for reading: %m\n", infile);
 		return 1;
 	}
