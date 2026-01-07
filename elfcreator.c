@@ -159,6 +159,9 @@ static void remove_dyn(ElfCreator *ctor, size_t idx)
 {
 	size_t cnt;
 
+	if (!ctor->dyndata)
+		return;
+
 	for (cnt = idx; cnt < ctor->dynshdr->sh_size/ctor->dynshdr->sh_entsize;
 			cnt++) {
 		GElf_Dyn *dyn, dyn_mem;
