@@ -865,10 +865,11 @@ static int32_t btf_encoder__add_func_proto_for_ftype(struct btf_encoder *encoder
 			return -1;
 	}
 
-	++param_idx;
-	if (ftype->unspec_parms)
+	if (ftype->unspec_parms) {
+		++param_idx;
 		if (btf_encoder__add_func_param(encoder, NULL, 0, param_idx == nr_params))
 			return -1;
+	}
 
 	return id;
 }
@@ -895,7 +896,7 @@ static int32_t btf_encoder__add_func_proto_for_state(struct btf_encoder *encoder
 	for (param_idx = 0; param_idx < nr_params; param_idx++) {
 		p = &state->parms[param_idx];
 		name = btf__name_by_offset(btf, p->name_off);
-		is_last = param_idx == nr_params;
+		is_last = param_idx == (nr_params - 1);
 
 		/* adding BTF data may result in a move of the
 		 * name string memory, so make a temporary copy.
