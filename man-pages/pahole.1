@@ -337,6 +337,11 @@ Supported non-standard features (not enabled for 'default')
 	                   of split BTF with a possibly changed base, storing
 	                   it in a .BTF.base ELF section.
 	global_var         Encode all global variables using BTF_KIND_VAR in BTF.
+	true_signature     Encode functions ensuring that binary-level
+	                   (rather than source-level) signatures are used;
+                           for gcc these are ".isra.0" and ".costprop.0"
+                           optimized functions
+
 .fi
 
 So for example, specifying \-\-btf_encode=var,enum64 will result in a BTF encoding that (as well as encoding basic BTF information) will contain variables and enum64 values.
