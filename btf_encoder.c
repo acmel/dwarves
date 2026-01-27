@@ -1550,6 +1550,29 @@ static int btf_encoder__add_true_signature(struct btf_encoder *encoder,
 	return 0;
 }
 
+static struct btf_encoder_func_state *btf_encoder__select_canonical_state(struct btf_encoder_func_state *combined_states,
+									  int combined_cnt)
+{
+	int i, j;
+
+	/*
+	 * The same elf_function is shared amongst combined functions,
+	 * as per saved_functions_combine().
+	 */
+	struct elf_function *elf = combined_states[0].elf;
+
+	for (i = 0; i < combined_cnt; i++) {
+		struct btf_encoder_func_state *state = &combined_states[i];
+
+		for (j = 0; j < elf->sym_cnt; j++) {
+			if (state->addr == elf->syms[j].addr)
+				return state;
+		}
+	}
+
+	return &combined_states[0];
+}
+
 static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_encoding_inconsistent_proto)
 {
 	struct btf_encoder_func_state *saved_fns = encoder->func_states.array;
@@ -1614,6 +1637,16 @@ static int btf_encoder__add_saved_funcs(struct btf_encoder *encoder, bool skip_e
 			btf_encoder__log_func_skip(encoder, saved_fns[i].elf,
 						   skip_reason, 0, 0);
 		} else {
+			/*
+			 * We're to add the current function within
+			 * BTF. Although, from all functions that have
+			 * possibly been combined via
+			 * saved_functions_combine(), ensure to only
+			 * select and emit BTF for the most canonical
+			 * function definition.
+			 */
+			if (j - i > 1)
+				state = btf_encoder__select_canonical_state(state, j - i);
 			if (is_kfunc_state(state))
 				err = btf_encoder__add_bpf_kfunc(encoder, state);
 			else
