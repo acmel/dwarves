@@ -505,12 +505,13 @@ static int process_decl_tag(struct cu *cu, const struct btf_type *tp)
 
 static int btf__load_types(struct btf *btf, struct cu *cu)
 {
-	uint32_t type_index;
+	const struct btf_type *type_ptr;
+	uint32_t type_index, type;
 	int err;
 
 	for (type_index = 1; type_index < btf__type_cnt(btf); type_index++) {
-		const struct btf_type *type_ptr = btf__type_by_id(btf, type_index);
-		uint32_t type = btf_kind(type_ptr);
+		type_ptr = btf__type_by_id(btf, type_index);
+		type = btf_kind(type_ptr);
 
 		switch (type) {
 		case BTF_KIND_INT:
@@ -572,7 +573,9 @@ static int btf__load_types(struct btf *btf, struct cu *cu)
 			err = create_new_float_type(cu, type_ptr, type_index);
 			break;
 		case BTF_KIND_DECL_TAG:
-			err = process_decl_tag(cu, type_ptr);
+			/* decl tags will be handled below when other types are
+			 * loaded.
+			 */
 			break;
 		default:
 			fprintf(stderr, "BTF: idx: %d, Unknown kind %d\n", type_index, type);
@@ -584,6 +587,22 @@ static int btf__load_types(struct btf *btf, struct cu *cu)
 		if (err < 0)
 			return err;
 	}
+	/*
+	 * For decl tags we add attributes to the tags associated with the types they
+	 * refer to.  Now that other types have been processed, we can do this.
+	 */
+	for (type_index = 1; type_index < btf__type_cnt(btf); type_index++) {
+		type_ptr = btf__type_by_id(btf, type_index);
+		type = btf_kind(type_ptr);
+
+		if (type != BTF_KIND_DECL_TAG)
+			continue;
+
+		err = process_decl_tag(cu, type_ptr);
+		if (err < 0)
+			return err;
+	}
+
 	return 0;
 }
 
