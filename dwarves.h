@@ -46,6 +46,8 @@ enum load_steal_kind {
 	LSK__ABORT,
 };
 
+struct btf_new_opts;
+
 /*
  * Weak declarations of libbpf APIs that are version-dependent
  */
@@ -55,6 +57,7 @@ __weak extern int btf__add_enum64(struct btf *btf, const char *name, __u32 byte_
 __weak extern int btf__add_enum64_value(struct btf *btf, const char *name, __u64 value);
 __weak extern int btf__add_type_attr(struct btf *btf, const char *value, int ref_type_id);
 __weak extern int btf__distill_base(const struct btf *src_btf, struct btf **new_base_btf, struct btf **new_split_btf);
+__weak extern struct btf *btf__new_empty_opts(struct btf_new_opts *opts);
 
 /*
  * BTF combines all the types into one big CU using btf_dedup(), so for something
@@ -95,6 +98,7 @@ struct conf_load {
 	bool			skip_encoding_btf_inconsistent_proto;
 	bool			skip_encoding_btf_vars;
 	bool			encode_btf_global_vars;
+	bool			btf_gen_layout;
 	bool			btf_gen_floats;
 	bool			btf_encode_force;
 	bool			reproducible_build;

@@ -1209,6 +1209,11 @@ static bool attributes_check(void)
 	return btf__add_type_attr != NULL;
 }
 
+static bool layout_check(void)
+{
+	return btf__new_empty_opts != NULL;
+}
+
 struct btf_feature {
 	const char      *name;
 	const char      *option_alias;
@@ -1235,6 +1240,7 @@ struct btf_feature {
 	BTF_NON_DEFAULT_FEATURE_CHECK(attributes, btf_attributes, false,
 				      attributes_check),
 	BTF_NON_DEFAULT_FEATURE(true_signature, true_signature, false),
+	BTF_NON_DEFAULT_FEATURE_CHECK(layout, btf_gen_layout, false, layout_check)
 };
 
 #define BTF_MAX_FEATURE_STR	1024

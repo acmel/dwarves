@@ -2679,6 +2679,16 @@ out:
 	return err;
 }
 
+/* Needed for older libbpf to support weak declaration of btf__new_empty_opts() */
+#ifndef btf_new_opts__last_field
+struct btf_new_opts {
+	size_t sz;
+	struct btf *base_btf;
+	bool add_layout;
+	size_t:0;
+};
+#endif
+
 struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filename, struct btf *base_btf, bool verbose, struct conf_load *conf_load)
 {
 	struct btf_encoder *encoder = zalloc(sizeof(*encoder));
@@ -2692,7 +2702,16 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		if (encoder->source_filename == NULL || encoder->filename == NULL)
 			goto out_delete;
 
-		encoder->btf = btf__new_empty_split(base_btf);
+		if (btf__new_empty_opts) {
+			LIBBPF_OPTS(btf_new_opts, opts);
+
+			/* only add layout to base BTF; no need to repeat for split. */
+			opts.add_layout = !base_btf && conf_load->btf_gen_layout;
+			opts.base_btf = base_btf;
+			encoder->btf = btf__new_empty_opts(&opts);
+		} else {
+			encoder->btf = btf__new_empty_split(base_btf);
+		}
 		if (encoder->btf == NULL)
 			goto out_delete;
 
