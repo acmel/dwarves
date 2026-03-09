@@ -8,45 +8,22 @@
 # also should have been.
 #
 
-outdir=
+source test_lib.sh
 
-fail()
-{
-	# Do not remove test dir; might be useful for analysis
-	trap - EXIT
-	if [[ -d "$outdir" ]]; then
-		echo "Test data is in $outdir"
-	fi
-	exit 1
-}
-
-cleanup()
-{
-	rm ${outdir}/*
-	rmdir $outdir
-}
-
-vmlinux=${vmlinux:-$1}
-
-if [ -z "$vmlinux" ] ; then
-	vmlinux=$(pahole --running_kernel_vmlinux)
-	if [ -z "$vmlinux" ] ; then
-		echo "Please specify a vmlinux file to operate on"
-		exit 2
-	fi
+vmlinux=$(get_vmlinux $1)
+if [ $? -ne 0 ] ; then
+	info_log "$vmlinux"
+	test_fail
 fi
 
-if [ ! -f "$vmlinux" ] ; then
-	echo "$vmlinux file not available, please specify another"
-	exit 2
-fi
+outdir=$(make_tmpdir)
 
-outdir=$(mktemp -d /tmp/btf_functions.sh.XXXXXX)
-
+# Comment this out to save test data.
 trap cleanup EXIT
 
-echo -n "Validation of BTF encoding of functions; this may take some time: "
-test -n "$VERBOSE" && printf "\nEncoding..."
+title_log "Validation of BTF encoding of functions."
+info_log "This may take some time."
+verbose_log "Encoding..."
 
 # Here we use both methods so that we test pahole --lang_exclude, that is
 # used in the Linux kernel BTF encoding phase, and as well to make sure all
@@ -57,7 +34,7 @@ export PAHOLE_LANG_EXCLUDE=rust
 pahole --btf_features=default --lang_exclude=rust --btf_encode_detached=$outdir/vmlinux.btf --verbose $vmlinux |\
 	grep "skipping BTF encoding of function" > ${outdir}/skipped_fns
 
-test -n "$VERBOSE" && printf "done.\n"
+verbose_log "done."
 
 funcs=$(pfunct --format_path=btf $outdir/vmlinux.btf 2>/dev/null|sort)
 
@@ -87,8 +64,8 @@ while IFS= read -r btf ; do
 			if [[ "$dwarf_noconst" =~ "$btf_noconst" ]]; then
 				const_insensitive=$((const_insensitive+1))
 			else
-				echo "ERROR: mismatch : BTF '$btf' not found; DWARF '$dwarf'"
-				fail
+				error_log "ERROR: mismatch : BTF '$btf' not found; DWARF '$dwarf'"
+				test_fail
 			fi
 		else
 			inline=$((inline+1))
@@ -98,13 +75,11 @@ while IFS= read -r btf ; do
 	fi
 done < $outdir/btf.funcs
 
-if [[ -n "$VERBOSE" ]]; then
-	echo "Matched $exact functions exactly."
-	echo "Matched $inline functions with inlines."
-	echo "Matched $const_insensitive functions with multiple const/non-const instances."
-	echo "Ok"
-	echo "Validation of skipped function logic..."
-fi
+verbose_log "Matched $exact functions exactly."
+verbose_log "Matched $inline functions with inlines."
+verbose_log "Matched $const_insensitive functions with multiple const/non-const instances."
+verbose_log "Ok"
+verbose_log "Validation of skipped function logic..."
 
 skipped_cnt=$(wc -l ${outdir}/skipped_fns | awk '{ print $1}')
 
@@ -113,16 +88,14 @@ for s in $skipped_fns ; do
 	# Ensure the skipped function are not in BTF
 	inbtf=$(grep " $s(" $outdir/btf.funcs)
 	if [[ -n "$inbtf" ]]; then
-		echo "ERROR: '${s}()' was added incorrectly to BTF: '$inbtf'"
-		fail
+		error_log "ERROR: '${s}()' was added incorrectly to BTF: '$inbtf'"
+		test_fail
 	fi
 done
 
-if [[ -n "$VERBOSE" ]]; then
-	echo "Skipped encoding $skipped_cnt functions in BTF."
-	echo "Ok"
-	echo "Validating skipped functions have incompatible return values..."
-fi
+verbose_log "Skipped encoding $skipped_cnt functions in BTF."
+verbose_log "Ok"
+verbose_log "Validating skipped functions have incompatible return values..."
 
 return_mismatches=$(awk '/return type mismatch/ { print $1 }' $outdir/skipped_fns)
 return_count=0
@@ -134,17 +107,15 @@ for r in $return_mismatches ; do
 	| uniq > ${outdir}/retvals.$r
 	cnt=$(wc -l ${outdir}/retvals.$r | awk '{ print $1 }')
 	if [[ $cnt -lt 2 ]]; then
-		echo "ERROR: '${r}()' has only one return value; it should not be reported as having incompatible return values"
-		fail
+		error_log "ERROR: '${r}()' has only one return value; it should not be reported as having incompatible return values"
+		test_fail
 	fi
 	return_count=$((return_count+1))
 done
 
-if [[ -n "$VERBOSE" ]]; then
-	echo "Found $return_count functions with multiple incompatible return values."
-	echo "Ok"
-	echo "Validating skipped functions have incompatible params/counts..."
-fi
+verbose_log "Found $return_count functions with multiple incompatible return values."
+verbose_log "Ok"
+verbose_log "Validating skipped functions have incompatible params/counts..."
 
 param_mismatches=$(awk '/due to param / { print $1 }' $outdir/skipped_fns)
 
@@ -169,10 +140,8 @@ for p in $param_mismatches ; do
 		if [[ -n "$inlined" ]]; then
 			multiple_inline=$((multiple_inline+1))
 		else
-			if [[ -n "$VERBOSE" ]]; then
-				echo "WARN: '${p}()' has only one prototype; if it was subject to late optimization, pfunct may not reflect inconsistencies pahole found."
-				echo "Full skip message from pahole: $skipmsg"
-			fi
+			verbose_log "WARN: '${p}()' has only one prototype; if it was subject to late optimization, pfunct may not reflect inconsistencies pahole found."
+			verbose_log "Full skip message from pahole: $skipmsg"
 			warnings=$((warnings+1))
 		fi
 	else
@@ -180,24 +149,22 @@ for p in $param_mismatches ; do
 	fi
 done
 
-if [[ -n "$VERBOSE" ]]; then
-	echo "Found $multiple instances with multiple instances with incompatible parameters."
-	echo "Found $multiple_inline instances where inline functions were not inlined and had incompatible parameters."
-	echo "Found $optimized instances where the function name suggests optimizations led to inconsistent parameters."
-	echo "Found $warnings instances where pfunct did not notice inconsistencies."
-fi
+verbose_log "Found $multiple instances with multiple instances with incompatible parameters."
+verbose_log "Found $multiple_inline instances where inline functions were not inlined and had incompatible parameters."
+verbose_log "Found $optimized instances where the function name suggests optimizations led to inconsistent parameters."
+verbose_log "Found $warnings instances where pfunct did not notice inconsistencies."
 
 # Some specific cases can not  be tested directly with a standard kernel.
 # We can use the small binary in bin/ to test those cases, like packed
 # structs passed on the stack.
 
-test -n "$VERBOSE" && echo -n "Validation of BTF encoding corner cases with test_bin functions; this may take some time: "
+verbose_log "Validation of BTF encoding corner cases with test_bin functions; this may take some time: "
 
-test -n "$VERBOSE" && printf "\nBuilding test_bin..."
+verbose_log "Building test_bin..."
 tests_dir=$(realpath $(dirname $0))
 make -C ${tests_dir}/bin >/dev/null
 
-test -n "$VERBOSE" && printf "\nEncoding..."
+verbose_log "Encoding..."
 pahole --btf_features=default --lang_exclude=rust --btf_encode_detached=$outdir/test_bin.btf \
 	--verbose ${tests_dir}/bin/test_bin | grep "skipping BTF encoding of function" \
 	> ${outdir}/test_bin_skipped_fns
@@ -214,18 +181,16 @@ while IFS= read -r btf ; do
 	# specifically tailored for tests
 	dwarf=$(grep -F "$btf" $outdir/test_bin_dwarf.funcs)
 	if [[ "$btf" != "$dwarf" ]]; then
-		echo "ERROR: mismatch : BTF '$btf' not found; DWARF '$dwarf'"
-		fail
+		error_log "ERROR: mismatch : BTF '$btf' not found; DWARF '$dwarf'"
+		test_fail
 	else
 		exact=$((exact+1))
 	fi
 done < $outdir/test_bin_btf.funcs
 
-if [[ -n "$VERBOSE" ]]; then
-	echo "Matched $exact functions exactly."
-	echo "Ok"
-	echo "Validation of skipped function logic..."
-fi
+verbose_log "Matched $exact functions exactly."
+verbose_log "Ok"
+verbose_log "Validation of skipped function logic..."
 
 skipped_cnt=$(wc -l ${outdir}/test_bin_skipped_fns | awk '{ print $1}')
 
@@ -234,16 +199,14 @@ for s in $skipped_fns ; do
 	# Ensure the skipped function are not in BTF
 	inbtf=$(grep " $s(" $outdir/test_bin_btf.funcs)
 	if [[ -n "$inbtf" ]]; then
-		echo "ERROR: '${s}()' was added incorrectly to BTF: '$inbtf'"
-		fail
+		error_log "ERROR: '${s}()' was added incorrectly to BTF: '$inbtf'"
+		test_fail
 	fi
 done
 
-if [[ -n "$VERBOSE" ]]; then
-	echo "Skipped encoding $skipped_cnt functions in BTF."
-	echo "Ok"
-	echo "Validating skipped functions have uncertain parameter location..."
-fi
+verbose_log "Skipped encoding $skipped_cnt functions in BTF."
+verbose_log "Ok"
+verbose_log "Validating skipped functions have uncertain parameter location..."
 
 uncertain_loc=$(awk '/due to uncertain parameter location/ { print $1 }' $outdir/test_bin_skipped_fns)
 legitimate_skip=0
@@ -266,12 +229,10 @@ for f in $uncertain_loc ; do
 			fi
 		fi
 	done
-	echo "ERROR: '${f}()' should not have been skipped; it has no parameter with uncertain location"
-	fail
+	error_log "ERROR: '${f}()' should not have been skipped; it has no parameter with uncertain location"
+	test_fail
 done
 
-if [[ -n "$VERBOSE" ]]; then
-	echo "Found ${legitimate_skip} legitimately skipped function due to uncertain loc"
-fi
-echo "Ok"
-exit 0
+verbose_log "Found ${legitimate_skip} legitimately skipped function due to uncertain loc"
+
+test_pass

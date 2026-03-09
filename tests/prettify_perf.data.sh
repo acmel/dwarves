@@ -7,30 +7,35 @@
 # Check if the perf binary is available, if it is from a distro, normally it
 # will get the needed DWARF info using libddebuginfod, we'll check if the
 # needed types are available, skipping the test and informing the reason.
+. ./test_lib.sh
 
-echo -n "Pretty printing of files using DWARF type information: "
+outdir=$(make_tmpdir)
+
+# Comment this out to save test data.
+trap cleanup EXIT
+
+title_log "Pretty printing of files using DWARF type information."
 
 perf=$(which perf 2> /dev/null)
 if [ -z "$perf" ] ; then
-	echo "skip: No 'perf' binary available"
-	exit 2
+	info_log "skip: No 'perf' binary available"
+	test_skip
 fi
 
 perf_lacks_type_info() {
 	local type_keyword=$1
 	local type_name=$2
 	if ! pahole -C $type_name $perf | grep -q "^$type_keyword $type_name {"; then
-		echo "skip: $perf doesn't have '$type_keyword $type_name' type info"
-		return 1
+		info_log "skip: $perf doesn't have '$type_keyword $type_name' type info"
+		test_skip
 	fi
-	return 0
 }
 
-perf_data=$(mktemp /tmp/prettify_perf.data.sh.XXXXXX.perf.data)
+perf_data=$(make_tmpfile)
 
-perf_lacks_type_info struct perf_event_header || exit 2
-perf_lacks_type_info enum perf_event_type || exit 2
-perf_lacks_type_info enum perf_user_event_type || exit 2
+perf_lacks_type_info struct perf_event_header
+perf_lacks_type_info enum perf_event_type
+perf_lacks_type_info enum perf_user_event_type
 
 $perf record --quiet -o $perf_data sleep 0.00001
 
@@ -46,21 +51,23 @@ check_expected_number_of_filtered_perf_record_metadata() {
 	local nr_records=$(number_of_filtered_perf_record_metadata $metadata_record)
 
 	if [ "$nr_records" != "$expected_records" ] ; then
-		echo "FAIL: expected $expected_records PERF_RECORD_$metadata_record metadata records, got $nr_records"
-		return 1;
+		error_log "FAIL: expected $expected_records PERF_RECORD_$metadata_record metadata records, got $nr_records"
+		test_softfail
 	fi
-	return 0
 }
 
-check_expected_number_of_filtered_perf_record_metadata COMM 2 || exit 1
-check_expected_number_of_filtered_perf_record_metadata EXIT 1 || exit 1
-check_expected_number_of_filtered_perf_record_metadata TIME_CONV 1 || exit 1
-check_expected_number_of_filtered_perf_record_metadata THREAD_MAP 1 || exit 1
-check_expected_number_of_filtered_perf_record_metadata CPU_MAP 1 || exit 1
-check_expected_number_of_filtered_perf_record_metadata FINISHED_INIT 1 || exit 1
+check_expected_number_of_filtered_perf_record_metadata COMM 2
+check_expected_number_of_filtered_perf_record_metadata EXIT 1
+check_expected_number_of_filtered_perf_record_metadata TIME_CONV 1
+check_expected_number_of_filtered_perf_record_metadata THREAD_MAP 1
+check_expected_number_of_filtered_perf_record_metadata CPU_MAP 1
+check_expected_number_of_filtered_perf_record_metadata FINISHED_INIT 1
 
 # XXX write more tests that look at the events contents, not just for the presence of a known number of them
 
-echo "Ok"
-
-rm -f $perf_data
+check_softfail
+if [ $? -ne 0 ] ; then
+	test_fail
+else
+	test_pass
+fi

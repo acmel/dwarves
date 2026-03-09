@@ -1,36 +1,21 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-only
 
-outdir=
+source test_lib.sh
 
-fail()
-{
-	# Do not remove test dir; might be useful for analysis
-	trap - EXIT
-	if [[ -d "$outdir" ]]; then
-		echo "Test data is in $outdir"
-	fi
-	exit 1
-}
+outdir=$(make_tmpdir)
 
-cleanup()
-{
-	rm ${outdir}/*
-	rmdir $outdir
-}
-
-outdir=$(mktemp -d /tmp/gcc_true.sh.XXXXXX)
-
+# Comment this out to save test data.
 trap cleanup EXIT
 
-echo -n "Validation of BTF encoding of true_signatures: "
+title_log "Validation of BTF encoding of true_signatures."
 
 gcc_true="${outdir}/gcc_true"
 CC=$(which gcc 2>/dev/null)
 
 if [[ -z "$CC" ]]; then
-	echo "skip: gcc not available"
-	exit 2
+	info_log "skip: gcc not available"
+	test_skip
 fi
 
 cat > ${gcc_true}.c << EOF
@@ -63,30 +48,29 @@ EOF
 CFLAGS="$CFLAGS -g -O2"
 ${CC} ${CFLAGS} -o $gcc_true ${gcc_true}.c
 if [[ $? -ne 0 ]]; then
-	echo "Could not compile ${gcc_true}.c" >& 2
-	exit 1
+	error_log "Could not compile ${gcc_true}.c"
+	test_fail
 fi
 LLVM_OBJCOPY=objcopy pahole -J --btf_features=+true_signature $gcc_true
 if [[ $? -ne 0 ]]; then
-	echo "Could not encode BTF for $gcc_true"
-	exit 1
+	error_log "Could not encode BTF for $gcc_true"
+	test_fail
 fi
 
 btf_optimized=$(pfunct --all --format_path=btf $gcc_true |grep "foo\.")
 if [[ -z "$btf_optimized" ]]; then
-	echo "skip: no optimizations applied."
-	exit 2
+	info_log "skip: no optimizations applied."
+	test_skip
 fi
 # Convert foo.[constprop|isra].0 to foo to allow comparison.
 btf_cmp="$(echo $btf_optimized \
 	awk '/foo/ {sub(/\.constprop.0/,""); sub(/\.isra.0/,""); print $0 }')"
 dwarf=$(pfunct --all $gcc_true |grep "foo")
 
-test -n "$VERBOSE" && printf "\nBTF: $btf_optimized  DWARF: $dwarf \n"
+verbose_log "BTF: $btf_optimized  DWARF: $dwarf"
 
 if [[ "$btf_cmp" == "$dwarf" ]]; then
-	echo "BTF and DWARF signatures should be different and they are not: BTF: $btf_optimized ; DWARF $dwarf"
-	exit 1
+	error_log "BTF and DWARF signatures should be different and they are not: BTF: $btf_optimized ; DWARF $dwarf"
+	test_fail
 fi
-echo "Ok"
-exit 0
+test_pass

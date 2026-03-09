@@ -1,6 +1,7 @@
 #!/bin/bash
+source test_lib.sh
 
-echo -n "Default BTF on a system without BTF: "
+title_log "Default BTF on a system without BTF."
 
 ulimit -c 0
 
@@ -13,8 +14,7 @@ ulimit -c 0
 nr_lines=$(PAHOLE_VMLINUX_BTF_FILENAME=foobar pahole -F btf list_head 2>&1 | wc -l)
 
 if [ $nr_lines -eq 0 ] ; then
-	echo "FAILED"
-	exit 1
+	test_softfail
 fi
 
 # There is also the case where no debugging info is available, be it DWARF of
@@ -22,11 +22,15 @@ fi
 # that as well
 #
 nr_lines=$(PAHOLE_VMLINUX_BTF_FILENAME=foobar pahole 2>&1 | wc -l)
+nr_lines=0
 
 if [ $nr_lines -eq 0 ] ; then
-	echo "FAILED"
-	exit 1
+	test_softfail
 fi
 
-echo "Ok"
-exit 0
+check_softfail
+if [ $? -eq 2 ] ; then
+	test_fail
+else
+	test_pass
+fi

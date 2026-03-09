@@ -3,21 +3,24 @@
 
 # Check that pfunct can print btf_decl_tags read from BTF
 
-tmpobj=$(mktemp /tmp/pfunct-btf-decl-tags.sh.XXXXXX.o)
+source test_lib.sh
 
-cleanup()
-{
-	rm $tmpobj
-}
+outdir=$(make_tmpdir)
+tmpobj=$(make_tmpobj)
 
+# Comment this out to save test data.
 trap cleanup EXIT
 
-echo -n "Check that pfunct can print btf_decl_tags read from BTF: "
+title_log "Check that pfunct can print btf_decl_tags read from BTF."
+
+# gcc now also supports decl tags as of gcc commit 43dcea48b8c,
+# in upstream version 16.
+# UPTODO: add a check here for that.
 
 CLANG=${CLANG:-clang}
 if ! command -v $CLANG > /dev/null; then
-	echo "Need clang for test $0"
-	exit 1
+	error_log "Need clang for test $0"
+	test_fail
 fi
 
 (cat <<EOF
@@ -55,13 +58,12 @@ out=$(pfunct -P -F btf $tmpobj | awk "$sort_tags" | sort)
 d=$(diff -u <(echo "$expected") <(echo "$out"))
 
 if [[ "$d" == "" ]]; then
-	echo "Ok"
-	exit 0
+	test_pass
 else
-	echo "pfunct output does not match expected:"
-	echo "$d"
-	echo
-	echo "Complete output:"
-	echo "$out"
-	exit 1
+	error_log "pfunct output does not match expected:"
+	info_log "$d"
+	info_log
+	info_log "Complete output:"
+	info_log "$out"
+	test_fail
 fi

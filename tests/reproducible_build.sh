@@ -4,22 +4,22 @@
 # Test if BTF generated serially matches reproducible parallel DWARF loading + serial BTF encoding
 # Arnaldo Carvalho de Melo <acme@redhat.com> (C) 2024-
 
-vmlinux=${vmlinux:-$1}
+source test_lib.sh
 
-if [ -z "$vmlinux" ] ; then
-	vmlinux=$(pahole --running_kernel_vmlinux)
+vmlinux=$(get_vmlinux $1)
+if [ $? -ne 0 ]; then
+	info_log "$vmlinux"
+	test_fail
 fi
 
-if [ ! -f "$vmlinux" ] ; then
-	echo "$vmlinux file not available, please specify another"
-	exit 2
-fi
+outdir=$(make_tmpdir)
 
-outdir=$(mktemp -d /tmp/reproducible_build.sh.XXXXXX)
+# Comment this out to save test data.
+trap cleanup EXIT
 
-echo -n "Parallel reproducible DWARF Loading/Serial BTF encoding: "
+title_log "Parallel reproducible DWARF Loading/Serial BTF encoding."
 
-test -n "$VERBOSE" && printf "\nserial encoding...\n"
+verbose_log "Begin serial encoding..."
 
 # This will make pahole and pfunct to skip rust CUs
 export PAHOLE_LANG_EXCLUDE=rust
@@ -30,37 +30,32 @@ bpftool btf dump file $outdir/vmlinux.btf.serial > $outdir/bpftool.output.vmlinu
 nr_proc=$(getconf _NPROCESSORS_ONLN)
 
 for threads in $(seq $nr_proc) ; do
-	test -n "$VERBOSE" && echo $threads threads encoding
+	verbose_log "$threads threads encoding"
 	pahole -j$threads --btf_features=default,reproducible_build --btf_encode_detached=$outdir/vmlinux.btf.parallel.reproducible $vmlinux &
 	pahole=$!
 	# HACK: Wait a bit for pahole to start its threads
-	sleep 0.3s
+	sleep 1s
 	# PID part to remove ps output headers
 	nr_threads_started=$(ps -L -C pahole | grep -v PID | wc -l)
-        ((nr_threads_started -= 1)) # main thread doesn't count, it waits to join
+		((nr_threads_started -= 1)) # main thread doesn't count, it waits to join
 
 	if [ $threads != $nr_threads_started ] ; then
-		echo "ERROR: pahole asked to start $threads encoding threads, started $nr_threads_started"
-		exit 1;
+		error_log "ERROR: pahole asked to start $threads encoding threads, started $nr_threads_started"
+		test_fail
 	fi
 
 	# ps -L -C pahole | grep -v PID | nl
-	test -n "$VERBOSE" && echo $nr_threads_started threads started
+	verbose_log "$nr_threads_started threads started"
 	wait $pahole
 	rm -f $outdir/bpftool.output.vmlinux.btf.parallel.reproducible
 	bpftool btf dump file $outdir/vmlinux.btf.parallel.reproducible > $outdir/bpftool.output.vmlinux.btf.parallel.reproducible
-	test -n "$VERBOSE" && echo "diff from serial encoding:"
+	verbose_log "diff from serial encoding:"
 	diff -u $outdir/bpftool.output.vmlinux.btf.serial $outdir/bpftool.output.vmlinux.btf.parallel.reproducible > $outdir/diff
 	if [ -s $outdir/diff ] ; then
-		echo "ERROR: BTF generated from DWARF in parallel is different from the one generated in serial!"
-		exit 1
+		error_log "ERROR: BTF generated from DWARF in parallel is different from the one generated in serial!"
+		test_fail
 	fi
-	test -n "$VERBOSE" && echo -----------------------------
+	verbose_log -----------------------------
 done
 
-rm $outdir/*
-rmdir $outdir
-
-echo "Ok"
-
-exit 0
+test_pass

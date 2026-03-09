@@ -8,19 +8,21 @@ cd $tests_dir
 let status=0
 let nr=1
 for test in *.sh ; do
-	printf "%3d: " $nr
-	./$test
-	case $? in
-	0)
-		;;
-	2)
-		echo "skipping..."
-		;;
-	*)
-		status=1
-		;;
-	esac
-	let nr+=1
+	if [ $test != "test_lib.sh" ]; then
+		printf "%d: $test\n" $nr
+		./$test $1
+		case $? in
+		0)
+			;;
+		2)
+			;;
+		*)
+			status=1
+			;;
+		esac
+		let nr+=1
+		echo "---"
+	fi
 done
 
 cd -
