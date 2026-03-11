@@ -1218,7 +1218,7 @@ static bool str_contains_non_fn_suffix(const char *str) {
 		".cold",
 		".part"
 	};
-	char *suffix = strchr(str, '.');
+	const char *suffix = strchr(str, '.');
 	int i;
 
 	if (!suffix)

@@ -2483,7 +2483,7 @@ static int64_t type_instance__int_value(struct type_instance *instance, const ch
 	int byte_offset = 0;
 
 	if (!member) {
-		char *sep = strchr(member_name_orig, '.');
+		const char *sep = strchr(member_name_orig, '.');
 
 		if (!sep)
 			return -1;
@@ -2496,8 +2496,8 @@ static int64_t type_instance__int_value(struct type_instance *instance, const ch
 		char *member_name = member_name_alloc;
 		struct type *type = instance->type;
 
-		sep = member_name_alloc + (sep - member_name_orig);
-		*sep = 0;
+		char *sep_mutable = member_name_alloc + (sep - member_name_orig);  // sep mutable for the copy
+		*sep_mutable = 0;
 
 		while (1) {
 			member = type__find_member_by_name(type, member_name);
@@ -2510,9 +2510,9 @@ out_free_member_name:
 			type = tag__type(cu__type(cu, member->tag.type));
 			if (type == NULL)
 				goto out_free_member_name;
-			member_name = sep + 1;
-			sep = strchr(member_name, '.');
-			if (!sep)
+			member_name = sep_mutable + 1;
+			sep_mutable = strchr(member_name, '.');
+			if (!sep_mutable)
 				break;
 
 		}
@@ -2950,7 +2950,7 @@ static struct prototype *prototype__new(const char *expression)
 
 	strcpy(prototype->name, expression);
 
-	const char *name = prototype->name;
+	char *name = prototype->name;
 
 	prototype->nr_args = 0;
 
@@ -2964,9 +2964,8 @@ static struct prototype *prototype__new(const char *expression)
 	if (args_close == NULL)
 		goto out_no_closing_parens;
 
+	*args_open++ = *args_close = '\0';
 	char *args = args_open;
-
-	*args++ = *args_close = '\0';
 
 	while (isspace(*args))
 		++args;
@@ -3114,7 +3113,7 @@ static int type__find_type_enum(struct type *type, struct cu *cu, const char *ty
 		return type__add_type_enum(type, te, cu);
 
 	// Now look at a 'virtual enum', i.e. the concatenation of multiple enums
-	char *sep = strchr(type_enum, '+');
+	const char *sep = strchr(type_enum, '+');
 
 	if (!sep)
 		return -1;
@@ -3126,13 +3125,13 @@ static int type__find_type_enum(struct type *type, struct cu *cu, const char *ty
 
 	int ret = -1;
 
-	sep = type_enums + (sep - type_enum);
+	char *sep_mutable = type_enums + (sep - type_enum);
+	char *cur = type_enums;
 
-	type_enum = type_enums;
-	*sep = '\0';
+	*sep_mutable = '\0';
 
 	while (1) {
-		te = cu__find_enumeration_by_name(cu, type_enum, NULL);
+		te = cu__find_enumeration_by_name(cu, cur, NULL);
 
 		if (!te)
 			goto out;
@@ -3141,10 +3140,12 @@ static int type__find_type_enum(struct type *type, struct cu *cu, const char *ty
 		if (ret)
 			goto out;
 
-		if (sep == NULL)
+		if (sep_mutable == NULL)
 			break;
-		type_enum = sep + 1;
-		sep = strchr(type_enum, '+');
+		cur = sep_mutable + 1;
+		sep_mutable = strchr(cur, '+');
+		if (sep_mutable)
+			*sep_mutable = '\0';
 	}
 
 	ret = 0;
