@@ -21,11 +21,19 @@ jobs:
             arch: 'x86_64'
             llvm-version: '18'
             pahole: 'none'
+            cc: 'gcc'
+          - kernel: 'LATEST'
+            runs_on: 'ubuntu-24.04'
+            arch: 'x86_64'
+            llvm-version: '18'
+            pahole: 'none'
+            cc: 'clang'
           - kernel: 'LATEST'
             runs_on: 'ubuntu-24.04-arm'
             arch: 'aarch64'
             llvm-version: '18'
             pahole: 'none'
+            cc: 'gcc'
     name: Linux ${{ matrix.kernel }}
     uses: ./.github/workflows/vmtest.yml
     with:
@@ -34,3 +42,4 @@ jobs:
       arch: ${{ matrix.arch }}
       llvm-version: ${{ matrix.llvm-version }}
       pahole: ${{ matrix.pahole }}
+      cc: ${{ matrix.cc }}

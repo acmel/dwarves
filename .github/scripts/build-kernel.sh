@@ -9,6 +9,8 @@ INPUTS_ARCH=${INPUTS_ARCH:-$(uname -m)}
 REPO=${REPO:-https://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git}
 REPO_BRANCH=${REPO_BRANCH:-master}
 REPO_TARGET=${GITHUB_WORKSPACE}/.kernel
+CC=${CC:-gcc}
+LLVM_VERSION=${LLVM_VERSION:-18}
 
 export PATH=${GITHUB_WORKSPACE}/install/usr/local/bin:${PATH}
 export PAHOLE=${GITHUB_WORKSPACE}/install/usr/local/bin/pahole
@@ -22,13 +24,19 @@ fi
 cd $REPO_TARGET
 git checkout $REPO_BRANCH
 
+buildopts=
+if [[ "$CC" = "clang" ]]; then
+	buildopts="LLVM=-${LLVM_VERSION}"
+	echo "Building with $buildopts"
+fi
+
 cat tools/testing/selftests/bpf/config \
     tools/testing/selftests/bpf/config.${INPUTS_ARCH} > .config
 # this file might or might not exist depending on kernel version
 if [[ -f tools/testing/selftests/bpf/config.vm ]]; then
 	cat tools/testing/selftests/bpf/config.vm >> .config
 fi
-make olddefconfig && make prepare
+make $buildopts olddefconfig && make prepare
 cat .config
-make -j $((4*$(nproc))) all
+make -j $((4*$(nproc))) $buildopts all
 

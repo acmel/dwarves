@@ -11,6 +11,7 @@ function restore() {
 
 GITHUB_WORKSPACE=${GITHUB_WORKSPACE:-$(dirname $0)/../..}
 BASELINE=${BASELINE:-next}
+CC=${CC:-gcc}
 
 cd $GITHUB_WORKSPACE
 git log --oneline -1
@@ -19,6 +20,7 @@ git submodule update --init
 mkdir -p build
 cd build
 pwd
+
 cmake -DGIT_SUBMODULE=OFF -DBUILD_SHARED_LIBS=OFF ..
 make -j$((4*$(nproc))) all
 make DESTDIR=../install install
