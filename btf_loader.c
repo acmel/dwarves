@@ -477,13 +477,50 @@ static struct attributes *attributes__realloc(struct attributes *attributes, con
 	return result;
 }
 
+static struct tag *ftype__parameter(const struct ftype *ftype, int component_idx)
+{
+	struct parameter *pos;
+	int idx = 0;
+
+	ftype__for_each_parameter(ftype, pos) {
+		if (idx == component_idx)
+			return &pos->tag;
+		++idx;
+	}
+
+	return NULL;
+}
+
+static struct tag *function__parameter(const struct function *func, struct cu *cu,
+				       int component_idx)
+{
+	struct tag *tag;
+
+	if (component_idx < 0)
+		return NULL;
+
+	tag = cu__type(cu, func->proto.tag.type);
+	if (tag == NULL)
+		return NULL;
+
+	return ftype__parameter(tag__ftype(tag), component_idx);
+}
+
 static int process_decl_tag(struct cu *cu, const struct btf_type *tp)
 {
+	int component_idx = btf_decl_tag(tp)->component_idx;
 	struct tag *tag = cu__type(cu, tp->type);
 	struct attributes *tmp;
 
-	if (tag == NULL)
-		tag = cu__function(cu, tp->type);
+	tag = cu__function(cu, tp->type);
+	if (component_idx >= 0 && tag != NULL) {
+		tag = function__parameter(tag__function(tag), cu, component_idx);
+		if (tag == NULL) {
+			fprintf(stderr, "WARNING: BTF_KIND_DECL_TAG for unknown parameter %d in BTF id %d\n",
+				component_idx, tp->type);
+			return 0;
+		}
+	}
 
 	if (tag == NULL)
 		tag = cu__tag(cu, tp->type);

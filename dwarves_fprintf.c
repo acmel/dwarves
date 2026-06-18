@@ -1199,6 +1199,18 @@ const char *function__prototype(const struct function *func,
 					bf, len);
 }
 
+static size_t tag__attributes_fprintf(const struct tag *tag, FILE *fp)
+{
+	size_t printed = 0;
+	int i;
+
+	if (tag->attributes)
+		for (i = 0; i < tag->attributes->cnt; ++i)
+			printed += fprintf(fp, "%s ", tag->attributes->values[i]);
+
+	return printed;
+}
+
 size_t ftype__fprintf_parms(const struct ftype *ftype,
 			    const struct cu *cu, int indent,
 			    const struct conf_fprintf *conf, FILE *fp)
@@ -1240,6 +1252,7 @@ size_t ftype__fprintf_parms(const struct ftype *ftype,
 				if (n)
 					return printed + n;
 				if (ptype->tag == DW_TAG_subroutine_type) {
+					printed += tag__attributes_fprintf(&pos->tag, fp);
 					printed +=
 					     ftype__fprintf(tag__ftype(ptype),
 							    cu, name, 0, 1, 0,
@@ -1248,12 +1261,14 @@ size_t ftype__fprintf_parms(const struct ftype *ftype,
 				}
 			}
 		} else if (type->tag == DW_TAG_subroutine_type) {
+			printed += tag__attributes_fprintf(&pos->tag, fp);
 			printed += ftype__fprintf(tag__ftype(type), cu, name,
 						  true, 0, 0, 0, conf, fp);
 			continue;
 		}
 		stype = tag__name(type, cu, sbf, sizeof(sbf), conf);
 print_it:
+		printed += tag__attributes_fprintf(&pos->tag, fp);
 		printed += fprintf(fp, "%s%s%s", stype, name ? " " : "",
 				   name ?: "");
 	}
@@ -1405,11 +1420,8 @@ static size_t function__fprintf(const struct tag *tag, const struct cu *cu,
 	struct ftype *ftype = func->btf ? tag__ftype(cu__type(cu, func->proto.tag.type)) : &func->proto;
 	size_t printed = 0;
 	bool inlined = !conf->strip_inline && function__declared_inline(func);
-	int i;
 
-	if (tag->attributes)
-		for (i = 0; i < tag->attributes->cnt; ++i)
-			printed += fprintf(fp, "%s ", tag->attributes->values[i]);
+	printed += tag__attributes_fprintf(tag, fp);
 
 	if (func->virtuality == DW_VIRTUALITY_virtual ||
 	    func->virtuality == DW_VIRTUALITY_pure_virtual)
