@@ -140,6 +140,8 @@ const char *dwarf_tag_name(const uint32_t tag)
 		return dwarf_gnu_tag_names[tag - DW_TAG_MIPS_loop];
 	else if (tag == DW_TAG_LLVM_annotation)
 		return "LLVM_annotation";
+	else if (tag == DW_TAG_GNU_annotation)
+		return "GNU_annotation";
 	return "INVALID";
 }
 
@@ -658,6 +660,7 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 		snprintf(bf, len, "%s", variable__name(tag__variable(tag)));
 		break;
 	case DW_TAG_LLVM_annotation:
+	case DW_TAG_GNU_annotation:
 		type = cu__type(cu, tag->type);
 		if (type == NULL && tag->type != 0)
 			tag__id_not_found_snprintf(bf, len, tag->type);
@@ -723,7 +726,7 @@ static size_t type__fprintf_stats(struct type *type, const struct cu *cu,
 	return printed;
 }
 
-static type_id_t skip_llvm_annotations(const struct cu *cu, type_id_t id)
+static type_id_t skip_tag_annotations(const struct cu *cu, type_id_t id)
 {
 	struct tag *type;
 
@@ -731,7 +734,7 @@ static type_id_t skip_llvm_annotations(const struct cu *cu, type_id_t id)
 		if (id == 0)
 			break;
 		type = cu__type(cu, id);
-		if (type == NULL || type->tag != DW_TAG_LLVM_annotation || type->type == id)
+		if (type == NULL || !tag__is_annotation(type->tag) || type->type == id)
 			break;
 		id = type->type;
 	}
@@ -838,7 +841,7 @@ inner_struct:
 next_type:
 	switch (type->tag) {
 	case DW_TAG_pointer_type: {
-		type_id_t ptype_id = skip_llvm_annotations(cu, type->type);
+		type_id_t ptype_id = skip_tag_annotations(cu, type->type);
 
 		if (ptype_id != 0) {
 			int n;
@@ -936,7 +939,8 @@ print_modifier: {
 		else
 			printed += enumeration__fprintf(type, &tconf, fp);
 		break;
-	case DW_TAG_LLVM_annotation: {
+	case DW_TAG_LLVM_annotation:
+	case DW_TAG_GNU_annotation: {
 		struct tag *ttype = cu__type(cu, type->type);
 		if (ttype) {
 			type = ttype;

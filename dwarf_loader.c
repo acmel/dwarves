@@ -908,7 +908,12 @@ static int tag__recode_dwarf_bitfield(struct tag *tag, struct cu *cu, uint16_t b
 	return -ENOMEM;
 }
 
-static int add_llvm_annotation(Dwarf_Die *die, int component_idx, struct conf_load *conf,
+static bool die__tag_is_annotation(Dwarf_Die *die)
+{
+	return tag__is_annotation(dwarf_tag(die));
+}
+
+static int add_tag_annotation(Dwarf_Die *die, int component_idx, struct conf_load *conf,
 			       struct list_head *head)
 {
 	struct llvm_annotation *annot;
@@ -943,12 +948,44 @@ static int add_child_llvm_annotations(Dwarf_Die *die, int component_idx,
 
 	die = &child;
 	do {
-		if (dwarf_tag(die) == DW_TAG_LLVM_annotation) {
-			ret = add_llvm_annotation(die, component_idx, conf, head);
-			if (ret)
-				return ret;
-		}
+		if (!die__tag_is_annotation(die))
+			continue;
+
+		ret = add_tag_annotation(die, component_idx, conf, head);
+		if (ret)
+			return ret;
 	} while (dwarf_siblingof(die, die) == 0);
+
+	return 0;
+}
+
+/*
+ * Handle gcc style btf_decl_tag annotations attached directly to a DIE via
+ * the DW_AT_GNU_annotation attribute chain: functions, function parameters
+ * and struct/union members.
+ *
+ * Note: gcc does not yet emit decl tags for a whole struct/union or for a
+ * typedef, so calling this on such a DIE is harmless - the attribute is
+ * simply absent and the chain is empty.
+ *
+ * Pointers (btf_type_tag) are handled separately, inline in
+ * die__create_new_pointer_tag().
+ */
+static int add_gnu_annotation_chain(Dwarf_Die *die, int component_idx,
+				    struct conf_load *conf, struct list_head *head)
+{
+	Dwarf_Attribute attr;
+	Dwarf_Die annot_die;
+
+	while (dwarf_attr(die, DW_AT_GNU_annotation, &attr) != NULL &&
+	       dwarf_formref_die(&attr, &annot_die) != NULL &&
+	       dwarf_tag(&annot_die) == DW_TAG_GNU_annotation) {
+		int ret = add_tag_annotation(&annot_die, component_idx, conf, head);
+		if (ret)
+			return ret;
+
+		die = &annot_die;
+	}
 
 	return 0;
 }
@@ -1596,13 +1633,16 @@ static struct btf_type_tag_type *die__create_new_btf_type_tag_type(Dwarf_Die *di
 		return NULL;
 
 	tag__init(&tag->tag, cu, die);
+	/* Normalize DW_TAG_GNU_annotation to DW_TAG_LLVM_annotation internally */
+	tag->tag.tag = DW_TAG_LLVM_annotation;
 	tag->value = attr_string(die, DW_AT_const_value, conf);
 	return tag;
 }
 
 static struct btf_type_tag_ptr_type *die__add_btf_type_tag(struct btf_type_tag_ptr_type *tag,
 							    Dwarf_Die *die, Dwarf_Die *adie,
-							    struct cu *cu, struct conf_load *conf)
+							    struct cu *cu, struct conf_load *conf,
+							    bool prepend)
 {
 	struct btf_type_tag_type *annot;
 	uint32_t id;
@@ -1625,10 +1665,23 @@ static struct btf_type_tag_ptr_type *die__add_btf_type_tag(struct btf_type_tag_p
 	cu__hash(cu, &annot->tag);
 
 	/*
-	 * Prepends: for annotations tag1 -> tag2 -> tag3,
-	 * the tag->tags list ends up as tag3 -> tag2 -> tag1.
+	 * Consider:
+	 *   struct sample __tag(outer) __tag(inner) *global_ptr;
+	 * The BTF chain should describe the pointer as:
+	 *   PTR -> TYPE_TAG "inner" -> TYPE_TAG "outer" -> STRUCT "sample"
+	 * i.e. the tag nearest the '*' wraps the pointee first.
+	 *
+	 * LLVM emits the child annotation DIEs in source order (outer, inner),
+	 * so we prepend to end up with inner -> outer.
+	 *
+	 * GCC's DW_AT_GNU_annotation chain is already walked from the outermost
+	 * BTF wrapper (inner) towards the pointee, so we preserve that order by
+	 * appending.
 	 */
-	list_add(&annot->node, &tag->tags);
+	if (prepend)
+		list_add(&annot->node, &tag->tags);
+	else
+		list_add_tail(&annot->node, &tag->tags);
 	return tag;
 }
 
@@ -1637,19 +1690,21 @@ static struct tag *die__create_new_pointer_tag(Dwarf_Die *die, struct cu *cu,
 {
 	struct btf_type_tag_ptr_type *tag = NULL;
 	Dwarf_Die *cdie, child;
+	Dwarf_Attribute attr;
+	Dwarf_Die annot_die;
 	const char *name;
 
-	/* If no child tags or skipping btf_type_tag encoding, just create a new tag
-	 * and return
-	 */
-	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0 ||
-	    conf->skip_encoding_btf_type_tag)
+	/* If skipping btf_type_tag encoding, just create a new tag, return */
+	if (conf->skip_encoding_btf_type_tag)
 		return tag__new(die, cu);
 
-	/* Otherwise, check DW_TAG_LLVM_annotation child tags */
+	if (!dwarf_haschildren(die) || dwarf_child(die, &child) != 0)
+		goto check_gnu_attr;
+
+	/* Handle LLVM style annotation tags if present */
 	cdie = &child;
 	do {
-		if (dwarf_tag(cdie) != DW_TAG_LLVM_annotation)
+		if (!die__tag_is_annotation(cdie))
 			continue;
 
 		/* Only check btf_type_tag annotations */
@@ -1657,11 +1712,33 @@ static struct tag *die__create_new_pointer_tag(Dwarf_Die *die, struct cu *cu,
 		if (strcmp(name, "btf_type_tag") != 0)
 			continue;
 
-		tag = die__add_btf_type_tag(tag, die, cdie, cu, conf);
+		/* LLVM child DIEs are in source order; prepend to reverse. */
+		tag = die__add_btf_type_tag(tag, die, cdie, cu, conf, true);
 		if (tag == NULL)
 			return NULL;
 	} while (dwarf_siblingof(cdie, cdie) == 0);
 
+check_gnu_attr:
+	if (tag != NULL)
+		goto out;
+
+	/* Handle GCC-style DW_AT_GNU_annotation attribute */
+	while (dwarf_attr(die, DW_AT_GNU_annotation, &attr) != NULL &&
+	       dwarf_formref_die(&attr, &annot_die) != NULL &&
+	       dwarf_tag(&annot_die) == DW_TAG_GNU_annotation) {
+		name = attr_string(&annot_die, DW_AT_name, conf);
+		if (strcmp(name, "btf_type_tag") != 0)
+			break;
+
+		/* GCC chain is already in BTF order; append to preserve it. */
+		tag = die__add_btf_type_tag(tag, die, &annot_die, cu, conf, false);
+		if (tag == NULL)
+			return NULL;
+
+		die = &annot_die;
+	}
+
+out:
 	return tag ? &tag->tag : tag__new(die, cu);
 }
 
@@ -1688,6 +1765,12 @@ static struct tag *die__create_new_class(Dwarf_Die *die, struct cu *cu, struct c
 			class__delete(class, cu);
 			class = NULL;
 		}
+	}
+
+	if (class != NULL &&
+	    add_gnu_annotation_chain(die, -1, conf, &class->type.namespace.annots) != 0) {
+		class__delete(class, cu);
+		class = NULL;
 	}
 
 	return class ? &class->type.namespace.tag : NULL;
@@ -1821,6 +1904,8 @@ static struct tag *die__create_new_parameter(Dwarf_Die *die,
 		ftype__add_parameter(ftype, parm);
 		if (param_idx >= 0) {
 			if (add_child_llvm_annotations(die, param_idx, conf, &(tag__function(&ftype->tag)->annots)))
+				return NULL;
+			if (add_gnu_annotation_chain(die, param_idx, conf, &(tag__function(&ftype->tag)->annots)))
 				return NULL;
 		}
 	} else {
@@ -2051,11 +2136,14 @@ static int die__process_class(Dwarf_Die *die, struct type *class,
 			cu__hash(cu, &member->tag);
 			if (add_child_llvm_annotations(die, member_idx, conf, &class->namespace.annots))
 				return -ENOMEM;
+			if (add_gnu_annotation_chain(die, member_idx, conf, &class->namespace.annots))
+				return -ENOMEM;
 			member_idx++;
 		}
 			continue;
 		case DW_TAG_LLVM_annotation:
-			if (add_llvm_annotation(die, -1, conf, &class->namespace.annots))
+		case DW_TAG_GNU_annotation:
+			if (add_tag_annotation(die, -1, conf, &class->namespace.annots))
 				return -ENOMEM;
 			continue;
 		default: {
@@ -2360,7 +2448,8 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 				goto out_enomem;
 			continue;
 		case DW_TAG_LLVM_annotation:
-			if (add_llvm_annotation(die, -1, conf, &(tag__function(&ftype->tag)->annots)))
+		case DW_TAG_GNU_annotation:
+			if (add_tag_annotation(die, -1, conf, &(tag__function(&ftype->tag)->annots)))
 				goto out_enomem;
 			continue;
 		default:
@@ -2404,6 +2493,12 @@ static struct tag *die__create_new_function(Dwarf_Die *die, struct cu *cu, struc
 
 	if (function != NULL &&
 	    die__process_function(die, &function->proto, &function->lexblock, cu, conf) != 0) {
+		function__delete(function, cu);
+		function = NULL;
+	}
+
+	if (function != NULL &&
+	    add_gnu_annotation_chain(die, -1, conf, &function->annots) != 0) {
 		function__delete(function, cu);
 		function = NULL;
 	}
@@ -2469,6 +2564,9 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 		 */
 		tag = &unsupported_tag;
 		break;
+	case DW_TAG_GNU_annotation:
+		tag = &unsupported_tag;
+		break;
 	case DW_TAG_label:
 		if (conf->ignore_labels)
 			tag = &unsupported_tag; // callers will assume conf->ignore_labels is true
@@ -2494,7 +2592,8 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *co
 			// XXX special case DW_TAG_dwarf_procedure, appears when looking at a recent ~/bin/perf
 			// Investigate later how to properly support this...
 			if (dwarf_tag(die) != DW_TAG_dwarf_procedure &&
-			    dwarf_tag(die) != DW_TAG_label) // conf->ignore_labels == true, see die__process_tag()
+			    dwarf_tag(die) != DW_TAG_label && // conf->ignore_labels == true, see die__process_tag()
+			    dwarf_tag(die) != DW_TAG_GNU_annotation)
 				tag__print_not_supported(die);
 			continue;
 		}

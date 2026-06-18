@@ -35,6 +35,17 @@
 #define DW_TAG_LLVM_annotation 0x6000
 #endif
 
+#ifndef DW_TAG_GNU_annotation
+#define DW_TAG_GNU_annotation 0x6001
+#endif
+
+#ifndef DW_AT_GNU_annotation
+#define DW_AT_GNU_annotation 0x2139
+#endif
+
+#define tag__is_annotation(tag) \
+	((tag) == DW_TAG_LLVM_annotation || (tag) == DW_TAG_GNU_annotation)
+
 static inline __attribute__((const)) bool is_power_of_2(unsigned long n)
 {
         return (n != 0 && ((n & (n - 1)) == 0));
