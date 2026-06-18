@@ -40,3 +40,6 @@ make $buildopts olddefconfig && make prepare
 cat .config
 make -j $((4*$(nproc))) $buildopts all
 
+# Build, install bpftool
+cd tools/bpf/bpftool
+LLVM_STRIP=llvm-strip-${LLVM_VERSION} make && make DESTDIR=${GITHUB_WORKSPACE}/install/ install
