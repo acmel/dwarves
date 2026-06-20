@@ -3,7 +3,7 @@
 
 # Check that pfunct can print btf_decl_tags read from BTF
 
-source test_lib.sh
+source "$(dirname "$0")/test_lib.sh"
 
 outdir=$(make_tmpdir)
 

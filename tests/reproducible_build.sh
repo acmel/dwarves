@@ -4,7 +4,7 @@
 # Test if BTF generated serially matches reproducible parallel DWARF loading + serial BTF encoding
 # Arnaldo Carvalho de Melo <acme@redhat.com> (C) 2024-
 
-source test_lib.sh
+source "$(dirname "$0")/test_lib.sh"
 
 vmlinux=$(get_vmlinux)
 if [ -z "$vmlinux" ] || [ ! -f "$vmlinux" ]; then

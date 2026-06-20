@@ -3,7 +3,7 @@
 
 # Check that pahole preserves btf_type_tag order when emitting BTF from DWARF.
 
-source test_lib.sh
+source "$(dirname "$0")/test_lib.sh"
 
 outdir=$(make_tmpdir)
 

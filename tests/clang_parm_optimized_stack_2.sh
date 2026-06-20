@@ -1,7 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-only
 
-source test_lib.sh
+source "$(dirname "$0")/test_lib.sh"
 
 outdir=$(make_tmpdir)
 

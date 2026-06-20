@@ -1,5 +1,5 @@
 #!/bin/bash
-source test_lib.sh
+source "$(dirname "$0")/test_lib.sh"
 
 title_log "Default BTF on a system without BTF."
 

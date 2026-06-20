@@ -7,7 +7,7 @@
 # Check if the perf binary is available, if it is from a distro, normally it
 # will get the needed DWARF info using libddebuginfod, we'll check if the
 # needed types are available, skipping the test and informing the reason.
-. ./test_lib.sh
+. "$(dirname "$0")/test_lib.sh"
 
 outdir=$(make_tmpdir)
 

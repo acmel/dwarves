@@ -114,21 +114,21 @@ make_tmpdir()
 
 make_tmpobj()
 {
-	outobj=$(mktemp $outdir/$0.obj.XXXXXX.o)
+	outobj=$(mktemp "$outdir/$(basename "$0").obj.XXXXXX.o")
 	echo $outobj
 	return 0
 }
 
 make_tmpsrc()
 {
-	outsrc=$(mktemp $outdir/$0.src.XXXXXX.c)
+	outsrc=$(mktemp "$outdir/$(basename "$0").src.XXXXXX.c")
 	echo $outsrc
 	return 0
 }
 
 make_tmpfile()
 {
-	outfile=$(mktemp $outdir/$0.data.XXXXXX)
+	outfile=$(mktemp "$outdir/$(basename "$0").data.XXXXXX")
 	echo $outfile
 	return 0
 }
