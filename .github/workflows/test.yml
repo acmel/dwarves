@@ -34,6 +34,12 @@ jobs:
             llvm-version: '18'
             pahole: 'none'
             cc: 'gcc'
+          - kernel: 'LATEST'
+            runs_on: 'ubuntu-24.04-arm'
+            arch: 'aarch64'
+            llvm-version: '18'
+            pahole: 'none'
+            cc: 'clang'
     name: Linux ${{ matrix.kernel }}
     uses: ./.github/workflows/vmtest.yml
     with:
