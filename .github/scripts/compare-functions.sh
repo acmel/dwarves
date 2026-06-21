@@ -10,7 +10,7 @@ VMLINUX=${GITHUB_WORKSPACE}/.kernel/vmlinux
 BASELINE=${BASELINE:-next}
 GITHUB_STEP_SUMMARY=${GITHUB_STEP_SUMMARY:-/dev/null}
 CC=${CC:-gcc}
-LLVM_VERSION=${LLVM_VERSION:-18}
+LLVM_VERSION=${LLVM_VERSION:-22}
 
 export PATH=${GITHUB_WORKSPACE}/install/usr/local/bin:${PATH}
 which pahole

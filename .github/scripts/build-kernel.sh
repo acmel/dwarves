@@ -10,7 +10,7 @@ REPO=${REPO:-https://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git}
 REPO_BRANCH=${REPO_BRANCH:-master}
 REPO_TARGET=${GITHUB_WORKSPACE}/.kernel
 CC=${CC:-gcc}
-LLVM_VERSION=${LLVM_VERSION:-18}
+LLVM_VERSION=${LLVM_VERSION:-22}
 
 export PATH=${GITHUB_WORKSPACE}/install/usr/local/bin:${PATH}
 export PAHOLE=${GITHUB_WORKSPACE}/install/usr/local/bin/pahole

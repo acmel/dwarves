@@ -7,7 +7,7 @@ on:
         default: 'x86_64'
         required: true
       llvm-version:
-        default: '18'
+        default: '22'
         required: true
       kernel:
         default: 'LATEST'
