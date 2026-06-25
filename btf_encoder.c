@@ -1297,14 +1297,38 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 	state->reordered_parm = ftype->reordered_parm;
 	ftype__for_each_parameter(ftype, param) {
 		const char *name;
+		char *final_name = NULL;
 
 		/* No location info/optimized + reordered means optimized out. */
 		if (ftype->reordered_parm && (!param->has_loc || param->optimized)) {
 			state->nr_parms--;
 			continue;
 		}
-		name = parameter__name(param) ?: "";
+		if (encoder->true_signature && ftype->signature_changed && param->optimized) {
+			state->nr_parms--;
+			continue;
+		}
+
+		name = parameter__name(param);
+		if (!name) {
+			name = "";
+		} else if (encoder->true_signature &&
+			   ftype->signature_changed &&
+			   param->true_sig_member_name) {
+			/* Non-null param->true_sig_member_name indicates that the parameter
+			 * name is <parameter_name>__<field_name>.
+			 */
+			if (asprintf(&final_name, "%s__%s", name, param->true_sig_member_name) == -1) {
+				err = -ENOMEM;
+				goto out;
+			}
+			name = final_name;
+		}
+
 		str_off = btf__add_str(btf, name);
+		if (final_name)
+			free(final_name);
+
 		if (str_off < 0) {
 			err = str_off;
 			goto out;
