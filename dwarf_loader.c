@@ -1137,6 +1137,16 @@ static void arch__set_register_params(const GElf_Ehdr *ehdr, struct cu *cu)
 	}
 }
 
+static bool arch__agg_use_two_regs(const GElf_Ehdr *ehdr)
+{
+	switch (ehdr->e_machine) {
+	case EM_S390:
+		return false;
+	default:
+		return true;
+	}
+}
+
 static struct template_type_param *template_type_param__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 {
 	struct template_type_param *ttparm = tag__alloc(cu, sizeof(*ttparm));
@@ -1537,6 +1547,29 @@ static struct ftype *ftype__new(Dwarf_Die *die, struct cu *cu)
 		ftype__init(ftype, die, cu);
 
 	return ftype;
+}
+
+static bool function__signature_changed(struct function *func, Dwarf_Die *die)
+{
+	/* The inlined DW_TAG_subprogram typically has the original source type for
+	 * abstract origin of a concrete function with address range, inlined subroutine,
+	 * or call site.
+	 */
+	if (func->inlined)
+		return false;
+
+	if (!func->abstract_origin)
+		return attr_numeric(die, DW_AT_calling_convention) == DW_CC_nocall;
+
+	Dwarf_Attribute attr;
+	if (dwarf_attr(die, DW_AT_abstract_origin, &attr)) {
+		Dwarf_Die origin;
+		if (dwarf_formref_die(&attr, &origin))
+			return attr_numeric(&origin, DW_AT_calling_convention) == DW_CC_nocall;
+	}
+
+	/* This should not happen */
+	return false;
 }
 
 static struct function *function__new(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
@@ -2491,10 +2524,17 @@ static struct tag *die__create_new_function(Dwarf_Die *die, struct cu *cu, struc
 {
 	struct function *function = function__new(die, cu, conf);
 
-	if (function != NULL &&
-	    die__process_function(die, &function->proto, &function->lexblock, cu, conf) != 0) {
-		function__delete(function, cu);
-		function = NULL;
+	if (function != NULL) {
+		/* For clang, we determine if function signature changes via DW_AT_calling_convention
+		 * set to DW_CC_nocall.
+		 */
+		if (cu->producer_clang)
+			function->proto.signature_changed = function__signature_changed(function, die);
+
+		if (die__process_function(die, &function->proto, &function->lexblock, cu, conf) != 0) {
+			function__delete(function, cu);
+			function = NULL;
+		}
 	}
 
 	if (function != NULL &&
@@ -3154,6 +3194,17 @@ static unsigned long long dwarf_tag__orig_id(const struct tag *tag,
 	return cu->extra_dbg_info ? dtag->id : 0;
 }
 
+static bool attr_producer_clang(Dwarf_Die *die)
+{
+	const char *producer;
+
+	producer = attr_string(die, DW_AT_producer, NULL);
+	if (!producer)
+		return false;
+
+	return !!strstr(producer, "clang");
+}
+
 struct debug_fmt_ops dwarf__ops;
 
 static int die__process(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
@@ -3191,6 +3242,7 @@ static int die__process(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 	}
 
 	cu->language = attr_numeric(die, DW_AT_language);
+	cu->producer_clang = attr_producer_clang(die);
 
 	if (conf->early_cu_filter)
 		cu = conf->early_cu_filter(cu);
@@ -3409,6 +3461,7 @@ static int cu__set_common(struct cu *cu, struct conf_load *conf,
 
 	cu->little_endian = ehdr.e_ident[EI_DATA] == ELFDATA2LSB;
 	cu->nr_register_params = arch__nr_register_params(&ehdr);
+	cu->agg_use_two_regs = arch__agg_use_two_regs(&ehdr);
 	arch__set_register_params(&ehdr, cu);
 	return 0;
 }
@@ -3950,6 +4003,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 			cu->priv = dcu;
 			cu->dfops = &dwarf__ops;
 			cu->language = attr_numeric(cu_die, DW_AT_language);
+			cu->producer_clang = attr_producer_clang(cu_die);
 			cus__add(cus, cu);
 		}
 
