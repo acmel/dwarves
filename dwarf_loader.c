@@ -3043,6 +3043,195 @@ static void ftype__recode_dwarf_types(struct tag *tag, struct cu *cu)
 	}
 }
 
+static struct parameter *ftype__next_parameter(struct ftype *ftype, struct parameter *parm)
+{
+	if (parm->tag.node.next == &ftype->parms)
+		return NULL;
+	return list_entry(parm->tag.node.next, struct parameter, tag.node);
+}
+
+static int parameter__abi_slots(const struct parameter *parm, const struct cu *cu)
+{
+	int slots;
+
+	if (!cu->agg_use_two_regs || parm->type_byte_size <= cu->addr_size)
+		return 1;
+
+	slots = (parm->type_byte_size + cu->addr_size - 1) / cu->addr_size;
+	return slots > 0 ? slots : 1;
+}
+
+static bool parameter__has_piece_info(const struct parameter *parm)
+{
+	return parm->first_reg_fields || parm->second_reg_fields;
+}
+
+static bool parameter__uses_full_aggregate(const struct parameter *parm)
+{
+	return parm->first_reg_fields && parm->second_reg_fields;
+}
+
+static bool ftype__next_parameter_preserves_slots(struct ftype *ftype, struct parameter *parm,
+						  int reg_idx, int slots, struct cu *cu)
+{
+	struct parameter *next = ftype__next_parameter(ftype, parm);
+	int next_reg_idx;
+
+	if (!next || next->loc_reg == PARAMETER_UNKNOWN_REG)
+		return false;
+
+	next_reg_idx = reg_idx + slots;
+	return next_reg_idx < cu->nr_register_params &&
+	       next->loc_reg == cu->register_params[next_reg_idx];
+}
+
+static bool parameter__apply_true_sig_member(struct parameter *parm, struct cu *cu)
+{
+	struct dwarf_tag tmp = {};
+	struct dwarf_tag *dtype;
+
+	if (!parm->true_sig_member_name || parm->true_sig_type == 0)
+		return false;
+
+	tmp.type = parm->true_sig_type;
+	tmp.from_types_section.type = parm->true_sig_type_from_types;
+	dtype = __dwarf_cu__find_type_by_ref(cu->priv, tmp.type, tmp.from_types_section.type);
+	if (!dtype)
+		return false;
+
+	parm->tag.type = dtype->small_id;
+	return true;
+}
+
+static bool parameter__reg_in_expected_window(const struct parameter *parm, int reg_idx,
+					      int slots, const struct cu *cu)
+{
+	for (int i = 0; i < slots; i++) {
+		int idx = reg_idx + i;
+
+		if (idx >= cu->nr_register_params)
+			break;
+		if (parm->loc_reg == cu->register_params[idx])
+			return true;
+	}
+	return false;
+}
+
+static void function__match_clang_parameter_locations(struct ftype *ftype, struct cu *cu)
+{
+	struct parameter *pos;
+	int reg_idx = 0;
+
+	ftype__for_each_parameter(ftype, pos) {
+		int slots = parameter__abi_slots(pos, cu);
+
+		if (pos->passed_in_memory)
+			continue;
+
+		if (reg_idx >= cu->nr_register_params)
+			break;
+
+		if (pos->loc_reg != PARAMETER_UNKNOWN_REG &&
+		    !parameter__reg_in_expected_window(pos, reg_idx, slots, cu))
+			pos->unexpected_reg = 1;
+
+		reg_idx += slots;
+	}
+}
+
+static void function__analyze_parameter_locations(struct function *fn, struct cu *cu,
+						  struct conf_load *conf)
+{
+	struct ftype *ftype = &fn->proto;
+	struct parameter *pos;
+	bool true_sig_enabled = conf->true_signature && ftype->signature_changed;
+	bool check_locations = !cu->producer_clang || ftype->signature_changed;
+	int reg_idx = 0;
+
+	if (!check_locations) {
+		/* Producer is clang and the signature was not changed: match
+		 * each parameter against its expected ABI argument register.
+		 */
+		function__match_clang_parameter_locations(ftype, cu);
+		return;
+	}
+
+	ftype__for_each_parameter(ftype, pos) {
+		bool consumes_register = true;
+		bool regs_available = reg_idx < cu->nr_register_params;
+		int slots = parameter__abi_slots(pos, cu);
+		int expected_reg = regs_available ? cu->register_params[reg_idx] : -1;
+		int reg_slots = pos->passed_in_memory ? 1 : slots;
+
+		if (pos->has_loc) {
+			if (true_sig_enabled && pos->loc_const_value) {
+				pos->optimized = 1;
+				consumes_register = false;
+				goto next;
+			}
+
+			if (!regs_available) {
+				consumes_register = false;
+				goto next;
+			}
+
+			if (true_sig_enabled && pos->loc_stack) {
+				if (pos->passed_in_memory)
+					consumes_register = false;
+				else
+					pos->unexpected_reg = 1;
+				goto next;
+			}
+
+			if (pos->loc_reg == PARAMETER_UNKNOWN_REG) {
+				if (true_sig_enabled)
+					pos->unexpected_reg = 1;
+				else
+					pos->optimized = 1;
+				goto next;
+			}
+
+			if (expected_reg >= 0 && expected_reg != pos->loc_reg) {
+				pos->unexpected_reg = 1;
+				goto next;
+			}
+
+			if (true_sig_enabled && parameter__has_piece_info(pos)) {
+				if (parameter__uses_full_aggregate(pos)) {
+					reg_idx += slots;
+					continue;
+				}
+
+				if (ftype__next_parameter_preserves_slots(ftype, pos, reg_idx, slots, cu)) {
+					pos->true_sig_member_name = 0;
+					reg_idx += slots;
+					continue;
+				}
+
+				if (parameter__apply_true_sig_member(pos, cu)) {
+					reg_idx++;
+					continue;
+				}
+			}
+		} else if (pos->has_const_value && !cu->producer_clang) {
+			pos->optimized = 1;
+		} else if (true_sig_enabled) {
+			if (regs_available &&
+			    ftype__next_parameter_preserves_slots(ftype, pos, reg_idx, slots, cu)) {
+				reg_idx += slots;
+				continue;
+			}
+
+			pos->optimized = 1;
+			consumes_register = false;
+		}
+
+next:
+		if (consumes_register)
+			reg_idx += reg_slots;
+	}
+}
+
 static void lexblock__recode_dwarf_types(struct lexblock *tag, struct cu *cu)
 {
 	struct tag *pos;
@@ -3318,7 +3507,7 @@ static bool param__is_struct(struct cu *cu, struct tag *tag)
 	}
 }
 
-static int cu__resolve_func_ret_types_optimized(struct cu *cu)
+static int cu__resolve_func_ret_types_optimized(struct cu *cu, struct conf_load *conf)
 {
 	struct ptr_table *pt = &cu->functions_table;
 	uint32_t i;
@@ -3328,6 +3517,8 @@ static int cu__resolve_func_ret_types_optimized(struct cu *cu)
 		struct parameter *pos;
 		struct function *fn = tag__function(tag);
 		bool has_unexpected_reg = false, has_struct_param = false;
+
+		function__analyze_parameter_locations(fn, cu, conf);
 
 		/* mark function as optimized if parameter is, or
 		 * if parameter does not have a location; at this
@@ -3507,7 +3698,7 @@ static int die__process_and_recode(Dwarf_Die *die, struct cu *cu, struct conf_lo
 	if (ret != 0)
 		return ret;
 
-	return cu__resolve_func_ret_types_optimized(cu);
+	return cu__resolve_func_ret_types_optimized(cu, conf);
 }
 
 static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
@@ -4270,7 +4461,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 	 * encoded in another subprogram through abstract_origin
 	 * tag. Let us visit all subprograms again to resolve this.
 	 */
-	if (cu__resolve_func_ret_types_optimized(cu) != LSK__KEEPIT)
+	if (cu__resolve_func_ret_types_optimized(cu, conf) != LSK__KEEPIT)
 		goto out_abort;
 
 	cu__finalize(cu, cus, conf);
