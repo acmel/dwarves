@@ -948,9 +948,20 @@ size_t lexblock__fprintf(const struct lexblock *lexblock, const struct cu *cu,
 struct parameter {
 	struct tag tag;
 	const char *name;
+	const char *true_sig_member_name;
+	Dwarf_Off true_sig_type;
+	unsigned long first_reg_fields;
+	unsigned long second_reg_fields;
+	int loc_reg;
+	uint16_t type_byte_size;
+	uint8_t true_sig_type_from_types:1;
+	uint8_t has_const_value:1;
+	uint8_t loc_const_value:1;
+	uint8_t loc_stack:1;
 	uint8_t optimized:1;
 	uint8_t unexpected_reg:1;
 	uint8_t has_loc:1;
+	uint8_t passed_in_memory:1;	/* too large for the ABI argument registers */
 	uint8_t idx;
 };
 
