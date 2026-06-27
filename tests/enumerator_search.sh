@@ -5,14 +5,14 @@
 # Test --contains_enumerator option.
 
 . "$(dirname "$0")/test_lib.sh"
-outdir=$(make_tmpdir)
 
+outdir=$(make_tmpdir)
 trap cleanup EXIT
 
 title_log "Enumerator search."
 
 CC=${CC:-gcc}
-if ! command -v "${CC%% *}" > /dev/null 2>&1; then
+if ! command -v ${CC%% *} > /dev/null 2>&1; then
 	info_log "skip: $CC not available"
 	test_skip
 fi
@@ -28,7 +28,8 @@ enum color g1;
 enum flavor g2;
 EOF
 
-if ! $CC -g -c -o "$obj" "$src" 2>/dev/null; then
+$CC -g -c -o "$obj" "$src" 2>/dev/null
+if [ $? -ne 0 ]; then
 	error_log "FAIL: compilation failed"
 	test_fail
 fi
