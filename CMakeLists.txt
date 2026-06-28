@@ -46,6 +46,9 @@ if(ENABLE_COVERAGE)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-instr-generate -fcoverage-mapping")
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fprofile-instr-generate")
 	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fprofile-instr-generate")
+	# Warn loudly — coverage instrumentation adds ~4x overhead and
+	# destroys parallel scaling due to profile counter false sharing.
+	message(WARNING "COVERAGE BUILD: instrumentation is ON, performance will be severely degraded")
 endif()
 
 if (NOT DEFINED BUILD_SHARED_LIBS)
