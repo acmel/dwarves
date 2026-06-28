@@ -28,8 +28,11 @@ pahole --btf_features=default --btf_encode_detached=$outdir/vmlinux.btf.serial $
 bpftool btf dump file $outdir/vmlinux.btf.serial > $outdir/bpftool.output.vmlinux.btf.serial
 
 nr_proc=$(getconf _NPROCESSORS_ONLN)
+# Clamp to 1 so single-core machines don't produce -j0
+half_proc=$(( nr_proc / 2 > 0 ? nr_proc / 2 : 1 ))
+thread_list=$(echo "1 2 4 $half_proc $nr_proc" | tr ' ' '\n' | sort -nu | tr '\n' ' ')
 
-for threads in $(seq $nr_proc) ; do
+for threads in $thread_list ; do
 	verbose_log "$threads threads encoding"
 	pahole -j$threads --btf_features=default,reproducible_build --btf_encode_detached=$outdir/vmlinux.btf.parallel.reproducible $vmlinux &
 	pahole=$!
