@@ -33,18 +33,18 @@ for threads in $(seq $nr_proc) ; do
 	verbose_log "$threads threads encoding"
 	pahole -j$threads --btf_features=default,reproducible_build --btf_encode_detached=$outdir/vmlinux.btf.parallel.reproducible $vmlinux &
 	pahole=$!
-	# HACK: Wait a bit for pahole to start its threads
+	# Wait for threads to start, then count via /proc/$pid/task.
+	# Using /proc instead of 'ps -L -p $pid' to avoid ps output
+	# parsing ambiguity.
 	sleep 1s
-	# PID part to remove ps output headers
-	nr_threads_started=$(ps -L -C pahole | grep -v PID | wc -l)
-		((nr_threads_started -= 1)) # main thread doesn't count, it waits to join
+	nr_threads_started=$(ls /proc/$pahole/task 2>/dev/null | wc -l)
+	nr_threads_started=$((nr_threads_started - 1)) # subtract main thread
 
 	if [ $threads != $nr_threads_started ] ; then
 		error_log "ERROR: pahole asked to start $threads encoding threads, started $nr_threads_started"
 		test_fail
 	fi
 
-	# ps -L -C pahole | grep -v PID | nl
 	verbose_log "$nr_threads_started threads started"
 	wait $pahole
 	rm -f $outdir/bpftool.output.vmlinux.btf.parallel.reproducible
