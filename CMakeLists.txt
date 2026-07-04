@@ -194,3 +194,53 @@ endif()
 install(PROGRAMS btfdiff fullcircle DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(FILES lib/Makefile lib/ctracer_relay.c lib/ctracer_relay.h lib/linux.blacklist.cu
 	DESTINATION ${CMAKE_INSTALL_PREFIX}/share/dwarves/runtime)
+
+# ── Test and coverage targets ────────────────────────────────────────
+
+add_custom_target(check
+	COMMAND ${CMAKE_COMMAND} -E env "PATH=${CMAKE_BINARY_DIR}:$ENV{PATH}"
+		${CMAKE_SOURCE_DIR}/tests/tests
+	DEPENDS pahole pfunct pdwtags pglobal codiff
+	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+	USES_TERMINAL
+	COMMENT "Running test suite")
+
+add_custom_target(coverage
+	COMMAND ${CMAKE_SOURCE_DIR}/coverage/coverage-diff.sh
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	USES_TERMINAL
+	COMMENT "Full coverage: rebuild with instrumentation, run tests, report")
+
+add_custom_target(coverage-report
+	COMMAND ${CMAKE_SOURCE_DIR}/coverage/coverage-diff.sh --report-only
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	USES_TERMINAL
+	COMMENT "Regenerate coverage report from existing profdata")
+
+add_custom_target(coverage-table
+	COMMAND ${CMAKE_SOURCE_DIR}/scripts/coverage_table.py
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	USES_TERMINAL
+	COMMENT "Display ASCII coverage table from existing profdata")
+
+# ── Help target ──────────────────────────────────────────────────────
+
+add_custom_target(list-targets
+	COMMAND ${CMAKE_COMMAND} -E echo ""
+	COMMAND ${CMAKE_COMMAND} -E echo "pahole build targets:"
+	COMMAND ${CMAKE_COMMAND} -E echo "  make                  - Build all binaries and libraries"
+	COMMAND ${CMAKE_COMMAND} -E echo "  make install          - Install to CMAKE_INSTALL_PREFIX"
+	COMMAND ${CMAKE_COMMAND} -E echo ""
+	COMMAND ${CMAKE_COMMAND} -E echo "Testing:"
+	COMMAND ${CMAKE_COMMAND} -E echo "  make check            - Run the test suite"
+	COMMAND ${CMAKE_COMMAND} -E echo ""
+	COMMAND ${CMAKE_COMMAND} -E echo "Coverage:"
+	COMMAND ${CMAKE_COMMAND} -E echo "  make coverage         - Full coverage: rebuild, run tests, report diff"
+	COMMAND ${CMAKE_COMMAND} -E echo "  make coverage-report  - Regenerate report from existing profdata"
+	COMMAND ${CMAKE_COMMAND} -E echo "  make coverage-table   - Display ASCII coverage table"
+	COMMAND ${CMAKE_COMMAND} -E echo ""
+	COMMAND ${CMAKE_COMMAND} -E echo "  Coverage uses build-coverage/ as the instrumented build directory."
+	COMMAND ${CMAKE_COMMAND} -E echo "  Set BUILD_DIR to override."
+	COMMAND ${CMAKE_COMMAND} -E echo ""
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	COMMENT "")
