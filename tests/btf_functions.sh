@@ -22,14 +22,24 @@ outdir=$(make_tmpdir)
 trap cleanup EXIT
 
 title_log "Validation of BTF encoding of functions."
-info_log "This may take some time."
-verbose_log "Encoding..."
+
+# BTF_FUNCTIONS_QUICK: skip slow vmlinux validation, test only corner cases with test_bin
+if [ "${BTF_FUNCTIONS_QUICK:-0}" = "1" ]; then
+	info_log "Quick mode: skipping vmlinux validation (set BTF_FUNCTIONS_QUICK=0 for full test)"
+	skip_vmlinux=1
+else
+	info_log "This may take some time."
+	skip_vmlinux=0
+fi
 
 # Here we use both methods so that we test pahole --lang_exclude, that is
 # used in the Linux kernel BTF encoding phase, and as well to make sure all
 # other pahole and pfunct use in this script will exclude the Rust CUs, testing
 # the fallback to PAHOLE_LANG_EXCLUDE.
 export PAHOLE_LANG_EXCLUDE=rust
+
+if [ "$skip_vmlinux" = "0" ]; then
+verbose_log "Encoding..."
 
 pahole --btf_features=default --lang_exclude=rust --btf_encode_detached=$outdir/vmlinux.btf --verbose $vmlinux |\
 	grep "skipping BTF encoding of function" > ${outdir}/skipped_fns
@@ -154,6 +164,8 @@ verbose_log "Found $multiple_inline instances where inline functions were not in
 verbose_log "Found $optimized instances where the function name suggests optimizations led to inconsistent parameters."
 verbose_log "Found $warnings instances where pfunct did not notice inconsistencies."
 
+fi  # skip_vmlinux
+
 # Some specific cases can not  be tested directly with a standard kernel.
 # We can use the small binary in bin/ to test those cases, like packed
 # structs passed on the stack.
@@ -169,8 +181,8 @@ pahole --btf_features=default --lang_exclude=rust --btf_encode_detached=$outdir/
 	--verbose ${tests_dir}/bin/test_bin | grep "skipping BTF encoding of function" \
 	> ${outdir}/test_bin_skipped_fns
 
-funcs=$(pfunct --format_path=btf $outdir/test_bin.btd 2>/dev/null|sort)
-pfunct --all --no_parm_names --format_path=dwarf bin/test_bin | \
+funcs=$(pfunct --format_path=btf $outdir/test_bin.btf 2>/dev/null|sort)
+pfunct --all --no_parm_names --format_path=dwarf ${tests_dir}/bin/test_bin | \
 	sort|uniq > $outdir/test_bin_dwarf.funcs
 pfunct --all --no_parm_names --format_path=btf $outdir/test_bin.btf 2>/dev/null|\
 	awk '{ gsub("^(bpf_kfunc |bpf_fastcall )+",""); print $0}'|sort|uniq > $outdir/test_bin_btf.funcs
