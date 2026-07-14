@@ -1129,8 +1129,8 @@ static bool types__match(struct btf_encoder *encoder,
 					  btf2, t2->type))
 				return false;
 			for (i = 0; i < vlen; i++, p1++, p2++) {
-				if (!types__match(encoder, btf1, t1->type,
-						  btf2, t2->type))
+				if (!types__match(encoder, btf1, p1->type,
+						  btf2, p2->type))
 					return false;
 			}
 			return true;
