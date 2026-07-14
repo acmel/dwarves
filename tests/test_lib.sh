@@ -11,6 +11,16 @@
 # 	exit 1
 # fi
 
+# Auto-detect and use just-built binaries from build/ directory.
+# When running tests after 'make -C build', automatically use those binaries
+# instead of distro-installed or ~/bin versions, with no PATH setup required.
+tests_root=$(cd "$(dirname "$0")" && pwd)
+build_dir="$tests_root/../build"
+if [ -d "$build_dir" ] && [ -x "$build_dir/pahole" ]; then
+	export PATH="$build_dir:$PATH"
+	export LD_LIBRARY_PATH="$build_dir:${LD_LIBRARY_PATH}"
+fi
+
 check_color_support()
 {
 	if [ ! -z "$color_support" ] ; then
