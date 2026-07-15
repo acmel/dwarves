@@ -13,8 +13,8 @@
 # values, and --header_type with --seek_bytes/--size_bytes.
 
 . "$(dirname "$0")/test_lib.sh"
-outdir=$(make_tmpdir)
 
+outdir=$(make_tmpdir)
 trap cleanup EXIT
 
 title_log "Prototype expression parsing and prettify."
