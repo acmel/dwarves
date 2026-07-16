@@ -128,16 +128,36 @@ make_tmpdir()
 
 make_tmpobj()
 {
-	outobj=$(mktemp "$outdir/$(basename "$0").obj.XXXXXX.o")
-	echo $outobj
-	return 0
+	# Busybox mktemp doesn't support suffix in template, GNU mktemp does.
+	# Try --suffix first, fall back to manual rename for portability.
+	if outobj=$(mktemp --suffix=.o "$outdir/$(basename "$0").obj.XXXXXX" 2>/dev/null); then
+		echo $outobj
+		return 0
+	else
+		# Fallback: create without suffix, then rename
+		tmp=$(mktemp "$outdir/$(basename "$0").obj.XXXXXX")
+		outobj="${tmp}.o"
+		mv "$tmp" "$outobj"
+		echo $outobj
+		return 0
+	fi
 }
 
 make_tmpsrc()
 {
-	outsrc=$(mktemp "$outdir/$(basename "$0").src.XXXXXX.c")
-	echo $outsrc
-	return 0
+	# Busybox mktemp doesn't support suffix in template, GNU mktemp does.
+	# Try --suffix first, fall back to manual rename for portability.
+	if outsrc=$(mktemp --suffix=.c "$outdir/$(basename "$0").src.XXXXXX" 2>/dev/null); then
+		echo $outsrc
+		return 0
+	else
+		# Fallback: create without suffix, then rename
+		tmp=$(mktemp "$outdir/$(basename "$0").src.XXXXXX")
+		outsrc="${tmp}.c"
+		mv "$tmp" "$outsrc"
+		echo $outsrc
+		return 0
+	fi
 }
 
 make_tmpfile()
