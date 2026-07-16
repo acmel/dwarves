@@ -543,6 +543,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_symtab		300
 #define ARGP_no_parm_names	301
 #define ARGP_compile		302
+#define ARGP_devel_version	303
 
 static const struct argp_option pfunct__options[] = {
 	{
@@ -674,6 +675,11 @@ static const struct argp_option pfunct__options[] = {
 		.doc   = "Don't show parameter names",
 	},
 	{
+		.name = "devel_version",
+		.key  = ARGP_devel_version,
+		.doc  = "Print development version with git SHA (e.g., v1.31-189-g437fced33da3393e)",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -731,6 +737,9 @@ static error_t pfunct__options_parser(int key, char *arg,
 		  if (arg)
 			  function_name = arg;
 		  break;
+	case ARGP_devel_version:
+		  dwarves_print_devel_version(stdout, state);
+		  exit(0);
 	default:  return ARGP_ERR_UNKNOWN;
 	}
 

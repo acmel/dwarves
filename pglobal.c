@@ -262,6 +262,11 @@ static const struct argp_option pglobal__options[] = {
 		.doc  = "be verbose",
 	},
 	{
+		.name = "devel_version",
+		.key  = 300,
+		.doc  = "Print development version with git SHA (e.g., v1.31-189-g437fced33da3393e)",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -280,6 +285,9 @@ static error_t pglobal__options_parser(int key, char *arg __maybe_unused,
 	case 'f': walk_fun = 1;		break;
 	case 'V': verbose = 1;		break;
 	case 'F': conf_load.format_path = arg;		break;
+	case 300:
+		dwarves_print_devel_version(stdout, state);
+		exit(0);
 	default:  return ARGP_ERR_UNKNOWN;
 	}
 	return 0;

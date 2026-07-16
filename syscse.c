@@ -118,6 +118,11 @@ static const struct argp_option options[] = {
 		.doc  = "function prefix",
 	},
 	{
+		.name = "devel_version",
+		.key  = 300,
+		.doc  = "Print development version with git SHA (e.g., v1.31-189-g437fced33da3393e)",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -133,6 +138,9 @@ static error_t options_parser(int key, char *arg, struct argp_state *state)
 		prefix = arg;
 		prefix_len = strlen(prefix);
 		break;
+	case 300:
+		dwarves_print_devel_version(stdout, state);
+		exit(0);
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}

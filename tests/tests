@@ -114,7 +114,7 @@ mkdir -p "$test_master_dir" || exit 1
 # See AGENTS.md for requirements when calling tests/tests
 echo "Testing pahole version:"
 if command -v pahole >/dev/null 2>&1; then
-	pahole --version 2>&1 | sed 's/^/  /'
+	pahole --devel_version 2>&1 | sed 's/^/  /'
 else
 	echo "  ERROR: pahole not found in PATH"
 	echo "  Ensure the build directory is at the front of PATH before running tests"

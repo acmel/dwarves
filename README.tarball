@@ -1,1 +1,20 @@
-v=1.$(($(git tag | sort -V | tail -1 | cut -d. -f2) + 1)) ; tar cvfJ ~/rpmbuild/SOURCES/dwarves-${v}.tar.xz --transform "s,^pahole/,dwarves-${v}/," `sed s%^%../pahole/%g MANIFEST`
+#!/bin/sh
+# Generate release tarball with version derived from latest git tag
+# Includes a HEAD file with the git SHA for build containers
+
+v=1.$(($(git tag | sort -V | tail -1 | cut -d. -f2) + 1))
+tarball=~/rpmbuild/SOURCES/dwarves-${v}.tar.xz
+
+# Create temporary HEAD file with current git SHA in parent directory
+# (so it can be picked up by tar's transform pattern)
+git rev-parse HEAD > ../pahole/HEAD
+
+# Create tarball: MANIFEST files + HEAD file
+tar cvfJ "$tarball" \
+	--transform "s,^pahole/,dwarves-${v}/," \
+	`sed s%^%../pahole/%g MANIFEST` \
+	../pahole/HEAD
+
+rm -f ../pahole/HEAD
+echo ""
+echo "Created $tarball with HEAD=$(git rev-parse HEAD)"

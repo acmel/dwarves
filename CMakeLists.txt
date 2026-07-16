@@ -87,6 +87,45 @@ if(NOT LIBBPF_FOUND AND NOT EXISTS "${PROJECT_SOURCE_DIR}/lib/bpf/src/btf.h")
 	message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
 
+# Capture git SHA for version tracking (especially for non-release builds)
+# Use git describe to get tag + commit count + short SHA for version string
+if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} describe --long --dirty --tags
+		WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+		OUTPUT_VARIABLE GIT_DESCRIBE
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		ERROR_QUIET
+	)
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
+		WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+		OUTPUT_VARIABLE GIT_SHA
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		ERROR_QUIET
+	)
+	if(GIT_DESCRIBE)
+		add_definitions(-DDWARVES_GIT_DESCRIBE="${GIT_DESCRIBE}")
+		message(STATUS "Version: ${GIT_DESCRIBE}")
+	endif()
+	if(GIT_SHA)
+		add_definitions(-DDWARVES_GIT_SHA="${GIT_SHA}")
+	endif()
+elseif(EXISTS "${PROJECT_SOURCE_DIR}/HEAD")
+	# Tarball build: use HEAD file created during tarball generation
+	file(READ "${PROJECT_SOURCE_DIR}/HEAD" GIT_SHA)
+	string(STRIP "${GIT_SHA}" GIT_SHA)
+	if(GIT_SHA)
+		add_definitions(-DDWARVES_GIT_SHA="${GIT_SHA}")
+		# Use v<major>.<minor>-<short-sha> format for tarball builds
+		# DWARVES_MAJOR_VERSION/MINOR_VERSION are compiler defines, not
+		# CMake variables, so hardcode the version here.
+		string(SUBSTRING "${GIT_SHA}" 0 12 SHORT_SHA)
+		add_definitions(-DDWARVES_GIT_DESCRIBE="v1.31-tarball-g${SHORT_SHA}")
+		message(STATUS "Version: v1.31-tarball-g${SHORT_SHA} (from HEAD file)")
+	endif()
+endif()
+
 # libbpf uses reallocarray, which is not available in all versions of glibc
 # libbpf's include/tools/libc_compat.h provides implementation, but needs
 # COMPACT_NEED_REALLOCARRAY to be set

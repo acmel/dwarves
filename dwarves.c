@@ -2998,7 +2998,20 @@ struct argp_state;
 
 void dwarves_print_version(FILE *fp, struct argp_state *state __maybe_unused)
 {
+	// Always use major.minor version only for --version (kernel build compatibility)
 	fprintf(fp, "v%u.%u\n", DWARVES_MAJOR_VERSION, DWARVES_MINOR_VERSION);
+}
+
+void dwarves_print_devel_version(FILE *fp, struct argp_state *state __maybe_unused)
+{
+#ifdef DWARVES_GIT_DESCRIBE
+	// Use git describe output for --devel_version (includes tag, commit count, short SHA)
+	// Example: v1.31-181-gd917613c2f054f2f-dirty
+	fprintf(fp, "%s\n", DWARVES_GIT_DESCRIBE);
+#else
+	// Fall back to major.minor version only (release builds from tarballs)
+	fprintf(fp, "v%u.%u\n", DWARVES_MAJOR_VERSION, DWARVES_MINOR_VERSION);
+#endif
 }
 
 bool print_numeric_version;

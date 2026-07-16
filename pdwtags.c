@@ -118,6 +118,11 @@ static const struct argp_option pdwtags__options[] = {
 		.doc  = "show details",
 	},
 	{
+		.name = "devel_version",
+		.key  = 300,
+		.doc  = "Print development version with git SHA (e.g., v1.31-189-g437fced33da3393e)",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -132,6 +137,9 @@ static error_t pdwtags__options_parser(int key, char *arg __maybe_unused,
 		break;
 	case 'F': pdwtags_conf_load.format_path = arg;	break;
 	case 'V': conf.show_decl_info = 1;		break;
+	case 300:
+		dwarves_print_devel_version(stdout, state);
+		exit(0);
 	default:  return ARGP_ERR_UNKNOWN;
 	}
 	return 0;

@@ -734,6 +734,11 @@ static const struct argp_option codiff__options[] = {
 		.doc  = "Show only differences, no difference? No output",
 	},
 	{
+		.name = "devel_version",
+		.key  = 300,
+		.doc  = "Print development version with git SHA (e.g., v1.31-189-g437fced33da3393e)",
+	},
+	{
 		.name = NULL,
 	}
 };
@@ -748,6 +753,9 @@ static error_t codiff__options_parser(int key, char *arg __maybe_unused,
 	case 't': show_terse_type_changes = 1;	break;
 	case 'V': verbose = 1;			break;
 	case 'q': quiet = 1;			break;
+	case 300:
+		dwarves_print_devel_version(stdout, state);
+		exit(0);
 	default:  return ARGP_ERR_UNKNOWN;
 	}
 	return 0;

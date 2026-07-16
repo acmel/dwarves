@@ -1664,6 +1664,7 @@ const char *vmlinux_path__find_running_kernel(void);
 struct argp_state;
 
 void dwarves_print_version(FILE *fp, struct argp_state *state);
+void dwarves_print_devel_version(FILE *fp, struct argp_state *state);
 void dwarves_print_numeric_version(FILE *fp);
 
 extern bool print_numeric_version;
