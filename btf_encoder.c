@@ -1952,7 +1952,7 @@ static int btf_encoder__write_raw_file(struct btf_encoder *encoder)
 		return -1;
 	}
 
-	fd = open(filename, O_WRONLY | O_CREAT, 0640);
+	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0640);
 	if (fd < 0) {
 		fprintf(stderr, "%s: Couldn't open %s for writing the raw BTF info: %s\n", __func__, filename, strerror(errno));
 		return -1;
