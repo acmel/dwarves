@@ -9,13 +9,12 @@
 . "$(dirname "$0")/test_lib.sh"
 
 outdir=$(make_tmpdir)
-
 trap cleanup EXIT
 
 title_log "_Atomic type display and --skip_emitting_atomic_typedefs."
 
 CC=${CC:-gcc}
-if ! command -v "${CC%% *}" > /dev/null 2>&1; then
+if ! command -v ${CC%% *} > /dev/null 2>&1; then
 	info_log "skip: $CC not available"
 	test_skip
 fi
@@ -42,7 +41,8 @@ EOF
 # Need C11 for _Atomic and DWARF 5 for DW_TAG_atomic_type.
 # GCC defaults to DWARF 4 until version 12, and DWARF 4 has no atomic type tag,
 # so the _Atomic qualifier is lost. Force DWARF 5 for consistent behavior.
-if ! $CC -std=c11 -gdwarf-5 -c -o "$obj" "$src" 2>/dev/null; then
+$CC -std=c11 -gdwarf-5 -c -o "$obj" "$src" 2>/dev/null
+if [ $? -ne 0 ]; then
 	info_log "skip: $CC does not support -std=c11, -gdwarf-5, or <stdatomic.h>"
 	test_skip
 fi
