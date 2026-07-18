@@ -262,6 +262,32 @@ add_custom_target(coverage-table
 	USES_TERMINAL
 	COMMENT "Display ASCII coverage table from existing profdata")
 
+# ── Tarball targets ──────────────────────────────────────────────────
+
+add_custom_target(tarxz-pkg
+	COMMAND ${CMAKE_SOURCE_DIR}/scripts/make-tarball.sh xz
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	USES_TERMINAL
+	COMMENT "Create .tar.xz release tarball in the current directory")
+
+add_custom_target(targz-pkg
+	COMMAND ${CMAKE_SOURCE_DIR}/scripts/make-tarball.sh gz
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	USES_TERMINAL
+	COMMENT "Create .tar.gz release tarball in the current directory")
+
+add_custom_target(tarbz2-pkg
+	COMMAND ${CMAKE_SOURCE_DIR}/scripts/make-tarball.sh bz2
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	USES_TERMINAL
+	COMMENT "Create .tar.bz2 release tarball in the current directory")
+
+add_custom_target(tar-pkg
+	COMMAND ${CMAKE_SOURCE_DIR}/scripts/make-tarball.sh tar
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	USES_TERMINAL
+	COMMENT "Create .tar release tarball in the current directory")
+
 # ── Help target ──────────────────────────────────────────────────────
 
 add_custom_target(list-targets
@@ -280,6 +306,15 @@ add_custom_target(list-targets
 	COMMAND ${CMAKE_COMMAND} -E echo ""
 	COMMAND ${CMAKE_COMMAND} -E echo "  Coverage uses build-coverage/ as the instrumented build directory."
 	COMMAND ${CMAKE_COMMAND} -E echo "  Set BUILD_DIR to override."
+	COMMAND ${CMAKE_COMMAND} -E echo ""
+	COMMAND ${CMAKE_COMMAND} -E echo "Tarball generation:"
+	COMMAND ${CMAKE_COMMAND} -E echo "  make tarxz-pkg        - Create .tar.xz release tarball"
+	COMMAND ${CMAKE_COMMAND} -E echo "  make targz-pkg        - Create .tar.gz release tarball"
+	COMMAND ${CMAKE_COMMAND} -E echo "  make tarbz2-pkg       - Create .tar.bz2 release tarball"
+	COMMAND ${CMAKE_COMMAND} -E echo "  make tar-pkg          - Create .tar release tarball"
+	COMMAND ${CMAKE_COMMAND} -E echo ""
+	COMMAND ${CMAKE_COMMAND} -E echo "  Tarballs created in current directory by default. Set TARBALL_DIR to override."
+	COMMAND ${CMAKE_COMMAND} -E echo "  See README.tarball for details."
 	COMMAND ${CMAKE_COMMAND} -E echo ""
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	COMMENT "")

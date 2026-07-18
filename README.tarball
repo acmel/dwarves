@@ -1,20 +1,26 @@
-#!/bin/sh
-# Generate release tarball with version derived from latest git tag
-# Includes a HEAD file with the git SHA for build containers
+Creating Release Tarballs
+==========================
 
-v=1.$(($(git tag | sort -V | tail -1 | cut -d. -f2) + 1))
-tarball=~/rpmbuild/SOURCES/dwarves-${v}.tar.xz
+Use the make targets to create release tarballs (similar to kernel's perf-tar-src-pkg):
 
-# Create temporary HEAD file with current git SHA in parent directory
-# (so it can be picked up by tar's transform pattern)
-git rev-parse HEAD > ../pahole/HEAD
+  make tarxz-pkg     - Create .tar.xz release tarball (recommended)
+  make targz-pkg     - Create .tar.gz release tarball
+  make tarbz2-pkg    - Create .tar.bz2 release tarball
+  make tar-pkg       - Create .tar release tarball
 
-# Create tarball: MANIFEST files + HEAD file
-tar cvfJ "$tarball" \
-	--transform "s,^pahole/,dwarves-${v}/," \
-	`sed s%^%../pahole/%g MANIFEST` \
-	../pahole/HEAD
+Tarballs are created in the current working directory by default.
+Set TARBALL_DIR environment variable to override:
 
-rm -f ../pahole/HEAD
-echo ""
-echo "Created $tarball with HEAD=$(git rev-parse HEAD)"
+  TARBALL_DIR=~/rpmbuild/SOURCES make tarxz-pkg
+
+Each tarball includes:
+  - All files listed in MANIFEST
+  - A HEAD file containing the git SHA (for build container tracking)
+  - Version-prefixed directory structure: dwarves-X.Y/
+
+Version is automatically calculated from CMakeLists.txt
+(DWARVES_MAJOR_VERSION.DWARVES_MINOR_VERSION), matching the version
+pahole --version reports.
+Example: DWARVES_MINOR_VERSION=31 yields dwarves-1.31.tar.xz
+
+Implementation: scripts/make-tarball.sh
