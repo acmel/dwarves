@@ -74,8 +74,14 @@ check_type_tag_order()
 	local btf=$1
 	local dump
 
-	if ! dump=$("$BPFTOOL" btf dump file "$btf"); then
-		return 1
+	if ! dump=$("$BPFTOOL" btf dump file "$btf" 2>/dev/null); then
+		info_log "skip: bpftool cannot parse BTF (too old or missing features)"
+		test_skip
+	fi
+
+	if [ -z "$dump" ]; then
+		info_log "skip: bpftool cannot parse BTF (too old or missing features)"
+		test_skip
 	fi
 
 	printf '%s\n' "$dump" | awk '

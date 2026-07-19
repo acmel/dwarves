@@ -290,6 +290,34 @@ test_skip()
 	exit 2
 }
 
+# Check if bpftool can dump a BTF file (i.e., supports the BTF format)
+# Usage: check_bpftool_btf_support <btf_file> || test_skip_with_msg "reason"
+# Returns 0 if bpftool can dump the file, 1 if not
+check_bpftool_btf_support()
+{
+	local btf_file="$1"
+
+	if ! command -v bpftool >/dev/null 2>&1; then
+		return 1
+	fi
+
+	if [ ! -f "$btf_file" ]; then
+		return 1
+	fi
+
+	# Try to dump the BTF file
+	# Older bpftool versions return empty output when they encounter
+	# BTF features they don't support (TYPE_TAG, DECL_TAG, etc.)
+	local dump
+	dump=$(bpftool btf dump file "$btf_file" 2>/dev/null)
+
+	if [ -z "$dump" ]; then
+		return 1
+	fi
+
+	return 0
+}
+
 cleanup()
 {
 	if [ -n "$outdir" ] && [ -d "$outdir" ]; then
