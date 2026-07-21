@@ -18,15 +18,15 @@ GCC=${GCC:-gcc}
 CLANG=${CLANG:-clang}
 
 use_gcc=0
-if command -v $GCC > /dev/null; then
-	gcc_ver=$($GCC -dumpversion 2>/dev/null | cut -d. -f1)
+if command -v "$GCC" > /dev/null; then
+	gcc_ver=$("$GCC" -dumpversion 2>/dev/null | cut -d. -f1)
 	if [ "$gcc_ver" -ge 16 ] 2>/dev/null; then
 		use_gcc=1
 	fi
 fi
 
 use_clang=0
-if command -v $CLANG > /dev/null; then
+if command -v "$CLANG" > /dev/null; then
 	use_clang=1
 fi
 
