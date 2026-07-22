@@ -27,12 +27,24 @@ fi
 
 use_clang=0
 if command -v "$CLANG" > /dev/null; then
-	use_clang=1
+	# btf_decl_tag requires clang 14+
+	if "$CLANG" -x c -E -P - <<'ATTR_CHECK' 2>/dev/null | grep -qx 1; then
+#ifndef __has_attribute
+#define __has_attribute(x) 0
+#endif
+#if __has_attribute(btf_decl_tag)
+1
+#else
+0
+#endif
+ATTR_CHECK
+		use_clang=1
+	fi
 fi
 
 if [ "$use_gcc" -eq 0 ] && [ "$use_clang" -eq 0 ]; then
-	error_log "Need gcc >= 16 or clang for test $0"
-	test_fail
+	info_log "skip: no compiler with btf_decl_tag support available"
+	test_skip
 fi
 
 src=$(cat <<EOF

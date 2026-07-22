@@ -53,8 +53,8 @@ if compiler_has_btf_type_tag "$CLANG"; then
 fi
 
 if [ "$use_gcc" -eq 0 ] && [ "$use_clang" -eq 0 ]; then
-	error_log "Need gcc or clang with btf_type_tag support for test $0"
-	test_fail
+	info_log "skip: no compiler with btf_type_tag support available"
+	test_skip
 fi
 
 src=$(cat <<EOF

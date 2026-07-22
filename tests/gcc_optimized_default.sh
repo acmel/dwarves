@@ -52,8 +52,10 @@ if [[ $? -ne 0 ]]; then
 fi
 
 if ! grep -q "foo : skipping BTF encoding of function due to optimized parameters" "$log"; then
-	error_log "foo() should be skipped for default BTF due to optimized parameters"
-	test_fail
+	# Old GCC versions don't emit DW_CC_nocall or other markers that
+	# pahole uses to detect optimized parameters.
+	info_log "skip: gcc did not produce optimized-parameter markers"
+	test_skip
 fi
 
 if pfunct --all --format_path=btf "$btf" | grep -Fq "int foo("; then

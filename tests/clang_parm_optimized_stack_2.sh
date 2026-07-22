@@ -8,7 +8,7 @@ outdir=$(make_tmpdir)
 # Comment this out to save test data.
 trap cleanup EXIT
 
-title_log "Validation of BTF encoding of true_signatures."
+title_log "BTF true_signature: clang optimized with stack parameters (non-static)"
 
 clang_true="${outdir}/clang_true"
 CC=$(which clang 2>/dev/null)

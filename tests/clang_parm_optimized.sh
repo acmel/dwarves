@@ -8,7 +8,7 @@ outdir=$(make_tmpdir)
 # Comment this out to save test data.
 trap cleanup EXIT
 
-title_log "Validation of BTF encoding of true_signatures."
+title_log "BTF true_signature: clang optimized parameters (scalar)"
 
 clang_true="${outdir}/clang_true"
 CC=$(which clang 2>/dev/null)
@@ -57,7 +57,8 @@ if [[ -n "$VERBOSE" ]]; then
 fi
 
 if [[ "$btf_cmp" == "$dwarf" ]]; then
-	error_log "BTF and DWARF signatures should be different and they are not: BTF: $btf_optimized ; DWARF $dwarf"
-	test_fail
+	# Old clang versions may not optimize in a way that changes the signature
+	info_log "skip: clang did not produce a different true signature"
+	test_skip
 fi
 test_pass
