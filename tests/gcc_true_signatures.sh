@@ -11,9 +11,9 @@ trap cleanup EXIT
 title_log "Validation of BTF encoding of true_signatures."
 
 gcc_true="${outdir}/gcc_true"
-CC=$(which gcc 2>/dev/null)
+CC=${CC:-gcc}
 
-if [[ -z "$CC" ]]; then
+if ! command -v "$CC" >/dev/null 2>&1; then
 	info_log "skip: gcc not available"
 	test_skip
 fi
@@ -63,7 +63,7 @@ if [[ -z "$btf_optimized" ]]; then
 	test_skip
 fi
 # Convert foo.[constprop|isra].0 to foo to allow comparison.
-btf_cmp="$(echo $btf_optimized \
+btf_cmp="$(echo $btf_optimized | \
 	awk '/foo/ {sub(/\.constprop.0/,""); sub(/\.isra.0/,""); print $0 }')"
 dwarf=$(pfunct --all $gcc_true |grep "foo")
 
