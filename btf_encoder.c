@@ -1519,8 +1519,20 @@ static int saved_functions_cmp(const void *_a, const void *_b)
 {
 	const struct btf_encoder_func_state *a = _a;
 	const struct btf_encoder_func_state *b = _b;
+	int ret;
 
-	return elf_function__name_cmp(a->elf, b->elf);
+	ret = elf_function__name_cmp(a->elf, b->elf);
+	if (ret)
+		return ret;
+
+	/* For the same function, sort the out-of-line (real) instances, which
+	 * have a function address, before the inlined (abstract) ones, which do
+	 * not. saved_functions_combine() compares every state in a group against
+	 * the first (anchor) one, so keeping a real instance as the anchor
+	 * ensures real instances are still compared against each other for
+	 * prototype consistency.
+	 */
+	return (a->addr == 0) - (b->addr == 0);
 }
 
 static int saved_functions_combine(struct btf_encoder *encoder,
@@ -1536,7 +1548,9 @@ static int saved_functions_combine(struct btf_encoder *encoder,
 	inconsistent = a->inconsistent_proto | b->inconsistent_proto;
 	uncertain_parm_loc = a->uncertain_parm_loc | b->uncertain_parm_loc;
 	reordered_parm = a->reordered_parm | b->reordered_parm;
-	if (!unexpected && !inconsistent && !reordered_parm && !funcs__match(encoder, a, b))
+
+	if ((!encoder->true_signature || !!a->addr == !!b->addr) &&
+	    !unexpected && !inconsistent && !reordered_parm && !funcs__match(encoder, a, b))
 		inconsistent = 1;
 	a->unexpected_reg = b->unexpected_reg = unexpected;
 	a->inconsistent_proto = b->inconsistent_proto = inconsistent;
