@@ -82,7 +82,7 @@ void class__fixup_alignment(struct class *class, const struct cu *cu)
 			class->type.size -= dec;
 			class__subtract_offsets_from(class, pos, dec);
 		} else for (power2 = cu->addr_size; power2 >= 2; power2 /= 2) {
-			const size_t remainder = pos->byte_offset % power2;
+			const int remainder = pos->byte_offset % power2;
 
 			if (pos->byte_size == power2) {
 				if (remainder == 0) /* perfectly aligned */
@@ -95,7 +95,7 @@ void class__fixup_alignment(struct class *class, const struct cu *cu)
 					pos->bit_offset -= remainder * 8;
 					class__subtract_offsets_from(class, pos, remainder);
 				} else {
-					const size_t inc = power2 - remainder;
+					const int inc = power2 - remainder;
 
 					if (last_member->hole == 0)
 						++class->nr_holes;
@@ -811,7 +811,7 @@ restart:
 			if (class->padding > 0 &&
 			    member != last_member &&
 			    last_member->byte_size != 0 &&
-			    last_member->byte_size <= member->hole) {
+			    last_member->byte_size <= (size_t)member->hole) {
 				if (class__move_member(class, member, last_member, cu, 1, verbose, fp))
 					goto restart;
 			}

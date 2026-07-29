@@ -744,7 +744,7 @@ static int class__fixup_btf_bitfields(const struct conf_load *conf, struct tag *
 		 */
 		smallest_offset = pos->byte_offset;
 		smallest_offset += pos->bitfield_size ?
-			(pos->bitfield_offset + pos->bitfield_size + 7) / 8 :
+			(size_t)(pos->bitfield_offset + pos->bitfield_size + 7) / 8 :
 			pos->byte_size;
 	}
 

@@ -1577,7 +1577,7 @@ const struct class_member *class__find_bit_hole(const struct class *class,
 						const uint16_t bit_hole_size)
 {
 	struct class_member *pos;
-	const size_t byte_hole_size = bit_hole_size / 8;
+	const uint16_t byte_hole_size = bit_hole_size / 8;
 
 	type__for_each_data_member(&class->type, pos)
 		if (pos == trailer)
@@ -2449,7 +2449,7 @@ const char *lang__int2str(int id)
 {
 	const char *lang = NULL;
 
-	if (id < ARRAY_SIZE(languages))
+	if (id >= 0 && (size_t)id < ARRAY_SIZE(languages))
 		lang = languages[id];
 	else if (id == DW_LANG_Mips_Assembler)
 		return "asm";

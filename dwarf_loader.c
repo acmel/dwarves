@@ -3786,7 +3786,7 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 	/* align on underlying base type natural alignment boundary */
 	member->bitfield_offset += (member->byte_offset % member->byte_size) * 8;
 	member->byte_offset = member->bit_offset / member->bit_size * member->bit_size / 8;
-	if (member->bitfield_offset >= member->bit_size) {
+	if ((uint32_t)member->bitfield_offset >= member->bit_size) {
 		member->bitfield_offset -= member->bit_size;
 		member->byte_offset += member->byte_size;
 	}

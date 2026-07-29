@@ -1211,14 +1211,13 @@ static struct btf_encoder_func_state *btf_encoder__alloc_func_state(struct btf_e
 	return state;
 }
 
-static bool str_contains_suffix(const char *str, const char * const *suffixes, int nr_suffixes)
+static bool str_contains_suffix(const char *str, const char * const *suffixes, size_t nr_suffixes)
 {
 	const char *suffix = strchr(str, '.');
-	int i;
 
 	if (!suffix)
 		return false;
-	for (i = 0; i < nr_suffixes; i++) {
+	for (size_t i = 0; i < nr_suffixes; i++) {
 		if (strstr(suffix, suffixes[i]))
 			return true;
 	}
@@ -2101,7 +2100,7 @@ static int is_sym_kfunc_set(GElf_Sym *sym, const char *name, Elf_Data *idlist, s
 {
 	void *ptr = idlist->d_buf;
 	struct btf_id_set8 *set;
-	int off;
+	size_t off;
 
 	/* kfuncs are only found in BTF_SET8's */
 	if (!strstarts(name, BTF_ID_SET8_PFX))
@@ -2296,7 +2295,7 @@ static int btf_encoder__collect_kfuncs(struct btf_encoder *encoder)
 		ptrdiff_t off;
 		GElf_Sym sym;
 		bool found;
-		int j;
+		unsigned int j;
 
 		if (!gelf_getsym(symbols, i, &sym)) {
 			elf_error("Failed to get ELF symbol(%d)", i);
@@ -2582,12 +2581,11 @@ static bool filter_variable_name(const char *name)
 		X("__func_stack_frame_non_standard_")
 		#undef X
 	};
-	int i;
 
 	if (*name != '_')
 		return false;
 
-	for (i = 0; i < ARRAY_SIZE(skip); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(skip); i++) {
 		if (strncmp(name, skip[i].s, skip[i].len) == 0)
 			return true;
 	}

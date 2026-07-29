@@ -1206,10 +1206,9 @@ const char *function__prototype(const struct function *func,
 static size_t tag__attributes_fprintf(const struct tag *tag, FILE *fp)
 {
 	size_t printed = 0;
-	int i;
 
 	if (tag->attributes)
-		for (i = 0; i < tag->attributes->cnt; ++i)
+		for (uint64_t i = 0; i < tag->attributes->cnt; ++i)
 			printed += fprintf(fp, "%s ", tag->attributes->values[i]);
 
 	return printed;
