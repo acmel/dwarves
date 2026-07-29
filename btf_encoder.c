@@ -1393,9 +1393,21 @@ static int32_t btf_encoder__save_func(struct btf_encoder *encoder, struct functi
 	}
 	return 0;
 out:
+	/*
+	 * state is an interior pointer into func_states.array (returned by
+	 * btf_encoder__alloc_func_state), not a standalone allocation.
+	 * Calling free(state) here was heap corruption.
+	 *
+	 * Since no further func_state allocations happen between the alloc
+	 * at the top of this function and this error path, state is always
+	 * the last element (index cnt-1), so decrementing cnt releases it.
+	 * If this invariant ever changes (e.g. nested alloc calls are added),
+	 * this cleanup must be revised.
+	 */
 	zfree(&state->annots);
 	zfree(&state->parms);
-	free(state);
+	memset(state, 0, sizeof(*state));
+	encoder->func_states.cnt--;
 	return err;
 }
 
@@ -2828,6 +2840,8 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 
 		/* Start with funcs->cnt. The array may grow in btf_encoder__alloc_func_state() */
 		encoder->func_states.array = zalloc(sizeof(*encoder->func_states.array) * funcs->cnt);
+		if (encoder->func_states.array == NULL && funcs->cnt > 0)
+			goto out_delete;
 		encoder->func_states.cap = funcs->cnt;
 		encoder->func_states.cnt = 0;
 
