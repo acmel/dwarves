@@ -2584,7 +2584,7 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 		return -ENOMEM;
 
 	if (type__instance_read_once(header, input) < 0) {
-		printed = --errno;
+		printed = -errno;
 		fprintf(stderr, "pahole: --header (%s) type couldn't be read\n", conf.header_type);
 		goto out;
 	}
@@ -2667,7 +2667,7 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 		free(member_name);
 
 		if (pipe_seek(input, seek_bytes) < 0) {
-			printed = --errno;
+			printed = -errno;
 			fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 "\n", conf.seek_bytes, seek_bytes);
 			goto out;
 		}
@@ -2718,7 +2718,7 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 		}
 
 		if (pipe_seek(input, seek_bytes) < 0) {
-			printed = --errno;
+			printed = -errno;
 			fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 "\n", conf.seek_bytes, seek_bytes);
 			goto out;
 		}
