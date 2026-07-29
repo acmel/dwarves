@@ -1049,7 +1049,8 @@ static struct tag *__cus__find_struct_by_name(struct cus *cus, struct cu **cu, c
 	cus__lock(cus);
 
 	list_for_each_entry(pos, &cus->cus, node) {
-		struct tag *tag = __cu__find_struct_by_name(pos, name, include_decls, unions, id);
+		/* Don't shadow the outer 'tag' — we need to return it */
+		tag = __cu__find_struct_by_name(pos, name, include_decls, unions, id);
 		if (tag != NULL) {
 			if (cu != NULL)
 				*cu = pos;
