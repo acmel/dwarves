@@ -200,20 +200,46 @@ static int create_new_array(struct cu *cu, const struct btf_type *tp, uint32_t i
 	if (array == NULL)
 		return -ENOMEM;
 
-	/* FIXME: where to get the number of dimensions?
-	 * it it flattened? */
-	array->dimensions = 1;
-	array->nr_entries = malloc(sizeof(uint32_t));
+	/*
+	 * BTF encodes each dimension of a multi-dimensional array as a
+	 * separate BTF_KIND_ARRAY node chained via the element type field.
+	 * For example, int a[3][4] becomes:
+	 *   inner: BTF_KIND_ARRAY { type=int,   nelems=4 }
+	 *   outer: BTF_KIND_ARRAY { type=inner, nelems=3 }
+	 *
+	 * Reconstruct the pahole multi-dim representation (one array_type
+	 * with dimensions[] and nr_entries[]) by absorbing any inner
+	 * BTF_KIND_ARRAY that was already loaded.
+	 */
+	struct tag *elem_tag = cu__type(cu, ap->type);
 
-	if (array->nr_entries == NULL) {
-		free(array);
-		return -ENOMEM;
+	if (elem_tag && elem_tag->tag == DW_TAG_array_type &&
+	    tag__array_type(elem_tag)->dimensions < UINT8_MAX) {
+		struct array_type *inner = tag__array_type(elem_tag);
+
+		array->dimensions = inner->dimensions + 1;
+		array->nr_entries = malloc(array->dimensions * sizeof(uint32_t));
+		if (array->nr_entries == NULL) {
+			free(array);
+			return -ENOMEM;
+		}
+		array->nr_entries[0] = ap->nelems;
+		memcpy(&array->nr_entries[1], inner->nr_entries,
+		       inner->dimensions * sizeof(uint32_t));
+		/* point directly to the base element type, skipping the inner array node */
+		array->tag.type = inner->tag.type;
+	} else {
+		array->dimensions = 1;
+		array->nr_entries = malloc(sizeof(uint32_t));
+		if (array->nr_entries == NULL) {
+			free(array);
+			return -ENOMEM;
+		}
+		array->nr_entries[0] = ap->nelems;
+		array->tag.type = ap->type;
 	}
 
-	array->nr_entries[0] = ap->nelems;
 	array->tag.tag = DW_TAG_array_type;
-	array->tag.type = ap->type;
-
 	cu__add_tag_with_id(cu, &array->tag, id);
 
 	return 0;
