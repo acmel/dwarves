@@ -2043,7 +2043,7 @@ static int btf_encoder__write_elf(struct btf_encoder *encoder, const struct btf 
 		if (shdr == NULL)
 			continue;
 		char *secname = elf_strptr(elf, strndx, shdr->sh_name);
-		if (strcmp(secname, btf_secname) == 0) {
+		if (secname != NULL && strcmp(secname, btf_secname) == 0) {
 			btf_data = elf_getdata(scn, btf_data);
 			break;
 		}
@@ -2794,6 +2794,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 	struct elf_functions *funcs = NULL;
 
 	if (encoder) {
+		INIT_LIST_HEAD(&encoder->elf_functions_list);
 		encoder->cu = cu;
 		encoder->raw_output = detached_filename != NULL;
 		encoder->source_filename = strdup(cu->filename);
@@ -2832,7 +2833,6 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 		if (conf_load->encode_btf_global_vars)
 			encoder->encode_vars |= BTF_VAR_GLOBAL;
 
-		INIT_LIST_HEAD(&encoder->elf_functions_list);
 		funcs = btf_encoder__elf_functions(encoder);
 		if (!funcs)
 			goto out_delete;
@@ -2926,9 +2926,11 @@ void btf_encoder__delete(struct btf_encoder *encoder)
 	if (encoder == NULL)
 		return;
 
-	for (shndx = 0; shndx < encoder->seccnt; shndx++)
-		__gobuffer__delete(&encoder->secinfo[shndx].secinfo);
-	free(encoder->secinfo);
+	if (encoder->secinfo) {
+		for (shndx = 0; shndx < encoder->seccnt; shndx++)
+			__gobuffer__delete(&encoder->secinfo[shndx].secinfo);
+		free(encoder->secinfo);
+	}
 	zfree(&encoder->filename);
 	zfree(&encoder->source_filename);
 	btf__free(encoder->btf);
