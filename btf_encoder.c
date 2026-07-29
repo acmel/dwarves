@@ -2113,14 +2113,14 @@ static int is_sym_kfunc_set(GElf_Sym *sym, const char *name, Elf_Data *idlist, s
 {
 	void *ptr = idlist->d_buf;
 	struct btf_id_set8 *set;
-	size_t off;
+	ptrdiff_t off;
 
 	/* kfuncs are only found in BTF_SET8's */
 	if (!strstarts(name, BTF_ID_SET8_PFX))
 		return false;
 
 	off = sym->st_value - idlist_addr;
-	if (off >= idlist->d_size) {
+	if (off < 0 || (size_t)off + sizeof(*set) > idlist->d_size) {
 		fprintf(stderr, "%s: symbol '%s' out of bounds\n", __func__, name);
 		return false;
 	}
@@ -2290,7 +2290,7 @@ static int btf_encoder__collect_kfuncs(struct btf_encoder *encoder)
 			continue;
 
 		name = elf_strptr(elf, strtabidx, sym.st_name);
-		if (!is_sym_kfunc_set(&sym, name, idlist, idlist_addr))
+		if (name == NULL || !is_sym_kfunc_set(&sym, name, idlist, idlist_addr))
 			continue;
 
 		range.start = sym.st_value;
@@ -2319,6 +2319,8 @@ static int btf_encoder__collect_kfuncs(struct btf_encoder *encoder)
 			continue;
 
 		name = elf_strptr(elf, strtabidx, sym.st_name);
+		if (name == NULL)
+			continue;
 		func = get_func_name(name);
 		if (!func)
 			continue;
@@ -2893,7 +2895,7 @@ struct btf_encoder *btf_encoder__new(struct cu *cu, const char *detached_filenam
 			if (encoder->encode_vars & BTF_VAR_GLOBAL)
 				encoder->secinfo[shndx].include = true;
 
-			if (strcmp(secname, PERCPU_SECTION) == 0) {
+			if (secname != NULL && strcmp(secname, PERCPU_SECTION) == 0) {
 				found_percpu = true;
 				if (encoder->encode_vars & BTF_VAR_PERCPU)
 					encoder->secinfo[shndx].include = true;

@@ -674,7 +674,7 @@ int ctf__encode(struct ctf *ctf, uint8_t flags)
 		if (shdr == NULL)
 			continue;
 		char *secname = elf_strptr(elf, strndx, shdr->sh_name);
-		if (strcmp(secname, ".SUNW_ctf") == 0) {
+		if (secname != NULL && strcmp(secname, ".SUNW_ctf") == 0) {
 			data = elf_getdata(scn, data);
 			goto out_update;
 		}

@@ -2361,6 +2361,11 @@ static int pipe_seek(FILE *fp, off_t offset)
 			chunk = offset;
 	}
 
+	/* On EOF (not I/O error), clear errno so callers don't
+	 * pick up a stale value from an earlier successful fread. */
+	if (!ferror(fp))
+		errno = 0;
+
 	return offset == 0 ? 0 : -1;
 }
 
@@ -2583,8 +2588,9 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 	if (instance == NULL)
 		return -ENOMEM;
 
+	errno = 0;
 	if (type__instance_read_once(header, input) < 0) {
-		printed = -errno;
+		printed = errno ? -errno : -EIO;
 		fprintf(stderr, "pahole: --header (%s) type couldn't be read\n", conf.header_type);
 		goto out;
 	}
@@ -2666,8 +2672,9 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 
 		free(member_name);
 
+		errno = 0;
 		if (pipe_seek(input, seek_bytes) < 0) {
-			printed = -errno;
+			printed = errno ? -errno : -EIO;
 			fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 "\n", conf.seek_bytes, seek_bytes);
 			goto out;
 		}
@@ -2717,8 +2724,9 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 			seek_bytes -= ftell(input);
 		}
 
+		errno = 0;
 		if (pipe_seek(input, seek_bytes) < 0) {
-			printed = -errno;
+			printed = errno ? -errno : -EIO;
 			fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 "\n", conf.seek_bytes, seek_bytes);
 			goto out;
 		}
