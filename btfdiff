@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright © 2019 Red Hat Inc, Arnaldo Carvalho de Melo <acme@redhat.com>
 # Use pahole to produce output from BTF and from DWARF, then do a diff
-# Use --flat_arrays with DWARF as BTF, like CTF, flattens arrays.
 # Use --show_private_classes as BTF shows all structs, while pahole knows
 # if some struct is defined only inside another struct/class or in a function,
 # this information is not available when loading from BTF.
