@@ -2063,13 +2063,19 @@ static int btf_encoder__write_elf(struct btf_encoder *encoder, const struct btf 
 		else
 			elf_error("elf_update failed");
 	} else {
-		const char *llvm_objcopy;
+		const char *objcopy;
 		char tmp_fn[PATH_MAX];
-		char cmd[PATH_MAX * 2];
+		char add_section[PATH_MAX + 64];
 
-		llvm_objcopy = getenv("LLVM_OBJCOPY");
-		if (!llvm_objcopy)
-			llvm_objcopy = "llvm-objcopy";
+		/*
+		 * The kernel build uses $(OBJCOPY) --add-section for
+		 * BTF since v5.2 (2019), supporting both GNU objcopy
+		 * and llvm-objcopy interchangeably.  Prefer
+		 * llvm-objcopy, fall back to objcopy.
+		 */
+		objcopy = getenv("LLVM_OBJCOPY");
+		if (!objcopy)
+			objcopy = getenv("OBJCOPY");
 
 		/* Use objcopy to add a .BTF section */
 		snprintf(tmp_fn, sizeof(tmp_fn), "%s.btf", filename);
@@ -2087,14 +2093,30 @@ static int btf_encoder__write_elf(struct btf_encoder *encoder, const struct btf 
 			goto unlink;
 		}
 
-		snprintf(cmd, sizeof(cmd), "%s --add-section %s=%s %s",
-			 llvm_objcopy, btf_secname, tmp_fn, filename);
-		if (system(cmd)) {
-			fprintf(stderr, "%s: failed to add %s section to '%s': %d!\n",
-				__func__, btf_secname, filename, errno);
-			goto unlink;
+		snprintf(add_section, sizeof(add_section), "%s=%s",
+			 btf_secname, tmp_fn);
+
+		if (!objcopy) {
+			int rc = exec_objcopy("llvm-objcopy",
+					      add_section, filename);
+			if (rc == 0)
+				goto success;
+
+			if (rc != -ENOENT) {
+				fprintf(stderr, "%s: failed to add %s section to '%s'\n",
+					__func__, btf_secname, filename);
+				goto unlink;
+			}
+
+			objcopy = "objcopy";
 		}
 
+		if (exec_objcopy(objcopy, add_section, filename)) {
+			fprintf(stderr, "%s: failed to add %s section to '%s'\n",
+				__func__, btf_secname, filename);
+			goto unlink;
+		}
+	success:
 		err = 0;
 	unlink:
 		unlink(tmp_fn);

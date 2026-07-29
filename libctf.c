@@ -746,10 +746,9 @@ found_SUNW_ctf_str:
 	if (close(fd) < 0)
 		goto out_unlink;
 
-	char cmd[PATH_MAX * 2];
-	snprintf(cmd, sizeof(cmd), "objcopy --add-section .SUNW_ctf=%s %s",
-		 pathname, ctf->filename);
-	if (system(cmd) == 0)
+	char add_section[PATH_MAX + 32];
+	snprintf(add_section, sizeof(add_section), ".SUNW_ctf=%s", pathname);
+	if (exec_objcopy("objcopy", add_section, ctf->filename) == 0)
 		err = 0;
 out_unlink:
 	unlink(pathname);
