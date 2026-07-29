@@ -351,6 +351,9 @@ static inline int elf_getshdrstrndx(Elf *elf, size_t *dst)
 
 char *strlwr(char *s);
 
+int exec_objcopy(const char *objcopy, const char *add_section,
+		 const char *filename);
+
 void __zfree(void **ptr);
 
 #define zfree(ptr) __zfree((void **)(ptr))

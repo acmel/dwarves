@@ -9,9 +9,15 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <signal.h>
+#include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+extern char **environ;
 
 void *zalloc(size_t size)
 {
@@ -233,4 +239,70 @@ char *strlwr(char *s)
 		s[i] = tolower(s[i]);
 
 	return s;
+}
+
+int exec_objcopy(const char *objcopy, const char *add_section,
+		 const char *filename)
+{
+	sigset_t mask, orig;
+	struct sigaction ign, old_int, old_quit;
+	posix_spawnattr_t attr;
+	sigset_t child_default;
+	pid_t pid;
+	int rc;
+
+	char *argv[] = {
+		(char *)objcopy,
+		"--add-section", (char *)add_section,
+		"--", (char *)filename,
+		NULL
+	};
+
+	/* Ignore SIGINT/SIGQUIT in parent while waiting, per POSIX system() */
+	ign.sa_handler = SIG_IGN;
+	sigemptyset(&ign.sa_mask);
+	ign.sa_flags = 0;
+	sigaction(SIGINT, &ign, &old_int);
+	sigaction(SIGQUIT, &ign, &old_quit);
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGCHLD);
+	pthread_sigmask(SIG_BLOCK, &mask, &orig);
+
+	posix_spawnattr_init(&attr);
+	/* Restore default signal disposition and mask in child */
+	sigemptyset(&child_default);
+	sigaddset(&child_default, SIGINT);
+	sigaddset(&child_default, SIGQUIT);
+	posix_spawnattr_setsigdefault(&attr, &child_default);
+	posix_spawnattr_setsigmask(&attr, &orig);
+	posix_spawnattr_setflags(&attr,
+				 POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK);
+
+	rc = posix_spawnp(&pid, objcopy, NULL, &attr, argv, environ);
+	posix_spawnattr_destroy(&attr);
+
+	if (rc != 0) {
+		sigaction(SIGINT, &old_int, NULL);
+		sigaction(SIGQUIT, &old_quit, NULL);
+		pthread_sigmask(SIG_SETMASK, &orig, NULL);
+		return rc == ENOENT ? -ENOENT : -1;
+	}
+
+	int status;
+
+	while (waitpid(pid, &status, 0) == -1) {
+		if (errno != EINTR) {
+			status = -1;
+			break;
+		}
+	}
+
+	sigaction(SIGINT, &old_int, NULL);
+	sigaction(SIGQUIT, &old_quit, NULL);
+	pthread_sigmask(SIG_SETMASK, &orig, NULL);
+
+	if (status == -1 || !WIFEXITED(status))
+		return -1;
+
+	return WEXITSTATUS(status) == 0 ? 0 : -1;
 }
