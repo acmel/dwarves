@@ -534,7 +534,14 @@ static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 
 		int32_t decl_line;
 		const char *decl_file = dwarf_decl_file(die);
-		static const char *last_decl_file, *last_decl_file_ptr;
+		/*
+		 * Per-thread string dedup cache: avoids strdup() when
+		 * consecutive DIEs share the same decl_file pointer.
+		 * Must be __thread, not plain static, because multiple
+		 * worker threads call tag__init() concurrently and a
+		 * shared cache would race regardless of libdw locking.
+		 */
+		static __thread const char *last_decl_file, *last_decl_file_ptr;
 
 		if (decl_file != last_decl_file_ptr) {
 			last_decl_file = decl_file ? strdup(decl_file) : NULL;
