@@ -196,17 +196,12 @@ void cus__remove(struct cus *cus, struct cu *cu);
 void cus__print_error_msg(const char *progname, const struct cus *cus,
 			  const char *filename, const int err);
 struct cu *cus__find_pair(struct cus *cus, const char *name);
-struct cu *cus__find_cu_by_name(struct cus *cus, const char *name);
 struct tag *cus__find_struct_by_name(struct cus *cus, struct cu **cu,
 				     const char *name, const int include_decls,
 				     type_id_t *id);
-struct tag *cus__find_struct_or_union_by_name(struct cus *cus, struct cu **cu,
-					      const char *name, const int include_decls, type_id_t *id);
 void *cu__tag_alloc(struct cu *cu, size_t size);
 void cu__tag_free(struct cu *cu, struct tag *tag);
 struct tag *cu__find_type_by_name(const struct cu *cu, const char *name, const int include_decls, type_id_t *idp);
-struct tag *cus__find_type_by_name(struct cus *cus, struct cu **cu, const char *name,
-				   const int include_decls, type_id_t *id);
 struct function *cus__find_function_at_addr(struct cus *cus, uint64_t addr, struct cu **cu);
 void cus__for_each_cu(struct cus *cus, int (*iterator)(struct cu *cu, void *cookie),
 		      void *cookie,
@@ -510,8 +505,6 @@ struct tag *cu__tag(const struct cu *cu, const uint32_t id);
 struct tag *cu__type(const struct cu *cu, const type_id_t id);
 struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
 				    const int include_decls, type_id_t *id);
-struct tag *cu__find_struct_or_union_by_name(const struct cu *cu, const char *name,
-					     const int include_decls, type_id_t *id);
 bool cu__same_build_id(const struct cu *cu, const struct cu *other);
 void cu__account_inline_expansions(struct cu *cu);
 int cu__for_all_tags(struct cu *cu,
@@ -1530,10 +1523,6 @@ static inline int class__is_declaration(const struct class *cls)
 	return cls->type.declaration;
 }
 
-const struct class_member *class__find_bit_hole(const struct class *cls,
-					   const struct class_member *trailer,
-						const uint16_t bit_hole_size);
-
 #define class__for_each_member_from(cls, from, pos)			\
 	pos = list_prepare_entry(from, class__tags(cls), tag.node);	\
 	list_for_each_entry_from(pos, class__tags(cls), tag.node)	\
@@ -1604,8 +1593,6 @@ const char *__base_type__name(const struct base_type *bt);
 const char *base_type__name(const struct base_type *btype, char *bf, size_t len);
 
 size_t base_type__name_to_size(struct base_type *btype, struct cu *cu);
-
-bool base_type__language_defined(struct base_type *bt);
 
 struct array_type {
 	struct tag	tag;

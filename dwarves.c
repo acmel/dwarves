@@ -311,29 +311,6 @@ static struct ase_type_name_to_size {
 	{ .name = NULL },
 };
 
-bool base_type__language_defined(struct base_type *bt)
-{
-	int i = 0;
-	char bf[64];
-	const char *name;
-
-	if (bt->name_has_encoding)
-		name = bt->name;
-	else
-		name = base_type__name(bt, bf, sizeof(bf));
-
-	while (base_type_name_to_size_table[i].name != NULL) {
-		if (bt->name_has_encoding) {
-			if (strcmp(base_type_name_to_size_table[i].name, bt->name) == 0)
-				return true;
-		} else if (strcmp(base_type_name_to_size_table[i].name, name) == 0)
-			return true;
-		++i;
-	}
-
-	return false;
-}
-
 size_t base_type__name_to_size(struct base_type *bt, struct cu *cu)
 {
 	int i = 0;
@@ -974,27 +951,7 @@ found:
 	return pos;
 }
 
-struct tag *cus__find_type_by_name(struct cus *cus, struct cu **cu, const char *name,
-				   const int include_decls, type_id_t *id)
-{
-	struct cu *pos;
-	struct tag *tag = NULL;
-
-	cus__lock(cus);
-
-	list_for_each_entry(pos, &cus->cus, node) {
-		tag = cu__find_type_by_name(pos, name, include_decls, id);
-		if (tag != NULL) {
-			if (cu != NULL)
-				*cu = pos;
-			break;
-		}
-	}
-
-	cus__unlock(cus);
-
-	return tag;
-}
+/* cus__find_type_by_name removed: dead code, no callers */
 
 static struct tag *__cu__find_struct_by_name(const struct cu *cu, const char *name,
 					     const int include_decls, bool unions, type_id_t *idp)
@@ -1034,12 +991,6 @@ struct tag *cu__find_struct_by_name(const struct cu *cu, const char *name,
 	return __cu__find_struct_by_name(cu, name, include_decls, false, idp);
 }
 
-struct tag *cu__find_struct_or_union_by_name(const struct cu *cu, const char *name,
-						    const int include_decls, type_id_t *idp)
-{
-	return __cu__find_struct_by_name(cu, name, include_decls, true, idp);
-}
-
 static struct tag *__cus__find_struct_by_name(struct cus *cus, struct cu **cu, const char *name,
 					      const int include_decls, bool unions, type_id_t *id)
 {
@@ -1067,12 +1018,6 @@ struct tag *cus__find_struct_by_name(struct cus *cus, struct cu **cu, const char
 				     const int include_decls, type_id_t *idp)
 {
 	return __cus__find_struct_by_name(cus, cu, name, include_decls, false, idp);
-}
-
-struct tag *cus__find_struct_or_union_by_name(struct cus *cus, struct cu **cu, const char *name,
-					      const int include_decls, type_id_t *idp)
-{
-	return __cus__find_struct_by_name(cus, cu, name, include_decls, true, idp);
 }
 
 struct function *cu__find_function_at_addr(const struct cu *cu,
@@ -1132,19 +1077,6 @@ static struct cu *__cus__find_cu_by_name(struct cus *cus, const char *name)
 
 	pos = NULL;
 out:
-	return pos;
-}
-
-struct cu *cus__find_cu_by_name(struct cus *cus, const char *name)
-{
-	struct cu *pos;
-
-	cus__lock(cus);
-
-	pos = __cus__find_cu_by_name(cus, name);
-
-	cus__unlock(cus);
-
 	return pos;
 }
 
@@ -1566,23 +1498,6 @@ bool class__has_flexible_array(struct class *class, const struct cu *cu)
 	}
 
 	return class->has_flexible_array;
-}
-
-const struct class_member *class__find_bit_hole(const struct class *class,
-					    const struct class_member *trailer,
-						const uint16_t bit_hole_size)
-{
-	struct class_member *pos;
-	const uint16_t byte_hole_size = bit_hole_size / 8;
-
-	type__for_each_data_member(&class->type, pos)
-		if (pos == trailer)
-			break;
-		else if (pos->hole >= byte_hole_size ||
-			 pos->bit_hole >= bit_hole_size)
-			return pos;
-
-	return NULL;
 }
 
 void class__find_holes(struct class *class)
