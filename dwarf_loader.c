@@ -3798,10 +3798,14 @@ static int class_member__cache_byte_size(struct tag *tag, struct cu *cu,
 		member->byte_offset += member->byte_size;
 	}
 
+	/* A "silly" bitfield uses all bits of its underlying type
+	 * (e.g. unsigned char val:8).  Convert it to a plain field,
+	 * but only when byte-aligned — in packed structs a full-size
+	 * bitfield can start at a non-zero bit offset. */
 	if (conf_load && conf_load->fixup_silly_bitfields &&
-	    member->byte_size == 8 * member->bitfield_size) {
+	    member->byte_size * 8 == member->bitfield_size &&
+	    member->bitfield_offset == 0) {
 		member->bitfield_size = 0;
-		member->bitfield_offset = 0;
 	}
 
 	return 0;
