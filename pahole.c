@@ -1299,6 +1299,22 @@ static void btf_features__enable_default(void)
 	}
 }
 
+static void btf_features__enable_all(void)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(btf_features); i++) {
+		/* distilled_base requires a --btf_base argument to
+		 * provide the base BTF that btf__distill_base() will
+		 * split against.  Enabling it unconditionally causes
+		 * btf_encoder__encode() to call btf__distill_base()
+		 * on standalone objects like vmlinux, which returns
+		 * -EINVAL and makes pahole fail fatally.  Users who
+		 * want distilled_base must request it explicitly. */
+		if (btf_features[i].conf_value == &conf_load.btf_gen_distilled_base)
+			continue;
+		enable_btf_feature(&btf_features[i]);
+	}
+}
+
 /* Translate --btf_features=feature1[,feature2] into conf_load values.
  * Explicitly ignores unrecognized features to allow future specification
  * of new opt-in features.
@@ -1312,6 +1328,11 @@ static void parse_btf_features(const char *features, bool strict)
 
 	if (strcmp(features, "default") == 0) {
 		btf_features__enable_default();
+		return;
+	}
+
+	if (strcmp(features, "all") == 0) {
+		btf_features__enable_all();
 		return;
 	}
 
@@ -1332,6 +1353,8 @@ static void parse_btf_features(const char *features, bool strict)
 			 */
 			if (strcmp(feature_name, "default") == 0) {
 				btf_features__enable_default();
+			} else if (strcmp(feature_name, "all") == 0) {
+				btf_features__enable_all();
 			} else if (strict) {
 				fprintf(stderr, "Feature '%s' in '%s' is not supported.  Supported BTF features are:\n",
 					feature_name, features);
