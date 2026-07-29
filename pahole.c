@@ -18,6 +18,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <bpf/btf.h>
 #include "bpf/libbpf.h"
@@ -2371,6 +2372,13 @@ static int pipe_seek(FILE *fp, off_t offset)
 	char bf[4096];
 	int chunk = sizeof(bf);
 
+	/* Negative offset would wrap chunk to a huge size_t in fread() */
+	if (offset < 0)
+		return -1;
+
+	if (offset == 0)
+		return 0;
+
 	if (chunk > offset)
 		chunk = offset;
 
@@ -2605,16 +2613,22 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 	uint64_t size_bytes = ULLONG_MAX;
 	uint32_t count = 0;
 	uint32_t skip = conf.skip;
+	/* Bytes consumed from input so far, for absolute→relative seek on pipes */
+	off_t consumed = 0;
+	int64_t header_bytes;
 
 	if (instance == NULL)
 		return -ENOMEM;
 
+	/* Keep consumed in sync with bytes actually fread'd from input */
 	errno = 0;
-	if (type__instance_read_once(header, input) < 0) {
+	header_bytes = type__instance_read_once(header, input);
+	if (header_bytes < 0) {
 		printed = errno ? -errno : -EIO;
 		fprintf(stderr, "pahole: --header (%s) type couldn't be read\n", conf.header_type);
 		goto out;
 	}
+	consumed = header_bytes;
 
 	if (conf.range || prototype->range) {
 		off_t seek_bytes;
@@ -2662,21 +2676,25 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 		 * for non-seekable streams (stdin, pipes).
 		 */
 		if (fseeko(input, seek_bytes, SEEK_SET) != 0) {
-			off_t total_read_bytes = ftell(input);
-
-			if (seek_bytes < total_read_bytes) {
-				fprintf(stderr, "pahole: can't seek backward in non-seekable input, already read %" PRIu64 " bytes, target %#" PRIx64 "\n",
-						total_read_bytes, seek_bytes);
+			if (seek_bytes < consumed) {
+				fprintf(stderr, "pahole: can't seek backward in non-seekable input, already read %" PRId64 " bytes, target %#" PRIx64 "\n",
+						(int64_t)consumed, seek_bytes);
 				printed = -ESPIPE;
 				goto out;
 			}
 
-			seek_bytes -= total_read_bytes;
-
 			errno = 0;
-			if (pipe_seek(input, seek_bytes) < 0) {
+			if (pipe_seek(input, seek_bytes - consumed) < 0) {
 				printed = errno ? -errno : -EIO;
-				fprintf(stderr, "Couldn't seek to offset %" PRIu64 " for range=%s\n", seek_bytes, range);
+				fprintf(stderr, "Couldn't seek to offset %" PRId64 " for range=%s\n", (int64_t)seek_bytes, range);
+				goto out;
+			}
+		} else {
+			struct stat sb;
+			if (fstat(fileno(input), &sb) == 0 && S_ISREG(sb.st_mode) && seek_bytes >= sb.st_size) {
+				fprintf(stderr, "pahole: seek offset %" PRId64 " is beyond file size %" PRId64 " for range=%s\n",
+						(int64_t)seek_bytes, (int64_t)sb.st_size, range);
+				printed = -EINVAL;
 				goto out;
 			}
 		}
@@ -2750,13 +2768,25 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 		 * forward-reading pipe_seek() for pipes/stdin.
 		 */
 		if (fseeko(input, seek_bytes, SEEK_SET) != 0) {
-			if (header)
-				seek_bytes -= ftell(input);
+			if (seek_bytes < consumed) {
+				fprintf(stderr, "pahole: can't seek backward in non-seekable input, already read %" PRId64 " bytes, target %#" PRIx64 "\n",
+						(int64_t)consumed, seek_bytes);
+				printed = -ESPIPE;
+				goto out;
+			}
 
 			errno = 0;
-			if (pipe_seek(input, seek_bytes) < 0) {
+			if (pipe_seek(input, seek_bytes - consumed) < 0) {
 				printed = errno ? -errno : -EIO;
-				fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 ")\n", conf.seek_bytes, seek_bytes);
+				fprintf(stderr, "Couldn't --seek_bytes %s (%" PRId64 ")\n", conf.seek_bytes, (int64_t)seek_bytes);
+				goto out;
+			}
+		} else {
+			struct stat sb;
+			if (fstat(fileno(input), &sb) == 0 && S_ISREG(sb.st_mode) && seek_bytes >= sb.st_size) {
+				fprintf(stderr, "pahole: --seek_bytes %" PRId64 " is beyond file size %" PRId64 "\n",
+						(int64_t)seek_bytes, (int64_t)sb.st_size);
+				printed = -EINVAL;
 				goto out;
 			}
 		}
