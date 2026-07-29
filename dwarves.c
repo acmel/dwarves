@@ -1382,6 +1382,10 @@ static int type__clone_members(struct type *type, const struct type *from, struc
 
 	type->nr_members = type->nr_static_members = 0;
 	INIT_LIST_HEAD(&type->namespace.tags);
+	INIT_LIST_HEAD(&type->namespace.annots);
+	INIT_LIST_HEAD(&type->type_enum);
+	INIT_LIST_HEAD(&type->template_type_params);
+	INIT_LIST_HEAD(&type->template_value_params);
 
 	type__for_each_member(from, pos) {
 		struct class_member *clone = class_member__clone(pos, cu);
@@ -1400,6 +1404,8 @@ struct class *class__clone(const struct class *from, const char *new_class_name,
 
 	 if (class != NULL) {
 		memcpy(class, from, sizeof(*class));
+		INIT_LIST_HEAD(&class->vtable);
+		class->nr_vtable_entries = 0;
 		if (new_class_name != NULL) {
 			class->type.namespace.name = strdup(new_class_name);
 			if (class->type.namespace.name == NULL) {
