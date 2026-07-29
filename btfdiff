@@ -24,7 +24,6 @@ dwarf_output=$(mktemp /tmp/btfdiff.dwarf.XXXXXX)
 pahole_bin=${PAHOLE-"pahole"}
 
 ${pahole_bin} -E -F dwarf \
-	      --flat_arrays \
 	      --sort \
 	      --jobs \
 	      --suppress_aligned_attribute \
