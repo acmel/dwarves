@@ -3889,7 +3889,7 @@ static int cu__set_common(struct cu *cu, struct conf_load *conf,
 
 static int __cus__load_debug_types(struct cus *cus, struct conf_load *conf, Dwfl_Module *mod, Dwarf *dw, Elf *elf,
 				   const char *filename, const unsigned char *build_id,
-				   int build_id_len, struct cu **cup, struct dwarf_cu *dcup)
+				   int build_id_len, struct cu **cup, struct dwarf_cu **dcup)
 {
 	Dwarf_Off off = 0, noff, type_off;
 	size_t cuhl;
@@ -3897,6 +3897,7 @@ static int __cus__load_debug_types(struct cus *cus, struct conf_load *conf, Dwfl
 	uint64_t signature;
 
 	*cup = NULL;
+	*dcup = NULL;
 
 	while (dwarf_next_unit(dw, off, &noff, &cuhl, NULL, NULL, &pointer_size,
 			       &offset_size, &signature, &type_off)
@@ -3904,6 +3905,7 @@ static int __cus__load_debug_types(struct cus *cus, struct conf_load *conf, Dwfl
 
 		if (*cup == NULL) {
 			struct cu *cu;
+			struct dwarf_cu *dcu;
 
 			cu = cu__new("", pointer_size, build_id,
 				     build_id_len, filename, conf->use_obstack);
@@ -3913,17 +3915,18 @@ static int __cus__load_debug_types(struct cus *cus, struct conf_load *conf, Dwfl
 				return DWARF_CB_ABORT;
 			}
 
-			if (dwarf_cu__init(dcup, cu) != 0) {
+			dcu = dwarf_cu__new(cu);
+			if (dcu == NULL) {
 				cu__delete(cu);
 				return DWARF_CB_ABORT;
 			}
-			dcup->cu = cu;
 			/* Funny hack.  */
-			dcup->type_unit = dcup;
-			cu->priv = dcup;
+			dcu->type_unit = dcu;
+			cu->priv = dcu;
 			cu->dfops = &dwarf__ops;
 
 			*cup = cu;
+			*dcup = dcu;
 			cus__add(cus, cu);
 		}
 
@@ -4488,27 +4491,30 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 	int build_id_len = 0;
 #endif
 	struct cu *type_cu;
-	struct dwarf_cu type_dcu;
+	struct dwarf_cu *type_dcu;
 	int type_lsk = LSK__KEEPIT;
 	int lsk_worker_status = LSK__ABORT;
 
 	int res = __cus__load_debug_types(cus, conf, mod, dw, elf, filename, build_id, build_id_len, &type_cu, &type_dcu);
-	if (res != 0) {
+	if (res != 0)
 		return res;
-	}
 
 	if (type_cu != NULL) {
 		cu__finalize(type_cu, cus, conf);
-		type_lsk = cus__steal_now(cus, type_cu, conf);
-		if (type_lsk == LSK__DELETE) {
+		if (conf && conf->steal)
+			type_lsk = conf->steal(type_cu, conf);
+		/* Defer cu__delete() for LSK__DELETE until after main
+		 * CUs are processed — they need type_dcu alive for
+		 * DW_FORM_ref_sig8 resolution.  Remove from the list
+		 * now so the consumer doesn't see it twice. */
+		if (type_lsk == LSK__DELETE)
 			cus__remove(cus, type_cu);
-		}
 	}
 
 	if (cus__merging_cu(dw, elf)) {
 		res = cus__merge_and_process_cu(cus, conf, mod, dw, elf, filename,
 						build_id, build_id_len,
-						type_cu ? &type_dcu : NULL);
+						type_cu ? type_dcu : NULL);
 	} else {
 		struct dwarf_cus dcus = {
 			.off      = 0,
@@ -4518,7 +4524,7 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 			.dw       = dw,
 			.elf      = elf,
 			.filename = filename,
-			.type_dcu = type_cu ? &type_dcu : NULL,
+			.type_dcu = type_cu ? type_dcu : NULL,
 			.build_id = build_id,
 			.build_id_len = build_id_len,
 			.nr_cus_created = 0,
@@ -4527,11 +4533,14 @@ static int cus__load_module(struct cus *cus, struct conf_load *conf,
 		lsk_worker_status = dcus.lsk_status;
 	}
 
+	/* Deferred type CU cleanup: now that main CUs have finished
+	 * resolving DW_FORM_ref_sig8 refs through type_dcu, it is
+	 * safe to free the type CU. */
+	if (type_cu != NULL && type_lsk == LSK__DELETE)
+		cu__delete(type_cu);
+
 	if (res && lsk_worker_status == LSK__ABORT)
 		return res;
-
-	if (type_lsk == LSK__DELETE)
-		cu__delete(type_cu);
 
 	return DWARF_CB_OK;
 }
