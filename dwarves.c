@@ -2499,7 +2499,7 @@ int languages__parse(struct languages *languages, const char *tool)
 
 		if (languages->nr_entries >= nr_allocated) {
 			nr_allocated *= 2;
-			int *entries = realloc(languages->entries, nr_allocated);
+			int *entries = realloc(languages->entries, nr_allocated * sizeof(int));
 
 			if (entries == NULL)
 				goto out_enomem;
