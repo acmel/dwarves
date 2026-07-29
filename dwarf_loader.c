@@ -57,7 +57,25 @@
 #define EM_RISCV	243
 #endif
 
+/*
+ * libdw internal caches (tsearch trees for locations, decl file/line, etc.)
+ * are not thread-safe unless elfutils was compiled with --enable-thread-safety.
+ * When that option is active, elfutils >= 0.194 uses eu_tsearch with proper
+ * locking and >= 0.194 also replaces the abbrev rwlock with __atomic builtins,
+ * eliminating the overhead that rwlock_tryrdlock imposed even in serial mode.
+ *
+ * _ELFUTILS_THREAD_SAFE is defined in <elfutils/version.h> when the library
+ * was built thread-safe.  When present we skip our own mutex; when absent we
+ * serialize the racy calls ourselves.
+ */
+#ifdef _ELFUTILS_THREAD_SAFE
+static inline void libdw__lock_lock(void)   { }
+static inline void libdw__lock_unlock(void) { }
+#else
 static pthread_mutex_t libdw__lock = PTHREAD_MUTEX_INITIALIZER;
+static inline void libdw__lock_lock(void)   { pthread_mutex_lock(&libdw__lock); }
+static inline void libdw__lock_unlock(void) { pthread_mutex_unlock(&libdw__lock); }
+#endif
 
 static uint32_t hashtags__bits = 12;
 static uint32_t max_hashtags__bits = 21;
@@ -453,11 +471,7 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 	int ret = 1;
 
 	if (dwarf_attr(die, DW_AT_location, &attr) != NULL) {
-		/* use libdw__lock as dwarf_getlocation(s) has concurrency
-		 * issues when libdw is not compiled with experimental
-		 * --enable-thread-safety
-		 */
-		pthread_mutex_lock(&libdw__lock);
+		libdw__lock_lock();
 		if (dwarf_getlocation(&attr, expr, exprlen) == 0) {
 			/* DW_OP_addrx needs additional lookup for real addr. */
 			if (*exprlen != 0 && expr[0]->atom == DW_OP_addrx) {
@@ -471,7 +485,7 @@ static int attr_location(Dwarf_Die *die, Dwarf_Op **expr, size_t *exprlen)
 			}
 			ret = 0;
 		}
-		pthread_mutex_unlock(&libdw__lock);
+		libdw__lock_unlock();
 	}
 
 	return ret;
@@ -516,7 +530,7 @@ static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 	tag->attributes = NULL;
 
 	if (cu->extra_dbg_info) {
-		pthread_mutex_lock(&libdw__lock);
+		libdw__lock_lock();
 
 		int32_t decl_line;
 		const char *decl_file = dwarf_decl_file(die);
@@ -531,7 +545,7 @@ static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 		dwarf_decl_line(die, &decl_line);
 		dtag->decl_line = decl_line;
 
-		pthread_mutex_unlock(&libdw__lock);
+		libdw__lock_unlock();
 	}
 
 	INIT_LIST_HEAD(&tag->node);
@@ -1470,7 +1484,7 @@ static void parameter__decode_location(Dwarf_Attribute *attr, struct conf_load *
 	ptrdiff_t offset = 0;
 	int loc_num = -1;
 
-	pthread_mutex_lock(&libdw__lock);
+	libdw__lock_lock();
 	while ((offset = __dwarf_getlocations(attr, offset, &base, &start, &end, &expr, &exprlen)) > 0) {
 		bool had_stack_value;
 
@@ -1515,7 +1529,7 @@ static void parameter__decode_location(Dwarf_Attribute *attr, struct conf_load *
 			break;
 		}
 	}
-	pthread_mutex_unlock(&libdw__lock);
+	libdw__lock_unlock();
 
 	parameter__finish_piece_decode(parm, die, conf, cu);
 }
