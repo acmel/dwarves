@@ -104,6 +104,7 @@ static int ctf__decompress(struct ctf *ctf, void *orig_buf, size_t orig_size)
 
 	if (inflate(&state, Z_FINISH) != Z_STREAM_END) {
 		err_str = "struct ctf decompression inflate failure.";
+		inflateEnd(&state);
 		goto err;
 	}
 

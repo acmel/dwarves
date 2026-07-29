@@ -704,8 +704,10 @@ int ctf__load_file(struct cus *cus, struct conf_load *conf,
 		return -1;
 
 	struct cu *cu = cu__new(filename, state->wordsize, NULL, 0, filename, false);
-	if (cu == NULL)
+	if (cu == NULL) {
+		ctf__delete(state);
 		return -1;
+	}
 
 	cu->language = LANG_C;
 	cu->uses_global_strings = false;
@@ -713,8 +715,10 @@ int ctf__load_file(struct cus *cus, struct conf_load *conf,
 	cu->dfops = &ctf__ops;
 	cu->priv = state;
 	state->priv = cu;
-	if (ctf__load(state) != 0)
+	if (ctf__load(state) != 0) {
+		cu__delete(cu);
 		return -1;
+	}
 
 	err = ctf__load_sections(state, cu);
 
