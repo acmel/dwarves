@@ -13,15 +13,9 @@ struct gobuffer {
 	unsigned int	allocated_size;
 };
 
-struct gobuffer *gobuffer__new(void);
-
-void gobuffer__init(struct gobuffer *gb);
-void gobuffer__delete(struct gobuffer *gb);
 void __gobuffer__delete(struct gobuffer *gb);
 
 void gobuffer__copy(const struct gobuffer *gb, void *dest);
-
-void gobuffer__sort(struct gobuffer *gb, unsigned int size, int (*compar)(const void *, const void *));
 
 int gobuffer__add(struct gobuffer *gb, const void *s, unsigned int len);
 int gobuffer__allocate(struct gobuffer *gb, unsigned int len);
@@ -42,7 +36,5 @@ static inline unsigned int gobuffer__size(const struct gobuffer *gb)
 }
 
 void *gobuffer__ptr(const struct gobuffer *gb, unsigned int s);
-
-const void *gobuffer__compress(struct gobuffer *gb, unsigned int *size);
 
 #endif /* _GOBUFFER_H_ */
