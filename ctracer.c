@@ -354,6 +354,7 @@ static struct class *class__clone_base_types(const struct tag *tag,
 	if (clone == NULL)
 		return NULL;
 
+	class__find_holes(clone);
 	type__for_each_data_member_safe(&clone->type, pos, next) {
 		struct tag *member_type = cu__type(cu, pos->tag.type);
 

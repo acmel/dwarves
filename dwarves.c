@@ -506,15 +506,6 @@ reevaluate:
 	return result;
 }
 
-static void cu__find_class_holes(struct cu *cu)
-{
-	uint32_t id;
-	struct class *pos;
-
-	cu__for_each_struct(cu, id, pos)
-		class__find_holes(pos);
-}
-
 struct cus {
 	uint32_t	 nr_entries;
 	struct list_head cus;
@@ -567,8 +558,6 @@ void cus__add(struct cus *cus, struct cu *cu)
 	cus__lock(cus);
 	__cus__add(cus, cu);
 	cus__unlock(cus);
-
-	cu__find_class_holes(cu);
 }
 
 static void ptr_table__init(struct ptr_table *pt)
