@@ -2242,7 +2242,7 @@ void cus__print_error_msg(const char *progname, const struct cus *cus,
 }
 
 #ifndef _SC_LEVEL1_DCACHE_LINESIZE
-int filename__read_int(const char *filename, int *value)
+static int filename__read_int(const char *filename, int *value)
 {
         char line[64];
         int fd = open(filename, O_RDONLY), err = -1;
