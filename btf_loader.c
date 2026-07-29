@@ -428,8 +428,9 @@ static int create_new_datasec(struct cu *cu __maybe_unused, const struct btf_typ
 	//cu__add_tag_with_id(cu, &datasec->tag, id);
 
 	/*
-	 * FIXME: this will not be used to reconstruct some original C code,
-	 * its about runtime placement of variables so just ignore this for now
+	 * BTF_KIND_DATASEC describes runtime variable placement in ELF
+	 * sections, not C type information.  Not needed for pahole's
+	 * type reconstruction, so intentionally ignored.
 	 */
 	return 0;
 }

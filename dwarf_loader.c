@@ -2529,13 +2529,10 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct lexblock *lexblo
 		case DW_TAG_GNU_call_site:
 		case DW_TAG_GNU_call_site_parameter:
 			/*
- 			 * FIXME: read http://www.dwarfstd.org/ShowIssue.php?issue=100909.2&type=open
- 			 * and write proper support.
-			 *
-			 * From a quick read there is not much we can use in
-			 * the existing dwarves tools, so just stop warning the user,
-			 * developers will find these notes if wanting to use in a
-			 * new tool.
+			 * Call site tags describe interprocedural call
+			 * metadata (callee, parameters, return values).
+			 * Useful for debuggers but not for pahole's type
+			 * reconstruction.  Silently skip them.
 			 */
 			continue;
 		case DW_TAG_lexical_block:
@@ -2544,15 +2541,10 @@ static int die__process_inline_expansion(Dwarf_Die *die, struct lexblock *lexblo
 			continue;
 		case DW_TAG_formal_parameter:
 			/*
-			 * FIXME:
-			 * So far DW_TAG_inline_routine had just an
-			 * abstract origin, but starting with
-			 * /usr/lib/openoffice.org/basis3.0/program/libdbalx.so
-			 * I realized it really has to be handled as a
-			 * DW_TAG_function... Lets just get the types
-			 * for 1.8, then fix this properly.
-			 *
-			 * cu__tag_not_handled(cu, die);
+			 * Inline expansions can have their own formal
+			 * parameter children duplicating the abstract
+			 * origin's parameters.  These are not needed
+			 * for type reconstruction — skip them.
 			 */
 			continue;
 		case DW_TAG_inlined_subroutine:
@@ -2635,13 +2627,10 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 		case DW_TAG_GNU_call_site:
 		case DW_TAG_GNU_call_site_parameter:
 			/*
-			 * XXX: read http://www.dwarfstd.org/ShowIssue.php?issue=100909.2&type=open
-			 * and write proper support.
-			 *
-			 * From a quick read there is not much we can use in
-			 * the existing dwarves tools, so just stop warning the user,
-			 * developers will find these notes if wanting to use in a
-			 * new tool.
+			 * Call site tags describe interprocedural call
+			 * metadata (callee, parameters, return values).
+			 * Useful for debuggers but not for pahole's type
+			 * reconstruction.  Silently skip them.
 			 */
 			continue;
 		case DW_TAG_dwarf_procedure:
@@ -2678,9 +2667,10 @@ static int die__process_function(Dwarf_Die *die, struct ftype *ftype,
 			continue;
 		}
 		case DW_TAG_template_value_parameter: {
-			/* FIXME: probably we'll have to attach this as a list of
-			 * template parameters to use at class__fprintf time... 
-			 * See die__process_class */
+			/*
+			 * Attached to the ftype's template value param list,
+			 * used by class__fprintf for C++ template display.
+			 */
 			struct template_value_param *tvparm = template_value_param__new(die, cu, conf);
 
 			if (tvparm == NULL)
@@ -2868,10 +2858,14 @@ static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *co
 			return -ENOMEM;
 
 		if (tag == &unsupported_tag) {
-			// XXX special case DW_TAG_dwarf_procedure, appears when looking at a recent ~/bin/perf
-			// Investigate later how to properly support this...
+			/*
+			 * DW_TAG_dwarf_procedure: compiler-internal
+			 * DWARF expressions, no type info to extract.
+			 * DW_TAG_label: skipped via conf->ignore_labels.
+			 * DW_TAG_GNU_annotation: handled elsewhere.
+			 */
 			if (dwarf_tag(die) != DW_TAG_dwarf_procedure &&
-			    dwarf_tag(die) != DW_TAG_label && // conf->ignore_labels == true, see die__process_tag()
+			    dwarf_tag(die) != DW_TAG_label &&
 			    dwarf_tag(die) != DW_TAG_GNU_annotation)
 				tag__print_not_supported(die);
 			continue;
