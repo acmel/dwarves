@@ -2078,8 +2078,10 @@ static struct tag *die__create_new_typedef(Dwarf_Die *die, struct cu *cu, struct
 	if (tdef == NULL)
 		return NULL;
 
-	if (add_child_llvm_annotations(die, -1, conf, &tdef->namespace.annots))
+	if (add_child_llvm_annotations(die, -1, conf, &tdef->namespace.annots)) {
+		type__delete(tdef, cu);
 		return NULL;
+	}
 
 	return &tdef->namespace.tag;
 }
@@ -2190,8 +2192,13 @@ static struct tag *die__create_new_variable(Dwarf_Die *die, struct cu *cu, struc
 {
 	struct variable *var = variable__new(die, cu, conf, top_level);
 
-	if (var == NULL || add_child_llvm_annotations(die, -1, conf, &var->annots))
+	if (var == NULL)
 		return NULL;
+
+	if (add_child_llvm_annotations(die, -1, conf, &var->annots)) {
+		tag__delete(&var->ip.tag, cu);
+		return NULL;
+	}
 
 	return &var->ip.tag;
 }
