@@ -1042,7 +1042,7 @@ static int type__print_containers(struct type *type, struct cu *cu, uint32_t con
 		return 0;
 
 	if (ident == 0) {
-		bool existing_entry; // FIXME: This should really just search, no need to try to add it.
+		bool existing_entry;
 		struct structure *str = structures__add(type__class(type), cu, 0, &existing_entry);
 		if (str == NULL) {
 			fprintf(stderr, "pahole: insufficient memory for "
@@ -2651,23 +2651,35 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 
 		free(member_name);
 
-		off_t total_read_bytes = ftell(input);
-
-		// Since we're reading input, we need to account for what we already read
-		// FIXME: we now have a FILE pointer that _may_ be stdin, but not necessarily
-		if (seek_bytes < total_read_bytes) {
-			fprintf(stderr, "pahole: can't go back in input, already read %" PRIu64 " bytes, can't go to position %#" PRIx64 "\n",
-					total_read_bytes, seek_bytes);
-			printed = -ENOMEM;
-			goto out;
-		}
-
 		if (global_verbose) {
 			fprintf(output, "pahole: range.seek_bytes evaluated from range=%s is %#" PRIx64 " \n",
 				range, seek_bytes);
 		}
 
-		seek_bytes -= total_read_bytes;
+		/*
+		 * Use fseek() for seekable files (regular files opened
+		 * by path).  Fall back to forward-reading pipe_seek()
+		 * for non-seekable streams (stdin, pipes).
+		 */
+		if (fseeko(input, seek_bytes, SEEK_SET) != 0) {
+			off_t total_read_bytes = ftell(input);
+
+			if (seek_bytes < total_read_bytes) {
+				fprintf(stderr, "pahole: can't seek backward in non-seekable input, already read %" PRIu64 " bytes, target %#" PRIx64 "\n",
+						total_read_bytes, seek_bytes);
+				printed = -ESPIPE;
+				goto out;
+			}
+
+			seek_bytes -= total_read_bytes;
+
+			errno = 0;
+			if (pipe_seek(input, seek_bytes) < 0) {
+				printed = errno ? -errno : -EIO;
+				fprintf(stderr, "Couldn't seek to offset %" PRIu64 " for range=%s\n", seek_bytes, range);
+				goto out;
+			}
+		}
 
 		if (asprintf(&member_name, "%s.%s", range, "size") == -1) {
 			fprintf(stderr, "pahole: not enough memory for range=%s\n", range);
@@ -2692,13 +2704,6 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 		}
 
 		free(member_name);
-
-		errno = 0;
-		if (pipe_seek(input, seek_bytes) < 0) {
-			printed = errno ? -errno : -EIO;
-			fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 "\n", conf.seek_bytes, seek_bytes);
-			goto out;
-		}
 
 		goto do_read;
 	}
@@ -2740,16 +2745,20 @@ static int prototype__stdio_fprintf_value(struct prototype *prototype, struct ty
 		}
 
 
-		if (header) {
-			// Since we're reading input, we need to account for already read header:
-			seek_bytes -= ftell(input);
-		}
+		/*
+		 * Use fseek() for seekable files, fall back to
+		 * forward-reading pipe_seek() for pipes/stdin.
+		 */
+		if (fseeko(input, seek_bytes, SEEK_SET) != 0) {
+			if (header)
+				seek_bytes -= ftell(input);
 
-		errno = 0;
-		if (pipe_seek(input, seek_bytes) < 0) {
-			printed = errno ? -errno : -EIO;
-			fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 "\n", conf.seek_bytes, seek_bytes);
-			goto out;
+			errno = 0;
+			if (pipe_seek(input, seek_bytes) < 0) {
+				printed = errno ? -errno : -EIO;
+				fprintf(stderr, "Couldn't --seek_bytes %s (%" PRIu64 ")\n", conf.seek_bytes, seek_bytes);
+				goto out;
+			}
 		}
 	}
 
