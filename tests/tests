@@ -329,6 +329,20 @@ print_test_result() {
 			echo "     --- Full test output ---"
 			sed 's/^/     /' "$tmpdir/$test.out"
 			echo "     --- End of output ---"
+
+			# Also show contents of any referenced log files
+			# Extract file paths that look like logs (end in .log or are in /tmp)
+			# This is critical for container runs where files vanish after exit
+			log_files=$(grep -oE '(/tmp/[^ ]+\.log|[^ ]+/build\.log|[^ ]+/[^ ]+\.log)' "$tmpdir/$test.out" 2>/dev/null | sort -u)
+			if [ -n "$log_files" ]; then
+				for logfile in $log_files; do
+					if [ -f "$logfile" ]; then
+						echo "     --- Contents of $logfile ---"
+						sed 's/^/     /' "$logfile"
+						echo "     --- End of $logfile ---"
+					fi
+				done
+			fi
 		else
 			# Normal mode: show first 5 error lines
 			grep -E 'FAIL|ERROR|error' "$tmpdir/$test.out" | head -5 | sed 's/^/     /'
