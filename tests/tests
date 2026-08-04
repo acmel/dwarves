@@ -13,19 +13,29 @@ Usage: $0 [OPTIONS] [TEST_NUMBERS...]
 
 Options:
   --vmlinux PATH    Use specified vmlinux file for tests requiring it
+  --verbose, -v     Show verbose test output on failure (more diagnostic info)
   --help, -h        Show this help message
   TEST_NUMBERS      Optional space-separated test numbers to run (e.g., 16 23 57)
 
 Environment variables:
   VMLINUX           Path to vmlinux file (alternative to --vmlinux)
+  VERBOSE           Enable verbose test output (alternative to --verbose)
   PERF_BIN          Path to pre-built perf binary with debug info
   PERF_SRC_DIR      Path to kernel source tree for building perf with debug info
                     (avoids downloading from kernel.org mirrors)
   PERF_CACHE_DIR    Override perf build cache location
 
+Test artifacts and cleanup:
+  All test artifacts are stored under /tmp/pahole-tests/ for easy management.
+  On systems with limited tmpfs space, parallel test execution can accumulate
+  significant space usage (multiple tests compiling .o files simultaneously).
+  Failed test directories are preserved for debugging.
+  To reclaim space: rm -rf /tmp/pahole-tests
+
 Examples:
   $0                                    # Run all tests
   $0 16 23 57                           # Run only tests 16, 23, and 57
+  $0 -v 48                              # Run test 48 with verbose output on failure
   $0 --vmlinux /boot/vmlinux-6.11.0     # Run all with specific vmlinux
   VMLINUX=/boot/vmlinux-6.11.0 $0 16    # Run test 16 with vmlinux
   PERF_BIN=/tmp/build/perf/perf $0      # Use pre-built perf binary
@@ -47,6 +57,10 @@ while [ $# -gt 0 ]; do
 			export VMLINUX="$1"
 			shift
 			;;
+		--verbose|-v)
+			export VERBOSE=1
+			shift
+			;;
 		--help|-h)
 			usage
 			;;
@@ -66,6 +80,12 @@ done
 tests_dir=$(dirname "$0")
 cd "$tests_dir"
 
+# Create master test directory for all test artifacts
+# All test artifacts (both coordination files and individual test tmpdirs)
+# go under /tmp/pahole-tests/ for easy cleanup and space management
+test_master_dir="/tmp/pahole-tests"
+mkdir -p "$test_master_dir" || exit 1
+
 # Show version of tools being tested (for debugging test output)
 # NOTE: tests/tests expects the build directory to be at the front of PATH
 # See AGENTS.md for requirements when calling tests/tests
@@ -80,7 +100,66 @@ else
 fi
 echo ""
 
-tmpdir=$(mktemp -d /tmp/pahole-tests.XXXXXX) || exit 1
+# Show diagnostic environment info when verbose mode is enabled
+if [ "${VERBOSE:-0}" = "1" ]; then
+	echo "Verbose mode enabled - showing diagnostic information:"
+
+	# System information
+	echo "  Architecture: $(uname -m)"
+	if [ -r /proc/cpuinfo ]; then
+		ncpus=$(grep -c '^processor' /proc/cpuinfo 2>/dev/null || echo "unknown")
+		echo "  CPUs: $ncpus"
+	else
+		echo "  CPUs: unknown"
+	fi
+	if [ -r /proc/meminfo ]; then
+		mem_total=$(awk '/^MemTotal:/ {printf "%.1f", $2/1024/1024}' /proc/meminfo 2>/dev/null || echo "unknown")
+		swap_total=$(awk '/^SwapTotal:/ {printf "%.1f", $2/1024/1024}' /proc/meminfo 2>/dev/null || echo "unknown")
+		echo "  Memory: ${mem_total} GB"
+		echo "  Swap: ${swap_total} GB"
+	else
+		echo "  Memory: unknown"
+		echo "  Swap: unknown"
+	fi
+
+	# Test parallelism settings
+	if [ -n "$max_jobs" ]; then
+		echo "  Parallelism: -j ${max_jobs} (max ${max_jobs} tests in parallel)"
+	else
+		echo "  Parallelism: unlimited (all tests run in parallel)"
+		echo "    Tip: On low-memory systems, use -j to limit parallelism (e.g., -j 4 or -j 1)"
+	fi
+
+	# Test artifact location and cleanup
+	echo "  Test artifacts: $test_master_dir/"
+	if [ -d "$test_master_dir" ]; then
+		artifact_count=$(find "$test_master_dir" -maxdepth 1 -type d 2>/dev/null | wc -l)
+		artifact_count=$((artifact_count - 1))  # Subtract the master dir itself
+		if [ "$artifact_count" -gt 0 ]; then
+			artifact_size=$(du -sh "$test_master_dir" 2>/dev/null | awk '{print $1}')
+			echo "    Warning: ${artifact_count} leftover test directories (${artifact_size})"
+			echo "    Parallel tests can accumulate tmpfs space during execution"
+			echo "    Clean up with: rm -rf $test_master_dir"
+		fi
+	fi
+
+	# Software versions
+	echo "  Compiler: $(${CC:-gcc} --version 2>/dev/null | head -1 || echo 'not found')"
+	echo "  libc: $(ldd --version 2>&1 | head -1 || echo 'unknown')"
+	if command -v bpftool >/dev/null 2>&1; then
+		echo "  bpftool: $(bpftool version 2>&1 | head -1 || echo 'available, version unknown')"
+	else
+		echo "  bpftool: not found"
+	fi
+
+	# Environment variables
+	echo "  VMLINUX: ${VMLINUX:-not set}"
+	echo "  PERF_BIN: ${PERF_BIN:-not set}"
+	echo "  PERF_SRC_DIR: ${PERF_SRC_DIR:-not set}"
+	echo ""
+fi
+
+tmpdir=$(mktemp -d "$test_master_dir/pahole-tests.XXXXXX") || exit 1
 
 kill_children() {
 	for pidfile in "$tmpdir"/*.pid; do
@@ -244,7 +323,16 @@ print_test_result() {
 		;;
 	*)
 		printf ": FAILED!\n"
-		grep -E 'FAIL|ERROR|error' "$tmpdir/$test.out" | head -5 | sed 's/^/     /'
+		if [ "${VERBOSE:-0}" = "1" ]; then
+			# Verbose mode: show full test output for complete diagnosis
+			# This includes all commands run, their outputs, and test artifacts
+			echo "     --- Full test output ---"
+			sed 's/^/     /' "$tmpdir/$test.out"
+			echo "     --- End of output ---"
+		else
+			# Normal mode: show first 5 error lines
+			grep -E 'FAIL|ERROR|error' "$tmpdir/$test.out" | head -5 | sed 's/^/     /'
+		fi
 		status=1
 		nr_failed=$((nr_failed + 1))
 		failed_list="$failed_list

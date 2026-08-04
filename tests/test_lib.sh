@@ -116,7 +116,12 @@ get_vmlinux()
 
 make_tmpdir()
 {
-	outdir=$(mktemp -d /tmp/$(basename "$0").XXXXXX)
+	# Ensure master test directory exists
+	# All test artifacts go under /tmp/pahole-tests/ for easy cleanup
+	test_master_dir="/tmp/pahole-tests"
+	mkdir -p "$test_master_dir"
+
+	outdir=$(mktemp -d "$test_master_dir/$(basename "$0").XXXXXX")
 	echo $outdir
 	return 0
 }
@@ -184,7 +189,48 @@ test_fail()
 	check_color_support
 	color_print ${RED} "Test $0 failed"
 	if [ -d "$outdir" ]; then
-		color_print ${RED} "Test data is in $outdir"
+		if [ "${VERBOSE:-0}" = "1" ]; then
+			# In verbose mode, dump test data inline for dm.log captures
+			echo "=== Test artifacts in $outdir ==="
+			echo "--- File list ---"
+			ls -lah "$outdir" 2>&1 || echo "Failed to list directory"
+			echo ""
+			# Show content of each file (limit to reasonable size)
+			for f in "$outdir"/*; do
+				if [ -f "$f" ]; then
+					file_size=$(wc -c < "$f" 2>/dev/null || echo "unknown")
+					# Detect binary files by extension and file command
+					# Skip: .o, .so, .a (object/library files), ELF executables
+					# Show: empty files, .txt/.c/.h/.sh/.log, and anything 'file' says is text
+					basename_f=$(basename "$f")
+					case "$basename_f" in
+						*.o|*.so|*.so.*|*.a)
+							# Object files, libraries - always skip
+							echo "--- Skipping binary file: $basename_f (${file_size} bytes) ---"
+							;;
+						*)
+							# Empty files or text-like: always show
+							# Non-empty: check with file command
+							if [ "$file_size" -eq 0 ] || file "$f" 2>/dev/null | grep -qE "text|empty|ASCII"; then
+								echo "--- Content of $basename_f (${file_size} bytes) ---"
+								# Show first 500 lines max to avoid overwhelming output
+								if [ "$file_size" -gt 0 ]; then
+									head -500 "$f" 2>&1 || echo "Failed to read file"
+								else
+									echo "(empty file)"
+								fi
+								echo ""
+							else
+								echo "--- Skipping binary file: $basename_f (${file_size} bytes) ---"
+							fi
+							;;
+					esac
+				fi
+			done
+			echo "=== End of test artifacts ==="
+		else
+			color_print ${RED} "Test data is in $outdir"
+		fi
 	fi
 	exit 1
 }
