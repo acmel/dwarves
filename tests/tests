@@ -13,6 +13,7 @@ Usage: $0 [OPTIONS] [TEST_NUMBERS...]
 
 Options:
   --vmlinux PATH    Use specified vmlinux file for tests requiring it
+  --jobs N, -j N    Run at most N tests in parallel (default: unlimited)
   --verbose, -v     Show verbose test output on failure (more diagnostic info)
   --help, -h        Show this help message
   TEST_NUMBERS      Optional space-separated test numbers to run (e.g., 16 23 57)
@@ -33,7 +34,9 @@ Test artifacts and cleanup:
   To reclaim space: rm -rf /tmp/pahole-tests
 
 Examples:
-  $0                                    # Run all tests
+  $0                                    # Run all tests in parallel
+  $0 -j 4                               # Run at most 4 tests at once (low-memory systems)
+  $0 -j 1                               # Run tests serially (very low memory)
   $0 16 23 57                           # Run only tests 16, 23, and 57
   $0 -v 48                              # Run test 48 with verbose output on failure
   $0 --vmlinux /boot/vmlinux-6.11.0     # Run all with specific vmlinux
@@ -46,6 +49,7 @@ EOF
 
 # Parse command line arguments
 requested_tests=""
+max_jobs=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--vmlinux)
@@ -55,6 +59,15 @@ while [ $# -gt 0 ]; do
 				exit 1
 			fi
 			export VMLINUX="$1"
+			shift
+			;;
+		--jobs|-j)
+			shift
+			if [ -z "$1" ] || ! echo "$1" | grep -qE '^[0-9]+$'; then
+				echo "Error: --jobs requires a positive number" >&2
+				exit 1
+			fi
+			max_jobs="$1"
 			shift
 			;;
 		--verbose|-v)
@@ -270,10 +283,45 @@ else
 fi
 
 # Launch selected tests
+# If --jobs is specified, limit concurrent execution to avoid OOM on low-memory systems
 num_tests=0
 for test in $launch_list; do
+	# Wait for a test slot if we're at the concurrency limit
+	if [ -n "$max_jobs" ] && [ "$max_jobs" -gt 0 ]; then
+		while true; do
+			# Count running test processes
+			running=0
+			for pidfile in "$tmpdir"/*.pid; do
+				[ -f "$pidfile" ] || continue
+				pid=$(cat "$pidfile" 2>/dev/null)
+				if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+					running=$((running + 1))
+				fi
+			done
+
+			# Launch if under limit
+			if [ $running -lt "$max_jobs" ]; then
+				break
+			fi
+
+			# Wait a bit before rechecking
+			sleep 0.1
+		done
+	fi
+
 	start_time=$(date +%s.%N)
-	./"$test" > "$tmpdir/$test.out" 2>&1 &
+
+	# Set memory limit for test if on low-memory system
+	# On systems with <4GB RAM, limit each test to 1.5GB to prevent OOM
+	avail_kb=$(awk '/MemAvailable/ {print $2}' /proc/meminfo 2>/dev/null || echo "0")
+	avail_gb=$((avail_kb / 1024 / 1024))
+	if [ "$avail_gb" -lt 4 ]; then
+		# Low memory system: limit each test to 1.5GB virtual memory
+		(ulimit -v 1572864; ./"$test") > "$tmpdir/$test.out" 2>&1 &
+	else
+		./"$test" > "$tmpdir/$test.out" 2>&1 &
+	fi
+
 	pid=$!
 	echo $pid > "$tmpdir/$test.pid"
 	echo "$test $start_time" >> "$tmpdir/launch-times.txt"
