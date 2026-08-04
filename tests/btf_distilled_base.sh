@@ -95,9 +95,9 @@ info_log "base BTF encoded: $(wc -c < "$base_btf") bytes"
 mod_elf="$outdir/module_distilled.o"
 cp "$mod_obj" "$mod_elf"
 
-pahole -J --btf_base="$base_btf" \
+if ! pahole -J --btf_base="$base_btf" \
        --btf_features=default,distilled_base \
-if ! "$mod_elf" 2>/dev/null; then
+       "$mod_elf" 2>/dev/null; then
 	error_log "FAIL: pahole -J with distilled_base failed"
 	test_fail
 fi
@@ -121,9 +121,9 @@ info_log ".BTF.base section present: ok"
 mod_normal="$outdir/module_normal.o"
 cp "$mod_obj" "$mod_normal"
 
-pahole -J --btf_base="$base_btf" \
+if ! pahole -J --btf_base="$base_btf" \
        --btf_features=default \
-if ! "$mod_normal" 2>/dev/null; then
+       "$mod_normal" 2>/dev/null; then
 	error_log "FAIL: pahole -J without distilled_base failed"
 	test_fail
 fi
