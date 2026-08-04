@@ -18,6 +18,7 @@ Options:
 
 Environment variables:
   VMLINUX           Path to vmlinux file (alternative to --vmlinux)
+  PERF_BIN          Path to pre-built perf binary with debug info
   PERF_SRC_DIR      Path to kernel source tree for building perf with debug info
                     (avoids downloading from kernel.org mirrors)
   PERF_CACHE_DIR    Override perf build cache location
@@ -27,6 +28,7 @@ Examples:
   $0 16 23 57                           # Run only tests 16, 23, and 57
   $0 --vmlinux /boot/vmlinux-6.11.0     # Run all with specific vmlinux
   VMLINUX=/boot/vmlinux-6.11.0 $0 16    # Run test 16 with vmlinux
+  PERF_BIN=/tmp/build/perf/perf $0      # Use pre-built perf binary
   PERF_SRC_DIR=/usr/src/linux $0        # Build perf from local kernel source
 EOF
 	exit 0
@@ -65,11 +67,15 @@ tests_dir=$(dirname "$0")
 cd "$tests_dir"
 
 # Show version of tools being tested (for debugging test output)
+# NOTE: tests/tests expects the build directory to be at the front of PATH
+# See AGENTS.md for requirements when calling tests/tests
 echo "Testing pahole version:"
 if command -v pahole >/dev/null 2>&1; then
 	pahole --version 2>&1 | sed 's/^/  /'
 else
 	echo "  ERROR: pahole not found in PATH"
+	echo "  Ensure the build directory is at the front of PATH before running tests"
+	echo "  Example: export PATH=\$(pwd)/build:\$PATH"
 	exit 1
 fi
 echo ""
