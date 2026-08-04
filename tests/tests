@@ -12,19 +12,23 @@ usage() {
 Usage: $0 [OPTIONS] [TEST_NUMBERS...]
 
 Options:
-  --vmlinux PATH    Use specified vmlinux file for tests requiring it
-  --jobs N, -j N    Run at most N tests in parallel (default: unlimited)
-  --verbose, -v     Show verbose test output on failure (more diagnostic info)
-  --help, -h        Show this help message
-  TEST_NUMBERS      Optional space-separated test numbers to run (e.g., 16 23 57)
+  --vmlinux PATH       Use specified vmlinux file for tests requiring it
+  --jobs N, -j N       Run at most N tests in parallel (default: unlimited)
+  --verbose, -v        Show verbose test output on failure (more diagnostic info)
+  --dump-artifacts     Dump DWARF/BTF info from binary artifacts on failure
+  --help, -h           Show this help message
+  TEST_NUMBERS         Optional space-separated test numbers to run (e.g., 16 23 57)
 
 Environment variables:
-  VMLINUX           Path to vmlinux file (alternative to --vmlinux)
-  VERBOSE           Enable verbose test output (alternative to --verbose)
-  PERF_BIN          Path to pre-built perf binary with debug info
-  PERF_SRC_DIR      Path to kernel source tree for building perf with debug info
-                    (avoids downloading from kernel.org mirrors)
-  PERF_CACHE_DIR    Override perf build cache location
+  VMLINUX              Path to vmlinux file (alternative to --vmlinux)
+  VERBOSE              Enable verbose test output (alternative to --verbose)
+  DUMP_ARTIFACTS       Enable artifact dumping (alternative to --dump-artifacts)
+  ARTIFACT_SIZE_LIMIT  Max size in KB for dumping artifacts (default: 100)
+  ARTIFACT_FILE_LIMIT  Max number of artifacts to dump per test (default: 5)
+  PERF_BIN             Path to pre-built perf binary with debug info
+  PERF_SRC_DIR         Path to kernel source tree for building perf with debug info
+                       (avoids downloading from kernel.org mirrors)
+  PERF_CACHE_DIR       Override perf build cache location
 
 Test artifacts and cleanup:
   All test artifacts are stored under /tmp/pahole-tests/ for easy management.
@@ -39,10 +43,12 @@ Examples:
   $0 -j 1                               # Run tests serially (very low memory)
   $0 16 23 57                           # Run only tests 16, 23, and 57
   $0 -v 48                              # Run test 48 with verbose output on failure
+  $0 -v --dump-artifacts 48             # Verbose + dump .o/.so files from test 48
   $0 --vmlinux /boot/vmlinux-6.11.0     # Run all with specific vmlinux
   VMLINUX=/boot/vmlinux-6.11.0 $0 16    # Run test 16 with vmlinux
   PERF_BIN=/tmp/build/perf/perf $0      # Use pre-built perf binary
   PERF_SRC_DIR=/usr/src/linux $0        # Build perf from local kernel source
+  ARTIFACT_SIZE_LIMIT=500 $0 -v --dump-artifacts  # Dump artifacts up to 500KB
 EOF
 	exit 0
 }
@@ -72,6 +78,10 @@ while [ $# -gt 0 ]; do
 			;;
 		--verbose|-v)
 			export VERBOSE=1
+			shift
+			;;
+		--dump-artifacts)
+			export DUMP_ARTIFACTS=1
 			shift
 			;;
 		--help|-h)
@@ -390,6 +400,67 @@ print_test_result() {
 						echo "     --- End of $logfile ---"
 					fi
 				done
+			fi
+
+			# If --dump-artifacts is set, dump DWARF/BTF info from binary files
+			# This is critical for debugging in containers where .o/.so files vanish
+			if [ "${DUMP_ARTIFACTS:-0}" = "1" ]; then
+				# Extract test temp directory from output (e.g., /tmp/test_name.XXXXXX)
+				test_tmpdir=$(grep -oE '/tmp/[^ ]+\.[A-Za-z0-9]{6,}' "$tmpdir/$test.out" 2>/dev/null | head -1)
+				if [ -n "$test_tmpdir" ] && [ -d "$test_tmpdir" ]; then
+					size_limit_kb=${ARTIFACT_SIZE_LIMIT:-100}
+					file_limit=${ARTIFACT_FILE_LIMIT:-5}
+					size_limit=$((size_limit_kb * 1024))
+
+					# Find binary artifacts (.o, .so files)
+					bin_files=$(find "$test_tmpdir" -type f \( -name "*.o" -o -name "*.so" \) 2>/dev/null | head -$file_limit)
+
+					if [ -n "$bin_files" ]; then
+						echo "     --- Binary artifacts analysis (limit: ${size_limit_kb}KB, ${file_limit} files) ---"
+						count=0
+						for binfile in $bin_files; do
+							count=$((count + 1))
+							if [ ! -f "$binfile" ]; then
+								continue
+							fi
+
+							# Get file size (portable: try stat -c first, fall back to stat -f)
+							size=$(stat -c%s "$binfile" 2>/dev/null || stat -f%z "$binfile" 2>/dev/null || echo "0")
+							size_kb=$((size / 1024))
+
+							if [ "$size" -gt "$size_limit" ]; then
+								echo "     --- Skipping $binfile (${size_kb}KB > ${size_limit_kb}KB limit) ---"
+								continue
+							fi
+
+							echo "     --- Binary artifact: $binfile (${size_kb}KB) ---"
+
+							# Show ELF sections (abbreviated)
+							if command -v readelf >/dev/null 2>&1; then
+								echo "     === ELF sections ==="
+								readelf -S "$binfile" 2>&1 | sed 's/^/     /' | head -25
+
+								echo "     === Symbol table (first 30 entries) ==="
+								readelf -s "$binfile" 2>&1 | sed 's/^/     /' | head -30
+
+								# Show DWARF variable info if present
+								if readelf -S "$binfile" 2>/dev/null | grep -q '\.debug_info'; then
+									echo "     === DWARF variables (abbreviated) ==="
+									readelf -wi "$binfile" 2>&1 | grep -A6 "DW_TAG_variable" | sed 's/^/     /' | head -60
+								fi
+							fi
+
+							# If BTF section exists, dump it with bpftool
+							if readelf -S "$binfile" 2>/dev/null | grep -q '\.BTF' && command -v bpftool >/dev/null 2>&1; then
+								echo "     === BTF dump ==="
+								bpftool btf dump file "$binfile" 2>&1 | sed 's/^/     /' | head -50
+							fi
+
+							echo "     --- End of $binfile ---"
+						done
+						echo "     --- End of binary artifacts (analyzed $count files) ---"
+					fi
+				fi
 			fi
 		else
 			# Normal mode: show first 5 error lines
