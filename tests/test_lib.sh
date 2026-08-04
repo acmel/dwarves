@@ -91,14 +91,22 @@ get_vmlinux()
 			vmlinux=$(find_vmlinux)
 			if [ -z "$vmlinux" ] ; then
 				check_color_support
-				color_print ${RED} "Please specify a vmlinux file to operate on"
+				color_print ${RED} "Please specify a vmlinux file to operate on" >&2
 				exit 2
 			fi
 		fi
 	fi
 
 	if [ ! -f "$vmlinux" ] ; then
-		echo ${RED} "$vmlinux file not available, please specify another"
+		check_color_support
+		if [ -n "$VMLINUX" ] ; then
+			color_print ${RED} "VMLINUX env var points to non-existent file: $vmlinux" >&2
+			color_print ${RED} "Either unset VMLINUX or set it to a valid path" >&2
+			echo "   skip: no vmlinux available (VMLINUX points to non-existent file)" >&2
+		else
+			color_print ${RED} "$vmlinux file not available, please specify another" >&2
+			echo "   skip: no vmlinux available" >&2
+		fi
 		exit 2
 	fi
 
@@ -156,9 +164,9 @@ verbose_log()
 
 error_log()
 {
-	printf "   "
+	printf "   " >&2
 	check_color_support
-	color_print $RED "${1}"
+	color_print $RED "${1}" >&2
 }
 
 test_softfail()

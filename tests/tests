@@ -53,6 +53,16 @@ done
 tests_dir=$(dirname "$0")
 cd "$tests_dir"
 
+# Show version of tools being tested (for debugging test output)
+echo "Testing pahole version:"
+if command -v pahole >/dev/null 2>&1; then
+	pahole --version 2>&1 | sed 's/^/  /'
+else
+	echo "  ERROR: pahole not found in PATH"
+	exit 1
+fi
+echo ""
+
 tmpdir=$(mktemp -d /tmp/pahole-tests.XXXXXX) || exit 1
 
 kill_children() {
@@ -71,12 +81,82 @@ test_title() {
 	sed -n 's/^title_log *"\(.*\)"/\1/p' "$1" | head -1
 }
 
-# Launch all tests in parallel
+# Load previous test times and classify tests as fast or slow
+# Slow tests are launched last so they don't block printing fast results
+test_times_file=".test-times"
+test_times_seed=".test-times.seed"
+fast_tests=""
+slow_tests=""
+
+# On first run, copy seed file to create initial timing data
+if [ ! -f "$test_times_file" ] && [ -f "$test_times_seed" ]; then
+	cp "$test_times_seed" "$test_times_file"
+fi
+
+if [ -f "$test_times_file" ]; then
+	# Calculate average and stddev from previous run
+	total=0
+	count=0
+	times=""
+	while read -r test_name duration; do
+		total=$(awk "BEGIN {print $total + $duration}")
+		count=$((count + 1))
+		times="$times $duration"
+	done < "$test_times_file"
+
+	if [ $count -gt 0 ]; then
+		avg=$(awk "BEGIN {print $total / $count}")
+
+		# Calculate stddev: sqrt(sum((x - avg)^2) / n)
+		sum_sq=0
+		for t in $times; do
+			diff=$(awk "BEGIN {print $t - $avg}")
+			sq=$(awk "BEGIN {print $diff * $diff}")
+			sum_sq=$(awk "BEGIN {print $sum_sq + $sq}")
+		done
+		stddev=$(awk "BEGIN {print sqrt($sum_sq / $count)}")
+
+		# Threshold: avg + 1 * stddev
+		threshold=$(awk "BEGIN {print $avg + $stddev}")
+
+		# Classify each test
+		for test in *.sh; do
+			[ "$test" = "test_lib.sh" ] && continue
+
+			prev_time=$(grep "^$test " "$test_times_file" | awk '{print $2}')
+			if [ -n "$prev_time" ]; then
+				is_slow=$(awk "BEGIN {print ($prev_time > $threshold) ? 1 : 0}")
+				if [ "$is_slow" -eq 1 ]; then
+					slow_tests="$slow_tests $test"
+				else
+					fast_tests="$fast_tests $test"
+				fi
+			else
+				# No timing data, treat as fast
+				fast_tests="$fast_tests $test"
+			fi
+		done
+	fi
+fi
+
+# If no timing data or classification failed, all tests are fast
+if [ -z "$fast_tests" ] && [ -z "$slow_tests" ]; then
+	for test in *.sh; do
+		[ "$test" = "test_lib.sh" ] && continue
+		fast_tests="$fast_tests $test"
+	done
+fi
+
+# Launch fast tests first (alphabetically), then slow tests
+# This ensures slow tests don't block printing of fast test results
+launch_list="$fast_tests $slow_tests"
 num_tests=0
-for test in *.sh ; do
-	[ "$test" = "test_lib.sh" ] && continue
+for test in $launch_list; do
+	start_time=$(date +%s.%N)
 	./"$test" > "$tmpdir/$test.out" 2>&1 &
-	echo $! > "$tmpdir/$test.pid"
+	pid=$!
+	echo $pid > "$tmpdir/$test.pid"
+	echo "$test $start_time" >> "$tmpdir/launch-times.txt"
 	num_tests=$((num_tests + 1))
 done
 
@@ -86,8 +166,11 @@ nr=1
 failed_list=""
 nr_failed=0
 
-for test in *.sh ; do
-	[ "$test" = "test_lib.sh" ] && continue
+# Helper function to print test result
+print_test_result() {
+	test=$1
+	nr=$2
+
 	pid=$(cat "$tmpdir/$test.pid")
 	title=$(test_title "$test")
 	[ -z "$title" ] && title="${test%.sh}"
@@ -97,6 +180,14 @@ for test in *.sh ; do
 	printf "%s" "$label"
 	wait "$pid"
 	rc=$?
+	end_time=$(date +%s.%N)
+
+	# Get start time from launch record
+	start_time=$(grep "^$test " "$tmpdir/launch-times.txt" | awk '{print $2}')
+	duration=$(awk "BEGIN {printf \"%.2f\", $end_time - $start_time}")
+
+	# Save timing for next run
+	echo "$test $duration" >> "$tmpdir/test-times.txt"
 
 	case $rc in
 	0)
@@ -119,9 +210,48 @@ for test in *.sh ; do
   $nr: $title"
 		;;
 	esac
+}
 
+# Assign test numbers to all tests
+for test in $launch_list; do
+	echo "$test $nr" >> "$tmpdir/test-numbers.txt"
 	nr=$((nr + 1))
 done
+
+# Print all tests in completion order (not launch order)
+# This prevents slow tests from blocking display of fast test results
+total_tests=$(echo "$launch_list" | wc -w)
+completed=0
+while [ $completed -lt $total_tests ]; do
+	# Check which test finished first
+	for test in $launch_list; do
+		# Skip if already printed
+		if [ -f "$tmpdir/$test.printed" ]; then
+			continue
+		fi
+
+		pid=$(cat "$tmpdir/$test.pid" 2>/dev/null) || continue
+		# Non-blocking check if process finished
+		if ! kill -0 "$pid" 2>/dev/null; then
+			# Test completed, print it
+			test_nr=$(grep "^$test " "$tmpdir/test-numbers.txt" | awk '{print $2}')
+			print_test_result "$test" "$test_nr"
+			touch "$tmpdir/$test.printed"
+			completed=$((completed + 1))
+			break
+		fi
+	done
+	# Small sleep to avoid busy-wait
+	sleep 0.05
+done
+
+# Save timing data for next run
+if [ -f "$tmpdir/test-times.txt" ]; then
+	mv "$tmpdir/test-times.txt" "$test_times_file"
+	echo "Saved timing data to $test_times_file ($(wc -l < "$test_times_file") tests)" >&2
+else
+	echo "Warning: No timing data generated ($tmpdir/test-times.txt not found)" >&2
+fi
 
 echo ""
 if [ $nr_failed -gt 0 ]; then

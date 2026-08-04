@@ -82,3 +82,7 @@ libctf.h
 regtest
 lib/bpf/
 lib/include/bpf
+scripts/
+tests/tests
+tests/*.sh
+tests/.test-times.seed
