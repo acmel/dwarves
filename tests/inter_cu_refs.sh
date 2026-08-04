@@ -17,11 +17,7 @@ trap cleanup EXIT
 
 title_log "Compare parallel vs merged CU loading for inter-CU type references."
 
-perf=$(which perf 2>/dev/null)
-if [ -z "$perf" ] ; then
-	info_log "skip: No 'perf' binary available"
-	test_skip
-fi
+perf=$(get_perf_with_debug)
 
 if ! pahole --features=force_cu_merging -F dwarf -C perf_event_header "$perf" 2>/dev/null | grep -q "^struct perf_event_header {" ; then
 	info_log "skip: $perf doesn't have 'struct perf_event_header' type info"

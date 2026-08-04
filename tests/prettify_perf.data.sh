@@ -16,11 +16,7 @@ trap cleanup EXIT
 
 title_log "Pretty printing of files using DWARF type information."
 
-perf=$(which perf 2> /dev/null)
-if [ -z "$perf" ] ; then
-	info_log "skip: No 'perf' binary available"
-	test_skip
-fi
+perf=$(get_perf_with_debug)
 
 perf_lacks_type_info() {
 	local type_keyword=$1
