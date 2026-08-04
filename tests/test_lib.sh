@@ -72,7 +72,8 @@ find_vmlinux()
 get_vmlinux()
 {
 	
-	vmlinux=${vmlinux:-$1}
+	# Priority: VMLINUX env var > passed argument > auto-detect
+	vmlinux=${VMLINUX:-${vmlinux:-$1}}
 
 	# The tests runner may pass the build directory as argument, so
 	# if it isn't a real vmlinux file, consider it as not specified

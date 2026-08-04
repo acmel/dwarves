@@ -7,6 +7,49 @@
 # single status line; failures show detail below. A final summary lists
 # any failed tests so the user doesn't have to scroll up.
 
+usage() {
+	cat <<EOF
+Usage: $0 [OPTIONS]
+
+Options:
+  --vmlinux PATH    Use specified vmlinux file for tests requiring it
+  --help, -h        Show this help message
+
+Environment variables:
+  VMLINUX           Path to vmlinux file (alternative to --vmlinux)
+  PERF_CACHE_DIR    Override perf build cache location
+
+Examples:
+  $0
+  $0 --vmlinux /boot/vmlinux-6.11.0
+  VMLINUX=/boot/vmlinux-6.11.0 $0
+EOF
+	exit 0
+}
+
+# Parse command line arguments
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--vmlinux)
+			shift
+			if [ -z "$1" ]; then
+				echo "Error: --vmlinux requires a file path" >&2
+				exit 1
+			fi
+			export VMLINUX="$1"
+			shift
+			;;
+		--help|-h)
+			usage
+			;;
+		*)
+			echo "Error: unknown option '$1'" >&2
+			echo "Use --help for usage information" >&2
+			exit 1
+			;;
+	esac
+done
+
 tests_dir=$(dirname "$0")
 cd "$tests_dir"
 
@@ -32,7 +75,7 @@ test_title() {
 num_tests=0
 for test in *.sh ; do
 	[ "$test" = "test_lib.sh" ] && continue
-	./"$test" $1 > "$tmpdir/$test.out" 2>&1 &
+	./"$test" > "$tmpdir/$test.out" 2>&1 &
 	echo $! > "$tmpdir/$test.pid"
 	num_tests=$((num_tests + 1))
 done
