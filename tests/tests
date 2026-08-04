@@ -9,25 +9,31 @@
 
 usage() {
 	cat <<EOF
-Usage: $0 [OPTIONS]
+Usage: $0 [OPTIONS] [TEST_NUMBERS...]
 
 Options:
   --vmlinux PATH    Use specified vmlinux file for tests requiring it
   --help, -h        Show this help message
+  TEST_NUMBERS      Optional space-separated test numbers to run (e.g., 16 23 57)
 
 Environment variables:
   VMLINUX           Path to vmlinux file (alternative to --vmlinux)
+  PERF_SRC_DIR      Path to kernel source tree for building perf with debug info
+                    (avoids downloading from kernel.org mirrors)
   PERF_CACHE_DIR    Override perf build cache location
 
 Examples:
-  $0
-  $0 --vmlinux /boot/vmlinux-6.11.0
-  VMLINUX=/boot/vmlinux-6.11.0 $0
+  $0                                    # Run all tests
+  $0 16 23 57                           # Run only tests 16, 23, and 57
+  $0 --vmlinux /boot/vmlinux-6.11.0     # Run all with specific vmlinux
+  VMLINUX=/boot/vmlinux-6.11.0 $0 16    # Run test 16 with vmlinux
+  PERF_SRC_DIR=/usr/src/linux $0        # Build perf from local kernel source
 EOF
 	exit 0
 }
 
 # Parse command line arguments
+requested_tests=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--vmlinux)
@@ -41,6 +47,11 @@ while [ $# -gt 0 ]; do
 			;;
 		--help|-h)
 			usage
+			;;
+		[0-9]*)
+			# Test number argument
+			requested_tests="$requested_tests $1"
+			shift
 			;;
 		*)
 			echo "Error: unknown option '$1'" >&2
@@ -149,7 +160,31 @@ fi
 
 # Launch fast tests first (alphabetically), then slow tests
 # This ensures slow tests don't block printing of fast test results
-launch_list="$fast_tests $slow_tests"
+all_tests="$fast_tests $slow_tests"
+
+# Build test number mapping for all tests
+nr=1
+for test in $all_tests; do
+	echo "$test $nr" >> "$tmpdir/all-test-numbers.txt"
+	nr=$((nr + 1))
+done
+
+# Filter tests if specific numbers were requested
+if [ -n "$requested_tests" ]; then
+	launch_list=""
+	for num in $requested_tests; do
+		test=$(awk -v n="$num" '$2 == n {print $1}' "$tmpdir/all-test-numbers.txt")
+		if [ -z "$test" ]; then
+			echo "Error: test number $num not found (valid range: 1-$((nr-1)))" >&2
+			exit 1
+		fi
+		launch_list="$launch_list $test"
+	done
+else
+	launch_list="$all_tests"
+fi
+
+# Launch selected tests
 num_tests=0
 for test in $launch_list; do
 	start_time=$(date +%s.%N)
@@ -212,16 +247,27 @@ print_test_result() {
 	esac
 }
 
-# Assign test numbers to all tests
+# Assign test numbers to launched tests (use all-test-numbers mapping)
 for test in $launch_list; do
-	echo "$test $nr" >> "$tmpdir/test-numbers.txt"
-	nr=$((nr + 1))
+	test_nr=$(grep "^$test " "$tmpdir/all-test-numbers.txt" | awk '{print $2}')
+	echo "$test $test_nr" >> "$tmpdir/test-numbers.txt"
 done
 
 # Print all tests in completion order (not launch order)
 # This prevents slow tests from blocking display of fast test results
 total_tests=$(echo "$launch_list" | wc -w)
 completed=0
+show_status_line=0
+# Only show status line if more than 5 tests (keeps output clean for quick runs)
+if [ $total_tests -gt 5 ]; then
+	show_status_line=1
+fi
+
+# Track when last result was printed to avoid flicker when tests complete quickly
+last_result_time=$(date +%s.%N)
+status_line_shown=0
+last_status_line=""
+
 while [ $completed -lt $total_tests ]; do
 	# Check which test finished first
 	for test in $launch_list; do
@@ -233,17 +279,75 @@ while [ $completed -lt $total_tests ]; do
 		pid=$(cat "$tmpdir/$test.pid" 2>/dev/null) || continue
 		# Non-blocking check if process finished
 		if ! kill -0 "$pid" 2>/dev/null; then
+			# Clear status line before printing result
+			if [ $status_line_shown -eq 1 ]; then
+				printf "\r%-80s\r" ""
+				status_line_shown=0
+				last_status_line=""  # Reset so status line reprints if needed
+			fi
+
 			# Test completed, print it
 			test_nr=$(grep "^$test " "$tmpdir/test-numbers.txt" | awk '{print $2}')
 			print_test_result "$test" "$test_nr"
 			touch "$tmpdir/$test.printed"
 			completed=$((completed + 1))
+			last_result_time=$(date +%s.%N)
 			break
 		fi
 	done
+
+	# Show status line with remaining test numbers (only if >1s since last result)
+	# This avoids flicker when tests complete rapidly
+	if [ $show_status_line -eq 1 ] && [ $completed -lt $total_tests ]; then
+		current_time=$(date +%s.%N)
+		time_since_result=$(awk "BEGIN {printf \"%.2f\", $current_time - $last_result_time}")
+
+		# Only show status if it's been >1 second since last result
+		if awk "BEGIN {exit !($time_since_result > 1.0)}"; then
+			remaining=""
+			first_test=""
+			for test in $launch_list; do
+				if [ ! -f "$tmpdir/$test.printed" ]; then
+					test_nr=$(grep "^$test " "$tmpdir/test-numbers.txt" | awk '{print $2}')
+					remaining="$remaining$test_nr "
+					# Capture first remaining test for description
+					if [ -z "$first_test" ]; then
+						first_test="$test"
+						first_nr="$test_nr"
+					fi
+				fi
+			done
+			remaining_count=$(echo "$remaining" | wc -w)
+
+			# Build status line content
+			new_status_line=""
+			if [ -n "$first_test" ]; then
+				first_title=$(test_title "$first_test")
+				[ -z "$first_title" ] && first_title="${first_test%.sh}"
+				if [ $remaining_count -gt 1 ]; then
+					new_status_line=$(printf "Waiting for: %d (%s) + %d more" "$first_nr" "$first_title" $((remaining_count - 1)))
+				else
+					new_status_line=$(printf "Waiting for: %d (%s)" "$first_nr" "$first_title")
+				fi
+			fi
+
+			# Only print if status line content changed (avoids duplicate lines in saved output)
+			if [ "$new_status_line" != "$last_status_line" ]; then
+				printf "\r%s" "$new_status_line"
+				last_status_line="$new_status_line"
+				status_line_shown=1
+			fi
+		fi
+	fi
+
 	# Small sleep to avoid busy-wait
 	sleep 0.05
 done
+
+# Clear status line after all tests complete
+if [ $status_line_shown -eq 1 ]; then
+	printf "\r%-80s\r" ""
+fi
 
 # Save timing data for next run
 if [ -f "$tmpdir/test-times.txt" ]; then
