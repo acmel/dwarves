@@ -22,6 +22,11 @@ if ! command -v "$BPFTOOL" > /dev/null; then
 	test_skip
 fi
 
+if ! command -v gawk > /dev/null; then
+	info_log "skip: gawk not available (test uses gawk-specific match() with capture groups)"
+	test_skip
+fi
+
 compiler_has_btf_type_tag()
 {
 	local compiler=$1
@@ -84,23 +89,23 @@ check_type_tag_order()
 		test_skip
 	fi
 
-	printf '%s\n' "$dump" | awk '
-	function parse_id(line, m) {
+	printf '%s\n' "$dump" | gawk '
+	function parse_id(line,    m) {
 		if (match(line, /^\[([0-9]+)\]/, m))
 			return m[1]
 		return 0
 	}
-	function parse_name(line, m) {
+	function parse_name(line,    m) {
 		if (match(line, /\047([^\047]*)\047/, m))
 			return m[1]
 		return ""
 	}
-	function parse_type(line, m) {
+	function parse_type(line,    m) {
 		if (match(line, /type_id=([0-9]+)/, m))
 			return m[1]
 		return 0
 	}
-	function check_ptr(ptr, id, tags, seen) {
+	function check_ptr(ptr,    id, tags, seen) {
 		id = type[ptr]
 		while (id != 0 && !seen[id]) {
 			seen[id] = 1
