@@ -51,17 +51,48 @@ color_print()
 	fi
 }
 
+# Look for a vmlinux to use in the tests, given that most tests don't
+# need the vmlinux to match the running kernel, just need a vmlinux
+# with the kernel data structures, so search the standard places where
+# the debug vmlinux is installed, trying the newest first.
+find_vmlinux()
+{
+	local vmlinux
+
+	# Prefer the /usr/lib/debug/lib/modules/<version>/vmlinux as that is
+	# how Fedora installs the kernel vmlinux with debugging info,
+	# /lib/modules/<version>/build/vmlinux is how the kernel build
+	# directory installs it, and /boot/vmlinux-<version> on some other
+	# distributions.
+	ls -1 /usr/lib/debug/lib/modules/*/vmlinux \
+		/lib/modules/*/build/vmlinux \
+		/boot/vmlinux-* 2>/dev/null | sort -V | tail -1
+}
+
 get_vmlinux()
 {
 	
 	vmlinux=${vmlinux:-$1}
 
+	# The tests runner may pass the build directory as argument, so
+	# if it isn't a real vmlinux file, consider it as not specified
+	# and try to auto-detect a vmlinux.
+	if [ -n "$vmlinux" ] && [ ! -f "$vmlinux" ] ; then
+		vmlinux=""
+	fi
+
 	if [ -z "$vmlinux" ] ; then
-		vmlinux=$(pahole --running_kernel_vmlinux)
+		vmlinux=$(pahole --running_kernel_vmlinux 2>/dev/null)
 		if [ -z "$vmlinux" ] ; then
-			check_color_support
-			color_print ${RED} "Please specify a vmlinux file to operate on"
-			exit 2
+			# No vmlinux matching the running kernel, so try to find
+			# any vmlinux to run the tests, most tests don't need it
+			# to match the running kernel.
+			vmlinux=$(find_vmlinux)
+			if [ -z "$vmlinux" ] ; then
+				check_color_support
+				color_print ${RED} "Please specify a vmlinux file to operate on"
+				exit 2
+			fi
 		fi
 	fi
 

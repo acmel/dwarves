@@ -6,10 +6,10 @@
 
 source test_lib.sh
 
-vmlinux=$(get_vmlinux $1)
-if [ $? -ne 0 ]; then
-	info_log "$vmlinux"
-	test_fail
+vmlinux=$(get_vmlinux)
+if [ -z "$vmlinux" ] || [ ! -f "$vmlinux" ]; then
+	info_log "skip: no vmlinux available"
+	test_skip
 fi
 
 outdir=$(make_tmpdir)
