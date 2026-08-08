@@ -83,6 +83,7 @@ regtest
 lib/bpf/
 lib/include/bpf
 scripts/
+tests/bin/
 tests/tests
 tests/*.sh
 tests/.test-times.seed

@@ -174,15 +174,20 @@ verbose_log "Validation of BTF encoding corner cases with test_bin functions; th
 
 verbose_log "Building test_bin..."
 tests_dir=$(realpath $(dirname $0))
-make -C ${tests_dir}/bin >/dev/null
+test_bin=$outdir/test_bin
+cp ${tests_dir}/bin/test_bin.c $outdir/
+if ! make -C $outdir -f ${tests_dir}/bin/Makefile test_bin >/dev/null; then
+	info_log "skip: failed to build test_bin test fixture"
+	test_skip
+fi
 
 verbose_log "Encoding..."
 pahole --btf_features=default --lang_exclude=rust --btf_encode_detached=$outdir/test_bin.btf \
-	--verbose ${tests_dir}/bin/test_bin | grep "skipping BTF encoding of function" \
+	--verbose $test_bin | grep "skipping BTF encoding of function" \
 	> ${outdir}/test_bin_skipped_fns
 
 funcs=$(pfunct --format_path=btf $outdir/test_bin.btf 2>/dev/null|sort)
-pfunct --all --no_parm_names --format_path=dwarf ${tests_dir}/bin/test_bin | \
+pfunct --all --no_parm_names --format_path=dwarf $test_bin | \
 	sort|uniq > $outdir/test_bin_dwarf.funcs
 pfunct --all --no_parm_names --format_path=btf $outdir/test_bin.btf 2>/dev/null|\
 	awk '{ gsub("^(bpf_kfunc |bpf_fastcall )+",""); print $0}'|sort|uniq > $outdir/test_bin_btf.funcs
@@ -234,7 +239,7 @@ for f in $uncertain_loc ; do
 		if [ -n "${struct_type}" ]; then
 			# Check with pahole if the struct is detected as
 			# packed
-			if pahole -F dwarf -C "${struct_type}" ${tests_dir}/bin/test_bin|tail -n 2|grep -q __packed__
+			if pahole -F dwarf -C "${struct_type}" $test_bin|tail -n 2|grep -q __packed__
 			then
 				legitimate_skip=$((legitimate_skip+1))
 				continue 2
