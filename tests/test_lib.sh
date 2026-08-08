@@ -498,7 +498,7 @@ title_log()
 
 verbose_log()
 {
-	if [[ -n "$VERBOSE" ]]; then
+	if [ -n "$VERBOSE" ]; then
 		printf "   "
 		echo $1
 	fi
