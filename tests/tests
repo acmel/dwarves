@@ -184,6 +184,18 @@ fi
 
 tmpdir=$(mktemp -d "$test_master_dir/pahole-tests.XXXXXX") || exit 1
 
+# High-resolution timestamp for test timing.  GNU date supports %N
+# (nanoseconds), but not all implementations do (busybox, BSD), so fall
+# back to plain seconds when %N is not available.
+now()
+{
+	t=$(date +%s.%N 2>/dev/null)
+	case "$t" in
+		*.[0-9][0-9]*) echo "$t" ;;
+		*) date +%s ;;
+	esac
+}
+
 kill_children() {
 	for pidfile in "$tmpdir"/*.pid; do
 		[ -f "$pidfile" ] || continue
@@ -319,7 +331,7 @@ for test in $launch_list; do
 		done
 	fi
 
-	start_time=$(date +%s.%N)
+	start_time=$(now)
 
 	# Set memory limit for test if on low-memory system
 	# On systems with <4GB RAM, limit each test to 1.5GB to prevent OOM
@@ -358,7 +370,7 @@ print_test_result() {
 	printf "%s" "$label"
 	wait "$pid"
 	rc=$?
-	end_time=$(date +%s.%N)
+	end_time=$(now)
 
 	# Get start time from launch record
 	start_time=$(grep "^$test " "$tmpdir/launch-times.txt" | awk '{print $2}')
@@ -491,7 +503,7 @@ if [ $total_tests -gt 5 ]; then
 fi
 
 # Track when last result was printed to avoid flicker when tests complete quickly
-last_result_time=$(date +%s.%N)
+last_result_time=$(now)
 status_line_shown=0
 last_status_line=""
 
@@ -518,7 +530,7 @@ while [ $completed -lt $total_tests ]; do
 			print_test_result "$test" "$test_nr"
 			touch "$tmpdir/$test.printed"
 			completed=$((completed + 1))
-			last_result_time=$(date +%s.%N)
+			last_result_time=$(now)
 			break
 		fi
 	done
@@ -526,7 +538,7 @@ while [ $completed -lt $total_tests ]; do
 	# Show status line with remaining test numbers (only if >1s since last result)
 	# This avoids flicker when tests complete rapidly
 	if [ $show_status_line -eq 1 ] && [ $completed -lt $total_tests ]; then
-		current_time=$(date +%s.%N)
+		current_time=$(now)
 		time_since_result=$(awk "BEGIN {printf \"%.2f\", $current_time - $last_result_time}")
 
 		# Only show status if it's been >1 second since last result
