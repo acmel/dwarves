@@ -157,6 +157,24 @@ get_vmlinux()
 	return 0
 }
 
+# Verify a downloaded file against an expected sha256 checksum, using
+# sha256sum (coreutils) or shasum (macOS/BSD) as available.
+# Returns 0 if the file matches the expected checksum.
+verify_tarball_sha256()
+{
+	expected=$1
+	file=$2
+	got=""
+
+	if command -v sha256sum > /dev/null 2>&1; then
+		got=$(sha256sum "$file" 2>/dev/null | cut -d' ' -f1)
+	elif command -v shasum > /dev/null 2>&1; then
+		got=$(shasum -a 256 "$file" 2>/dev/null | cut -d' ' -f1)
+	fi
+
+	[ -n "$got" ] && [ "$got" = "$expected" ]
+}
+
 # Get perf binary with debug info, building from source if needed.
 # Uses a shared cache directory for all tests in the run to avoid rebuilding.
 # Returns: path to perf binary, or exits with skip if unavailable
@@ -313,6 +331,11 @@ get_perf_with_debug()
 			perf_version="6.19.0"
 			perf_tarball="perf-${perf_version}.tar.xz"
 			perf_url="https://mirrors.edge.kernel.org/pub/linux/kernel/tools/perf/v${perf_version}/${perf_tarball}"
+			# sha256 of the perf-6.19.0.tar.xz tarball from the URL above,
+			# verified before extracting: kernel.org does not publish a
+			# checksum for these tarballs, so pin the one computed at
+			# release time.  Update together with perf_version.
+			perf_tarball_sha256="031245e44fdee9932fcac412a986e8c59158997cfc819921e5c97b78008bc6da"
 
 			# Download perf tarball (~3MB vs ~200MB+ for full kernel)
 			# Try wget first, fall back to curl
@@ -336,6 +359,16 @@ get_perf_with_debug()
 			if [ $download_ok -eq 0 ]; then
 				info_log "skip: failed to download perf tarball from $perf_url" >&2
 				info_log "Set PERF_SRC_DIR to build from local kernel source instead" >&2
+				rm -rf "$perf_cache"
+				rmdir "$lockdir"
+				test_skip
+			fi
+
+			# Verify the downloaded tarball before extracting: the build
+			# runs code from it, so the contents must match the pinned
+			# checksum of the kernel.org release tarball.
+			if ! verify_tarball_sha256 "$perf_tarball_sha256" "$perf_cache/$perf_tarball"; then
+				info_log "skip: perf tarball sha256 verification failed (expected $perf_tarball_sha256)" >&2
 				rm -rf "$perf_cache"
 				rmdir "$lockdir"
 				test_skip
