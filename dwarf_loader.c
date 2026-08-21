@@ -536,7 +536,7 @@ static void tag__free(struct tag *tag, struct cu *cu)
 	cu__free(cu, dtag);
 }
 
-#define dwarf_tag__set_attr_type(dtag, field, die, attr_name) \
+#define dwarf_tag__set_attr_type(dtag, field, die, attr_name, cu) \
 	dtag->from_types_section.field = attr_type(die, attr_name, &dtag->field)
 
 static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
@@ -548,13 +548,13 @@ static void tag__init(struct tag *tag, struct cu *cu, Dwarf_Die *die)
 	dtag->id  = dwarf_dieoffset(die);
 
 	if (tag->tag == DW_TAG_imported_module || tag->tag == DW_TAG_imported_declaration)
-		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_import);
+		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_import, cu);
 	else if (tag->tag == DW_TAG_variant_part)
-		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_discr);
+		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_discr, cu);
 	else
-		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_type);
+		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_type, cu);
 
-	dwarf_tag__set_attr_type(dtag, abstract_origin, die, DW_AT_abstract_origin);
+	dwarf_tag__set_attr_type(dtag, abstract_origin, die, DW_AT_abstract_origin, cu);
 	tag->recursivity_level = 0;
 	tag->attributes = NULL;
 
@@ -597,10 +597,10 @@ static struct tag *tag__new(Dwarf_Die *die, struct cu *cu)
 	return tag;
 }
 
-static void tag__set_spec(struct tag *tag, Dwarf_Die *die)
+static void tag__set_spec(struct tag *tag, Dwarf_Die *die, struct cu *cu __maybe_unused)
 {
 	struct dwarf_tag *dtag = tag__dwarf(tag);
-	dwarf_tag__set_attr_type(dtag, specification, die, DW_AT_specification);
+	dwarf_tag__set_attr_type(dtag, specification, die, DW_AT_specification, cu);
 }
 
 static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die,
@@ -611,7 +611,7 @@ static struct ptr_to_member_type *ptr_to_member_type__new(Dwarf_Die *die,
 	if (ptr != NULL) {
 		tag__init(&ptr->tag, cu, die);
 		struct dwarf_tag *dtag = tag__dwarf(&ptr->tag);
-		dwarf_tag__set_attr_type(dtag, containing_type, die, DW_AT_containing_type);
+		dwarf_tag__set_attr_type(dtag, containing_type, die, DW_AT_containing_type, cu);
 	}
 
 	return ptr;
@@ -702,7 +702,7 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu, struct 
 	type->size		 = attr_numeric(die, DW_AT_byte_size);
 	type->alignment		 = attr_alignment(die, conf);
 	type->declaration	 = attr_numeric(die, DW_AT_declaration);
-	tag__set_spec(&type->namespace.tag, die);
+	tag__set_spec(&type->namespace.tag, die, cu);
 	type->definition_emitted = 0;
 	type->fwd_decl_emitted	 = 0;
 	type->resized		 = 0;
@@ -815,7 +815,7 @@ static struct variable *variable__new(Dwarf_Die *die, struct cu *cu, struct conf
 		if (!var->declaration && cu->has_addr_info)
 			var->scope = dwarf__location(die, &var->ip.addr, &var->location);
 		if (has_specification) {
-			tag__set_spec(&var->ip.tag, die);
+			tag__set_spec(&var->ip.tag, die, cu);
 		}
 	}
 
@@ -1702,7 +1702,7 @@ static struct inline_expansion *inline_expansion__new(Dwarf_Die *die, struct cu 
 		tag__init(&exp->ip.tag, cu, die);
 		dtag->decl_file = attr_string(die, DW_AT_call_file, conf);
 		dtag->decl_line = attr_numeric(die, DW_AT_call_line);
-		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_abstract_origin);
+		dwarf_tag__set_attr_type(dtag, type, die, DW_AT_abstract_origin, cu);
 		exp->ip.addr = 0;
 		exp->high_pc = 0;
 
@@ -1864,7 +1864,7 @@ static struct function *function__new(Dwarf_Die *die, struct cu *cu, struct conf
 		func->declaration     = dwarf_hasattr(die, DW_AT_declaration);
 		func->external	      = dwarf_hasattr(die, DW_AT_external);
 		func->abstract_origin = dwarf_hasattr(die, DW_AT_abstract_origin);
-		tag__set_spec(&func->proto.tag, die);
+		tag__set_spec(&func->proto.tag, die, cu);
 		func->accessibility   = attr_numeric(die, DW_AT_accessibility);
 		func->virtuality      = attr_numeric(die, DW_AT_virtuality);
 		INIT_LIST_HEAD(&func->vtable_node);
