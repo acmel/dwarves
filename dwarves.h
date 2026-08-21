@@ -112,6 +112,7 @@ struct conf_load {
 	const char		*kabi_prefix;
 	struct btf		*base_btf;
 	struct conf_fprintf	*conf_fprintf;
+	bool			force_cu_merging;
 };
 
 /** struct conf_fprintf - hints to the __fprintf routines

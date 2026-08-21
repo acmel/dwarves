@@ -314,8 +314,10 @@ Generate BTF for functions with optimization-related suffixes (.isra, .constprop
 Allow using all the BTF features supported by pahole.
 
 .TP
-.B \-\-btf_features=FEATURE_LIST
-Encode BTF using the specified feature list, or specify 'default' for all
+.B \-\-features=FEATURE_LIST
+This is also available as \-\-btf_features=FEATURE_LIST, unknown features,
+like those added in newer versions of pahole, are ignored.  BTF encoding
+configuration is the major user. Using 'default' will enable all
 standard features supported.
 This option can be used as an alternative to using multiple BTF-related options,
 and 'default' represents the standard set of BTF features that are in use for
@@ -363,6 +365,18 @@ Supported non-standard features (not enabled for 'default')
                            optimized functions.
 	layout             Encode information about BTF kinds available at encoding     
 	                   time in layout section in BTF.
+
+Non-standard, non-BTF related features:
+
+	force_cu_merging   Force merging all CUs into one. Use when there are
+	                   references across CUs. This happens in some LTO cases
+	                   and was observed with Rust CUs, where types tags
+	                   (function parameters, abstract origins for inlines, etc)
+	                   reference types in another CU.
+	                   For LTO this is being autodetected and the merging of
+	                   cus is done automatically, but for the Rust case, and
+	                   maybe others this is needed with the current DWARF
+	                   loading algorithm.
 
 .fi
 

@@ -1154,6 +1154,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARG_padding		   348
 #define ARGP_with_embedded_flexible_array 349
 #define ARGP_btf_attributes	   350
+#define ARGP_features		   351
 
 /* --btf_features=feature1[,feature2,..] allows us to specify
  * a list of requested BTF features or "default" to enable all default
@@ -1241,7 +1242,8 @@ struct btf_feature {
 	BTF_NON_DEFAULT_FEATURE_CHECK(attributes, btf_attributes, false,
 				      attributes_check),
 	BTF_NON_DEFAULT_FEATURE(true_signature, true_signature, false),
-	BTF_NON_DEFAULT_FEATURE_CHECK(layout, btf_gen_layout, false, layout_check)
+	BTF_NON_DEFAULT_FEATURE_CHECK(layout, btf_gen_layout, false, layout_check),
+	BTF_NON_DEFAULT_FEATURE(force_cu_merging, force_cu_merging, false),
 };
 
 #define BTF_MAX_FEATURE_STR	1024
@@ -1311,6 +1313,14 @@ static void btf_features__enable_all(void)
 		 * -EINVAL and makes pahole fail fatally.  Users who
 		 * want distilled_base must request it explicitly. */
 		if (btf_features[i].conf_value == &conf_load.btf_gen_distilled_base)
+			continue;
+		/* force_cu_merging forces the serialized, single-threaded
+		 * merged-CU loading path.  Enabling it unconditionally
+		 * with --btf_features=all or --btf_gen_all changes output
+		 * and slows loading for files that don't need CU merging.
+		 * Users who want force_cu_merging must request it
+		 * explicitly. */
+		if (btf_features[i].conf_value == &conf_load.force_cu_merging)
 			continue;
 		enable_btf_feature(&btf_features[i]);
 	}
@@ -1817,6 +1827,12 @@ static const struct argp_option pahole__options[] = {
 		.doc = "Specify supported BTF features in FEATURE_LIST or 'default' for default set of supported features. See the pahole manual page for the list of supported, default features."
 	},
 	{
+		.name = "features",
+		.key = ARGP_features,
+		.arg = "FEATURE_LIST",
+		.doc = "Specify supported features in FEATURE_LIST or 'default' for default set of supported features. See the pahole manual page for the list of supported, default features."
+	},
+	{
 		.name = "supported_btf_features",
 		.key = ARGP_supported_btf_features,
 		.doc = "Show list of btf_features supported by pahole and exit."
@@ -2028,6 +2044,7 @@ static error_t pahole__options_parser(int key, char *arg,
 		conf_load.reproducible_build = true;	break;
 	case ARGP_running_kernel_vmlinux:
 		show_running_kernel_vmlinux = true;	break;
+	case ARGP_features:
 	case ARGP_btf_features:
 		parse_btf_features(arg, false);		break;
 	case ARGP_supported_btf_features:
