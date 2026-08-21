@@ -2162,7 +2162,7 @@ static const char *enumeration__lookup_value(struct type *enumeration, uint64_t 
 	struct enumerator *entry;
 
 	type__for_each_enumerator(enumeration, entry) {
-		if (entry->value == value)
+		if (entry->tag.tag == DW_TAG_enumerator && entry->value == value)
 			return enumerator__name(entry);
 	}
 
@@ -2187,7 +2187,7 @@ static struct enumerator *enumeration__lookup_entry_from_value(struct type *enum
 	struct enumerator *entry;
 
 	type__for_each_enumerator(enumeration, entry) {
-		if (entry->value == value)
+		if (entry->tag.tag == DW_TAG_enumerator && entry->value == value)
 			return entry;
 	}
 
@@ -2213,6 +2213,9 @@ static struct enumerator *enumeration__find_enumerator(struct type *enumeration,
 	struct enumerator *entry;
 
 	type__for_each_enumerator(enumeration, entry) {
+		if (entry->tag.tag != DW_TAG_enumerator)
+			continue;
+
 		const char *entry_name = enumerator__name(entry);
 
 		if (!strcmp(entry_name, name))
@@ -3268,7 +3271,7 @@ static bool print_enumeration_with_enumerator(struct cu *cu, const char *name)
 
 	cu__for_each_enumeration(cu, id, enumeration) {
 		if (enumeration__find_enumerator(enumeration, name) != NULL) {
-			enumeration__fprintf(type__tag(enumeration), &conf, stdout);
+			enumeration__fprintf(type__tag(enumeration), cu, &conf, stdout);
 			fputc('\n', stdout);
 			return true;
 		}

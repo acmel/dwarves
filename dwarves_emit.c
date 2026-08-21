@@ -100,7 +100,7 @@ static struct type *type_emissions__find_fwd_decl(const struct type_emissions *e
 	return NULL;
 }
 
-static int enumeration__emit_definitions(struct tag *tag,
+static int enumeration__emit_definitions(struct tag *tag, const struct cu *cu,
 					 struct type_emissions *emissions,
 					 const struct conf_fprintf *conf,
 					 FILE *fp)
@@ -121,7 +121,7 @@ static int enumeration__emit_definitions(struct tag *tag,
 		return 0;
 	}
 
-	enumeration__fprintf(tag, conf, fp);
+	enumeration__fprintf(tag, cu, conf, fp);
 	fputs(";\n", fp);
 
 	// See comment on enumeration__fprintf(), it seems this happens with DWARF as well
@@ -198,10 +198,10 @@ static int typedef__emit_definitions(struct tag *tdef, struct cu *cu,
 		if (type__name(ctype) == NULL) {
 			fputs("typedef ", fp);
 			conf.suffix = type__name(def);
-			enumeration__emit_definitions(type, emissions, &conf, fp);
+			enumeration__emit_definitions(type, cu, emissions, &conf, fp);
 			goto out;
 		} else
-			enumeration__emit_definitions(type, emissions, &conf, fp);
+			enumeration__emit_definitions(type, cu, emissions, &conf, fp);
 	}
 		break;
 	case DW_TAG_structure_type:
@@ -380,7 +380,7 @@ next_indirection:
 			struct conf_fprintf conf = {
 				.suffix = NULL,
 			};
-			return enumeration__emit_definitions(type, emissions, &conf, fp);
+			return enumeration__emit_definitions(type, cu, emissions, &conf, fp);
 		}
 		break;
 	case DW_TAG_structure_type:

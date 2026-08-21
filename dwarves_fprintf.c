@@ -155,6 +155,8 @@ const char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
 static size_t union__fprintf(struct type *type, const struct cu *cu,
 			     const struct conf_fprintf *conf, FILE *fp);
+static size_t function__fprintf(const struct tag *tag, const struct cu *cu,
+				const struct conf_fprintf *conf, FILE *fp);
 
 /*
  * In dwarves_emit.c we can call type__emit() using a locally setup conf_fprintf for which
@@ -406,7 +408,7 @@ next_type:
 		struct conf_fprintf tconf = *pconf;
 
 		tconf.suffix = type__name(type);
-		return printed + enumeration__fprintf(tag_type, &tconf, fp);
+		return printed + enumeration__fprintf(tag_type, cu, &tconf, fp);
 	}
 	}
 
@@ -450,7 +452,15 @@ static int enumeration__max_entry_name_len(struct type *type)
 	struct enumerator *pos;
 
 	type__for_each_enumerator(type, pos) {
-		int len = strlen(enumerator__name(pos));
+		int len = 0;
+
+		if (pos->tag.tag == DW_TAG_enumerator)
+			len = strlen(enumerator__name(pos));
+		else if (pos->tag.tag == DW_TAG_subprogram) {
+			const char *fname = function__name(tag__function(&pos->tag));
+			if (fname)
+				len = strlen(fname);
+		}
 
 		if (type->max_tag_name_len < len)
 			type->max_tag_name_len = len;
@@ -459,7 +469,8 @@ out:
 	return type->max_tag_name_len;
 }
 
-size_t enumeration__fprintf(const struct tag *tag, const struct conf_fprintf *conf, FILE *fp)
+size_t enumeration__fprintf(const struct tag *tag, const struct cu *cu,
+			    const struct conf_fprintf *conf, FILE *fp)
 {
 	struct type *type = tag__type(tag);
 	struct enumerator *pos;
@@ -480,13 +491,25 @@ size_t enumeration__fprintf(const struct tag *tag, const struct conf_fprintf *co
 	}
 
 	type__for_each_enumerator(type, pos) {
-		printed += fprintf(fp, "%.*s\t%-*s = ", indent, tabs,
-				   max_entry_name_len, enumerator__name(pos));
-		if (conf->hex_fmt)
-			printed += fprintf(fp, "%#llx", (unsigned long long)pos->value);
-		else
-			printed += fprintf(fp, type->is_signed_enum ?  "%lld" : "%llu",
-					   (unsigned long long)pos->value);
+		printed += fprintf(fp, "%.*s\t", indent, tabs);
+
+		switch (pos->tag.tag) {
+		case DW_TAG_subprogram:
+			printed += function__fprintf(&pos->tag, cu, conf, fp);
+			break;
+		case DW_TAG_enumerator:
+			printed += fprintf(fp, "%-*s = ", max_entry_name_len, enumerator__name(pos));
+			if (conf->hex_fmt)
+				printed += fprintf(fp, "%#llx", (unsigned long long)pos->value);
+			else
+				printed += fprintf(fp, type->is_signed_enum ?  "%lld" : "%llu",
+						   (unsigned long long)pos->value);
+			break;
+		default:
+			printed += fprintf(fp, "/* Unexpected %s <%llx> */\n", dwarf_tag_name(pos->tag.tag),
+					   tag__orig_id(&pos->tag, cu));
+			continue;
+		}
 		printed += fprintf(fp, ",\n");
 	}
 
@@ -586,9 +609,12 @@ static const char *__tag__name(const struct tag *tag, const struct cu *cu,
 		strncpy(bf, name, len);
 	}
 		break;
-	case DW_TAG_subprogram:
-		strncpy(bf, function__name(tag__function(tag)), len);
+	case DW_TAG_subprogram: {
+		const char *fname = function__name(tag__function(tag));
+		if (fname)
+			strncpy(bf, fname, len);
 		break;
+	}
 	case DW_TAG_pointer_type:
 		return tag__ptr_name(tag, cu, bf, len, "*", conf);
 	case DW_TAG_reference_type:
@@ -937,7 +963,7 @@ print_modifier: {
 		if (type__name(ctype) != NULL && !expand_types)
 			printed += fprintf(fp, "enum %-*s %s", tconf.type_spacing - 5, type__name(ctype), name ?: "");
 		else
-			printed += enumeration__fprintf(type, &tconf, fp);
+			printed += enumeration__fprintf(type, cu, &tconf, fp);
 		break;
 	case DW_TAG_LLVM_annotation:
 	case DW_TAG_GNU_annotation: {
@@ -2173,7 +2199,7 @@ size_t tag__fprintf(struct tag *tag, const struct cu *cu,
 		printed += array_type__fprintf(tag, cu, "array", pconf, fp);
 		break;
 	case DW_TAG_enumeration_type:
-		printed += enumeration__fprintf(tag, pconf, fp);
+		printed += enumeration__fprintf(tag, cu, pconf, fp);
 		break;
 	case DW_TAG_typedef:
 		printed += typedef__fprintf(tag, cu, pconf, fp);

@@ -1256,11 +1256,6 @@ void type__delete(struct type *type, struct cu *cu)
 	cu__tag_free(cu, type__tag(type));
 }
 
-static void enumerator__delete(struct enumerator *enumerator, struct cu *cu)
-{
-	cu__tag_free(cu, &enumerator->tag);
-}
-
 void enumeration__delete(struct type *type, struct cu *cu)
 {
 	struct enumerator *pos, *n;
@@ -1270,7 +1265,7 @@ void enumeration__delete(struct type *type, struct cu *cu)
 
 	type__for_each_enumerator_safe_reverse(type, pos, n) {
 		list_del_init(&pos->tag.node);
-		enumerator__delete(pos, cu);
+		tag__delete(&pos->tag, cu);
 	}
 
 	if (type->suffix_disambiguation)
@@ -1373,6 +1368,13 @@ struct class *class__clone(const struct class *from, const char *new_class_name,
 
 void enumeration__add(struct type *type, struct enumerator *enumerator)
 {
+	/*
+	 * nr_members is the enumerator count, not the number of entries in the
+	 * enumeration namespace: DW_TAG_subprogram members of Rust enumerations
+	 * are added to the namespace but must not be counted here, since the
+	 * CTF encoder uses nr_members as the enum vlen and the fprintf/emit
+	 * paths rely on nr_members == 0 to detect forward declarations.
+	 */
 	++type->nr_members;
 	namespace__add_tag(&type->namespace, &enumerator->tag);
 }
@@ -1928,6 +1930,9 @@ static void enumeration__calc_prefix(struct type *enumeration)
 	struct enumerator *entry;
 
 	type__for_each_enumerator(enumeration, entry) {
+		if (entry->tag.tag != DW_TAG_enumerator)
+			continue;
+
 		const char *curr_name = enumerator__name(entry);
 
 		if (previous_name) {
