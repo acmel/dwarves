@@ -263,6 +263,17 @@ int cu__encode_ctf(struct cu *cu, int verbose)
 
 	uint32_t id;
 	struct tag *pos;
+
+	/* CTF IDs must be sequential — NULL holes in the types table
+	 * (from dwz alternate debug files) would desync core vs CTF IDs.
+	 * Bail out rather than generate corrupt CTF. */
+	for (id = 1; id < cu->types_table.nr_entries; ++id) {
+		if (cu->types_table.entries[id] == NULL) {
+			fprintf(stderr, "ctf_encoder: NULL holes in types table not supported for CTF encoding\n");
+			goto out_delete;
+		}
+	}
+
 	cu__for_each_type(cu, id, pos)
 		tag__encode_ctf(pos, id, ctf);
 

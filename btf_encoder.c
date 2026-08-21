@@ -768,7 +768,8 @@ static int32_t btf_encoder__tag_type(struct btf_encoder *encoder, uint32_t tag_t
 	if (encoder->btf_id_map && tag_type < encoder->btf_id_map_sz)
 		return encoder->btf_id_map[tag_type];
 
-	/* Fallback for map-absent CUs (nr == 0) or out-of-range ids */
+	/* Fallback for map-absent CUs (nr == 0) or out-of-range ids;
+	 * adjust for NULL holes left by dwz alt PU pruning */
 	uint32_t adj = encoder->type_id_null_adj ? encoder->type_id_null_adj[tag_type] : 0;
 
 	return encoder->type_id_off + tag_type - adj;

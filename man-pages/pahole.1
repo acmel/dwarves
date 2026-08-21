@@ -374,8 +374,10 @@ Non-standard, non-BTF related features:
 	                   (function parameters, abstract origins for inlines, etc)
 	                   reference types in another CU.
 	                   Same-file imported units (DW_TAG_imported_unit) are
-	                   auto-detected, so force_cu_merging is rarely needed with
-	                   current pahole.
+	                   auto-detected. Alternate debug files using
+	                   DW_FORM_GNU_ref_alt are also handled automatically when
+	                   the matching .dwz file is available, so force_cu_merging
+	                   is rarely needed with current pahole.
 
 .fi
 

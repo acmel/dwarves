@@ -949,6 +949,7 @@ struct parameter {
 	int loc_reg;
 	uint16_t type_byte_size;
 	uint8_t true_sig_type_from_types:1;
+	uint8_t true_sig_type_from_alt:1;
 	uint8_t has_const_value:1;
 	uint8_t loc_const_value:1;
 	uint8_t loc_stack:1;
