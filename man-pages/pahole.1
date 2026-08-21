@@ -373,10 +373,9 @@ Non-standard, non-BTF related features:
 	                   and was observed with Rust CUs, where types tags
 	                   (function parameters, abstract origins for inlines, etc)
 	                   reference types in another CU.
-	                   For LTO this is being autodetected and the merging of
-	                   cus is done automatically, but for the Rust case, and
-	                   maybe others this is needed with the current DWARF
-	                   loading algorithm.
+	                   Same-file imported units (DW_TAG_imported_unit) are
+	                   auto-detected, so force_cu_merging is rarely needed with
+	                   current pahole.
 
 .fi
 

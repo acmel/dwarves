@@ -153,6 +153,9 @@ struct dwarf_cu {
 	struct dwarf_tag *last_type_lookup;
 	struct cu *cu;
 	struct dwarf_cu *type_unit;
+	Dwarf_Off *imported_units;
+	uint32_t  nr_imported_units;
+	uint32_t  allocated_imported_units;
 };
 
 static int dwarf_cu__init(struct dwarf_cu *dcu, struct cu *cu)
@@ -178,6 +181,9 @@ static int dwarf_cu__init(struct dwarf_cu *dcu, struct cu *cu)
 		INIT_HLIST_HEAD(&dcu->hash_types[i]);
 	}
 	dcu->type_unit = NULL;
+	dcu->imported_units = NULL;
+	dcu->nr_imported_units = 0;
+	dcu->allocated_imported_units = 0;
 	// To avoid a per-lookup check against NULL in dwarf_cu__find_type_by_ref()
 	dcu->last_type_lookup = &sentinel_dtag;
 	return 0;
@@ -202,6 +208,7 @@ static void dwarf_cu__delete(struct cu *cu)
 
 	struct dwarf_cu *dcu = cu->priv;
 
+	free(dcu->imported_units);
 	// dcu->hash_tags & dcu->hash_types are on cu->obstack
 	cu__free(cu, dcu);
 	cu->priv = NULL;
@@ -450,12 +457,32 @@ static const char *attr_string(Dwarf_Die *die, uint32_t name, struct conf_load *
 	return str;
 }
 
+static bool attr_form_is_ref_alt(Dwarf_Attribute *attr)
+{
+	if (attr->form == DW_FORM_GNU_ref_alt) {
+		static bool warned;
+
+		if (!warned) {
+			fprintf(stderr,
+				"WARNING: DW_FORM_GNU_ref_alt (dwz alternate debug file) not yet supported,\n"
+				"         some types will not be available.\n");
+			warned = true;
+		}
+		return true;
+	}
+	return false;
+}
+
 static bool attr_type(Dwarf_Die *die, uint32_t attr_name, Dwarf_Off *offset)
 {
 	Dwarf_Attribute attr;
 
 	if (dwarf_attr(die, attr_name, &attr) != NULL) {
 		Dwarf_Die type_die;
+		if (attr_form_is_ref_alt(&attr)) {
+			*offset = 0;
+			return 0;
+		}
 		if (dwarf_formref_die(&attr, &type_die) != NULL) {
 			*offset = dwarf_dieoffset(&type_die);
 			return attr.form == DW_FORM_ref_sig8;
@@ -686,7 +713,8 @@ static void type__init(struct type *type, Dwarf_Die *die, struct cu *cu, struct 
 	Dwarf_Attribute attr;
 	if (dwarf_attr(die, DW_AT_type, &attr) != NULL) {
 		Dwarf_Die type_die;
-		if (dwarf_formref_die(&attr, &type_die) != NULL) {
+		if (!attr_form_is_ref_alt(&attr) &&
+		    dwarf_formref_die(&attr, &type_die) != NULL) {
 			uint64_t encoding = attr_numeric(&type_die, DW_AT_encoding);
 
 			if (encoding == DW_ATE_signed || encoding == DW_ATE_signed_char)
@@ -1000,9 +1028,14 @@ static int add_gnu_annotation_chain(Dwarf_Die *die, int component_idx,
 	Dwarf_Attribute attr;
 	Dwarf_Die annot_die;
 
-	while (dwarf_attr(die, DW_AT_GNU_annotation, &attr) != NULL &&
-	       dwarf_formref_die(&attr, &annot_die) != NULL &&
-	       dwarf_tag(&annot_die) == DW_TAG_GNU_annotation) {
+	while (dwarf_attr(die, DW_AT_GNU_annotation, &attr) != NULL) {
+		if (attr_form_is_ref_alt(&attr))
+			break;
+		if (dwarf_formref_die(&attr, &annot_die) == NULL)
+			break;
+		if (dwarf_tag(&annot_die) != DW_TAG_GNU_annotation)
+			break;
+
 		int ret = add_tag_annotation(&annot_die, component_idx, conf, head);
 		if (ret)
 			return ret;
@@ -2002,9 +2035,13 @@ check_gnu_attr:
 		goto out;
 
 	/* Handle GCC-style DW_AT_GNU_annotation attribute */
-	while (dwarf_attr(die, DW_AT_GNU_annotation, &attr) != NULL &&
-	       dwarf_formref_die(&attr, &annot_die) != NULL &&
-	       dwarf_tag(&annot_die) == DW_TAG_GNU_annotation) {
+	while (dwarf_attr(die, DW_AT_GNU_annotation, &attr) != NULL) {
+		if (attr_form_is_ref_alt(&attr))
+			break;
+		if (dwarf_formref_die(&attr, &annot_die) == NULL)
+			break;
+		if (dwarf_tag(&annot_die) != DW_TAG_GNU_annotation)
+			break;
 		name = attr_string(&annot_die, DW_AT_name, conf);
 		if (strcmp(name, "btf_type_tag") != 0)
 			break;
@@ -2831,7 +2868,7 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 
 	switch (dwarf_tag(die)) {
 	case DW_TAG_imported_unit:
-		return NULL; // We don't support imported units yet, so to avoid segfaults
+		return &unsupported_tag; // Handled in die__process_unit()
 	case DW_TAG_array_type:
 		tag = die__create_new_array(die, cu);		break;
 	case DW_TAG_string_type: // FORTRAN stuff, looks like an array
@@ -2899,9 +2936,92 @@ static struct tag *__die__process_tag(Dwarf_Die *die, struct cu *cu,
 	return tag;
 }
 
-static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
+#define MAX_IMPORTED_UNIT_DEPTH 64
+
+static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *conf, int import_depth);
+
+static bool dwarf_cu__imported_unit_visited(struct dwarf_cu *dcu, Dwarf_Off offset)
+{
+	for (uint32_t i = 0; i < dcu->nr_imported_units; i++)
+		if (dcu->imported_units[i] == offset)
+			return true;
+	return false;
+}
+
+static int dwarf_cu__mark_imported_unit(struct dwarf_cu *dcu, Dwarf_Off offset)
+{
+	if (dcu->nr_imported_units == dcu->allocated_imported_units) {
+		uint32_t new_size = dcu->allocated_imported_units ? dcu->allocated_imported_units * 2 : 16;
+		if (new_size <= dcu->allocated_imported_units)
+			return -ENOMEM;
+		Dwarf_Off *new_array = realloc(dcu->imported_units, new_size * sizeof(Dwarf_Off));
+		if (new_array == NULL)
+			return -ENOMEM;
+		dcu->imported_units = new_array;
+		dcu->allocated_imported_units = new_size;
+	}
+	dcu->imported_units[dcu->nr_imported_units++] = offset;
+	return 0;
+}
+
+static int die__process_imported_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *conf, int import_depth)
+{
+	Dwarf_Attribute attr;
+
+	if (dwarf_attr(die, DW_AT_import, &attr) == NULL)
+		return 0;
+
+	if (attr_form_is_ref_alt(&attr))
+		return 0;
+
+	Dwarf_Die imported_die;
+
+	if (dwarf_formref_die(&attr, &imported_die) == NULL)
+		return 0;
+
+	if (dwarf_tag(&imported_die) != DW_TAG_partial_unit)
+		return 0;
+
+	if (import_depth >= MAX_IMPORTED_UNIT_DEPTH) {
+		static bool warned;
+
+		if (!warned) {
+			fprintf(stderr,
+				"WARNING: DW_TAG_imported_unit nesting too deep (>%d), "
+				"some types will not be available.\n",
+				MAX_IMPORTED_UNIT_DEPTH);
+			warned = true;
+		}
+		return 0;
+	}
+
+	Dwarf_Off offset = dwarf_dieoffset(&imported_die);
+	struct dwarf_cu *dcu = cu->priv;
+
+	if (dwarf_cu__imported_unit_visited(dcu, offset))
+		return 0;
+
+	if (dwarf_cu__mark_imported_unit(dcu, offset))
+		return -ENOMEM;
+
+	Dwarf_Die child;
+
+	if (dwarf_child(&imported_die, &child) == 0)
+		return die__process_unit(&child, cu, conf, import_depth + 1);
+
+	return 0;
+}
+
+static int die__process_unit(Dwarf_Die *die, struct cu *cu, struct conf_load *conf, int import_depth)
 {
 	do {
+		if (dwarf_tag(die) == DW_TAG_imported_unit) {
+			int err = die__process_imported_unit(die, cu, conf, import_depth);
+			if (err)
+				return err;
+			continue;
+		}
+
 		struct tag *tag = die__process_tag(die, cu, 1, conf);
 		if (tag == NULL)
 			return -ENOMEM;
@@ -3715,17 +3835,8 @@ static int die__process(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 		return 0; // so that other units can be processed
 	}
 
-	if (tag == DW_TAG_partial_unit) {
-		static bool warned;
-
-		if (!warned) {
-			fprintf(stderr, "WARNING: DW_TAG_partial_unit used, some types will not be considered!\n"
-					"         Probably this was optimized using a tool like 'dwz'\n"
-					"         A future version of pahole will support this.\n");
-			warned = true;
-		}
-		return 0; // so that other units can be processed
-	}
+	if (tag == DW_TAG_partial_unit)
+		return 0; // Processed inline when reached via DW_TAG_imported_unit
 
 	if (tag != DW_TAG_compile_unit && tag != DW_TAG_type_unit) {
 		fprintf(stderr, "%s: DW_TAG_compile_unit, DW_TAG_type_unit, DW_TAG_partial_unit or DW_TAG_skeleton_unit expected got %s (0x%x) @ %llx!\n",
@@ -3747,7 +3858,7 @@ static int die__process(Dwarf_Die *die, struct cu *cu, struct conf_load *conf)
 		return DWARF_CB_OK;
 
 	if (dwarf_child(die, &child) == 0) {
-		int err = die__process_unit(&child, cu, conf);
+		int err = die__process_unit(&child, cu, conf, 0);
 		if (err)
 			return err;
 	}
@@ -4519,7 +4630,7 @@ static int cus__merge_and_process_cu(struct cus *cus, struct conf_load *conf,
 				filtered = conf->early_cu_filter(&unmerged_cu) == NULL;
 			}
 
-			if (!filtered && die__process_unit(&child, cu, conf) != 0)
+			if (!filtered && die__process_unit(&child, cu, conf, 0) != 0)
 				goto out_abort;
 		}
 
