@@ -4182,7 +4182,7 @@ static bool cus__merging_cu(Dwarf *dw, Elf *elf)
 
 			size_t attrcnt;
 			if (dwarf_getattrcnt (abbrev, &attrcnt) != 0)
-				return false;
+				goto next_abbrev;
 
 			unsigned int attr_num, attr_form;
 			Dwarf_Off aboffset;
@@ -4190,10 +4190,11 @@ static bool cus__merging_cu(Dwarf *dw, Elf *elf)
 			for (j = 0; j < attrcnt; ++j) {
 				if (dwarf_getabbrevattr (abbrev, j, &attr_num, &attr_form,
 							 &aboffset))
-					return false;
+					continue;
 				if (attr_form == DW_FORM_ref_addr)
 					return true;
 			}
+next_abbrev:
 
 			offset += length;
 		}
