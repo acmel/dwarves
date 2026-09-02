@@ -462,6 +462,10 @@ static void class_formatter(struct class *class, struct cu *cu, uint32_t id)
 static void print_packable_info(struct class *c, struct cu *cu, uint32_t id)
 {
 	const struct tag *t = class__tag(c);
+
+	if (!tag__is_struct(t))
+		return;
+
 	const size_t orig_size = class__size(c);
 	const size_t new_size = class__size(c->priv);
 	const size_t savings = orig_size - new_size;
