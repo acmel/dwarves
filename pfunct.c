@@ -15,6 +15,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <bpf/btf.h>
+#include <bpf/libbpf.h>
 
 #include "dwarves.h"
 #include "dwarves_emit.h"
@@ -36,6 +38,7 @@ static struct type_emissions emissions;
 static uint64_t addr;
 static char *class_name;
 static char *function_name;
+static const char *base_btf_file;
 
 static struct conf_fprintf conf;
 
@@ -544,6 +547,7 @@ ARGP_PROGRAM_VERSION_HOOK_DEF = dwarves_print_version;
 #define ARGP_no_parm_names	301
 #define ARGP_compile		302
 #define ARGP_devel_version	303
+#define ARGP_btf_base		304
 
 static const struct argp_option pfunct__options[] = {
 	{
@@ -584,6 +588,12 @@ static const struct argp_option pfunct__options[] = {
 		.key  = 'F',
 		.arg  = "FORMAT_LIST",
 		.doc  = "List of debugging formats to try"
+	},
+	{
+		.name = "btf_base",
+		.key  = ARGP_btf_base,
+		.arg  = "PATH",
+		.doc  = "Path to the base BTF file for split BTF input",
 	},
 	{
 		.key  = 'g',
@@ -727,6 +737,7 @@ static error_t pfunct__options_parser(int key, char *arg,
 		  conf_load.extra_dbg_info = true;
 		  conf_load.get_addr_info = true;	 break;
 	case ARGP_symtab: symtab_name = arg ?: ".symtab";  break;
+	case ARGP_btf_base: base_btf_file = arg;             break;
 	case ARGP_no_parm_names: conf.no_parm_names = 1; break;
 	case ARGP_compile:
 		  expand_types = true;
@@ -779,6 +790,29 @@ int main(int argc, char *argv[])
 	}
 
 	dwarves__resolve_cacheline_size(&conf_load, 0);
+
+	/* Kernel module BTF in sysfs is split against vmlinux BTF. */
+	if (base_btf_file == NULL) {
+		const char *filename = argv[remaining];
+
+		if (filename &&
+		    strstarts(filename, "/sys/kernel/btf/") &&
+		    strstr(filename, "/vmlinux") == NULL)
+			base_btf_file = vmlinux_path__btf_filename();
+	}
+
+	if (base_btf_file) {
+		conf_load.base_btf = btf__parse(base_btf_file, NULL);
+		if (libbpf_get_error(conf_load.base_btf)) {
+			fprintf(stderr, "pfunct: Failed to parse base BTF '%s': %ld\n",
+				base_btf_file, libbpf_get_error(conf_load.base_btf));
+			goto out_dwarves_exit;
+		}
+
+		/* A base BTF is meaningful only when loading BTF input. */
+		if (conf_load.format_path == NULL)
+			conf_load.format_path = "btf";
+	}
 
 	struct cus *cus = cus__new();
 	if (cus == NULL) {
@@ -833,6 +867,8 @@ out_cus_delete:
 	cus__delete(cus);
 	fn_stats__delete_list();
 out_dwarves_exit:
+	btf__free(conf_load.base_btf);
+	conf_load.base_btf = NULL;
 	dwarves__exit();
 out:
 	return rc;
