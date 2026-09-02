@@ -14,6 +14,7 @@
 #  3. bpftool -B can resolve and dump the split BTF using the base BTF
 #  4. split BTF type IDs start strictly above the vmlinux type count
 #     (i.e. the module references base types by the correct offset)
+#  5. pfunct can load the split BTF using the base BTF
 #
 # Requirements:
 #  - bpftool with --base-btf (-B) support
@@ -29,7 +30,7 @@ trap cleanup EXIT
 
 title_log "Split BTF encoding (vmlinux base + kernel module)."
 
-for cmd in bpftool python3 debuginfod-find; do
+for cmd in bpftool pfunct python3 debuginfod-find; do
 	if ! command -v "$cmd" > /dev/null 2>&1; then
 		info_log "skip: $cmd not available"
 		test_skip
@@ -146,5 +147,18 @@ if [ "$first_split_id" -le "$last_base_id" ]; then
 	test_fail
 fi
 info_log "split type IDs ($first_split_id+) above last base type ID ($last_base_id): ok"
+
+# --- Check 4: pfunct can load the split BTF with its base ---
+
+if ! pfunct --btf_base="$base_btf" --all "$split_btf" > "$outdir/pfunct.out" 2>&1; then
+	error_log "FAIL: pfunct could not load split BTF with its base"
+	cat "$outdir/pfunct.out" >&2
+	test_fail
+fi
+if ! [ -s "$outdir/pfunct.out" ]; then
+	error_log "FAIL: pfunct produced no output for split BTF"
+	test_fail
+fi
+info_log "pfunct split BTF loading: ok"
 
 test_pass
