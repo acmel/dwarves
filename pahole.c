@@ -721,12 +721,6 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 		     decl_exclude_prefix_len) == 0))
 		return NULL;
 	/*
-	 * if --unions was used and we got here, its a union and we satisfy the other
-	 * filters/options, so don't filter it.
-	 */
-	if (just_unions)
-		return class;
-	/*
 	 * The following only make sense for structs, i.e. 'struct class',
 	 * and as we can get here with a union, that is represented by a 'struct type',
 	 * bail out if we get here with an union and we are not looking for things
