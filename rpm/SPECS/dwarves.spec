@@ -99,6 +99,7 @@ rm -Rf %{buildroot}
 %dir %{_datadir}/dwarves/runtime/python/
 %defattr(0644,root,root,0755)
 %{_mandir}/man1/pahole.1*
+%{_mandir}/man1/pfunct.1*
 %{_datadir}/dwarves/runtime/Makefile
 %{_datadir}/dwarves/runtime/linux.blacklist.cu
 %{_datadir}/dwarves/runtime/ctracer_relay.c
