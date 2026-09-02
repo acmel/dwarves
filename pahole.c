@@ -734,7 +734,8 @@ static struct class *class__filter(struct class *class, struct cu *cu,
 	 */
 	if (!tag__is_struct(tag))
 		return (just_structs || show_packable || nr_holes || nr_bit_holes || hole_size_ge ||
-			end_padding_ge || end_padding) ? NULL : class;
+			end_padding_ge || end_padding || show_with_flexible_array ||
+			show_with_embedded_flexible_array) ? NULL : class;
 
 	if (tag->top_level)
 		class__find_holes(class);
