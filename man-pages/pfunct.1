@@ -1,0 +1,223 @@
+.\" Man page for pfunct
+.\" Licensed under version 2 of the GNU General Public License.
+.TH pfunct 1 "September 2, 2026" "dwarves" "dwarves"
+.\"
+.SH NAME
+pfunct \- Shows function information in debug information.
+.SH SYNOPSIS
+\fBpfunct\fR [\fIoptions\fR] \fIfiles\fR
+.SH DESCRIPTION
+.B pfunct
+shows functions, their parameters and associated statistics encoded in debugging information formats,
+DWARF and BTF being supported.
+
+The files must have associated debugging information.  This information may be
+inside the file itself, in ELF sections, or in another file.
+
+One way to have this information is to specify the \fB\-g\fR option to the
+compiler when building it. When this is done the information will be stored in
+an ELF section. For the DWARF debugging information format this, adds, among
+others, the \fB.debug_info\fR ELF section. For CTF it is found in just one ELF
+section, \fB.SUNW_ctf\fR. BTF comes in at least the \fB.BTF\fR ELF section, and
+may come also with the \fB.BTF.ext\fR ELF section.
+
+The \fBdebuginfo\fR packages available in most Linux distributions are also
+supported by \fBpfunct\fR, where the debugging information is available in a
+separate file.
+
+If no files are specified, then it will look if the /sys/kernel/btf/vmlinux
+is present, using the BTF information present in it about the running kernel,
+i.e. this works:
+.PP
+.nf
+$ pfunct ip_send_skb
+int ip_send_skb(struct net * net, struct sk_buff * skb);
+
+.fi
+
+Alternatively a file can be specified
+
+.PP
+.nf
+$ pfunct --format_path=dwarf ip_send_skb /path/2/vmlinux
+int ip_send_skb(struct net * net, struct sk_buff * skb);
+
+.fi
+
+Split BTF, such as the BTF for a kernel module, references types in a base
+BTF, normally the BTF for vmlinux. Use
+.B --btf_base
+to supply that base BTF when loading a detached split-BTF file. For files
+under /sys/kernel/btf/ other than vmlinux itself, pfunct automatically uses
+/sys/kernel/btf/vmlinux as the base BTF.
+
+.SH OPTIONS
+pfunct supports the following options.
+
+.TP
+.B \-C, \-\-class_name=CLASS_NAMES
+Show just these classes. This can be a comma separated list of class names
+or file URLs (e.g.: file://class_list.txt)
+
+.TP
+.B \-a, \-\-addr=ADDR
+Show just the function where ADDR is.
+
+.TP
+.B \-a,\-\-all
+Show all the functions that match the filter, or show all function prototypes
+if no filter is specified.
+
+.TP
+.B \-b,\-\-expand_types
+Expand types needed by the prototype.
+
+.TP
+.B \-c,\-\-class=CLASS
+Filter for functions that have CLASS pointer parameters.
+
+.TP
+.B \-E,\-\-externals
+Show just external functions (DWARF only).
+
+.TP
+.B \-f,\-\-function=FUNCTION
+Show just FUNCTION.
+
+.TP
+.B \-F, \-\-format_path
+Allows specifying a list of debugging formats to try, in order. Right now this
+includes "btf", "ctf" and "dwarf". The default format path used is equivalent to
+"-F dwarf,btf,ctf".
+
+.TP
+.B \-\-btf_base=PATH
+Use PATH as the base BTF when loading split BTF. If no format path is given,
+this selects BTF loading. This option is not needed for kernel module BTF read
+from /sys/kernel/btf/MODULE, where the vmlinux BTF is selected automatically.
+
+.TP
+.B \-g,\-\-goto_labels
+Show number of goto labels (DWARF only).
+
+.TP
+.B -G\-\-cc_unlinlined
+Declared inline, uninlined by the compiler (DWARF only).
+
+.TP
+.B \-H, \-\-cc_inlined
+Not declared inline, inlined by compiler (DWARF only).
+
+.TP
+.B \-i, \-\-inline_expansions
+Show inline expansion stats (DWARF only).
+
+.TP
+.B \-l, \-\-decl_info
+Show source code info.
+
+.TP
+.B \-t, \-\-total_inline_stats
+Show multi-CU total inline expansion stats (DWARF only).
+
+.TP
+.B \-s, \-\-sizes
+Show sizes of functions.
+
+.TP
+.B -N,\-\-function_name_len
+Show size of function names.
+
+.TP
+.B \-p, \-\-nr_parms
+Show number of parameters.
+
+.TP
+.B \-P, \-\-show_function_prototypes
+Show function prototypes.
+
+.TP
+.B \-S, \-\-nr_variables
+Show number of variables.
+
+.TP
+.B \-T, \-\-variables
+Show variables.
+
+.TP
+.B \-V, \-\-verbose
+Be verbose.
+
+.TP
+.B \-\-symtab=NAME
+Show symbol table NAME (default .symtab).
+
+.TP
+.B \-\-compile
+Generate compilable source code with types expanded (Default all functions).
+
+.TP
+.B \-\-no_parm_names
+Do not show parameter names.
+
+.SH NOTES
+
+To enable the generation of debugging information in the Linux kernel build
+process select CONFIG_DEBUG_INFO. This can be done using make menuconfig by
+this path: "Kernel Hacking" -> "Compile-time checks and compiler options" ->
+"Compile the kernel with debug info". Consider as well enabling
+CONFIG_DEBUG_INFO_BTF by going thru the aforementioned menuconfig path and then
+selecting "Generate BTF typeinfo". Most modern distributions with eBPF support
+should come with that in all its kernels, greatly facilitating the use of
+pahole.
+
+Many distributions also come with debuginfo packages, so just enable it in your
+package manager repository configuration and install the kernel-debuginfo, or
+any other userspace program written in a language that the compiler generates
+debuginfo (C, C++, for instance).
+
+.SH EXAMPLES
+
+.P
+Show a function (using /sys/kernel/btf/vmlinux):
+.PP
+.nf
+$ pfunct ip_send_skb
+int ip_send_skb(struct net * net, struct sk_buff * skb);
+$
+.fi
+
+.P
+Show a function in DWARF in file vmlinux
+
+.PP
+.nf
+$ pfunct --format_path=DWARF ip_send_skb vmlinux
+int ip_send_skb(struct net * net, struct sk_buff * skb);
+.fi
+
+.P
+Show all functions in detached split BTF using its vmlinux base:
+.PP
+.nf
+$ pfunct --btf_base=vmlinux.btf --all module.btf
+\&...
+.fi
+
+.P
+Show functions that were not declared with "inline" but were inlined:
+.PP
+.nf
+$ pfunct --cc_inlined ~/src/bpf-next/vmlinux
+clean_cache_range
+copy_from_user_nmi
+__insn_get_emulate_prefix
+...
+.fi
+
+.SH SEE ALSO
+\fIpahole\fR(1), \fIreadelf\fR(1), \fIobjdump\fR(1).
+.P
+Please send bug reports to <dwarves@vger.kernel.org>.
+.P
+No subscription is required.

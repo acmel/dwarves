@@ -32,6 +32,7 @@ hash.h
 list.h
 MANIFEST
 man-pages/pahole.1
+man-pages/pfunct.1
 pahole.c
 pdwtags.c
 pfunct.c
