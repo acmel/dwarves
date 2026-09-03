@@ -3662,7 +3662,7 @@ int main(int argc, char *argv[])
 		return rc;
 
 	if (class_name != NULL && stats_formatter == nr_methods_formatter) {
-		fputs("pahole: -m/nr_methods doesn't work with --class/-C, it shows all classes and the number of its methods\n", stderr);
+		fputs("pahole: -m/nr_methods doesn't work with --class_name/-C, it shows all classes and the number of its methods\n", stderr);
 		return rc;
 	}
 
