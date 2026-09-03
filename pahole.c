@@ -3461,7 +3461,7 @@ static enum load_steal_kind pahole_stealer(struct cu *cu, struct conf_load *conf
 			print_containers(cu, class_id, 0);
 		else if (find_pointers_in_structs)
 			print_structs_with_pointer_to(cu, class_id);
-		else if (class) {
+		else if (class && formatter != NULL) {
 			/*
 			 * We don't need to print it for every compile unit
 			 * but the previous options need
@@ -3663,6 +3663,11 @@ int main(int argc, char *argv[])
 
 	if (class_name != NULL && stats_formatter == nr_methods_formatter) {
 		fputs("pahole: -m/nr_methods doesn't work with --class_name/-C, it shows all classes and the number of its methods\n", stderr);
+		return rc;
+	}
+
+	if (class_name != NULL && stats_formatter == nr_definitions_formatter) {
+		fputs("pahole: -T/nr_definitions doesn't work with --class_name/-C, it shows all classes and the number of times they are defined\n", stderr);
 		return rc;
 	}
 
