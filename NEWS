@@ -1,3 +1,175 @@
+v1.32
+
+cf68e58cc4b94bfe scripts: Automate the steps needed to release a new version
+a3560874a9e0ce1e pahole: Fix -C -T segfault
+6785e14967fc9539 pahole: Fix option name in the -m/-C error message
+928fa79b5fd6e59e pfunct: Add man page
+8e26b9efe32954ee tests: Add pfunct split BTF test to btf_split
+e19aefc4e66e0c12 pfunct: Add support for split BTF
+6e85ae969bd3c529 pahole: Apply the struct-only filters to unions
+170f23b0a229329d pahole: Don't match unions with --with_flexible_array
+856c49afdfab0d05 pahole: Fix --unions --packable segfault
+416753b4ba90fe3b tests: Verify the downloaded perf tarball checksum before extracting
+61b0b8745c640018 tests/tests: Use a portable high-resolution timestamp
+092a1b2dabe4a1bb tests: Build the test_bin fixture in the per-test tmpdir
+4c12c2981744d278 tests: Use POSIX [ instead of [[ in test_lib.sh
+8109c01071bef22d scripts: Add build-check-series.sh for bisectability verification
+6bd26187fc38cd03 tests: btf_type_tag_order.sh: Use gawk for capture-group match()
+cfbb25d4aa570e62 tests: Fix coverage build by respecting build-coverage/ in PATH
+3b57d39e1ca4a649 tests: Add automatic perf building for cross-distro compatibility
+8e15399ed28128f0 tests: Check minimum perf metadata records instead of exact counts
+38b902eb67196349 tests: Fix perf tests for container environments
+4baed5629c7b44cb tests: Force DWARF 5 in atomic_types test for _Atomic support
+96e367638973b894 tests: Skip tests gracefully on old bpftool versions
+1b02c35d171b3cff tests: Skip instead of fail when old toolchains lack feature support
+a417f5b54d2c0045 tests: Fix gcc_true_signatures.sh compiler detection and awk syntax
+ef125be3f57b7903 tests: Add prototype expression parsing and prettify test
+81d0cb172d76e711 tests: Add codiff_multi_cu.sh to cover __cus__find_cu_by_name
+e8d2d7db78db19de tests: Add BTF vmlinux encoding test
+42be11216e3065d8 tests: Add typedef chain display test
+79c355e348f22c22 tests: Add _Atomic type compile emission test
+b084bffd2946363f tests: Add pahole scattered option paths coverage test
+ae4de4d9a1714264 tests: Add pahole --header_type, --range and --seek_bytes prettify test
+a5ad14d719812ec4 tests: Add codiff member type change and function prototype diff test
+f85c6985ff0e44d5 tests: Add dwarf_loader.c bitfield recode and inlining edge case test
+d74662507899b54f tests: Add dwarves.c core API coverage test
+02bec432dd11ced8 tests: Add prefcnt type reference counting coverage test
+0849c27f406d5a99 tests: Add elf_symtab, gobuffer, dutil and pglobal coverage test
+2b0be2a43c44b964 tests: Add dwarves_emit and dwarves_reorganize coverage test
+4fab4a3012bc83c5 tests: Add bitfield, cross-boundary and mixed member type test
+146e9c1bfee19585 tests: Add BTF encoder coverage test for vars, floats and multi-CU
+25e5fc470244c6b2 tests: Add codiff terse, verbose and multi-CU diff test
+241e7ef5e391eba0 tests: Add pfunct CLI option coverage
+a3ced55c5f715404 tests: Add pglobal variable and function listing test
+c4386d994ddfb357 tests: Add multi-file loading test
+a75b8a1173777919 tests: Add 5 btf_encoder.c targeted coverage tests
+9862b93a46529824 tests: Add medium-effort coverage tests for 5 uncovered code paths
+5cfe34c7ff085884 tests: Add CLI display, BTF encoding options and auxiliary tools tests
+27d469fc1f0eceaa build-and-test-cmd.sh: Move build-dir detection to test_lib.sh, fix container PATH
+369df28ea190a888 build: Add tarball targets similar to kernel's perf-tar-src-pkg
+1bd1506c66e87c7b build: Add git SHA tracking via --devel_version option
+9cc672607d067d86 tests: Add enumerator search test
+3d7284cefb8d9ef9 tests: Add type containment and pointer search test
+ef61e7315247bb6e cmake: Add test, coverage and list-targets make targets
+d3dab113c612cab4 coverage: Add coverage-diff.sh workflow and coverage_table.py reporter
+37fc7618fdbc4669 cmake: Warn loudly when coverage instrumentation is enabled
+685627ca43e2baba coverage: Add LLVM source-based code coverage support
+aa984e91f8f9b893 tests: Add split BTF encoding test (vmlinux base + kernel module)
+c6b6e41c422d63aa tests: Add BTF_KIND_FWD encoding and loading round-trip test
+842a8852f5314f99 tests: Add BTF bitfield encoding/loading round-trip test
+31fb88a1784b953b tests: Add BTF FLOAT and ENUM64 type encoding tests
+af0ad24a50bdc8b7 tests: Add BTF VAR and DATASEC encoding test
+7728a45c97dc081f tests: Add expand_pointers, pfunct_stats and class_list_file tests
+2b61e783e40e9a21 tests: Add BTF arena type tag encoding test
+24dcd911e6a786fd tests: Add pdwtags DWARF tag display test
+37a76d6f0c3816e1 tests: Add codiff struct comparison test
+302a7cfe509dbfc3 tests: Add bitfield layout and data member filtering test
+d987f673ee029911 tests: Add sort output and separator test
+c4b6ed77168cbd69 tests: Add display format options test
+1cf880a5264abf49 tests: Add class name filtering test
+26056b1d8ebeb1b5 tests: Add compilable output and type filtering test
+daece68208a3c117 tests: Add type expansion and anonymous struct test
+751037435c109690 tests: Add sizes and holes display test
+5ab0ecbafe5bd078 tests: Add enumerator search test
+e9725c0b39324e63 tests: Add type containment and pointer search test
+14d216be8ae07bb8 tests: Fix mktemp suffix portability for Alpine Linux
+9f72837fbd4cbe75 tests: Add emit_atomic.sh test and fix pfunct-btf-decl-tags.sh quoting
+8456851af4486da6 tests: Reduce reproducible_build thread count iterations
+9624bfa6411edf77 tests: Add --dump-artifacts to capture DWARF/BTF from binaries
+cb85a3932d7b3bf9 tests: Add --jobs/-j option to limit parallel test execution
+8a8b78ff335e3e9e tests: Show referenced log file contents in verbose mode
+4b7582e6a911833b tests: Add --verbose/-v option for better failure diagnosis
+876d4e082af86578 tests: Add PERF_BIN support and preserve build logs on failure
+c351021aad6edd94 tests: Add test number filtering and waiting status line
+49fc532afe5aa130 tests: Add dynamic test timing and reordering to avoid slow tests blocking results
+f98c48d609e4792b tests: Add --vmlinux option to specify vmlinux file for tests
+3b2d4b5a77399888 tests: Run test scripts in parallel
+d59bfc4bd1b2ab78 tests: Fix test_lib.sh and test scripts to run from any directory
+85a2f8756d0d4436 tests: Guard cleanup() against empty outdir to prevent rm /*
+10c247f670626c7c build-and-test-cmd.sh: Add CI build+test script
+420856902070ac79 tests: Add BTF_FUNCTIONS_QUICK mode for fast CI iteration
+ae0e65e71943658a tests: Skip and find vmlinux tests when the running kernel vmlinux is not available
+e8a061ee3e50bcfa btfdiff: Remove leftover comment about --flat_arrays usage
+0863972346e5b008 scripts: Add vmlinux_comparison.py for DWARF/BTF analysis
+eae6466e9496d5f9 dwarf_loader: Support DW_FORM_GNU_ref_alt references to dwz alternate debug files
+f505ce62880067c4 dwarf_loader: Add cu parameter to tag__set_spec() and dwarf_tag__set_attr_type()
+3ea4bf8373a3b8a5 tests: Add inter-CU type reference comparison test
+44a6200f0dbfe959 dwarf_loader: Fix cus__merging_cu failing to detect DW_FORM_ref_addr
+0227f611be5feb1b dwarf_loader: Support DW_TAG_imported_unit for same-file partial units
+36037d4b81df0f15 dwarf_loader: Allow forcing the merge of CUs for solving inter CU tag references
+a2f7af878ccfb505 dwarf_loader: Initial support for DW_TAG_subprogram in DW_TAG_enumeration
+117201b3b9e4d878 dwarf_loader: Initial support for DW_TAG_variant_part
+56ef6faac9522bdb btfdiff: Remove --flat_arrays now that pahole encodes multi dim arrays in BTF
+0f08496fdb3f1656 btf_loader: Fix multi-dimensional array loading
+4dce86c3c8d0dfa1 btf_encoder: Fix multi-dimensional array encoding
+92e9c18c638891b5 pfunct, dwarves_fprintf: Mark file-local functions as static
+f33622ef95781e02 dwarves: Remove 6 dead functions found via coverage analysis
+cd868895cad14a84 gobuffer: Remove 5 dead functions found via coverage analysis
+e82fe85a0c1767bb pahole: Guard pipe_seek() against negative offsets
+ff66c602442a6822 pahole: Use fseek for seekable files in --prettify and --seek_bytes
+ea666a7713c63184 pahole: Skip inline expansions during BTF encoding
+a82e9a8e9e64aa5a dwarf_loader, btf_loader: Replace stale FIXME/XXX comments with explanations
+6789ef8a16d5ba6c btf_encoder: Fall back to objcopy when llvm-objcopy is not available
+cc29bb0d39437716 dutil: Add exec_objcopy() shell-injection-safe helper
+f8ef30a142f87d51 dwarves: Fix variable shadowing in __cus__find_struct_by_name()
+76e9d59021a4b5f1 pahole: Fix parse_btf_features("all") being a silent no-op
+3df6d63b4759feb4 dwarf_loader: Fix data race in tag__init() decl_file string cache
+88c167beb31909f4 dwarf_loader: Skip libdw__lock when elfutils is built thread-safe
+3dd77bb101c7d758 dwarf_loader: Fix --fixup_silly_bitfields condition check
+215dccba622fbeea btf_encoder, libctf: Add elf_strptr NULL checks and fix kfunc bounds
+6fe0e68f7bf8a8fe btf_encoder: Fix early cleanup crashes in btf_encoder__new/delete
+afa262214a8c1fdc dwarves: Fix heap buffer overflow in languages__parse realloc
+14db8d394ed98080 pahole: Fix --errno typo that decrements instead of negating
+cdae37fef0d07c1c btf_encoder: Use btf_encoder__tag_type() for all type ID computations
+4fdc88c68c5edf36 dwarf_loader: Fix annotation failure leaks in variable and typedef creation
+c073a5e6e64b3100 dwarf_loader: Allocate type_dcu via dwarf_cu__new to fix dangling stack pointer
+0ef1938d36ca5325 dwarves: Don't search for holes before member byte sizes are cached
+60f238191aabf907 ctf_loader, libctf: Fix error path resource leaks
+6d4f28b656d3e251 pahole: Fix instance memory leak on early returns in prototype__stdio_fprintf_value
+bdebcf9700b30dce dwarves: Fix missing list head initialization in type__clone_members
+fc8f095393cb3b77 btf_encoder: Fix interior pointer free and missing NULL check
+0e5df5bbbc9ea232 Fix -Wsign-compare warnings across the codebase
+e99cac6727098f07 cmake: Update minimum required version from 3.5 to 3.10
+16309722ec2f287d btf_encoder: Ensure the first same-name function has a non-zero address
+1436dafff5c25007 man-pages: Improve language and formatting
+66c0e26d7bd4b8c8 btf_encoder: Add O_TRUNC to btf_encoder__write_raw_file()
+1ec98a54af5ffca7 tests: Add GCC default-BTF optimized parameter coverage
+fb8328e74f037409 btf_encoder: Only skip optimized parms when ABI changed
+89a654030f1f900a tests: Add BTF true_signature encoding tests
+5b8a2ca20d01d67f btf_encoder: Emit true function signatures
+e96290426e180703 dwarf_loader: Analyze per-parameter information for true signatures
+5239db95e108175f dwarf_loader: Collect per-parameter information
+dd775208270e7fd8 dwarf_loader: Detect aggregate ABI register usage and signature changes
+2f9a77e47f605c42 pahole: Fix BTF function parameter type match check
+b9fa3ae313589f01 CI: Update LLVM version to 22
+e239e7c67a06ae43 CI: Add clang+aarch64 to matrix
+976a911eecf2ed6f github CI: build/install bpftool from kernel tree
+0b6821133d9853b1 tests: Add btf_type_tag ordering test
+02022ad0eddc3883 tests: Support GCC in pfunct-btf-decl-tags test
+e6d98f957cdba5f5 dwarf_loader: Add support for DW_TAG_GNU_annotation
+5342a73227f680a8 dwarf_loader: Extract die__add_btf_type_tag() helper [NFC]
+1e392004663d467b btf_loader: Handle decl tag component_idx for parameters
+6fd0dacc9418b103 dwarves: libbpf sync with 1.8
+5dce1c7a114070bd man-pages: Fix incorrect command line argument in documentation
+d5eb8ee2598ce028 man-pages: describe layout BTF feature
+178b76972b1279c0 pahole: Add "layout" BTF encoding feature
+ce4c2ab3fc3065f2 CI: Support building kernel with LLVM
+ba31cfa08ffcfe6f pahole: Fix discarded-qualifiers for strchr/strstr.
+52dbfb0b39595ed8 pahole: Refactor selftests
+1ca64a2651d042c8 btf_loader: Fix warnings due to type permutation
+faaa3f1a6e97d669 btf_encoder: Prefer strong function definitions for BTF generation
+67adc83b342ce9a8 man-pages: document true_signature btf_feature
+fbd82a534ccd9b91 test: add gcc true signature test
+c4685c364d5abc27 btf_encoder: Add true_signature feature support for "."-suffixed functions
+109e5e4554f663e5 dwarf_loader/btf_encoder: Detect reordered parameters
+b30d6f3fa152be08 btf_encoder: Fix a verbose output issue
+d1dda58ffac121b1 elfcreator: Fix NULL dereference in remove_dyn()
+4d197b2ab0a6d9bb scncopy: Fix error handling when opening file
+4783a4ddd4740d94 dwarf_loader: Handle DW_AT_location attrs containing DW_OP_plus_uconst
+8b536f4ea4706f6e btf_encoder: Factor out BPF kfunc emission
+2385c55f293b9d8d btf_encoder: Refactor btf_encoder__add_func_proto
+7a7ff77a19d2ff10 btf_encoder: Remove encoder pointer from btf_encoder_func_state
+
 v1.31
 
 f33ac6dcd804a1a1 btf_encoder: Move ambiguous_addr flag to elf_function

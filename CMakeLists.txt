@@ -57,9 +57,9 @@ if (NOT DEFINED BUILD_SHARED_LIBS)
 endif (NOT DEFINED BUILD_SHARED_LIBS)
 
 # Just for grepping, DWARVES_VERSION isn't used anywhere anymore
-# add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.31")
+# add_definitions(-D_GNU_SOURCE -DDWARVES_VERSION="v1.32")
 add_definitions(-D_GNU_SOURCE -DDWARVES_MAJOR_VERSION=1)
-add_definitions(-D_GNU_SOURCE -DDWARVES_MINOR_VERSION=31)
+add_definitions(-D_GNU_SOURCE -DDWARVES_MINOR_VERSION=32)
 find_package(DWARF REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(argp REQUIRED)
@@ -121,8 +121,8 @@ elseif(EXISTS "${PROJECT_SOURCE_DIR}/HEAD")
 		# DWARVES_MAJOR_VERSION/MINOR_VERSION are compiler defines, not
 		# CMake variables, so hardcode the version here.
 		string(SUBSTRING "${GIT_SHA}" 0 12 SHORT_SHA)
-		add_definitions(-DDWARVES_GIT_DESCRIBE="v1.31-tarball-g${SHORT_SHA}")
-		message(STATUS "Version: v1.31-tarball-g${SHORT_SHA} (from HEAD file)")
+		add_definitions(-DDWARVES_GIT_DESCRIBE="v1.32-tarball-g${SHORT_SHA}")
+		message(STATUS "Version: v1.32-tarball-g${SHORT_SHA} (from HEAD file)")
 	endif()
 endif()
 
